@@ -17,3 +17,11 @@ Query parameters: `tab` (`planner`, `library`, `calendar`, `settings`), `lang` (
 `dark=1`, `narrow=1`. Mock icons: drop an `icons.json` (`{"mdi:sprout": "<svg path>"}`)
 next to `index.html`, otherwise icons render empty. The `ha-icon` stub renders into a
 shadow root – rendering into light DOM would corrupt Lit's template parts.
+
+## Click-through test
+
+`npm run test:ui` (in `frontend/`) serves this harness, opens every tab in Dutch and
+English in Chromium and clicks through the popups and the links between tabs (plant
+popup, planner "why here?", crops bulk edit and "show on map", analysis badge and plan
+comparison). It needs the two `data-*.json` files above. CI runs it in the `ui` job;
+locally point `PW_CHROMIUM` at a Chromium binary if Playwright's own is not installed.

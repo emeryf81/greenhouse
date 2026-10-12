@@ -3,6 +3,30 @@
 ## Unreleased
 
 ### Added
+- **Why (not) here?** in the planner popup: per crop, why its bed does or does not suit it
+  and which beds would; right after dropping a crop where it does not belong a warning
+  says why.
+- **Links between planner and crops list**: *Show on map* from the crops list (and from
+  the analysis) opens the planner with that crop selected; *In Crops* from the planner
+  highlights its row.
+- **Crops list: several at once** – tick crops and set a status or a date for all of them
+  (one system-log entry). Websocket `plantings/update_many`.
+- **One popup everywhere** (`hl-modal`): same header, close button, backdrop click and
+  Escape; previous/next with the arrow keys in the plant library and crops list. A plant's
+  details open from the dashboard, calendar, advice, journal, planner and crops list, and
+  show where it grows in your garden.
+- **Compare plans** (*Analysis → Compare*, and *Garden plan → Plans → Compare*): zones,
+  beds, elements and crops added, removed or changed between two plans. Websocket
+  `plan/compare`.
+- **Crop rotation strip** per bed in the planner: plant families of the last five years.
+- **End of season banner** in the planner: what can still be sown or planted, with a
+  jump to next year's plan. Websocket `analysis/still_possible`.
+- **Analysis badge** on the tab with the number of problems, re-checked on every change
+  (snapshot `diagnosis`); **one-click repairs** (copy a missing plan, put crops back on
+  the plan or into their bed, move a bed into its zone, carry a forgotten perennial),
+  logged and undoable – websocket `analysis/fix`; **export the diagnosis** as one JSON
+  file to attach to a bug report.
+- **Click-through UI test** in CI (Playwright, `npm run test:ui`).
 - **Start over with a new plan** (*Garden plan → Plans*): from scratch, with the same zones
   but empty, or with zones and beds but no crops. The current plan becomes **inactive** and is
   kept with its beds and crops; activate it again later (swapping places with the active one)
@@ -58,6 +82,10 @@
   small round thumbnails always use the illustration.
 
 ### Changed
+- Dates read day-month-year in the panel's language (13-04-2026) whatever the browser's
+  locale; the calendar button still opens the browser's date picker.
+- The pump (and bed valve) picker also lists `valve.*` and `input_boolean.*` entities, e.g.
+  a smart garden tap.
 - **Plants**: a plant's details open in a popup instead of a side panel; good and bad
   neighbours show their icon and open that plant when clicked.
 - **Planner**: larger map at a fixed height; clicking a bed, crop or element opens its details

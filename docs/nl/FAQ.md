@@ -165,3 +165,23 @@ In het tabblad **Analyse**:
 ## Kan ik de datums van mijn gewassen aanpassen zonder te slepen?
 
 Ja, in het tabblad **Teelten** staan alle gewassen van een seizoen op één lijst (per bed, per gewas of op datum). Daar pas je methode, status, aantal, geplande en echte zaai-, uitplant-, oogst- en einddatums en notities rechtstreeks aan. Een lege geplande datum rekent Hortulus zelf uit (grijs eronder). Klik op een plant voor alle details.
+
+## Waarom past een plant niet waar ik hem zet?
+
+Klik in de planner op het gewas en kies **Waarom (niet) hier?**: je ziet per reden waarom dat bed niet goed is (te laat, verkeerd zonetype, niet onder glas, vorst vóór de oogst, vruchtwisseling, slechte buur, geen plaats) en in welke bedden hij wel past. Sleep je een plant naar een bed waar hij niet hoort, dan verschijnt die uitleg meteen boven de kaart. Klik je op een bed, dan zie je ook welke plantenfamilies er de laatste vijf jaar stonden.
+
+## Kan ik meerdere teelten tegelijk aanpassen?
+
+Ja. Vink in **Teelten** de gewassen aan; bovenaan verschijnt een balk waarmee je voor allemaal tegelijk de status en/of een datum (bv. *Gezaaid op* = vandaag) zet. Dat komt als één regel in het systeemlogboek en kan je in één keer terugdraaien. Met 🗺 **Toon op kaart** spring je naar dat gewas in de planner; in de plannerpopup brengt **In Teelten** je terug.
+
+## Kan Hortulus problemen zelf oplossen?
+
+Voor een aantal meldingen in **Analyse → Controle** staat een knop: een ontbrekend tuinplan kopiëren, gewassen die niet op het plan of buiten hun bed staan terugzetten, een bed in zijn zone schuiven, of een vergeten vaste plant overzetten naar dit jaar. Elke oplossing staat in het systeemlogboek en kan je terugdraaien. Het getal op het tabblad **Analyse** toont hoeveel problemen er nu zijn; het wordt na elke wijziging opnieuw berekend. Met **Diagnose exporteren** krijg je één bestand (controle, fouten, laatste logboek) om mee te sturen als je een probleem meldt.
+
+## Kan ik twee plannen vergelijken?
+
+Ja, in **Analyse → Vergelijken** of in **Tuinplan → Plannen** (knop *Vergelijk* bij een niet-actief plan). Je ziet welke zones, bedden, elementen en gewassen toegevoegd, verdwenen of veranderd zijn.
+
+## Mijn pomp is een slimme kraan (valve), kan dat?
+
+Ja. Bij **Instellingen → Bewateringshardware** kan je als pomp en als bedkraan ook `valve.*`- en `input_boolean.*`-entiteiten kiezen. Hortulus opent en sluit een `valve` met `valve.open_valve` / `valve.close_valve`, in dezelfde veilige volgorde (kraan open → pomp aan … pomp uit → kraan dicht).
