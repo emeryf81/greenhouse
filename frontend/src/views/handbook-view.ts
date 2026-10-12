@@ -109,7 +109,8 @@ export class HandbookView extends LitElement {
       return;
     }
     this.searchTimer = window.setTimeout(async () => {
-      this.results = (await this.api.handbookSearch(value, this.lang)).results;
+      const results = (await this.api.handbookSearch(value, this.lang)).results;
+      if (value === this.query) this.results = results; // drop answers to an older query
     }, 200);
   }
 

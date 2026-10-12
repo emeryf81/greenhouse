@@ -250,10 +250,8 @@ def advise(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: 
         )
     if data.beds and not feature_types & {FeatureType.HEDGE, FeatureType.POND, FeatureType.TREE}:
         add("habitat", "eco", "info", "habitat", handbook="home_remedies")
-    if (
-        any(z.is_enclosed for z in data.zones)
-        and not data.zones[0].sensors.air_temperature
-        and not any(z.sensors.air_temperature for z in data.zones if z.is_enclosed)
+    if any(z.is_enclosed for z in data.zones) and not any(
+        z.sensors.air_temperature for z in data.zones if z.is_enclosed
     ):
         add("gh_sensor", "greenhouse", "info", "gh_sensor", handbook="sensors")
 

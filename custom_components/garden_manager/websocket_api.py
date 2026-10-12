@@ -25,7 +25,7 @@ from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
 from .engine.i18n import t
 from .engine.models import GardenBed, GardenResources, Planting
-from .engine.planio import PlanImportError, export_plan, import_plan
+from .engine.planio import PlanImportError, export_plan
 from .engine.plantdb import FAMILIES
 from .engine.printout import PrintOptions
 from .engine.qa import answer as qa_answer, options as qa_options
@@ -41,6 +41,7 @@ from .operations import (
     op_complete_task,
     op_delete_plant,
     op_delete_task,
+    op_import_plan,
     op_postpone_task,
     op_save_plan,
     op_save_plant,
@@ -411,11 +412,10 @@ def ws_plan_import(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         doc = json.loads(text) if text.startswith("{") else yaml_util.parse_yaml(text)
         if not isinstance(doc, dict):
             raise PlanImportError("Plan must be a mapping")
-        counts = import_plan(runtime.repo.data, doc, msg["mode"])
+        counts = op_import_plan(hass, runtime, doc, msg["mode"])
     except (PlanImportError, ValueError, HomeAssistantError) as err:
         connection.send_error(msg["id"], "invalid_plan", str(err))
         return
-    runtime.repo.async_changed("import", bump_revision=False)
     connection.send_result(msg["id"], {"counts": counts, "revision": runtime.repo.data.revision})
 
 

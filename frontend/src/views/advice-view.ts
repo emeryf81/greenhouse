@@ -7,7 +7,7 @@ import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { AdviceResult, Plant, PlanDoc, Planting, QaAnswer, QaOptions, Snapshot, Suggestion, Supplies } from "../types";
-import { familyColor, plantName, uid } from "../util/garden";
+import { familyColor, plantName, presentIn, uid } from "../util/garden";
 import { defaultFootprint, findFreeSpot } from "../planner/geometry";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { defaultMethod } from "./planner-view";
@@ -156,7 +156,10 @@ export class AdviceView extends LitElement {
       if (!plant || !bed) return;
       const season = snap.analysis?.season ?? new Date().getFullYear();
       const size = defaultFootprint(plant, "block", bed);
-      const taken = snap.plantings.filter((p) => p.bed_id === bed.id && p.season === season).map((p) => ({ x: p.x_cm, y: p.y_cm, w: p.width_cm, h: p.length_cm }));
+      // Perennials from earlier seasons (trees, bushes) still occupy their spot.
+      const taken = snap.plantings
+        .filter((p) => p.bed_id === bed.id && presentIn(p, !!this.plants.find((x) => x.id === p.plant_id)?.perennial, season))
+        .map((p) => ({ x: p.x_cm, y: p.y_cm, w: p.width_cm, h: p.length_cm }));
       const spot = findFreeSpot(bed, size, taken, snap.settings.snap_cm);
       if (!spot) {
         this.toast(this.t("advice.no_space", { bed: bed.name }));

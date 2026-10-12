@@ -114,7 +114,7 @@ niets meldt wordt genegeerd en geeft een waarschuwing.
   planningsblad of plantkaarten; papier A4, A3, A5, Letter of **reMarkable Paper Pro**
   (179,6 × 239,5 mm, extra linkermarge voor de werkbalk); kleur, *e‑ink* (lichte tinten +
   arcering per familie) of grijstinten; liggend of staand. Met voorbeeld, *PDF
-  downloaden* of *Opslaan* in `/config/www/hortulus/`. Kaarten hebben een legende,
+  downloaden* of *Opslaan* in `/config/hortulus/exports/`. Kaarten hebben een legende,
   schaalbalk en noordpijl, en een stippelvlak voor notities. Zet de PDF op je reMarkable
   via de desktop‑ of mobiele app of *Send to reMarkable* per e‑mail.
 * **Instellingen** – regio, weer (+ luchtvochtigheid, bladnat, **Open‑Meteo** optioneel,

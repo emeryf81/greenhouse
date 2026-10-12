@@ -10,6 +10,7 @@ from custom_components.garden_manager.engine.models import (
     Feature,
     FeatureType,
     LayoutMode,
+    PlantingStatus,
     Task,
     TaskPriority,
     TaskType,
@@ -102,3 +103,39 @@ def test_hedge_trim_only_with_a_hedge(garden, db):
     assert not any(k.startswith("m:hedge_trim") for k in keys())
     garden.features = [Feature("h", "Haag", FeatureType.HEDGE, width_cm=300, length_cm=60)]
     assert any(k.startswith("m:hedge_trim") for k in keys())
+
+
+def test_pdf_wrap_cuts_long_words_after_a_break():
+    from custom_components.garden_manager.engine.pdf import text_width, wrap
+
+    lines = wrap("Bed " + "x" * 200, 40, 10)
+    assert all(text_width(line, 10) <= 40 for line in lines)
+
+
+def test_tiny_greenhouse_gets_a_positive_bed(db):
+    from custom_components.garden_manager.seed import build_initial_data
+
+    data = build_initial_data(
+        {
+            "region": {"region_mode": "preset", "hemisphere": "north", "preset": "nl_be"},
+            "areas": [{"name": "Mini", "type": "greenhouse", "width_m": 0.3, "length_m": 0.4}],
+        },
+        latitude=51.0, time_zone="Europe/Brussels", language="en", today=date(2026, 3, 1), db=db,
+    )  # fmt: skip
+    assert data.beds and all(b.width_cm > 0 and b.length_cm > 0 for b in data.beds)
+
+
+def test_one_frost_night_gives_one_alert(garden, db, make_planting):
+    from datetime import UTC
+
+    from tests.conftest import weather
+
+    garden.zones[0].id = "zone_garden"  # a real zone id, not the synthetic "outdoor"
+    garden.beds[0].zone_id = "zone_garden"
+    lettuce = make_planting("lettuce", "bed_1", 2026, status=PlantingStatus.TRANSPLANTED)
+    lettuce.transplanted_on = date(2026, 3, 10)
+    garden.plantings = [lettuce]
+    snap = weather(hourly="forecast_hourly_dst_frost.json")
+    analysis = analyze(garden, db, snap, {}, now=datetime(2026, 3, 28, 12, tzinfo=UTC), tz=ZoneInfo("Europe/Amsterdam"))
+    frost = [a for a in analysis.alerts if a.kind == "frost"]
+    assert len(frost) == 1

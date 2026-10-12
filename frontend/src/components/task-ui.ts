@@ -255,7 +255,8 @@ export class TaskDialog extends LitElement {
   private renderTask(task: Task): TemplateResult {
     const open = task.status === "open";
     const act = (action: "complete" | "skip" | "reopen" | "delete", message?: string) =>
-      this.run(() => this.api.taskAction(task.id, action, { note: this.note || undefined, photos: this.photos.length ? [...task.photos, ...this.photos] : undefined }), message);
+      // complete/skip append to the task's photos server-side: send only the new uploads.
+      this.run(() => this.api.taskAction(task.id, action, { note: this.note || undefined, photos: this.photos.length ? [...this.photos] : undefined }), message);
     const postpone = (days?: number, to?: string) =>
       this.run(async () => {
         const res = await this.api.taskAction(task.id, "postpone", { days, to, note: this.note || undefined });

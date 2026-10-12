@@ -299,6 +299,30 @@ def _remove_devices(hass: HomeAssistant, runtime: GardenRuntime, ids: set[str]) 
 # Plants & settings
 # --------------------------------------------------------------------------- #
 @callback
+def op_import_plan(hass: HomeAssistant, runtime: GardenRuntime, doc: Mapping[str, Any], mode: str) -> dict[str, int]:
+    """Import a plan and keep devices/entities in sync (like ``op_save_plan``).
+
+    Raises ``PlanImportError`` on invalid input; the caller turns it into a user error.
+    """
+    from .engine.planio import import_plan
+
+    repo = runtime.repo
+    old_zones = [(z.id, z.name, z.type) for z in repo.data.zones]
+    old_beds = [(b.id, b.name) for b in repo.data.beds]
+    counts = import_plan(repo.data, dict(doc), mode)
+    repo.async_changed("import", bump_revision=False)
+    removed = ({z[0] for z in old_zones} - {z.id for z in repo.data.zones}) | (
+        {b[0] for b in old_beds} - {b.id for b in repo.data.beds}
+    )
+    if removed:
+        _remove_devices(hass, runtime, removed)
+    if old_zones != [(z.id, z.name, z.type) for z in repo.data.zones] or old_beds != [
+        (b.id, b.name) for b in repo.data.beds
+    ]:
+        async_dispatcher_send(hass, SIGNAL_LAYOUT_CHANGED)
+    return dict(counts)
+
+
 def op_save_plant(runtime: GardenRuntime, raw: Mapping[str, Any], mode: str) -> Plant:
     repo = runtime.repo
     if mode == "override":

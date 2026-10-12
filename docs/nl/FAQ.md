@@ -25,7 +25,7 @@ Tabblad Afdrukken → papier *reMarkable Paper Pro*, kleuren *E‑ink* → *PDF 
 sleep het bestand in de reMarkable‑app (of *Send to reMarkable* per e‑mail). De pagina is
 precies zo groot als het scherm; het stippelvlak en de lichte tinten laten ruimte om te
 tekenen. Een wekelijkse takenlijst automatiseer je met `garden_manager.export_pdf`
-(`document: tasks`); het bestand staat dan in `/local/hortulus/`.
+(`document: tasks`); het bestand staat dan in de ondertekende link in het antwoord van de dienst.
 
 **Waarom zette Automatisch invullen mijn tomaten buiten terwijl ik een serre heb?**
 Vorig seizoen stonden er al tomaten in dat serrebed; door de vruchtwisseling valt dat bed

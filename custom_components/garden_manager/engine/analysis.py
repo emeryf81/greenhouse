@@ -426,6 +426,8 @@ def analyze(
         alerts.append(Alert("forecast_unavailable", "forecast", "info", "alert.forecast_unavailable"))
     for zone_id, za in [("outdoor", ZoneAnalysis("outdoor", outdoor_frost, None, outdoor_temp)), *zones.items()]:
         f = za.frost
+        if zone_id != "outdoor" and f is outdoor_frost:
+            continue  # same assessment as the garden-wide alert: one warning, not two
         if f.level not in (RiskLevel.MODERATE, RiskLevel.HIGH) or f.plant_level_min_c is None:
             continue
         sensitive = [

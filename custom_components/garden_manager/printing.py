@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
+import re
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from homeassistant.components.http import KEY_HASS, HomeAssistantView
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, PRINT_DIR, PRINT_URL
+from .const import DOMAIN, EXPORT_URL, PRINT_DIR, PRINT_URL
 from .engine.printout import PrintContext, PrintOptions, filename, render_pdf, render_svg
 
 if TYPE_CHECKING:
@@ -19,6 +22,8 @@ if TYPE_CHECKING:
 
 _VIEW_KEY = f"{DOMAIN}_print_view"
 BOOL_KEYS = ("landscape", "notes", "grid", "labels")
+_SAFE_NAME = re.compile(r"^[A-Za-z0-9_.-]+\.pdf$")
+LINK_VALID = timedelta(days=7)
 INT_KEYS = ("season", "days")
 
 
@@ -59,7 +64,11 @@ async def async_render_svg(hass: HomeAssistant, runtime: GardenRuntime, opts: Pr
 
 
 async def async_export_pdf(hass: HomeAssistant, runtime: GardenRuntime, opts: PrintOptions) -> dict[str, Any]:
-    """Write the PDF to ``<config>/www/hortulus`` (served as ``/local/hortulus``)."""
+    """Write the PDF to ``<config>/hortulus/exports``.
+
+    The folder is private; ``url`` is a signed link (valid 7 days) to the
+    authenticated export view, so a notification can carry it safely.
+    """
     pdf = await async_render_pdf(hass, runtime, opts)
     season = opts.season or (runtime.coordinator.data.season if runtime.coordinator.data else None)
     name = filename(opts, season)
@@ -70,7 +79,29 @@ async def async_export_pdf(hass: HomeAssistant, runtime: GardenRuntime, opts: Pr
         (folder / name).write_bytes(pdf)
 
     await hass.async_add_executor_job(_write)
-    return {"path": str(folder / name), "url": f"/local/hortulus/{name}", "bytes": len(pdf), "filename": name}
+    path = f"{EXPORT_URL}/{name}"
+    try:
+        url = async_sign_path(hass, path, LINK_VALID)
+    except (KeyError, RuntimeError):  # auth not set up (tests) - plain authenticated path
+        url = path
+    return {"path": str(folder / name), "url": url, "bytes": len(pdf), "filename": name}
+
+
+class ExportView(HomeAssistantView):
+    """``GET /api/garden_manager/exports/<file>.pdf`` - previously exported PDFs (login or signed link)."""
+
+    url = EXPORT_URL + "/{name}"
+    name = f"api:{DOMAIN}:exports"
+    requires_auth = True
+
+    async def get(self, request: web.Request, name: str) -> web.StreamResponse:
+        hass = request.app[KEY_HASS]
+        if not _SAFE_NAME.match(name):
+            return web.Response(status=HTTPStatus.BAD_REQUEST, text="Invalid file name")
+        path = Path(hass.config.path(PRINT_DIR)) / name
+        if not await hass.async_add_executor_job(path.is_file):
+            return web.Response(status=HTTPStatus.NOT_FOUND, text="Not found")
+        return web.FileResponse(path, headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 class PrintView(HomeAssistantView):
@@ -109,4 +140,5 @@ def async_register_print_view(hass: HomeAssistant) -> None:
     if hass.data.get(_VIEW_KEY):
         return
     hass.http.register_view(PrintView())
+    hass.http.register_view(ExportView())
     hass.data[_VIEW_KEY] = True

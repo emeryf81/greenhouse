@@ -3,8 +3,9 @@
 # ("Bed 1", "Greenhouse Zone A"). Adjust ids/valves to your own setup.
 
 # 1) Irrigate Bed 1 in the morning when Hortulus recommends it.
-#    The recommendation already accounts for forecast rain and evapotranspiration;
-#    duration_min is derived from the mm needed, the bed area and the valve flow rate.
+#    run_irrigation_plan opens the valve through Hortulus' controller: pump interlock,
+#    maximum runtime, frost lockout and a guaranteed shut-off even if this automation
+#    is reloaded or stopped halfway (a plain open/delay/close would leave the valve open).
 - id: hortulus_irrigate_bed_1
   alias: "Hortulus · Irrigate Bed 1 when recommended"
   mode: single
@@ -27,56 +28,33 @@
       entity_id: binary_sensor.hortulus_frost_warning
       state: "off"
   actions:
-    - variables:
-        minutes: "{{ state_attr('sensor.bed_1_irrigation_recommendation', 'duration_min') | float(8) }}"
-        water_task: >-
-          {{ (state_attr('sensor.hortulus_tasks_due_today', 'tasks') or [])
-             | selectattr('type', 'eq', 'water')
-             | selectattr('title', 'search', 'Bed 1')
-             | map(attribute='id') | first | default('') }}
-    - action: valve.open_valve
-      target:
-        entity_id: valve.bed_1_irrigation
-    - delay:
-        minutes: "{{ minutes }}"
-    - action: valve.close_valve
-      target:
-        entity_id: valve.bed_1_irrigation
-    - if: "{{ water_task != '' }}"
-      then:
-        - action: garden_manager.complete_task
-          data:
-            task_id: "{{ water_task }}"
-            note: "Automatic irrigation, {{ minutes | round(0) }} min"
+    - action: garden_manager.run_irrigation_plan
+      data:
+        beds: ["Bed 1"]
+      response_variable: run
+    - action: logbook.log
+      data:
+        name: Hortulus
+        message: "Irrigation Bed 1: {{ run.runs | map(attribute='minutes') | sum | round(0) }} min"
 
 # 2) Generic version: one automation for every bed, driven by the
 #    garden_manager_irrigation_recommended event (fired once per bed per day).
+#    The bed needs an irrigation entity (Planner → bed → Irrigation); Hortulus then
+#    runs it safely with the same limits as above.
 - id: hortulus_irrigate_any_bed
   alias: "Hortulus · Irrigate any bed with a mapped valve"
   mode: queued
   triggers:
     - trigger: event
       event_type: garden_manager_irrigation_recommended
-  variables:
-    valves:
-      # bed_id -> valve entity (bed ids: Hortulus panel → Settings → Beds, or the event data)
-      bed_1a2b3c4d: valve.bed_1_irrigation
-      bed_5e6f7a8b: switch.greenhouse_drip
-    valve: "{{ valves.get(trigger.event.data.bed_id, '') }}"
   conditions:
-    - "{{ valve != '' }}"
     - condition: time
       after: "05:00:00"
       before: "10:00:00"
   actions:
-    - action: homeassistant.turn_on
-      target:
-        entity_id: "{{ valve }}"
-    - delay:
-        minutes: "{{ trigger.event.data.duration_min | float(5) }}"
-    - action: homeassistant.turn_off
-      target:
-        entity_id: "{{ valve }}"
+    - action: garden_manager.run_irrigation_plan
+      data:
+        beds: ["{{ trigger.event.data.bed_id }}"]
 
 # 3) Frost night: push notification with the plants at risk + close the greenhouse.
 - id: hortulus_frost_night
@@ -123,12 +101,18 @@
             - action: cover.close_cover
               target:
                 entity_id: cover.greenhouse_vent
+    # The shade screen follows the advice both ways: closed while shading is advised,
+    # open again as soon as it is not.
     - if:
         - condition: state
           entity_id: sensor.greenhouse_zone_a_greenhouse_advice
           state: "shade"
       then:
         - action: cover.close_cover
+          target:
+            entity_id: cover.greenhouse_shade_cloth
+      else:
+        - action: cover.open_cover
           target:
             entity_id: cover.greenhouse_shade_cloth
 
@@ -221,7 +205,7 @@
           ({{ plan.plantings | map(attribute='plant_id') | unique | join(', ') }}).
 
 # 8) Monday morning: this week's checklist as a PDF for the reMarkable Paper Pro.
-#    The file lands in /config/www/hortulus/ and is linked in a notification.
+#    The file lands in /config/hortulus/exports/ and is linked in a notification.
 - id: hortulus_weekly_remarkable_checklist
   alias: "Hortulus · Weekly checklist for the reMarkable"
   triggers:

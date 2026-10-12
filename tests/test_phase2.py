@@ -218,13 +218,13 @@ async def test_shading_mode_drives_the_shade_cover(hass: HomeAssistant, garden) 
 async def test_autofill_service(hass: HomeAssistant, garden) -> None:
     entry, _ = garden
     repo = entry.runtime_data.repo
+    before = sorted(p.id for p in repo.data.plantings)
     proposal = await hass.services.async_call(
         DOMAIN, "autofill_plan",
         {"season": 2027, "household_size": 3, "goals": ["fresh", "herbs"], "wanted": ["tomato"], "replace": True},
         blocking=True, return_response=True,
     )  # fmt: skip
     assert proposal["plantings"] and proposal["summary"]["yield_kg"] > 0
-    before = sorted(p.id for p in repo.data.plantings)
     assert sorted(p.id for p in repo.data.plantings) == before  # a proposal stores nothing
     applied = await hass.services.async_call(
         DOMAIN, "autofill_plan", {"season": 2027, "replace": True, "apply": True, "wanted": ["tomato"]},
@@ -235,16 +235,24 @@ async def test_autofill_service(hass: HomeAssistant, garden) -> None:
     assert season_2027 == {p["id"] for p in applied["plantings"]}  # replaced, not stacked
 
 
-async def test_export_pdf_and_http_view(hass: HomeAssistant, garden, hass_client, tmp_path: Path) -> None:
+async def test_export_pdf_and_http_view(
+    hass: HomeAssistant, garden, hass_client, hass_client_no_auth, tmp_path: Path
+) -> None:
     hass.config.config_dir = str(tmp_path)
     result = await hass.services.async_call(
         DOMAIN, "export_pdf", {"document": "garden", "page": "remarkable", "color_mode": "eink"},
         blocking=True, return_response=True,
     )  # fmt: skip
     content = await hass.async_add_executor_job(Path(result["path"]).read_bytes)
-    assert content.startswith(b"%PDF") and result["url"].startswith("/local/hortulus/")
+    assert content.startswith(b"%PDF") and result["url"].startswith("/api/garden_manager/exports/")
+    assert "/www/" not in result["path"]  # never in the public folder
 
     client = await hass_client()
+    exported = await client.get(f"/api/garden_manager/exports/{result['filename']}")
+    assert exported.status == 200 and (await exported.read()).startswith(b"%PDF")
+    assert (await client.get("/api/garden_manager/exports/..%2Fsecrets.yaml")).status in (400, 404)
+    anon = await hass_client_no_auth()
+    assert (await anon.get(f"/api/garden_manager/exports/{result['filename']}")).status == 401
     resp = await client.get("/api/garden_manager/print?document=beds&page=a4&landscape=1")
     assert resp.status == 200 and resp.headers["Content-Type"] == "application/pdf"
     assert (await resp.read()).startswith(b"%PDF")

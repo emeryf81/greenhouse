@@ -170,7 +170,7 @@ export interface CareRule {
   start_day: number;
   interval_days: number | null;
   end_day: number | null;
-  anchor: "planting" | "sow" | "transplant" | "harvest_start";
+  anchor: "planting" | "sow" | "transplant" | "harvest_start" | "last_frost" | "first_frost";
   minutes: number;
   notes: Record<string, string>;
 }

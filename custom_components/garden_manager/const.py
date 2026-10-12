@@ -105,6 +105,8 @@ SERVICE_SET_SHADING: Final = "set_shading_mode"
 SERVICE_AUTOFILL: Final = "autofill_plan"
 SERVICE_EXPORT_PDF: Final = "export_pdf"
 
-# Printouts written by ``export_pdf`` (served via /local/hortulus/...)
-PRINT_DIR: Final = "www/hortulus"
+# Printouts written by ``export_pdf``: kept out of ``www`` (which is public) and served
+# through an authenticated view.
+PRINT_DIR: Final = "hortulus/exports"
+EXPORT_URL: Final = f"/api/{DOMAIN}/exports"
 PRINT_URL: Final = f"/api/{DOMAIN}/print"

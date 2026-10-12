@@ -436,7 +436,7 @@ MESSAGES["nl"].update(
         "advice.habitat.text": "Een haag, een kleine vijver, een takkenhoop of een wilde hoek lokt egels, padden, vogels en "
         "loopkevers - je beste bestrijding van slakken en rupsen.",
         "advice.gh_sensor": "Zet een thermometer in de serre",
-        "advice.gh_sensor.text": "Met een temperatuursensor kan Hortulus je waarschuwen voor de serre oververhit of bevriest. "
+        "advice.gh_sensor.text": "Met een temperatuursensor kan Hortulus je waarschuwen voordat de serre oververhit raakt of bevriest. "
         "Zie het hoofdstuk over sensoren.",
     }
 )

@@ -90,7 +90,7 @@
       },
       "summary": {
         "title": "Klaar om te groeien",
-        "description": "**Klimaat**: {hemisphere} halfrond, laatste vorst {last_frost}, eerste vorst {first_frost}\n**Weer**: {weather}\n**Tuindelen**:\n{areas}\n\nDe ingebouwde plantendatabase (20 groenten en kruiden) wordt automatisch geïnstalleerd. Open **Hortulus** in de zijbalk om te beginnen met plannen.",
+        "description": "**Klimaat**: {hemisphere} halfrond, laatste vorst {last_frost}, eerste vorst {first_frost}\n**Weer**: {weather}\n**Tuindelen**:\n{areas}\n\nDe ingebouwde plantendatabase (230+ groenten, kruiden, fruit en bloemen) wordt automatisch geïnstalleerd. Open **Hortulus** in de zijbalk om te beginnen met plannen.",
         "data": {
           "import_example_plan": "Voeg een klein voorbeeldplan toe (tomaat + basilicum + afrikaantje, wortel + ui, sla in opeenvolging)"
         }
@@ -825,7 +825,7 @@
     },
     "export_pdf": {
       "name": "PDF exporteren",
-      "description": "Schrijft een afdrukbare PDF (tuinplan, bedfiches, takenlijst ...) naar /config/www/hortulus.",
+      "description": "Schrijft een afdrukbare PDF (tuinplan, bedfiches, takenlijst ...) naar /config/hortulus/exports.",
       "fields": {
         "document": {
           "name": "Document",

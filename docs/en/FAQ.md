@@ -79,7 +79,7 @@ Print tab → paper *reMarkable Paper Pro*, colours *E‑ink* → *Download PDF*
 the file into the reMarkable app (or use *Send to reMarkable* by email). The page is
 exactly the size of the screen; the dot‑grid notes area and the light tints leave room
 to draw. For a weekly checklist, automate `garden_manager.export_pdf` with
-`document: tasks` and pick the file up from `/local/hortulus/`.
+`document: tasks` and pick the file up from the signed link in the service response.
 
 **Why do the beds have patterns on the printout?**
 In e‑ink and grayscale mode every plant family also gets a hatch pattern, so the map

@@ -338,7 +338,9 @@ class GardenOptionsFlow(OptionsFlow):
         return settings_to_options(settings)
 
     def _save(self, key: str, value: Any) -> ConfigFlowResult:
-        return self.async_create_entry(data={**self.config_entry.options, key: value})
+        # Only the section just edited: the store (also edited from the panel) is the source
+        # of truth, so stale sections from earlier option edits must not be re-applied.
+        return self.async_create_entry(data={key: value})
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
@@ -374,7 +376,7 @@ class GardenOptionsFlow(OptionsFlow):
 
     async def async_step_weather(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            data = {**self.config_entry.options}
+            data: dict[str, Any] = {}
             for key in (CONF_WEATHER_ENTITY, CONF_OUTDOOR_TEMP, CONF_RAIN_SENSOR):
                 data[key] = user_input.get(key)
             return self.async_create_entry(data=data)

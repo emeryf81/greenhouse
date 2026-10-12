@@ -82,7 +82,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   ├── sensor.py · binary_sensor.py · calendar.py · todo.py · button.py · diagnostics.py
 │   ├── number.py · select.py · switch.py   irrigation limits/mode, shading mode, auto irrigation
 │   ├── controllers.py      irrigation (pump interlock, max runtime, safe shut-off) + greenhouse climate
-│   ├── printing.py          authenticated PDF view + export to /config/www/hortulus
+│   ├── printing.py          authenticated PDF view + private export with signed links
 │   ├── api.py               optional Open-Meteo client (opt-in)
 │   ├── strings.json · translations/{en,nl}.json · icons.json
 │   ├── data/plants.json     plant database (140 crops, EN/NL; built by scripts/build_plantdb.py)

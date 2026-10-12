@@ -203,7 +203,7 @@ Pick a document – **garden map**, **greenhouse / zone**, **bed sheets**, **che
 cards** – then paper (A4, A3, A5, Letter, **reMarkable Paper Pro**), orientation and
 colours (*full colour*, *e‑ink* with light tints and a hatch pattern per family,
 *grayscale*). The preview shows every page; **Download PDF** fetches it through Home
-Assistant's authenticated API, **Save** writes it to `/config/www/hortulus/`.
+Assistant's authenticated API, **Save** writes it to `/config/hortulus/exports/`.
 Maps contain a legend (families, zones, elements, symbols, numbered crops where names
 don't fit), a scale bar with ratio and a north arrow; bed sheets add a 10 cm grid, the
 compost and fertiliser for the coming crops and the rotation history.

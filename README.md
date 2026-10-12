@@ -81,7 +81,7 @@ The **Print** tab previews every page before you download it. The reMarkable for
 179.6 × 239.5 mm (the Paper Pro's 4:3 screen) with a wider left margin for the toolbar;
 *e‑ink* mode uses light tints plus a hatch pattern per plant family, so beds stay
 distinguishable and your pen strokes stay visible. Automations can produce the same PDFs
-with `garden_manager.export_pdf` (saved to `/config/www/hortulus/`).
+with `garden_manager.export_pdf` (saved to `/config/hortulus/exports/`).
 
 ## Installation
 

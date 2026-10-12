@@ -76,7 +76,9 @@ class IrrigationController:
 
     @property
     def running(self) -> bool:
-        return self._lock.locked()
+        # A run that is scheduled but has not taken the lock yet counts as running,
+        # otherwise two quick requests would water the beds twice.
+        return self._lock.locked() or (self._task is not None and not self._task.done())
 
     def build_plan(
         self,

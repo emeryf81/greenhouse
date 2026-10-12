@@ -38,7 +38,7 @@ from .const import (
 from .engine.autoplan import GOALS, AutoplanOptions, autoplan
 from .engine.i18n import t
 from .engine.models import GardenResources, LayoutMode, PlantingStatus, SowMethod, TaskPriority, TaskType
-from .engine.planio import PlanImportError, export_plan, import_plan
+from .engine.planio import PlanImportError, export_plan
 from .engine.printout import COLOR_MODES, DOCUMENTS, PAGE_SIZES, PrintOptions
 from .engine.serde import from_dict, to_dict
 from .operations import (
@@ -47,6 +47,7 @@ from .operations import (
     op_apply_autoplan,
     op_complete_task,
     op_delete_task,
+    op_import_plan,
     op_postpone_task,
     op_remove_planting,
     op_set_shading_mode,
@@ -271,14 +272,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def import_(call: ServiceCall) -> ServiceResponse:
         runtime = _runtime(hass)
         try:
-            counts = import_plan(runtime.repo.data, call.data["plan"], call.data["mode"])
+            counts = op_import_plan(hass, runtime, call.data["plan"], call.data["mode"])
         except PlanImportError as err:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="invalid_plan",
                 translation_placeholders={"reason": str(err)},
             ) from err
-        runtime.repo.async_changed("import", bump_revision=False)
         return dict(counts)
 
     async def add_planting(call: ServiceCall) -> ServiceResponse:

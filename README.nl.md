@@ -70,7 +70,7 @@ Het tabblad **Afdrukken** toont elke pagina vooraf. Het reMarkable‑formaat is
 179,6 × 239,5 mm (het 4:3‑scherm van de Paper Pro) met een bredere linkermarge voor de
 werkbalk; de *e‑ink*‑modus gebruikt lichte tinten plus een arceerpatroon per
 plantenfamilie, zodat bedden herkenbaar blijven en je penlijnen zichtbaar. Automatiseringen
-maken dezelfde PDF's met `garden_manager.export_pdf` (opgeslagen in `/config/www/hortulus/`).
+maken dezelfde PDF's met `garden_manager.export_pdf` (opgeslagen in `/config/hortulus/exports/`).
 
 ## Installatie
 

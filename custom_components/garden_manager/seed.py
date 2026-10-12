@@ -172,6 +172,8 @@ def build_initial_data(
         data.zones.append(zone)
         # A border along the long side with a 60 cm path, the typical layout.
         path = 60 if length >= 180 else 0
+        # Inset scales down for tiny greenhouses so the bed never gets a size <= 0.
+        inset = min(20.0, width * 0.1, length * 0.1)
         data.beds.append(
             GardenBed(
                 id=_id("bed"),
@@ -179,10 +181,10 @@ def build_initial_data(
                 name=f"{area[CONF_AREA_NAME]} bed",
                 zone_id=zone.id,
                 kind=BedKind.IN_GROUND,
-                x_cm=cursor_x + 20,
-                y_cm=20,
-                width_cm=width - 40,
-                length_cm=length - 40 - path,
+                x_cm=cursor_x + inset,
+                y_cm=inset,
+                width_cm=max(width - 2 * inset, 10.0),
+                length_cm=max(length - 2 * inset - path, 10.0),
                 soil=SoilType(area.get(CONF_SOIL, "loam")),
                 sensors=SensorMapping(
                     soil_moisture=area.get(CONF_MOISTURE) or None,

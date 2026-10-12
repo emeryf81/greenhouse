@@ -88,7 +88,10 @@ sections:
             entity: button.hortulus_generate_tasks
             name: Regenerate tasks
             tap_action:
-              action: toggle
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.hortulus_generate_tasks
           - type: button
             name: Open planner
             icon: mdi:floor-plan

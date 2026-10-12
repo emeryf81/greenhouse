@@ -247,7 +247,7 @@ the safety rules. `garden_manager.stop_irrigation` stops a run.
 Fields: `zone` (id or name of a greenhouse/cold frame), `mode` (`auto`/`on`/`off`).
 
 ### `garden_manager.export_pdf`
-Writes a PDF to `/config/www/hortulus/` (served as `/local/hortulus/…`). Fields:
+Writes a PDF to `/config/hortulus/exports/` (private; the response contains a signed download link valid for 7 days). Fields:
 `document` (`garden`, `zone`, `beds`, `tasks`, `season`, `blank`, `plants`), `page`
 (`a4`, `a3`, `a5`, `letter`, `remarkable`), `landscape`, `color_mode` (`color`, `eink`,
 `grayscale`), `season`, `zone_id`, `bed_ids`, `days`, `notes`, `grid`, `title`.

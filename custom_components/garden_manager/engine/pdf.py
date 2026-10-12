@@ -75,15 +75,16 @@ def wrap(text: str, width_mm: float, size_pt: float, bold: bool = False) -> list
             candidate = f"{line} {word}".strip()
             if text_width(candidate, size_pt, bold) <= width_mm or not line:
                 line = candidate
-                while text_width(line, size_pt, bold) > width_mm and len(line) > 1:
-                    cut = len(line) - 1
-                    while cut > 1 and text_width(line[:cut], size_pt, bold) > width_mm:
-                        cut -= 1
-                    lines.append(line[:cut])
-                    line = line[cut:]
             else:
                 lines.append(line)
                 line = word
+            # Cut words that are wider than the line on their own (also right after a break).
+            while text_width(line, size_pt, bold) > width_mm and len(line) > 1:
+                cut = len(line) - 1
+                while cut > 1 and text_width(line[:cut], size_pt, bold) > width_mm:
+                    cut -= 1
+                lines.append(line[:cut])
+                line = line[cut:]
         lines.append(line)
     return lines
 

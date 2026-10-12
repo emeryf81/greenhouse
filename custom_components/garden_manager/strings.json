@@ -90,7 +90,7 @@
       },
       "summary": {
         "title": "Ready to grow",
-        "description": "**Climate**: {hemisphere} hemisphere, last frost {last_frost}, first frost {first_frost}\n**Weather**: {weather}\n**Areas**:\n{areas}\n\nThe built-in plant database (20 vegetables & herbs) is installed automatically. Open **Hortulus** in the sidebar to start planning.",
+        "description": "**Climate**: {hemisphere} hemisphere, last frost {last_frost}, first frost {first_frost}\n**Weather**: {weather}\n**Areas**:\n{areas}\n\nThe built-in plant database (230+ vegetables, herbs, fruit and flowers) is installed automatically. Open **Hortulus** in the sidebar to start planning.",
         "data": {
           "import_example_plan": "Add a small example plan (tomato + basil + marigold, carrots + onions, succession lettuce)"
         }
@@ -825,7 +825,7 @@
     },
     "export_pdf": {
       "name": "Export PDF",
-      "description": "Writes a printable PDF (garden map, bed sheets, checklist ...) to /config/www/hortulus.",
+      "description": "Writes a printable PDF (garden map, bed sheets, checklist ...) to /config/hortulus/exports.",
       "fields": {
         "document": {
           "name": "Document",
