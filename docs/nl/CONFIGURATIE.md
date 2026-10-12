@@ -108,7 +108,19 @@ niets meldt wordt genegeerd en geeft een waarschuwing.
   te ronden en naar links om een dag uit te stellen. Het taakvenster toont live de
   bodemvocht, bodemtemperatuur, waterbalans, voeding, luchttemperatuur, vochtigheid,
   ziekte‑ en vorstrisico en het weer van vandaag, plus een link naar het handboek.
-* **Handboek** – 16 hoofdstukken (NL/EN) met zoekfunctie en woordenlijst. De ⓘ‑knopjes in
+* **Jaar** (in de kalender) – per gewas en per maand: binnen zaaien, zaaien, uitplanten,
+  groeien en oogsten, met het aantal taken en uren per maand. Afdrukken als *Jaarplan*.
+* **Logboek** – dagboek met foto's (per bed, gewas of de hele tuin), oogstlogboek in kg met
+  je eigen opbrengst per m², zadendoos (houdbaarheid per familie, ontbrekend zaad voor het
+  plan) en waterverbruik. Een oogst kan je ook ingeven bij het afvinken van een oogsttaak
+  of in de planner (selecteer een teelt). Bij een bed in de planner voeg je een
+  **bodemanalyse** toe.
+* **Instellingen › Watermeter & regenton** – een sensor met de totale meterstand (m³ of L),
+  het peil van de regenton(nen) in % en de totale inhoud.
+* **Instellingen › Huishouden & spraak** – wie krijgt nieuwe taken (standaard en per soort
+  taak), een notify-dienst per persoon, en de knop om de spraakzinnen voor Assist te
+  installeren.
+* **Handboek** – 21 hoofdstukken (NL/EN) met zoekfunctie en woordenlijst. De ⓘ‑knopjes in
   het hele paneel leggen een begrip meteen uit en verwijzen naar het hoofdstuk.
 * **Afdrukken** – tuinplan, serre/zone, bedfiches, takenlijst, seizoensoverzicht,
   planningsblad of plantkaarten; papier A4, A3, A5, Letter of **reMarkable Paper Pro**

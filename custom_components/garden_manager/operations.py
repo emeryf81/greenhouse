@@ -283,6 +283,12 @@ def op_save_plan(
         or [(z.name, z.type) for z in repo.data.zones] != [(z.name, z.type) for z in new_zones]
         or [b.name for b in repo.data.beds] != [b.name for b in new_beds]
     )
+    # Soil tests are edited through their own commands; a planner draft that
+    # was opened earlier must not drop the ones added since.
+    old_tests = {b.id: b.soil_tests for b in repo.data.beds}
+    for bed in new_beds:
+        if bed.id in old_tests:
+            bed.soil_tests = old_tests[bed.id]
     repo.data.zones, repo.data.beds, repo.data.plantings = new_zones, new_beds, new_plantings
     if new_features is not None:
         repo.data.features = new_features
@@ -382,6 +388,10 @@ def _deep_merge(base: dict[str, Any], patch: Mapping[str, Any]) -> dict[str, Any
 def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> GardenSettings:
     repo = runtime.repo
     merged = _deep_merge(to_dict(repo.data.settings), patch)
+    # Mappings are edited key by key; an empty value removes the key.
+    for key in ("assignment", "person_notify"):
+        if isinstance(merged.get(key), dict):
+            merged[key] = {k: v for k, v in merged[key].items() if v}
     try:
         repo.data.settings = from_dict(GardenSettings, merged)
     except (TypeError, ValueError, KeyError) as err:
@@ -623,7 +633,8 @@ def op_save_soil_test(runtime: GardenRuntime, bed_ref: str, raw: Mapping[str, An
         raise _err("invalid_soil_test", reason="pH 3-10")
     bed.soil_tests = [s for s in bed.soil_tests if s.date != test.date] + [test]
     bed.soil_tests.sort(key=lambda s: s.date)
-    runtime.repo.async_changed("plan")
+    # Soil tests are records, not layout: an open planner must not get a conflict.
+    runtime.repo.async_changed("plan", bump_revision=False)
     return test
 
 
@@ -633,7 +644,7 @@ def op_delete_soil_test(runtime: GardenRuntime, bed_ref: str, day: date) -> None
     if bed is None:
         raise _err("unknown_bed", bed=bed_ref)
     bed.soil_tests = [s for s in bed.soil_tests if s.date != day]
-    runtime.repo.async_changed("plan")
+    runtime.repo.async_changed("plan", bump_revision=False)
 
 
 @callback

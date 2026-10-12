@@ -9,7 +9,7 @@ if (test) {
   // Compile pure modules + node:test specs for `node --test`.
   rmSync(".test-dist", { recursive: true, force: true });
   await build({
-    entryPoints: ["test/geometry.test.ts", "test/history.test.ts", "test/i18n.test.ts", "test/planner.test.ts"],
+    entryPoints: ["test/geometry.test.ts", "test/history.test.ts", "test/i18n.test.ts", "test/planner.test.ts", "test/card.test.ts"],
     outdir: ".test-dist",
     bundle: true,
     platform: "node",
@@ -21,8 +21,9 @@ if (test) {
 }
 
 const options = {
-  entryPoints: ["src/hortulus-panel.ts"],
-  outfile: "../custom_components/garden_manager/frontend/hortulus-panel.js",
+  // The panel, plus the Lovelace card (a separate small file dashboards load).
+  entryPoints: { "hortulus-panel": "src/hortulus-panel.ts", "hortulus-card": "src/card/hortulus-tasks-card.ts" },
+  outdir: "../custom_components/garden_manager/frontend",
   bundle: true,
   format: "esm",
   target: "es2022",

@@ -14,6 +14,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.garden_manager import controllers
 from custom_components.garden_manager.const import DOMAIN
+from custom_components.garden_manager.engine.serde import to_dict
 
 from .conftest import load_fixture
 from .test_init import ENTRY_DATA, _result
@@ -376,6 +377,20 @@ async def test_records_services_and_websocket(hass: HomeAssistant, garden, hass_
     assert repo.data.task(task.id).assignee == "person.emery"
 
     client = await hass_ws_client(hass)
+    # A planner draft opened before the soil test neither conflicts nor drops it.
+    revision = repo.data.revision
+    stale_beds = [{**to_dict(b), "soil_tests": []} for b in repo.data.beds]
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/plan/save",
+            "base_revision": revision,
+            "zones": [to_dict(z) for z in repo.data.zones],
+            "beds": stale_beds,
+            "plantings": [to_dict(p) for p in repo.data.plantings],
+        }
+    )
+    assert (await _result(client))["success"]
+    assert repo.data.beds[0].latest_soil_test.ph == 6.1
     await client.send_json_auto_id(
         {"type": f"{DOMAIN}/records/seeds/save", "packet": {"plant_id": "carrot", "year": 2025}}
     )

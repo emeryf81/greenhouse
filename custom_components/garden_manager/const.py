@@ -36,6 +36,7 @@ PANEL_COMPONENT: Final = "hortulus-panel"
 PANEL_ICON: Final = "mdi:sprout"
 STATIC_URL: Final = f"/{DOMAIN}_static"
 FRONTEND_FILE: Final = "hortulus-panel.js"
+CARD_FILE: Final = "hortulus-card.js"  # Lovelace card: custom:hortulus-tasks-card
 
 # Config entry data keys
 CONF_REGION: Final = "region"

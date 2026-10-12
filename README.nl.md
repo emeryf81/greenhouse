@@ -35,6 +35,8 @@ Open‑Meteo voor een betere verdampingsberekening, en die staat uit tot je ze a
 | 🤝 **Combinatieteelt & vruchtwisseling** | Live score tijdens het slepen: goede en slechte buren, **plaagwering en vangplanten, allelopathie, concurrentie om voeding en beschaduwing** (rekening houdend met het halfrond) – telkens met uitleg, betere buren en alternatieve bedden bij wisselteeltconflicten. |
 | 🌱 **Plantendatabase** | **232 gewassen**: 100 groenten, 75 kruiden, 36 soorten fruit (appel, peer, kers, pruim, perzik, vijg, bessen, kruisbes, frambozen, blauwe bes, druif, kiwibes …) en 21 bloemen & groenbemesters (NL/EN), met Kc per groeistadium, N‑P‑K‑behoefte, jaarlijkse verzorging, bestuiving, ecotips en een icoon – volledig aanpasbaar. |
 | 📅 **Taken & tuinjaar** | Van zaaien tot oogst per gewas, plus de **seizoenskalender**: bodem klaarmaken (met kg compost), serreruiten wassen, schaduw aan/af, nuttige insecten, brandnetel- en smeerwortelgier, goten en regentonnen, nestkastjes, zaad winnen, winterrust en afdekken, boomgaardonderhoud. **Weerperiodes** (hitte, droogte, storm, zware regen) met ecotips, **taken plannen volgens het weer**, het gereedschap per klus, **herinneringen voor achterstallige taken** en een weekoverzicht. |
+| 📓 **Logboek & registratie** | Een **tuindagboek** met foto's per bed of gewas, een **oogstlogboek** in kg waaruit Autofill **je eigen opbrengsten** leert, een **zadendoos** die weet welke zakjes verouderen en voor welke gewassen je nog zaad nodig hebt, **waterverbruik** via een watermeter en de regenton, en **bodemanalyses** per bed die het bemestings- en kalkadvies sturen. Een **jaaroverzicht** toont elk gewas maand per maand, ook als afdrukbaar jaarplan. |
+| 👪 **Huishouden, kaart & spraak** | Wijs taken toe aan personen met automatische regels en persoonlijke herinneringen, vink taken af vanaf elk dashboard met de **`hortulus-tasks-card`**, en vraag Assist *„wat moet ik vandaag in de tuin doen?”* (Nederlands en Engels). |
 | 💧 **Water, voeding, gezondheid** | FAO‑56 **Penman‑Monteith ET₀** (Hargreaves als terugval), Kc per groeistadium, een **waterbalans** in de wortelzone per bed, **voedingsbalans‑index** uit NPK/EC‑sensoren, **ziekterisico** (Hutton‑criteria, bladnat, luchtvochtigheid in de serre), graaddagen per teelt met dynamische oogstdatum. |
 | 🚿 **Veilige aansturing** | Kleppen + pomp met **pompvergrendeling, maximale looptijd, vorstvergrendeling en regen overslaan**; luchtramen en schaduwschermen van de serre automatisch; alles ook als advies. |
 | 🖨️ **Afdrukken & reMarkable** | Tuin‑ en serreplan met legende, schaal en noordpijl, bedfiches met raster, takenlijsten, seizoensoverzicht, blanco planningsbladen en plantkaarten – als PDF in A4/A3/A5/Letter of **reMarkable Paper Pro** met e‑inkpatronen en stippelvlakken om op te tekenen. |
@@ -49,6 +51,10 @@ Open‑Meteo voor een betere verdampingsberekening, en die staat uit tot je ze a
   <tr>
     <td><img src="docs/images/calendar-timeline-nl.png" alt="Seizoenstijdlijn"></td>
     <td><img src="docs/images/print-nl.png" alt="Afdrukken voor reMarkable"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/journal-nl.png" alt="Logboek: dagboek, oogst, zadendoos en water"></td>
+    <td><img src="docs/images/calendar-year-nl.png" alt="Jaaroverzicht"></td>
   </tr>
   <tr>
     <td><img src="docs/images/handbook-chapter-nl.png" alt="Handboek"></td>
@@ -122,6 +128,8 @@ Open daarna **Hortulus** in de zijbalk. Meer: [CONFIGURATIE](docs/nl/CONFIGURATI
 | ziekte & vorst per zone | `sensor.<zone>_disease_risk`, `binary_sensor.<zone>_frost_risk_48h` |
 | bewatering aansturen | `switch.hortulus_automatic_irrigation`, `select.hortulus_irrigation_mode`, `number.hortulus_irrigation_max_runtime`, `button.hortulus_water_now`, `binary_sensor.hortulus_irrigation_frost_lockout` |
 | taken | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week`, `sensor.hortulus_tasks_due_today` |
+| logboek | Oogst dit seizoen, Tuinwater (7 dagen), Beschikbaar regenwater; `garden_manager.log_harvest`, `.add_journal_entry`, `.save_soil_test`, `.assign_task` |
+| dashboard & spraak | `type: custom:hortulus-tasks-card` (automatisch geladen), Assist via `garden_manager.install_voice_sentences` |
 | diensten | `garden_manager.add_task`, `complete_task`, `postpone_task`, `delete_task`, `generate_tasks`, `recalculate_plan`, `export_plan`, `import_plan`, `add_planting`, `update_planting`, `remove_planting`, `autofill_plan`, `run_irrigation_plan`, `stop_irrigation`, `set_shading_mode`, `export_pdf` |
 
 > Let op: Home Assistant maakt entity‑id's aan op basis van de **systeemtaal** op het

@@ -41,6 +41,9 @@
 | `<bed>` Watertekort bodem (standaard uit) | mm onder veldcapaciteit (dagelijkse waterbalans) | `available_water_mm`, `crop_coefficient` |
 | `<zone>` Ziekterisico | `none`/`low`/`moderate`/`high`/`unknown` | `wet_hours_48h`, `hutton_period`, `humidity`, `leaf_wet`, `reasons` |
 | `<zone>` Graaddagen dit seizoen (standaard uit) | °C·d | – |
+| Oogst dit seizoen | kg geoogst dit kalenderjaar (uit het oogstlogboek) | `season`, `per_crop_kg` |
+| Tuinwater (7 dagen) | liter leidingwater de laatste 7 dagen (watermeter uit Instellingen) | `season_l`, `per_day` |
+| Beschikbaar regenwater | liter in de regentonnen (peil % × inhoud) | – |
 
 Vorstniveaus gaan uit van de temperatuur op planthoogte (bij heldere, windstille nachten tot
 2 °C kouder dan de verwachting): ≤ 0 °C hoog, ≤ 2 °C matig, ≤ 4 °C laag.
@@ -100,7 +103,12 @@ terugsnoeien, scheuren en winterbescherming.
 | `garden_manager.run_irrigation_plan` | `dry_run`, `beds`, `amount_mm` | plan, overgeslagen bedden met reden |
 | `garden_manager.stop_irrigation` | – | – |
 | `garden_manager.set_shading_mode` | `zone`, `mode` (`auto`/`on`/`off`) | – |
-| `garden_manager.export_pdf` | `document`, `page` (incl. `remarkable`), `landscape`, `color_mode` (`color`/`eink`/`grayscale`), `season`, `zone_id`, `bed_ids`, `days`, `notes`, `grid`, `title` | `path`, `url` |
+| `garden_manager.log_harvest` | `planting_id` of `plant_id`, `kg`, `count`, `quality` (1–5), `day`, `note` | `harvest` |
+| `garden_manager.add_journal_entry` | `text`, `kind` (`note`/`observation`/`problem`/`milestone`), `planting_id`, `bed`, `photos` | – |
+| `garden_manager.assign_task` | `task_id`, `assignee` (`person.*`, leeg = niemand) | – |
+| `garden_manager.save_soil_test` | `bed`, `date`, `ph`, `organic_matter_pct`, `p_mg`, `k_mg` (mg/100 g), `notes` | – |
+| `garden_manager.install_voice_sentences` | `overwrite` | geïnstalleerde bestanden |
+| `garden_manager.export_pdf` | `document` (ook `year` = jaarplan), `page` (incl. `remarkable`), `landscape`, `color_mode` (`color`/`eink`/`grayscale`), `season`, `zone_id`, `bed_ids`, `days`, `notes`, `grid`, `title` | `path`, `url` |
 
 Een zaai‑, uitplant‑ of eerste oogsttaak afronden werkt de beplanting bij; daarna rekenen
 alle verzorgingstaken vanaf de echte datum. Herhalende taken plannen de volgende keer
@@ -117,6 +125,27 @@ alle verzorgingstaken vanaf de echte datum. Herhalende taken plannen de volgende
 | `garden_manager_irrigation_recommended` | bed heeft water nodig (1× per bed per dag) | `bed_id` + beregeningsadvies |
 | `garden_manager_plan_updated` | plan/planten/instellingen gewijzigd | `reason`, `revision` |
 | `garden_manager_irrigation_run` | een klep is klaar (of gestopt) | `bed_id`, `minutes`, `liters`, `mm`, `source` |
+
+## Lovelace-kaart
+
+De integratie laadt zelf een kaart op elk dashboard (geen resource toevoegen):
+
+```yaml
+type: custom:hortulus-tasks-card
+title: Tuin vandaag   # optioneel
+days: 0               # 0 = vandaag + achterstallig, 7 = de komende week
+assignee: me          # optioneel: me | person.xyz | unassigned
+max: 8
+```
+
+Een taak afvinken op de kaart rondt ze af in Hortulus.
+
+## Spraak (Assist)
+
+Voer één keer `garden_manager.install_voice_sentences` uit (of Instellingen → Huishouden &
+spraak → *Spraakzinnen installeren*). Daarna kun je Assist vragen: „wat moet ik vandaag in de
+tuin doen”, „wat ben ik vergeten in de tuin”, „wat kan ik vandaag oogsten”, „hoe warm is het
+in de serre”, „moet ik vandaag water geven”, „gaat het vriezen vannacht”.
 
 Zie de [Engelse referentie](../en/ENTITY_REFERENCE.md) voor alle details en
 [voorbeeldautomatiseringen](../../examples/automations.yaml).

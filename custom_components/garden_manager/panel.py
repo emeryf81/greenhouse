@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     BRAND,
+    CARD_FILE,
     DOMAIN,
     FRONTEND_FILE,
     PANEL_COMPONENT,
@@ -21,6 +22,7 @@ from .const import (
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 _STATIC_KEY = f"{DOMAIN}_static_registered"
+_CARD_KEY = f"{DOMAIN}_card_url"
 
 
 def _file_hash(path: Path) -> str:
@@ -39,6 +41,11 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         hass.data[_STATIC_KEY] = True
     # Cache-busting query so updates via HACS are picked up immediately.
     version = await hass.async_add_executor_job(_file_hash, FRONTEND_DIR / FRONTEND_FILE)
+    # The Lovelace card is loaded on every dashboard (no resource to add by hand).
+    if not hass.data.get(_CARD_KEY):
+        card_version = await hass.async_add_executor_job(_file_hash, FRONTEND_DIR / CARD_FILE)
+        hass.data[_CARD_KEY] = f"{STATIC_URL}/{CARD_FILE}?v={card_version}"
+        frontend.add_extra_js_url(hass, hass.data[_CARD_KEY])
     if PANEL_URL_PATH in hass.data.get(frontend.DATA_PANELS, {}):
         return
     await panel_custom.async_register_panel(
@@ -56,3 +63,5 @@ async def async_register_panel(hass: HomeAssistant) -> None:
 
 def async_unregister_panel(hass: HomeAssistant) -> None:
     frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
+    if card_url := hass.data.pop(_CARD_KEY, None):
+        frontend.remove_extra_js_url(hass, card_url)

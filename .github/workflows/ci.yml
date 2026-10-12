@@ -42,7 +42,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Committed bundle matches sources
-        run: git diff --exit-code -- ../custom_components/garden_manager/frontend/hortulus-panel.js
+        run: git diff --exit-code -- ../custom_components/garden_manager/frontend/hortulus-panel.js ../custom_components/garden_manager/frontend/hortulus-card.js
 
   hassfest:
     name: hassfest

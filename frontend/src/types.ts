@@ -98,6 +98,7 @@ export interface Bed {
   irrigation_entity: string | null;
   irrigation_flow_lpm: number | null;
   notes: string;
+  soil_tests?: SoilTest[];
 }
 
 export interface Planting {
@@ -151,6 +152,7 @@ export interface Task {
   completed_at: ISODateTime | null;
   notes: TaskNote[];
   photos: string[];
+  assignee?: string | null;
   postponed_count: number;
   original_due: ISODate | null;
   user_modified: boolean;
@@ -515,6 +517,9 @@ export interface Settings {
     weekly_plan_time?: string;
   };
   weather_aware_scheduling?: boolean;
+  water?: { meter_entity: string | null; butt_level_entity: string | null; butt_capacity_l: number };
+  assignment?: Record<string, string>;
+  person_notify?: Record<string, string>;
   sensor_stale_minutes: number;
   companion_radius_cm: number;
   root_zone_depth_mm: number;
@@ -549,6 +554,9 @@ export interface Snapshot {
   plantings: Planting[];
   tasks: Task[];
   features?: Feature[];
+  harvest_log?: HarvestEntry[];
+  journal?: JournalEntry[];
+  seed_stock?: SeedPacket[];
   irrigation_log?: { bed_id: string; at: ISODateTime; mm: number; liters: number; minutes: number; source: string }[];
   irrigation_status?: { running: boolean; bed_id: string | null; ends_at: ISODateTime | null; last_error: string | null };
   analysis: Analysis | null;
@@ -624,4 +632,25 @@ export interface Supplies {
   tools: Record<string, { name: string; emoji: string; kind: string }>;
   task_tools: Record<string, string[]>;
   shopping: ShoppingItem[];
+}
+
+// -- records (harvest, diary, seeds, soil, water) ------------------------- //
+export interface HarvestEntry { id: string; day: ISODate; plant_id: string; kg: number; count: number | null; planting_id: string | null; bed_id: string | null; quality: number | null; note: string }
+export interface JournalEntry {
+  id: string; at: ISODateTime; text: string; photos: string[]; kind: "note" | "observation" | "problem" | "milestone";
+  planting_id: string | null; bed_id: string | null; zone_id: string | null; plant_id: string | null; author: string | null;
+}
+export interface SeedPacket { id: string; plant_id: string; variety: string; year: number | null; quantity: number; unit: "packet" | "seeds" | "g"; source: string; notes: string }
+export interface SeedStatus extends SeedPacket { use_by: number | null; status: "ok" | "use_soon" | "expired" | "unknown" | "empty"; needed: boolean }
+export interface SoilTest { date: ISODate; ph: number | null; organic_matter_pct: number | null; n_mg: number | null; p_mg: number | null; k_mg: number | null; mg_mg: number | null; lime_status: string | null; notes: string }
+export interface CropHarvest { plant_id: string; kg: number; count: number; entries: number; first: ISODate | null; last: ISODate | null; area_m2: number; kg_m2: number | null }
+export interface YearRow { plant_id: string; months: Record<string, string[]>; beds: string[] }
+export interface RecordsOverview {
+  season: number;
+  harvest_season: Record<string, CropHarvest>;
+  harvest_all: Record<string, CropHarvest>;
+  learned_yields: Record<string, number>;
+  seeds: { packets: SeedStatus[]; missing: string[]; season: number };
+  water: { week_l: number | null; season_l: number | null; rain_available_l: number | null; butt_pct: number | null; per_day: { day: string; liters: number }[] };
+  year: { season: number; rows: YearRow[]; tasks: number[]; minutes: number[] } | null;
 }

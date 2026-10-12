@@ -22,16 +22,19 @@ import "./views/settings-view";
 import "./views/handbook-view";
 import "./views/print-view";
 import "./views/advice-view";
+import "./views/journal-view";
+import { setPersons } from "./util/people";
 import { setSupplies } from "./util/tools";
 import "./components/task-ui";
 import { setGlossary } from "./components/info";
 
-type Tab = "dashboard" | "planner" | "library" | "calendar" | "advice" | "handbook" | "print" | "settings";
+type Tab = "dashboard" | "planner" | "library" | "calendar" | "journal" | "advice" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
   { id: "dashboard", icon: "mdi:home-variant-outline", mobile: true },
   { id: "planner", icon: "mdi:floor-plan", mobile: true },
   { id: "library", icon: "mdi:sprout-outline", mobile: true },
   { id: "calendar", icon: "mdi:calendar-month-outline", mobile: true },
+  { id: "journal", icon: "mdi:notebook-outline", mobile: false },
   { id: "advice", icon: "mdi:chat-question-outline", mobile: true },
   { id: "handbook", icon: "mdi:book-open-page-variant-outline", mobile: true },
   { id: "print", icon: "mdi:printer-outline", mobile: false },
@@ -101,6 +104,7 @@ export class HortulusPanel extends LitElement {
         this.t = makeTranslator(lang);
       }
       this.toggleAttribute("dark", Boolean(this.hass.themes?.darkMode));
+      setPersons(this.hass);
       if (!this.api) {
         this.api = new GardenApi(this.hass);
         void this.connect();
@@ -232,7 +236,10 @@ export class HortulusPanel extends LitElement {
         return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
       case "calendar":
-        return html`<hl-calendar-view .snapshot=${snap} .t=${this.t} .lang=${this.uiLang} .plants=${plantMap} .families=${this.families}></hl-calendar-view>`;
+        return html`<hl-calendar-view .snapshot=${snap} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .plants=${plantMap} .families=${this.families}></hl-calendar-view>`;
+      case "journal":
+        return html`<hl-journal-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin}></hl-journal-view>`;
       case "advice":
         return html`<hl-advice-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin}></hl-advice-view>`;
@@ -262,6 +269,7 @@ export class HortulusPanel extends LitElement {
         <div class="brand">${emblem(30)}<span>Hortulus</span>${this.narrow ? nothing : html`<small>${this.t("app.tagline")}</small>`}</div>
         ${this.renderNav("top")}
         ${this.narrow ? html`<span style="flex:1"></span>
+          <button class="icon-btn" aria-label=${this.t("nav.journal")} @click=${() => this.navigate("journal")}><ha-icon icon="mdi:notebook-outline"></ha-icon></button>
           <button class="icon-btn" aria-label=${this.t("nav.print")} @click=${() => this.navigate("print")}><ha-icon icon="mdi:printer-outline"></ha-icon></button>
           <button class="icon-btn" aria-label=${this.t("nav.settings")} aria-pressed=${String(this.tab === "settings")} @click=${() => this.navigate("settings")}>
             <ha-icon icon="mdi:cog-outline"></ha-icon></button>` : nothing}

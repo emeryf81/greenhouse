@@ -32,12 +32,17 @@ from custom_components.garden_manager.engine.models import (  # noqa: E402
     FeatureType,
     GardenBed,
     GardenResources,
+    HarvestEntry,
     IrrigationEvent,
+    JournalEntry,
     LayoutMode,
     Planting,
     PlantingStatus,
+    SeedPacket,
     SensorReading,
+    SoilTest,
     SowMethod,
+    WaterReading,
     WeatherSnapshot,
     Zone,
     ZoneType,
@@ -49,6 +54,13 @@ from custom_components.garden_manager.engine.plantdb import (  # noqa: E402
 )
 from custom_components.garden_manager.engine.printout import PrintContext, PrintOptions, render_svg  # noqa: E402
 from custom_components.garden_manager.engine.qa import answer as qa_answer, options as qa_options  # noqa: E402
+from custom_components.garden_manager.engine.records import (  # noqa: E402
+    harvest_summary,
+    learned_yields,
+    seed_report,
+    water_stats,
+    year_overview,
+)
 from custom_components.garden_manager.engine.serde import to_dict  # noqa: E402
 from custom_components.garden_manager.engine.supplies import catalog, shopping_list  # noqa: E402
 from custom_components.garden_manager.engine.tasks import generate_specs, merge_tasks  # noqa: E402
@@ -215,6 +227,39 @@ def build(lang: str) -> dict:
     bed1.irrigation_entity, bed1.irrigation_flow_lpm = "switch.valve_bed_1", 4.0
     data.irrigation_log = [IrrigationEvent(bed1.id, NOW - timedelta(days=1, hours=2), 6.0, 12.0, 3.0, "auto")]
     data.revision = 7
+    # Records: last year's harvests (learned yields), diary, seed box, water meter, soil test.
+    nl = lang == "nl"
+    data.harvest_log = [
+        HarvestEntry("h1", date(2025, 7, 20), "lettuce", 1.4, None, next(p.id for p in data.plantings if p.plant_id == "lettuce"), bed1.id, 4),
+        HarvestEntry("h2", date(2025, 8, 12), "tomato", 3.2, 28, next((p.id for p in data.plantings if p.plant_id == "tomato"), None), None, 5),
+        HarvestEntry("h3", date(2025, 9, 2), "tomato", 4.1, 35, next((p.id for p in data.plantings if p.plant_id == "tomato"), None), None, 4),
+        HarvestEntry("h4", date(2026, 5, 12), "radish", 0.6, 40, None, bed1.id, 4),
+        HarvestEntry("h5", date(2026, 5, 18), "lettuce", 0.8, 3, None, bed1.id, 5),
+    ]  # fmt: skip
+    data.journal = [
+        JournalEntry("j1", NOW - timedelta(days=6), "Eerste bloemen aan de tomaten." if nl else "First flowers on the tomatoes.", kind="milestone",
+                     plant_id="tomato", zone_id=data.zones[1].id),
+        JournalEntry("j2", NOW - timedelta(days=2), "Bladluis op de tuinbonen - met water afgespoten." if nl else "Aphids on the broad beans - hosed them off.",
+                     kind="problem", bed_id=bed1.id),
+        JournalEntry("j3", NOW - timedelta(hours=20), "Courgette goed aangeslagen na het uitplanten." if nl else "Courgette settled well after planting out.",
+                     kind="observation", planting_id="pl_courgette", bed_id=bed2.id, plant_id="courgette"),
+    ]  # fmt: skip
+    data.seed_stock = [
+        SeedPacket("s1", "carrot", "Nantaise 2", 2024, 1, "packet", "Vreeken"),
+        SeedPacket("s2", "lettuce", "Lollo rossa", 2021, 1, "packet"),
+        SeedPacket("s3", "bush_bean", "Purple Teepee", 2025, 120, "seeds", "swap"),
+        SeedPacket("s4", "parsnip", "Tender and True", 2024, 1, "packet"),
+    ]
+    data.water_log = [
+        WaterReading(NOW.date() - timedelta(days=d), round(142.0 - d * 0.055, 3), max(20.0, 80.0 - d * 4))
+        for d in range(13, -1, -1)
+    ]
+    data.settings.water.meter_entity, data.settings.water.butt_level_entity = (
+        "sensor.garden_water",
+        "sensor.rain_butt_level",
+    )
+    data.settings.water.butt_capacity_l = 500
+    bed1.soil_tests = [SoilTest(date(2026, 2, 20), ph=6.1, organic_matter_pct=2.4, p_mg=38, k_mg=12, lime_status="ok")]
 
     raw = json.loads((ROOT / "tests/fixtures/forecast_hourly_rain.json").read_text())["weather.home"]["forecast"]
     hourly = parse_forecast(raw)
@@ -231,6 +276,8 @@ def build(lang: str) -> dict:
     data.tasks = merge_tasks(
         [], generate_specs(analysis.task_context(data, db)), today=analysis.today, now=NOW, lang=lang
     ).tasks
+    for task in data.tasks[:6:2]:
+        task.assignee = "person.emery"
     snapshot = {
         "revision": data.revision,
         "lang": lang,
@@ -242,6 +289,9 @@ def build(lang: str) -> dict:
         "rotation_history": [],
         "features": [to_dict(f) for f in data.features],
         "irrigation_log": [to_dict(e) for e in data.irrigation_log],
+        "harvest_log": [to_dict(e) for e in data.harvest_log],
+        "journal": [to_dict(e) for e in data.journal],
+        "seed_stock": [to_dict(e) for e in data.seed_stock],
         "irrigation_status": {"running": False, "bed_id": None, "ends_at": None, "last_error": None},
         "analysis": analysis.to_dict(),
         "weather": {
@@ -287,6 +337,15 @@ def build(lang: str) -> dict:
                 ("greenhouse", "too_hot", data.zones[1].id),
                 ("garden", "year_round", ""),
             )
+        },
+        "records": {
+            "season": analysis.season,
+            "harvest_season": {k: v.to_dict() for k, v in harvest_summary(data, analysis.season).items()},
+            "harvest_all": {k: v.to_dict() for k, v in harvest_summary(data).items()},
+            "learned_yields": learned_yields(data),
+            "seeds": seed_report(data, db, analysis.season),
+            "water": water_stats(data, analysis.today).to_dict(),
+            "year": year_overview(data, db, analysis),
         },
         "supplies": {**catalog(lang), "shopping": [i.to_dict() for i in shopping_list(data, db, analysis, lang)]},
     }

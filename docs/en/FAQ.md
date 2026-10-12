@@ -150,3 +150,27 @@ Yes. With **Weather-aware scheduling** (on by default) sowing, planting out, har
 ## Which sensors should I buy?
 
 See the handbook chapter **Choosing and buying sensors**: start with a greenhouse thermometer and one soil moisture sensor in your main bed.
+
+## Can I keep a harvest log and a garden diary?
+
+Yes, in the **Journal** tab: a **diary** with photos per bed, crop or the whole garden; a **harvest log** in kg (also from the task dialog when you tick off a harvest, or from the planner); the **seed box** with use-by years per crop family and the crops in your plan that still need seed; and **water** use from a garden water meter and the rain butt level. After a season, Autofill uses your own kg/m² instead of the database average.
+
+## Can several people share the work?
+
+Yes. Every task can be assigned to a person (`person.*` entity). Under **Settings › Household & voice** choose who gets new tasks by default and per task type, and a notify service per person: everyone then gets their own daily digest and overdue reminders. The dashboard card can show only your tasks (`assignee: me`).
+
+## Can I manage several gardens?
+
+Not yet. Hortulus works with one garden per Home Assistant: add zones for a second plot (an allotment, the front garden) in the same plan. A second config entry is possible, but the panel always shows the first one.
+
+## How do I use voice commands?
+
+Run **Settings › Household & voice › Install voice sentences** once (or the action `garden_manager.install_voice_sentences`). Then ask Assist, for example, “what do I need to do in the garden today?”, “what can I harvest?”, “how warm is it in the greenhouse?” or “is there frost tonight?”. See the [entity reference](ENTITY_REFERENCE.md#voice-assist).
+
+## Is there a dashboard card?
+
+Yes: `type: custom:hortulus-tasks-card` is loaded automatically. It shows today's and overdue tasks with a tick box; `days`, `assignee` and `max` are optional. See the [entity reference](ENTITY_REFERENCE.md#lovelace-card).
+
+## Does Hortulus use my soil analysis?
+
+Yes. Select a bed in the planner and add a **soil analysis** (pH, organic matter, P and K from a lab report or a home kit). The bed's fertiliser plan, lime advice and the shopping list follow the latest analysis: less phosphate when P is high, lime only when the pH is too low for the crops, more compost when organic matter is low.

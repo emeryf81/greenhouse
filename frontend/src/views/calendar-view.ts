@@ -1,12 +1,14 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
+import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { shared } from "../styles/tokens";
-import type { FamilyInfo, Plant, Snapshot, Task } from "../types";
+import type { FamilyInfo, Plant, RecordsOverview, Snapshot, Task } from "../types";
 import { TASK_COLORS, TASK_ICONS, addDays, daysBetween, familyColor, formatDate, parseDate, plantName, sortTasks, toIso } from "../util/garden";
 import { renderTaskRow, taskRowStyles, type TaskCtx } from "../components/task-ui";
 
-type Mode = "month" | "week" | "list" | "timeline";
+type Mode = "month" | "week" | "list" | "timeline" | "year";
 
 @customElement("hl-calendar-view")
 export class CalendarView extends LitElement {
@@ -19,6 +21,47 @@ export class CalendarView extends LitElement {
   @state() private cursor = "";
   @state() private showDone = false;
   @state() private bedFilter = "";
+  @property({ attribute: false }) api?: GardenApi;
+  @state() private year: RecordsOverview["year"] = null;
+
+  private async loadYear(): Promise<void> {
+    try {
+      this.year = (await this.api?.records())?.year ?? null;
+    } catch {
+      this.year = null;
+    }
+  }
+
+  private renderYear(): TemplateResult {
+    const y = this.year;
+    if (!y) return html`<p class="empty">${this.t("common.loading")}</p>`;
+    const months = Array.from({ length: 12 }, (_, i) => new Date(2026, i, 1).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { month: "short" }));
+    const now = new Date().getMonth();
+    const order = ["harvest", "plant", "sow", "sow_indoor", "grow"];
+    const bedName = this.snapshot.beds.find((b) => b.id === this.bedFilter)?.name ?? "";
+    const rows = y.rows
+      .filter((r) => !this.bedFilter || r.beds.includes(bedName))
+      .sort((a, b) => plantName(this.plants.get(a.plant_id), this.lang).localeCompare(plantName(this.plants.get(b.plant_id), this.lang), this.lang));
+    return html`<div class="card year-wrap"><table class="year">
+      <thead><tr><th></th>${months.map((m, i) => html`<th class=${i === now ? "now" : ""}>${m}</th>`)}</tr></thead>
+      <tbody>
+        ${rows.map((r) => {
+          const plant = this.plants.get(r.plant_id);
+          return html`<tr><th scope="row"><span class="crop">${plant ? glyphIcon(glyphFor(plant), plant.color || familyColor(this.families, plant.family), 20) : nothing}
+            ${plantName(plant, this.lang)}</span><span class="xs muted">${r.beds.join(", ")}</span></th>
+            ${months.map((_, i) => {
+              const acts = r.months[String(i + 1)] ?? [];
+              const act = order.find((a) => acts.includes(a));
+              return html`<td class=${`${act ?? ""} ${i === now ? "now" : ""}`} title=${acts.map((a) => this.t(`cal.act.${a}`)).join(", ")}>
+                ${act && act !== "grow" ? this.t(`cal.act_short.${act}`) : ""}</td>`;
+            })}</tr>`;
+        })}
+        <tr class="tasks-row"><th scope="row">${this.t("cal.tasks_per_month")}</th>${y.tasks.map((n, i) => html`<td class=${i === now ? "now" : ""}>${n || ""}
+          ${y.minutes[i] ? html`<span class="xs muted"> · ${this.t("cal.hours", { n: Math.max(1, Math.round(y.minutes[i] / 60)) })}</span>` : nothing}</td>`)}</tr>
+      </tbody></table>
+      <div class="legend year-legend">${order.map((a) => html`<span><i class=${`sw ${a}`}></i> ${this.t(`cal.act.${a}`)}</span>`)}</div>
+    </div>`;
+  }
 
   static styles = [
     shared,
@@ -26,6 +69,22 @@ export class CalendarView extends LitElement {
     css`
       .bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--hl-s2); margin-bottom: var(--hl-s3); }
       .bar h2 { min-width: 200px; text-transform: capitalize; }
+      .year-wrap { overflow-x: auto; padding: var(--hl-s3); }
+      table.year { border-collapse: separate; border-spacing: 2px; width: 100%; min-width: 720px; font-size: var(--hl-fs-sm); }
+      table.year th { text-align: left; font-weight: 600; padding: 4px 6px; white-space: nowrap; }
+      table.year thead th { text-align: center; color: var(--hl-text-muted); text-transform: capitalize; }
+      table.year th[scope="row"] { display: flex; flex-direction: column; gap: 0; }
+      table.year .crop { display: inline-flex; gap: 6px; align-items: center; }
+      table.year td { height: 30px; border-radius: 6px; background: var(--hl-surface-2); text-align: center; font-size: 11px; font-weight: 700; color: #fff; }
+      table.year td.now, table.year th.now { outline: 2px solid var(--hl-focus); outline-offset: -2px; }
+      table.year td.grow, .sw.grow { background: color-mix(in srgb, var(--hl-leaf-500) 25%, var(--hl-surface-2)); color: var(--hl-text); }
+      table.year td.sow_indoor, .sw.sow_indoor { background: var(--hl-leaf-300); color: var(--hl-text); }
+      table.year td.sow, .sw.sow { background: var(--hl-leaf-500); }
+      table.year td.plant, .sw.plant { background: var(--hl-leaf-700); }
+      table.year td.harvest, .sw.harvest { background: var(--hl-sun-500); color: #3a2a00; }
+      table.year .tasks-row td { background: transparent; color: var(--hl-text); font-weight: 600; }
+      .year-legend { display: flex; flex-wrap: wrap; gap: var(--hl-s3); margin-top: var(--hl-s2); font-size: var(--hl-fs-sm); }
+      .year-legend .sw { display: inline-block; width: 14px; height: 10px; border-radius: 3px; vertical-align: middle; }
       .month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--hl-border); border: 1px solid var(--hl-border); border-radius: var(--hl-r-lg); overflow: hidden; }
       .dow { background: var(--hl-surface-2); padding: 6px; font-size: var(--hl-fs-xs); font-weight: 600; color: var(--hl-text-muted); text-transform: uppercase; text-align: center; }
       .cell { background: var(--hl-surface); min-height: 108px; padding: 4px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -233,8 +292,8 @@ export class CalendarView extends LitElement {
 
   render(): TemplateResult {
     const title =
-      this.mode === "timeline"
-        ? this.t("common.season", { year: Number(this.cursor.slice(0, 4)) })
+      this.mode === "timeline" || this.mode === "year"
+        ? this.t("common.season", { year: this.mode === "year" ? (this.year?.season ?? Number(this.cursor.slice(0, 4))) : Number(this.cursor.slice(0, 4)) })
         : this.mode === "month"
         ? formatDate(this.cursor, this.lang, { month: "long", year: "numeric" })
         : `${formatDate(this.weekStart(this.cursor), this.lang)} – ${formatDate(addDays(this.weekStart(this.cursor), 6), this.lang)}`;
@@ -246,7 +305,8 @@ export class CalendarView extends LitElement {
         <h2 aria-live="polite">${title}</h2>
         <span class="spacer"></span>
         <div class="row" role="group">
-          ${(["month", "week", "list", "timeline"] as Mode[]).map((m) => html`<button class="chip" aria-pressed=${String(this.mode === m)} @click=${() => (this.mode = m)}>${this.t(`cal.${m}`)}</button>`)}
+          ${(["month", "week", "list", "timeline", "year"] as Mode[]).map((m) => html`<button class="chip" aria-pressed=${String(this.mode === m)}
+            @click=${() => { this.mode = m; if (m === "year") void this.loadYear(); }}>${this.t(`cal.${m}`)}</button>`)}
         </div>
         <label class="row small"><span class="visually-hidden">${this.t("task.bed")}</span>
           <select style="width:auto" @change=${(e: Event) => (this.bedFilter = (e.target as HTMLSelectElement).value)}>
@@ -256,7 +316,8 @@ export class CalendarView extends LitElement {
         <label class="row small"><input type="checkbox" .checked=${this.showDone} @change=${(e: Event) => (this.showDone = (e.target as HTMLInputElement).checked)} />${this.t("cal.show_done")}</label>
         <button class="btn primary small" @click=${() => this.emit("new-task", null)}><ha-icon icon="mdi:plus"></ha-icon>${this.t("cal.add_task")}</button>
       </div>
-      ${this.mode === "month" ? this.renderMonth() : this.mode === "week" ? this.renderWeek() : this.mode === "timeline" ? this.renderTimeline() : this.renderList()}
+      ${this.mode === "month" ? this.renderMonth() : this.mode === "week" ? this.renderWeek() : this.mode === "timeline" ? this.renderTimeline()
+        : this.mode === "year" ? this.renderYear() : this.renderList()}
     `;
   }
 }

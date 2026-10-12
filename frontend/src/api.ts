@@ -1,6 +1,11 @@
 // Thin, typed wrapper around the garden_manager websocket commands.
 import type {
   AdviceResult,
+  HarvestEntry,
+  JournalEntry,
+  RecordsOverview,
+  SeedPacket,
+  SoilTest,
   QaAnswer,
   QaOptions,
   Supplies,
@@ -185,6 +190,37 @@ export class GardenApi {
 
   supplies(): Promise<Supplies> {
     return this.call("supplies");
+  }
+
+  // -- records ------------------------------------------------------------- //
+  records(): Promise<RecordsOverview> {
+    return this.call("records/overview");
+  }
+
+  logHarvest(entry: {
+    planting_id?: string | null; plant_id?: string | null; kg?: number; count?: number | null; quality?: number | null; day?: string; note?: string;
+  }): Promise<{ harvest: HarvestEntry }> {
+    return this.call("records/harvest/add", entry as Record<string, unknown>);
+  }
+
+  deleteRecord(kind: "harvest" | "journal" | "seed", recordId: string): Promise<void> {
+    return this.call("records/delete", { kind, record_id: recordId });
+  }
+
+  saveJournal(entry: Partial<JournalEntry>): Promise<{ entry: JournalEntry }> {
+    return this.call("records/journal/save", { entry });
+  }
+
+  saveSeed(packet: Partial<SeedPacket>): Promise<{ packet: SeedPacket }> {
+    return this.call("records/seeds/save", { packet });
+  }
+
+  saveSoilTest(bedId: string, test: Partial<SoilTest>): Promise<{ test: SoilTest }> {
+    return this.call("records/soil/save", { bed_id: bedId, test });
+  }
+
+  deleteSoilTest(bedId: string, date: string): Promise<void> {
+    return this.call("records/soil/delete", { bed_id: bedId, date });
   }
 
   /** Upload a photo through HA's image_upload integration; returns the image id. */

@@ -103,3 +103,27 @@ Ja. Met **Taken plannen volgens het weer** (standaard aan) schuiven zaaien, uitp
 ## Welke sensoren moet ik kopen?
 
 Zie het handboekhoofdstuk **Sensoren kiezen en kopen**: begin met een thermometer in de serre en één bodemvochtsensor in je belangrijkste bed.
+
+## Kan ik een oogstlogboek en tuindagboek bijhouden?
+
+Ja, in het tabblad **Logboek**: een **dagboek** met foto's per bed, gewas of de hele tuin; een **oogstlogboek** in kg (ook vanuit het taakvenster wanneer je een oogsttaak afvinkt, of vanuit de planner); de **zadendoos** met houdbaarheid per plantenfamilie en de gewassen in je plan waarvoor je nog zaad nodig hebt; en het **waterverbruik** via een watermeter en het peil van de regenton. Na een seizoen gebruikt Autofill je eigen kg/m² in plaats van het gemiddelde uit de databank.
+
+## Kunnen meerdere mensen het werk verdelen?
+
+Ja. Elke taak kan aan een persoon (`person.*`-entiteit) toegewezen worden. Onder **Instellingen › Huishouden & spraak** kies je wie nieuwe taken standaard krijgt, ook per soort taak, en een notify-dienst per persoon: iedereen krijgt dan zijn eigen dagoverzicht en herinneringen. De dashboardkaart kan enkel jouw taken tonen (`assignee: me`).
+
+## Kan ik meerdere tuinen beheren?
+
+Nog niet. Hortulus werkt met één tuin per Home Assistant: voeg voor een tweede perceel (volkstuin, voortuin) gewoon zones toe in hetzelfde plan. Een tweede integratie-item kan, maar het paneel toont altijd het eerste.
+
+## Hoe gebruik ik spraakopdrachten?
+
+Klik één keer op **Instellingen › Huishouden & spraak › Spraakzinnen installeren** (of gebruik de actie `garden_manager.install_voice_sentences`). Vraag daarna aan Assist bijvoorbeeld „wat moet ik vandaag in de tuin doen?”, „wat kan ik oogsten?”, „hoe warm is het in de serre?” of „gaat het vriezen vannacht?”.
+
+## Is er een dashboardkaart?
+
+Ja: `type: custom:hortulus-tasks-card` wordt automatisch geladen. Ze toont de taken van vandaag en de achterstallige met een vinkje; `days`, `assignee` en `max` zijn optioneel. Zie [entiteiten](ENTITEITEN.md#lovelace-kaart).
+
+## Gebruikt Hortulus mijn bodemanalyse?
+
+Ja. Selecteer een bed in de planner en voeg een **bodemanalyse** toe (pH, organische stof, P en K uit een labo-rapport of thuistest). Het bemestingsplan, het kalkadvies en de boodschappenlijst van dat bed volgen de laatste analyse: minder fosfaat bij een hoge P, enkel kalk als de pH te laag is voor de gewassen, meer compost bij weinig organische stof.

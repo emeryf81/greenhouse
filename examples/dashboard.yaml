@@ -1,5 +1,6 @@
 # Example Lovelace view for Hortulus (Dashboard → ⋮ → Edit → Raw configuration editor,
-# then paste this as one of the `views:`). Uses only built-in cards.
+# then paste this as one of the `views:`). Uses built-in cards plus the Hortulus task card,
+# which the integration loads by itself (no resource to add).
 title: Garden
 path: garden
 icon: mdi:sprout
@@ -18,6 +19,14 @@ sections:
       - type: tile
         entity: sensor.hortulus_next_task
         name: Next task
+      - type: custom:hortulus-tasks-card
+        title: Garden today
+        days: 0
+      - type: custom:hortulus-tasks-card
+        title: My tasks this week
+        days: 7
+        assignee: me
+        max: 6
       - type: todo-list
         entity: todo.hortulus_this_week
         title: This week in the garden
@@ -98,3 +107,17 @@ sections:
             tap_action:
               action: navigate
               navigation_path: /hortulus/planner
+  - title: Records
+    cards:
+      - type: tile
+        entity: sensor.hortulus_harvest_this_season
+        name: Harvest this season
+        icon: mdi:basket-outline
+      - type: tile
+        entity: sensor.hortulus_garden_water_7_days
+        name: Garden water (7 days)
+        icon: mdi:water-pump
+      - type: tile
+        entity: sensor.hortulus_rain_water_available
+        name: Rain water available
+        icon: mdi:barrel-outline

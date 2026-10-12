@@ -1,4 +1,5 @@
 import { toolsFor } from "../util/tools";
+import { personName, persons } from "../util/people";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
@@ -77,6 +78,7 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
             <span>· ${ctx.t("common.minutes", { n: task.estimated_minutes })}</span>
             ${task.recurrence ? html`<span title=${ctx.t("task.repeat", { n: task.recurrence.interval_days })}>· ↻ ${task.recurrence.interval_days}d</span>` : nothing}
             ${task.priority === "urgent" || task.priority === "high" ? html`<span class="chip ${task.priority === "urgent" ? "bad" : "warn"}">${ctx.t(`priority.${task.priority}`)}</span>` : nothing}
+            ${task.assignee ? html`<span class="chip" title=${ctx.t("task.assignee")}><ha-icon icon="mdi:account-outline" style="--mdc-icon-size:14px"></ha-icon>${personName(task.assignee)}</span>` : nothing}
           </span>
         </span>
       </button>
@@ -113,6 +115,8 @@ export class TaskDialog extends LitElement {
   @property({ type: Boolean }) create = false;
   @property({ attribute: false }) snapshot: Snapshot | null = null;
   @state() private note = "";
+  @state() private harvestKg = 0;
+  @state() private harvestCount = 0;
   @state() private photos: string[] = [];
   @state() private busy = false;
   @state() private error = "";
@@ -256,7 +260,14 @@ export class TaskDialog extends LitElement {
     const open = task.status === "open";
     const act = (action: "complete" | "skip" | "reopen" | "delete", message?: string) =>
       // complete/skip append to the task's photos server-side: send only the new uploads.
-      this.run(() => this.api.taskAction(task.id, action, { note: this.note || undefined, photos: this.photos.length ? [...this.photos] : undefined }), message);
+      this.run(async () => {
+        if (action === "complete" && task.type === "harvest" && (this.harvestKg > 0 || this.harvestCount > 0)) {
+          const planting = this.snapshot?.plantings.find((p) => p.id === task.planting_id);
+          await this.api.logHarvest({ planting_id: task.planting_id, plant_id: planting ? null : task.title_params?.plant_id as string | undefined,
+            kg: this.harvestKg, count: this.harvestCount || null, note: this.note || "" });
+        }
+        await this.api.taskAction(task.id, action, { note: this.note || undefined, photos: this.photos.length ? [...this.photos] : undefined });
+      }, message);
     const postpone = (days?: number, to?: string) =>
       this.run(async () => {
         const res = await this.api.taskAction(task.id, "postpone", { days, to, note: this.note || undefined });
@@ -288,6 +299,17 @@ export class TaskDialog extends LitElement {
         ${task.window_start && task.window_end && task.window_start !== task.window_end
           ? html`<p class="small muted">${this.t("task.window", { start: formatDate(task.window_start, this.lang), end: formatDate(task.window_end, this.lang) })}</p>` : nothing}
         ${task.recurrence ? html`<p class="small muted">↻ ${this.t("task.repeat", { n: task.recurrence.interval_days })}</p>` : nothing}
+        ${persons().length ? html`<label class="row small">${this.t("task.assignee")}:
+          <select @change=${(e: Event) => this.run(() => this.api.taskAction(task.id, "update", { changes: { assignee: (e.target as HTMLSelectElement).value || null } }))}>
+            <option value="" ?selected=${!task.assignee}>${this.t("task.anyone")}</option>
+            ${persons().map((p) => html`<option value=${p.id} ?selected=${task.assignee === p.id}>${p.name}</option>`)}
+          </select></label>` : nothing}
+        ${open && task.type === "harvest" ? html`<div class="row wrap small harvest-log">
+          <ha-icon icon="mdi:scale" style="--mdc-icon-size:18px"></ha-icon>${this.t("task.harvested")}
+          <input type="number" min="0" step="0.05" inputmode="decimal" style="width:90px" placeholder="kg"
+            @input=${(e: Event) => (this.harvestKg = Number((e.target as HTMLInputElement).value) || 0)} /> kg
+          <input type="number" min="0" step="1" inputmode="numeric" style="width:80px" placeholder="#"
+            @input=${(e: Event) => (this.harvestCount = Number((e.target as HTMLInputElement).value) || 0)} /> ×</div>` : nothing}
         <div class="row wrap small">
           <span>${this.t("task.priority")}:</span>
           ${(["low", "normal", "high", "urgent"] as Priority[]).map((p) => html`

@@ -255,6 +255,11 @@ class GardenBed:
     irrigation_entity: str | None = None
     irrigation_flow_lpm: float | None = None
     notes: str = ""
+    soil_tests: list[SoilTest] = field(default_factory=list)
+
+    @property
+    def latest_soil_test(self) -> SoilTest | None:
+        return max(self.soil_tests, key=lambda s: s.date, default=None)
 
     @property
     def area_m2(self) -> float:
@@ -489,6 +494,8 @@ class Task:
     user_modified: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Household member doing it: a person.* entity id (or None = anyone).
+    assignee: str | None = None
 
     @property
     def is_open(self) -> bool:
@@ -582,6 +589,10 @@ class GardenData:
     features: list[Feature] = field(default_factory=list)
     water_balance: dict[str, WaterBalance] = field(default_factory=dict)
     irrigation_log: list[IrrigationEvent] = field(default_factory=list)
+    harvest_log: list[HarvestEntry] = field(default_factory=list)
+    journal: list[JournalEntry] = field(default_factory=list)
+    seed_stock: list[SeedPacket] = field(default_factory=list)
+    water_log: list[WaterReading] = field(default_factory=list)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:
@@ -771,13 +782,19 @@ def _compute(self) -> GardenAnalysis:
         tz=dt_util.get_default_time_zone(),
     )
 
-    merge = merge_tasks(
-        data.tasks,
-        generate_specs(analysis.task_context(data, repo.db)),
-        today=analysis.today,
-        now=now,
-        lang=self.lang,
+    # Garden water: one meter / water-butt reading per day.
+    water = data.settings.water
+    changed |= record_water(
+        data,
+        analysis.today,
+        self._state_float(water.meter_entity, m3=True),
+        self._state_float(water.butt_level_entity),
     )
+    ctx = analysis.task_context(data, repo.db)
+    ctx.rain_water_l = water_stats(data, analysis.today).rain_available_l
+    merge = merge_tasks(data.tasks, generate_specs(ctx), today=analysis.today, now=now, lang=self.lang)
+    if auto_assign(merge.created, data.settings.assignment):
+        changed = True
     self.last_merge = merge
     if merge.changed:
         data.tasks = merge.tasks
@@ -1213,9 +1230,7 @@ def postpone_task(
 ```python
 async def async_step_area_sensors(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
     if user_input is not None:
-        self._data[CONF_AREAS].append(
-            {**self._area, **{k: v for k, v in user_input.items() if v not in (None, "")}}
-        )
+        self._data[CONF_AREAS].append({**self._area, **{k: v for k, v in user_input.items() if v not in (None, "")}})
         return await self.async_step_area_menu()
     enclosed = self._area.get(CONF_AREA_TYPE) == AREA_GREENHOUSE
     fields: dict[Any, Any] = {
@@ -2252,6 +2267,7 @@ Full files: [`examples/automations.yaml`](../examples/automations.yaml) ·
 Dashboard (sections view, built‑in cards only):
 
 ```yaml
+# which the integration loads by itself (no resource to add).
 title: Garden
 path: garden
 icon: mdi:sprout
@@ -2270,21 +2286,20 @@ sections:
       - type: tile
         entity: sensor.hortulus_next_task
         name: Next task
+      - type: custom:hortulus-tasks-card
+        title: Garden today
+        days: 0
+      - type: custom:hortulus-tasks-card
+        title: My tasks this week
+        days: 7
+        assignee: me
+        max: 6
       - type: todo-list
         entity: todo.hortulus_this_week
         title: This week in the garden
       - type: conditional
         conditions:
           - condition: state
-            entity: binary_sensor.hortulus_frost_warning
-            state: "on"
-        card:
-          type: markdown
-          content: >-
-            ### ❄ Frost expected
-            Lowest **{{ state_attr('sensor.hortulus_frost_risk_next_48h', 'plant_level_min_temperature') }} °C**
-            around {{ as_timestamp(state_attr('sensor.hortulus_frost_risk_next_48h', 'min_at')) | timestamp_custom('%a %H:%M') }}.
-            Protect: {{ state_attr('binary_sensor.hortulus_frost_warning', 'plants_at_risk') | join(', ') or 'tender crops' }}.
 ```
 
 ---
@@ -2773,17 +2788,52 @@ def _secondary_factors(
 ### 11.3 Seasonal work and fertiliser
 
 ```python
-def bed_fertilizer_plan(area_m2: float, plants: Sequence[Plant], lang: str = "en") -> BedFertilizerPlan:
-    """Base dressing for a bed before the given crops go in."""
+def bed_fertilizer_plan(
+    area_m2: float, plants: Sequence[Plant], lang: str = "en", soil: SoilTest | None = None
+) -> BedFertilizerPlan:
+    """Base dressing for a bed before the given crops go in.
+
+    With a soil test the rates are adjusted: little organic matter means more
+    compost, high P/K means less fertiliser, a low pH gives a lime dose.
+    """
     demand = dominant_demand(plants)
     only_legumes = bool(plants) and all(is_legume(p) for p in plants)
     compost = 0.5 if only_legumes else COMPOST_KG_M2[demand]
+    fert = BASE_FERTILIZER_G_M2[demand]
+    brassicas = any("brassica" in p.tags or p.family == "Brassicaceae" for p in plants)
+    lime = 0.0
+    adjustments: list[str] = []
+    if soil is not None:
+        if soil.organic_matter_pct is not None:
+            if soil.organic_matter_pct < 2.0:
+                compost *= 1.5
+                adjustments.append("om_low")
+            elif soil.organic_matter_pct > 6.0:
+                compost *= 0.6
+                adjustments.append("om_high")
+        high_p = soil.p_mg is not None and soil.p_mg > P_HIGH
+        high_k = soil.k_mg is not None and soil.k_mg > K_HIGH
+        if high_p and high_k:
+            fert *= 0.5
+            adjustments.append("pk_high")
+        elif (soil.p_mg is not None and soil.p_mg < P_LOW) or (soil.k_mg is not None and soil.k_mg < K_LOW):
+            fert = max(fert, 30.0) * 1.3
+            adjustments.append("pk_low")
+        if soil.ph is not None:
+            target = 7.0 if brassicas else 6.5
+            if soil.ph < target - 0.2:
+                lime = (target - soil.ph) * LIME_G_PER_PH_M2 * area_m2
+                adjustments.append("lime")
+            elif soil.ph > 7.5:
+                adjustments.append("ph_high")
     return BedFertilizerPlan(
         compost_kg=round(compost * area_m2, 1),
-        base_fertilizer_g=round(BASE_FERTILIZER_G_M2[demand] * area_m2),
-        lime_check=any("brassica" in p.tags or p.family == "Brassicaceae" for p in plants),
+        base_fertilizer_g=round(fert * area_m2),
+        lime_check=brassicas and (soil is None or soil.ph is None),
         demand=demand,
         crops=sorted({p.name(lang) for p in plants}),
+        lime_g=round(lime),
+        adjustments=adjustments,
     )
 ```
 

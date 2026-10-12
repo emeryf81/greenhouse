@@ -105,6 +105,19 @@ Enum `none` · `low` · `moderate` · `high` · `unknown`. Attributes: `wet_hour
 ### `sensor.<zone>_degree_days_this_season` *(disabled by default)*
 Season degree days for the zone; enclosed zones add their day‑time warmth.
 
+### `sensor.hortulus_harvest_this_season`
+kg harvested this calendar season (from the harvest log). Attributes: `season`,
+`per_crop_kg` (largest first).
+
+### `sensor.hortulus_garden_water_7_days`
+Litres of mains water used in the garden during the last 7 days, from the water meter in
+Settings → Water meter & rain butt (one reading per day is stored). Attributes: `season_l`,
+`per_day`.
+
+### `sensor.hortulus_rain_water_available`
+Litres in the rain water butts now (butt level % × total capacity). Watering task
+descriptions say how much of it to use first.
+
 ## Binary sensors
 
 | Entity | Device class | On when |
@@ -248,7 +261,7 @@ Fields: `zone` (id or name of a greenhouse/cold frame), `mode` (`auto`/`on`/`off
 
 ### `garden_manager.export_pdf`
 Writes a PDF to `/config/hortulus/exports/` (private; the response contains a signed download link valid for 7 days). Fields:
-`document` (`garden`, `zone`, `beds`, `tasks`, `season`, `blank`, `plants`), `page`
+`document` (`garden`, `zone`, `beds`, `tasks`, `season`, `year`, `blank`, `plants`), `page`
 (`a4`, `a3`, `a5`, `letter`, `remarkable`), `landscape`, `color_mode` (`color`, `eink`,
 `grayscale`), `season`, `zone_id`, `bed_ids`, `days`, `notes`, `grid`, `title`.
 Response: `{path, url, filename, bytes}`.
@@ -258,6 +271,29 @@ Response: `{path, url, filename, bytes}`.
 action: garden_manager.export_pdf
 data: {document: tasks, page: remarkable, color_mode: eink, days: 7}
 ```
+
+### `garden_manager.log_harvest`
+Adds a harvest to the log. Fields: `planting_id` *or* `plant_id`, `kg`, `count`,
+`quality` (1–5), `day`, `note`. The first harvest of a planting sets it to *harvesting*.
+Response: `{harvest}`. After a season with data, Hortulus uses **your own kg/m²** instead of
+the database yield (Autofill, advice, shopping list).
+
+### `garden_manager.add_journal_entry`
+A diary note with optional photos. Fields: `text`, `kind` (`note`, `observation`,
+`problem`, `milestone`), `planting_id`, `bed` (id or name), `photos` (image ids).
+
+### `garden_manager.assign_task`
+Fields: `task_id`, `assignee` (`person.*` entity, empty to unassign). New tasks are
+assigned automatically from Settings → Household (a default person and one per task type).
+
+### `garden_manager.save_soil_test`
+Stores a soil analysis for a bed (one per date; same date replaces). Fields: `bed`, `date`,
+`ph`, `organic_matter_pct`, `p_mg`, `k_mg` (mg per 100 g), `notes`. The bed's fertiliser
+plan and lime advice follow the latest analysis.
+
+### `garden_manager.install_voice_sentences`
+Copies the Assist sentences (EN + NL) to `/config/custom_sentences/<lang>/hortulus.yaml`
+and reloads the conversation agent. Field: `overwrite`. See *Voice* below.
 
 ---
 
@@ -280,8 +316,43 @@ data: {document: tasks, page: remarkable, color_mode: eink, days: 7}
 `plan/succession`, `plan/export`, `plan/import`, `tasks/add`, `tasks/action`,
 `settings/save`, `plan/autofill`, `plan/autofill/apply`, `print/render` (SVG preview),
 `handbook/index`, `handbook/chapter`, `handbook/search`, `irrigation/plan`,
-`irrigation/run`, `irrigation/stop`. Writes to the plan, plants and settings require an
-admin user.
+`irrigation/run`, `irrigation/stop`, `advice`, `qa/options`, `qa/ask`, `supplies`,
+`records/overview` (harvest per crop, learned yields, seed box, water, year matrix),
+`records/harvest/add`, `records/delete`, `records/journal/save`, `records/seeds/save`,
+`records/soil/save`, `records/soil/delete`. Writes to the plan, plants and settings require
+an admin user.
+
+## Lovelace card
+
+The integration loads a small card on every dashboard – no resource to add by hand:
+
+```yaml
+type: custom:hortulus-tasks-card
+title: Garden today   # optional
+days: 0               # 0 = today + overdue, 7 = the coming week
+assignee: me          # optional: me | person.xyz | unassigned
+max: 8                # optional
+```
+
+Tick a task off on the card and it is completed in Hortulus (with the next sowing or care
+task planned as usual). `assignee: me` shows your own and unassigned tasks.
+
+## Voice (Assist)
+
+Run `garden_manager.install_voice_sentences` once (or Settings → Household & voice →
+*Install voice sentences*), then ask Assist:
+
+| Intent | English | Nederlands |
+|---|---|---|
+| `HortulusTasksToday` | "what do I need to do in the garden today" | "wat moet ik vandaag in de tuin doen" |
+| `HortulusOverdue` | "what did I forget in the garden" | "wat ben ik vergeten in de tuin" |
+| `HortulusHarvest` | "what can I harvest today" | "wat kan ik vandaag oogsten" |
+| `HortulusGreenhouse` | "how warm is it in the greenhouse" | "hoe warm is het in de serre" |
+| `HortulusWater` | "do I need to water today" | "moet ik vandaag water geven" |
+| `HortulusFrost` | "is there frost tonight" | "gaat het vriezen vannacht" |
+
+The intents are registered by the integration itself, so you can also use them in your own
+sentences or automations (`conversation.process`).
 
 ## PDF download
 

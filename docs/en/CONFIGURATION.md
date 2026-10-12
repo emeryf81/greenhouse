@@ -190,8 +190,21 @@ ET₀) and links to the matching handbook chapter. Open a task to complete, skip
 follow), change priority, add notes and **photos** (uploaded through Home Assistant's
 `image_upload`, stored locally).
 
+### Year view and journal
+The calendar's **Year** view shows every crop month by month (sow indoors, sow, plant out,
+growing, harvest) with the number of tasks and hours per month; print it as the *Year plan*.
+The **Journal** tab holds the diary with photos (per bed, crop or the whole garden), the
+harvest log in kg with your own yield per m², the seed box (use-by per family, seed still
+needed for the plan) and water use. Log a harvest when you tick off a harvest task or from
+the planner (select a planting); select a bed in the planner to add a **soil analysis**.
+
+### Settings › Water meter & rain butt, Household & voice
+Map a sensor with the total meter reading (m³ or L), the rain butt level in % and the total
+butt capacity. Under *Household & voice* choose who gets new tasks (by default and per task
+type), a notify service per person, and install the Assist sentences.
+
 ### Handbook
-16 chapters (EN/NL) with search and a glossary: planning, soil & compost, sowing,
+21 chapters (EN/NL) with search and a glossary: planning, soil & compost, sowing,
 watering (ET₀, Kc, water balance), feeding (NPK, EC), rotation, companion planting, the
 greenhouse, pests, diseases, the garden year & winter rest, harvest & storage, seed
 saving, no‑dig & mulch, herbs, perennials. The ⓘ buttons across the panel open the

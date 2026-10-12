@@ -237,8 +237,11 @@ async def test_websocket_api(hass: HomeAssistant, setup_garden, hass_ws_client) 
 
 async def test_unload(hass: HomeAssistant, setup_garden) -> None:
     entry, _ = setup_garden
+    card_urls = lambda: [u for u in hass.data["frontend_extra_module_url"].urls if "hortulus-card.js" in u]  # noqa: E731
+    assert len(card_urls()) == 1  # the Lovelace card loads on every dashboard
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert entry.state is ConfigEntryState.NOT_LOADED
+    assert card_urls() == []
 
 
 async def test_options_flow_updates_store(hass: HomeAssistant, setup_garden) -> None:

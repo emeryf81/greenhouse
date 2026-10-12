@@ -1,0 +1,372 @@
+// "Journal" tab: garden diary with photos, harvest log with learned yields,
+// seed stock with viability, and garden water use.
+import { LitElement, css, html, nothing, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { photoUrl, type GardenApi } from "../api";
+import type { Translate } from "../i18n";
+import { shared } from "../styles/tokens";
+import type { FamilyInfo, JournalEntry, Plant, Planting, RecordsOverview, SeedPacket, Snapshot } from "../types";
+import { familyColor, formatDate, plantName, presentIn } from "../util/garden";
+import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
+
+type Section = "diary" | "harvest" | "seeds" | "water";
+const KINDS = ["note", "observation", "problem", "milestone"] as const;
+const KIND_ICON: Record<string, string> = {
+  note: "mdi:note-text-outline", observation: "mdi:eye-outline", problem: "mdi:alert-circle-outline", milestone: "mdi:flag-checkered",
+};
+const SEED_CHIP: Record<string, string> = { ok: "ok", use_soon: "warn", expired: "bad", empty: "", unknown: "" };
+
+@customElement("hl-journal-view")
+export class JournalView extends LitElement {
+  @property({ attribute: false }) snapshot!: Snapshot;
+  @property({ attribute: false }) plants: Plant[] = [];
+  @property({ attribute: false }) families: Record<string, FamilyInfo> = {};
+  @property({ attribute: false }) api!: GardenApi;
+  @property({ attribute: false }) t!: Translate;
+  @property() lang = "en";
+  @property({ type: Boolean }) admin = true;
+  @property() section: Section = "diary";
+
+  @state() private overview: RecordsOverview | null = null;
+  @state() private filter = "";
+  @state() private draftPhotos: string[] = [];
+  @state() private busy = false;
+
+  static styles = [
+    shared,
+    css`
+      :host { display: block; }
+      .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--hl-s3); }
+      .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--hl-s4); align-items: start; }
+      @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+      form.stack textarea { min-height: 80px; }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hl-s2) var(--hl-s3); }
+      .form-grid .full { grid-column: 1 / -1; }
+      .timeline { display: flex; flex-direction: column; gap: var(--hl-s3); }
+      .month { font-weight: 700; color: var(--hl-text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; margin-top: 6px; }
+      .entry { display: grid; grid-template-columns: 36px 1fr; gap: 4px 10px; padding: 10px 12px; border-radius: var(--hl-r-md);
+        border: 1px solid var(--hl-border); background: var(--hl-surface); }
+      .entry.problem { border-left: 4px solid var(--hl-tomato-500); }
+      .entry.milestone { border-left: 4px solid var(--hl-sun-500); }
+      .entry .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--hl-surface-2); }
+      .entry .meta { font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
+      .photos { display: flex; gap: 6px; flex-wrap: wrap; grid-column: 2; }
+      .photos img { width: 96px; height: 96px; object-fit: cover; border-radius: var(--hl-r-sm); border: 1px solid var(--hl-border); }
+      .crop { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hl-border); }
+      .bar { height: 8px; border-radius: 4px; background: var(--hl-sun-500); margin-top: 3px; }
+      .total { font-size: var(--hl-fs-2xl); font-weight: 800; }
+      table { width: 100%; border-collapse: collapse; font-size: var(--hl-fs-sm); }
+      td, th { padding: 5px 6px; border-bottom: 1px solid var(--hl-border); text-align: left; }
+      td.num, th.num { text-align: right; white-space: nowrap; }
+      .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--hl-s3); }
+      .tile { padding: 12px; border-radius: var(--hl-r-md); background: var(--hl-surface-2); }
+      .tile b { display: block; font-size: var(--hl-fs-2xl); }
+      .days { display: flex; align-items: flex-end; gap: 3px; height: 90px; }
+      .days div { flex: 1; background: var(--hl-water-500); border-radius: 3px 3px 0 0; min-height: 2px; }
+      .stars button { border: 0; background: none; cursor: pointer; font-size: 20px; color: var(--hl-text-muted); padding: 0 1px; }
+      .stars button[aria-pressed="true"] { color: var(--hl-sun-500); }
+    `,
+  ];
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    void this.load();
+  }
+
+  private loadedFor = "";
+
+  protected updated(changed: Map<string, unknown>): void {
+    // Refresh the derived overview only when the records themselves changed.
+    if (!changed.has("snapshot") || !this.snapshot) return;
+    const key = `${this.snapshot.harvest_log?.length ?? 0}:${this.snapshot.seed_stock?.length ?? 0}:${this.snapshot.analysis?.today ?? ""}`;
+    if (key !== this.loadedFor && this.loadedFor) void this.load();
+    this.loadedFor = key;
+  }
+
+  private async load(): Promise<void> {
+    try {
+      this.overview = await this.api.records();
+    } catch {
+      /* older backend */
+    }
+  }
+
+  private toast(message: string): void {
+    this.dispatchEvent(new CustomEvent("hl-toast", { detail: { message }, bubbles: true, composed: true }));
+  }
+
+  private async guard(fn: () => Promise<unknown>, ok?: string): Promise<boolean> {
+    this.busy = true;
+    try {
+      await fn();
+      if (ok) this.toast(ok);
+      return true;
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
+      return false;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private plant(id: string | null | undefined): Plant | undefined {
+    return this.plants.find((p) => p.id === id);
+  }
+
+  private icon(id: string | null | undefined, size = 24): TemplateResult {
+    const p = this.plant(id);
+    return p ? glyphIcon(glyphFor(p), p.color || familyColor(this.families, p.family), size) : html``;
+  }
+
+  private get season(): number {
+    return this.snapshot.analysis?.season ?? new Date().getFullYear();
+  }
+
+  private get presentPlantings(): Planting[] {
+    return this.snapshot.plantings.filter((p) => presentIn(p, !!this.plant(p.plant_id)?.perennial, this.season));
+  }
+
+  private plantingLabel(p: Planting): string {
+    const bed = this.snapshot.beds.find((b) => b.id === p.bed_id);
+    return `${plantName(this.plant(p.plant_id), this.lang)} · ${bed?.name ?? ""}`;
+  }
+
+  render(): TemplateResult {
+    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"]];
+    return html`
+      <div class="tabs" role="tablist">
+        ${sections.map(([id, icon]) => html`<button class="chip" role="tab" aria-selected=${String(this.section === id)} aria-pressed=${String(this.section === id)}
+          @click=${() => (this.section = id)}><ha-icon icon=${icon}></ha-icon>${this.t(`journal.${id}`)}</button>`)}
+      </div>
+      ${this.section === "diary" ? this.renderDiary() : this.section === "harvest" ? this.renderHarvest() : this.section === "seeds" ? this.renderSeeds() : this.renderWater()}
+    `;
+  }
+
+  // -- diary ------------------------------------------------------------------ //
+  private async addPhoto(ev: Event): Promise<void> {
+    const files = [...((ev.target as HTMLInputElement).files ?? [])];
+    for (const file of files) {
+      await this.guard(async () => {
+        this.draftPhotos = [...this.draftPhotos, await this.api.uploadPhoto(file)];
+      });
+    }
+    (ev.target as HTMLInputElement).value = "";
+  }
+
+  private async saveEntry(ev: Event): Promise<void> {
+    ev.preventDefault();
+    const form = ev.target as HTMLFormElement;
+    const val = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement).value;
+    const link = val("link");
+    const entry: Partial<JournalEntry> = {
+      text: val("text"),
+      kind: val("kind") as JournalEntry["kind"],
+      photos: this.draftPhotos,
+      planting_id: link.startsWith("p:") ? link.slice(2) : null,
+      bed_id: link.startsWith("b:") ? link.slice(2) : null,
+    };
+    if (await this.guard(() => this.api.saveJournal(entry), this.t("journal.saved"))) {
+      form.reset();
+      this.draftPhotos = [];
+    }
+  }
+
+  private renderDiary(): TemplateResult {
+    const all = [...(this.snapshot.journal ?? [])].sort((a, b) => (a.at < b.at ? 1 : -1));
+    const list = all.filter((e) => !this.filter || e.bed_id === this.filter || e.plant_id === this.filter);
+    let lastMonth = "";
+    return html`<div class="grid">
+      <section class="card stack" aria-labelledby="new-entry">
+        <h2 id="new-entry"><ha-icon icon="mdi:notebook-edit-outline"></ha-icon> ${this.t("journal.new")}</h2>
+        <form class="stack" @submit=${this.saveEntry}>
+          <label class="field">${this.t("journal.text")}<textarea name="text" placeholder=${this.t("journal.placeholder")}></textarea></label>
+          <div class="form-grid">
+            <label class="field">${this.t("journal.kind")}<select name="kind">${KINDS.map((k) => html`<option value=${k}>${this.t(`journal.kind.${k}`)}</option>`)}</select></label>
+            <label class="field">${this.t("journal.link")}<select name="link"><option value="">${this.t("journal.whole_garden")}</option>
+              <optgroup label=${this.t("journal.beds")}>${this.snapshot.beds.map((b) => html`<option value=${`b:${b.id}`}>${b.name}</option>`)}</optgroup>
+              <optgroup label=${this.t("journal.crops")}>${this.presentPlantings.map((p) => html`<option value=${`p:${p.id}`}>${this.plantingLabel(p)}</option>`)}</optgroup>
+            </select></label>
+          </div>
+          <label class="btn small ghost" style="align-self:flex-start"><ha-icon icon="mdi:camera-plus-outline"></ha-icon>${this.t("journal.add_photo")}
+            <input type="file" accept="image/*" capture="environment" multiple hidden @change=${this.addPhoto} /></label>
+          ${this.draftPhotos.length ? html`<div class="photos" style="grid-column:auto">${this.draftPhotos.map((id) => html`<img src=${photoUrl(id)} alt="" />`)}</div>` : nothing}
+          <div class="row"><button class="btn primary" type="submit" ?disabled=${this.busy || !this.admin}>${this.t("journal.save")}</button></div>
+        </form>
+      </section>
+      <section class="card stack" aria-labelledby="diary-h">
+        <div class="row wrap"><h2 id="diary-h"><ha-icon icon="mdi:timeline-text-outline"></ha-icon> ${this.t("journal.diary")}</h2><span class="spacer"></span>
+          <select aria-label=${this.t("journal.filter")} @change=${(e: Event) => (this.filter = (e.target as HTMLSelectElement).value)}>
+            <option value="">${this.t("journal.all")}</option>
+            ${this.snapshot.beds.map((b) => html`<option value=${b.id}>${b.name}</option>`)}
+            ${[...new Set(all.map((e) => e.plant_id).filter(Boolean))].map((id) => html`<option value=${id!}>${plantName(this.plant(id), this.lang)}</option>`)}
+          </select></div>
+        ${list.length ? html`<div class="timeline">${list.map((e) => {
+          const month = formatDate(e.at, this.lang, { month: "long", year: "numeric" });
+          const head = month !== lastMonth ? html`<div class="month">${month}</div>` : nothing;
+          lastMonth = month;
+          const bed = this.snapshot.beds.find((b) => b.id === e.bed_id);
+          return html`${head}<article class="entry ${e.kind}">
+            <span class="icon">${e.plant_id ? this.icon(e.plant_id, 26) : html`<ha-icon icon=${KIND_ICON[e.kind]}></ha-icon>`}</span>
+            <div><div class="meta">${formatDate(e.at, this.lang, { weekday: "short", day: "numeric", month: "short" })}
+              · ${this.t(`journal.kind.${e.kind}`)}${e.plant_id ? ` · ${plantName(this.plant(e.plant_id), this.lang)}` : ""}${bed ? ` · ${bed.name}` : ""}${e.author ? ` · ${e.author}` : ""}</div>
+              <div>${e.text}</div></div>
+            ${e.photos.length ? html`<div class="photos">${e.photos.map((id) => html`<a href=${photoUrl(id, "original")} target="_blank" rel="noopener"><img src=${photoUrl(id)} alt="" loading="lazy" /></a>`)}</div>` : nothing}
+            ${this.admin ? html`<div style="grid-column:2"><button class="btn small ghost" @click=${() => this.guard(() => this.api.deleteRecord("journal", e.id))}>${this.t("common.delete")}</button></div>` : nothing}
+          </article>`;
+        })}</div>` : html`<p class="small muted">${this.t("journal.empty")}</p>`}
+      </section>
+    </div>`;
+  }
+
+  // -- harvest ---------------------------------------------------------------- //
+  @state() private quality = 0;
+
+  private async saveHarvest(ev: Event): Promise<void> {
+    ev.preventDefault();
+    const form = ev.target as HTMLFormElement;
+    const val = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement).value;
+    const what = val("what");
+    const ok = await this.guard(() => this.api.logHarvest({
+      planting_id: what.startsWith("p:") ? what.slice(2) : null,
+      plant_id: what.startsWith("x:") ? what.slice(2) : null,
+      kg: Number(val("kg")) || 0,
+      count: val("count") ? Number(val("count")) : null,
+      quality: this.quality || null,
+      day: val("day") || undefined,
+      note: val("note"),
+    }), this.t("journal.harvest_saved"));
+    if (ok) {
+      form.reset();
+      this.quality = 0;
+      void this.load();
+    }
+  }
+
+  private renderHarvest(): TemplateResult {
+    const o = this.overview;
+    const season = Object.values(o?.harvest_season ?? {}).sort((a, b) => b.kg - a.kg);
+    const total = season.reduce((s, c) => s + c.kg, 0);
+    const max = Math.max(...season.map((c) => c.kg), 0.001);
+    const recent = [...(this.snapshot.harvest_log ?? [])].sort((a, b) => (a.day < b.day ? 1 : -1)).slice(0, 25);
+    const harvestable = this.presentPlantings.filter((p) => this.plant(p.plant_id)?.harvestable !== false);
+    return html`<div class="grid">
+      <section class="card stack" aria-labelledby="h-new">
+        <h2 id="h-new"><ha-icon icon="mdi:basket-plus-outline"></ha-icon> ${this.t("journal.log_harvest")}</h2>
+        <form class="stack" @submit=${this.saveHarvest}>
+          <label class="field">${this.t("journal.what")}<select name="what" required>
+            <optgroup label=${this.t("journal.crops")}>${harvestable.map((p) => html`<option value=${`p:${p.id}`}>${this.plantingLabel(p)}</option>`)}</optgroup>
+            <optgroup label=${this.t("advice.all_plants")}>${[...this.plants].sort((a, b) => plantName(a, this.lang).localeCompare(plantName(b, this.lang)))
+              .map((p) => html`<option value=${`x:${p.id}`}>${plantName(p, this.lang)}</option>`)}</optgroup>
+          </select></label>
+          <div class="form-grid">
+            <label class="field">${this.t("journal.kg")}<input name="kg" type="number" min="0" step="0.05" inputmode="decimal" /></label>
+            <label class="field">${this.t("journal.count")}<input name="count" type="number" min="0" step="1" inputmode="numeric" /></label>
+            <label class="field">${this.t("journal.day")}<input name="day" type="date" .value=${this.snapshot.analysis?.today ?? ""} /></label>
+            <div class="field">${this.t("journal.quality")}<span class="stars" role="group">${[1, 2, 3, 4, 5].map((n) => html`<button type="button" aria-label=${String(n)}
+              aria-pressed=${String(this.quality >= n)} @click=${() => (this.quality = this.quality === n ? 0 : n)}>★</button>`)}</span></div>
+            <label class="field full">${this.t("task.notes")}<input name="note" /></label>
+          </div>
+          <div class="row"><button class="btn primary" type="submit" ?disabled=${this.busy || !this.admin}>${this.t("journal.save")}</button></div>
+        </form>
+        <p class="xs muted">${this.t("journal.learn_hint")}</p>
+      </section>
+      <section class="card stack" aria-labelledby="h-season">
+        <h2 id="h-season"><ha-icon icon="mdi:chart-bar"></ha-icon> ${this.t("journal.harvest_season", { season: o?.season ?? this.season })}</h2>
+        <div class="row"><span class="total">${total.toFixed(1)} kg</span><span class="small muted">${this.t("journal.crops_n", { n: season.length })}</span></div>
+        ${season.map((c) => {
+          const learned = o?.learned_yields[c.plant_id];
+          const db = this.plant(c.plant_id)?.yield_kg_m2;
+          return html`<div class="crop">${this.icon(c.plant_id, 26)}
+            <div><b>${plantName(this.plant(c.plant_id), this.lang)}</b>
+              <div class="bar" style=${`width:${Math.max((c.kg / max) * 100, 2)}%`}></div>
+              ${learned != null ? html`<span class="xs muted">${this.t("journal.yield", { kg: learned, db: db ?? "–" })}</span>` : nothing}</div>
+            <span class="num"><b>${c.kg.toFixed(1)} kg</b>${c.count ? html`<br /><span class="xs muted">${c.count} ×</span>` : nothing}</span></div>`;
+        })}
+        ${recent.length ? html`<h3>${this.t("journal.recent")}</h3><table>
+          <tr><th>${this.t("journal.day")}</th><th>${this.t("lib.plant")}</th><th class="num">kg</th><th class="num">#</th><th></th></tr>
+          ${recent.map((e) => html`<tr><td>${formatDate(e.day, this.lang)}</td><td>${plantName(this.plant(e.plant_id), this.lang)}${e.quality ? ` ${"★".repeat(e.quality)}` : ""}</td>
+            <td class="num">${e.kg ? e.kg.toFixed(2) : "–"}</td><td class="num">${e.count ?? "–"}</td>
+            <td class="num">${this.admin ? html`<button class="icon-btn" aria-label=${this.t("common.delete")} @click=${() => this.guard(() => this.api.deleteRecord("harvest", e.id)).then(() => this.load())}>
+              <ha-icon icon="mdi:delete-outline"></ha-icon></button>` : nothing}</td></tr>`)}
+        </table>` : html`<p class="small muted">${this.t("journal.no_harvest")}</p>`}
+      </section>
+    </div>`;
+  }
+
+  // -- seeds ----------------------------------------------------------------- //
+  private async saveSeed(ev: Event): Promise<void> {
+    ev.preventDefault();
+    const form = ev.target as HTMLFormElement;
+    const val = (n: string) => (form.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement).value;
+    const packet: Partial<SeedPacket> = {
+      plant_id: val("plant"), variety: val("variety"), year: val("year") ? Number(val("year")) : null,
+      quantity: Number(val("quantity") || 1), unit: val("unit") as SeedPacket["unit"], source: val("source"),
+    };
+    if (await this.guard(() => this.api.saveSeed(packet), this.t("journal.seed_saved"))) {
+      form.reset();
+      void this.load();
+    }
+  }
+
+  private renderSeeds(): TemplateResult {
+    const report = this.overview?.seeds;
+    const sorted = [...this.plants].sort((a, b) => plantName(a, this.lang).localeCompare(plantName(b, this.lang)));
+    return html`<div class="grid">
+      <section class="card stack" aria-labelledby="s-new">
+        <h2 id="s-new"><ha-icon icon="mdi:seed-plus-outline"></ha-icon> ${this.t("journal.add_seed")}</h2>
+        <form class="stack" @submit=${this.saveSeed}>
+          <label class="field">${this.t("lib.plant")}<select name="plant" required>${sorted.map((p) => html`<option value=${p.id}>${plantName(p, this.lang)}</option>`)}</select></label>
+          <div class="form-grid">
+            <label class="field">${this.t("journal.variety")}<input name="variety" /></label>
+            <label class="field">${this.t("journal.year")}<input name="year" type="number" min="1990" max="2100" .value=${String(this.season)} /></label>
+            <label class="field">${this.t("journal.quantity")}<input name="quantity" type="number" min="0" step="0.5" value="1" /></label>
+            <label class="field">${this.t("journal.unit")}<select name="unit">${(["packet", "seeds", "g"] as const).map((u) => html`<option value=${u}>${this.t(`journal.unit.${u}`)}</option>`)}</select></label>
+            <label class="field full">${this.t("journal.source")}<input name="source" placeholder=${this.t("journal.source_hint")} /></label>
+          </div>
+          <div class="row"><button class="btn primary" type="submit" ?disabled=${this.busy || !this.admin}>${this.t("journal.save")}</button></div>
+        </form>
+        ${report?.missing.length ? html`<div class="finding warning"><ha-icon icon="mdi:cart-outline"></ha-icon><span>${this.t("journal.seed_missing")}:
+          ${report.missing.map((id) => plantName(this.plant(id), this.lang)).join(", ")}</span></div>` : nothing}
+        <p class="xs muted">${this.t("journal.seed_hint")}</p>
+      </section>
+      <section class="card stack" aria-labelledby="s-box">
+        <h2 id="s-box"><ha-icon icon="mdi:archive-outline"></ha-icon> ${this.t("journal.seed_box")} <span class="chip">${report?.packets.length ?? 0}</span></h2>
+        ${report?.packets.length ? html`<table>
+          <tr><th>${this.t("lib.plant")}</th><th>${this.t("journal.variety")}</th><th class="num">${this.t("journal.year")}</th><th class="num">${this.t("journal.quantity")}</th><th>${this.t("journal.status")}</th><th></th></tr>
+          ${report.packets.map((p) => html`<tr>
+            <td>${this.icon(p.plant_id, 18)} ${plantName(this.plant(p.plant_id), this.lang)}${p.needed ? html` <span class="chip ok" title=${this.t("journal.needed")}>✓</span>` : nothing}</td>
+            <td>${p.variety || "–"}</td><td class="num">${p.year ?? "–"}</td><td class="num">${p.quantity} ${this.t(`journal.unit.${p.unit}`)}</td>
+            <td><span class="chip ${SEED_CHIP[p.status]}">${this.t(`journal.seed.${p.status}`, { year: p.use_by ?? "" })}</span></td>
+            <td class="num">${this.admin ? html`<button class="icon-btn" aria-label=${this.t("common.delete")} @click=${() => this.guard(() => this.api.deleteRecord("seed", p.id)).then(() => this.load())}>
+              <ha-icon icon="mdi:delete-outline"></ha-icon></button>` : nothing}</td></tr>`)}
+        </table>` : html`<p class="small muted">${this.t("journal.no_seeds")}</p>`}
+      </section>
+    </div>`;
+  }
+
+  // -- water ----------------------------------------------------------------- //
+  private renderWater(): TemplateResult {
+    const w = this.overview?.water;
+    const cfg = this.snapshot.settings.water;
+    const configured = !!(cfg?.meter_entity || cfg?.butt_level_entity);
+    const max = Math.max(...(w?.per_day ?? []).map((d) => d.liters), 1);
+    return html`<section class="card stack" aria-labelledby="w-h">
+      <h2 id="w-h"><ha-icon icon="mdi:water-outline"></ha-icon> ${this.t("journal.water")}</h2>
+      ${configured ? nothing : html`<div class="finding info"><ha-icon icon="mdi:information-outline"></ha-icon><span>${this.t("journal.water_setup")}</span></div>`}
+      <div class="tiles">
+        <div class="tile">${this.t("journal.water_week")}<b>${w?.week_l != null ? `${w.week_l} L` : "–"}</b></div>
+        <div class="tile">${this.t("journal.water_season")}<b>${w?.season_l != null ? `${w.season_l} L` : "–"}</b></div>
+        <div class="tile">${this.t("journal.rain_available")}<b>${w?.rain_available_l != null ? `${w.rain_available_l} L` : w?.butt_pct != null ? `${w.butt_pct}%` : "–"}</b></div>
+      </div>
+      ${w?.per_day.length ? html`<h3>${this.t("journal.per_day")}</h3><div class="days" role="img" aria-label=${this.t("journal.per_day")}>
+        ${w.per_day.map((d) => html`<div title=${`${d.day}: ${d.liters} L`} style=${`height:${(d.liters / max) * 100}%`}></div>`)}</div>` : nothing}
+      <p class="xs muted">${this.t("journal.water_hint")}</p>
+    </section>`;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "hl-journal-view": JournalView;
+  }
+}

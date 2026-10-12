@@ -5,6 +5,7 @@ import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { Bed, HomeAssistant, PlanDoc, SensorMapping, Settings, Snapshot, Zone } from "../types";
 import { download, formatDate } from "../util/garden";
+import { persons } from "../util/people";
 import "../components/info";
 
 const PRESETS = ["nl_be", "uk_south", "uk_north", "de_central", "fr_north", "scandinavia_south", "mediterranean", "au_melbourne", "nz_christchurch", "za_highveld"];
@@ -56,7 +57,7 @@ export class SettingsView extends LitElement {
   ];
 
   // -- helpers ----------------------------------------------------------- //
-  private entityOptions(key: SensorKey | "weather" | "irrigation" | "tts" | "media_player" | "vent" | "shade" | "pump"): string[] {
+  private entityOptions(key: SensorKey | "weather" | "irrigation" | "tts" | "media_player" | "vent" | "shade" | "pump" | "meter" | "butt"): string[] {
     const states = Object.values(this.hass?.states ?? {});
     const filter =
       key === "weather" ? { domains: ["weather"] }
@@ -66,6 +67,7 @@ export class SettingsView extends LitElement {
       : key === "vent" ? { domains: ["cover", "switch", "fan"] }
       : key === "shade" ? { domains: ["cover", "switch"] }
       : key === "pump" ? { domains: ["switch"] }
+      : key === "meter" || key === "butt" ? { domains: ["sensor", "input_number"] }
       : SENSOR_FILTER[key];
     return states
       .filter((s) => filter.domains.includes(s.entity_id.split(".")[0]))
@@ -87,7 +89,7 @@ export class SettingsView extends LitElement {
 
   private datalists(): TemplateResult {
     const keys = ["soil_moisture", "soil_temperature", "air_temperature", "air_humidity", "light", "rain", "par", "ec", "npk_n", "npk_p", "npk_k",
-      "leaf_wetness", "weather", "irrigation", "tts", "media_player", "vent", "shade", "pump"] as const;
+      "leaf_wetness", "weather", "irrigation", "tts", "media_player", "vent", "shade", "pump", "meter", "butt"] as const;
     return html`${keys.map((k) => html`<datalist id=${`list-${k}`}>${this.entityOptions(k).map((e) => html`<option value=${e}></option>`)}</datalist>`)}`;
   }
 
@@ -310,6 +312,61 @@ export class SettingsView extends LitElement {
     </section>`;
   }
 
+  private renderWater(): TemplateResult {
+    const w = this.snapshot.settings.water ?? { meter_entity: null, butt_level_entity: null, butt_capacity_l: 0 };
+    const set = (patch: Record<string, unknown>) => this.saveSettings({ water: patch });
+    return html`<section class="card stack" aria-labelledby="s-water">
+      <h2 id="s-water">${this.t("settings.water")}</h2>
+      <div class="form-grid">
+        ${this.entityInput("meter", "meter", w.meter_entity, (v) => set({ meter_entity: v }), this.t("settings.water_meter"))}
+        ${this.entityInput("butt", "butt", w.butt_level_entity, (v) => set({ butt_level_entity: v }), this.t("settings.butt_level"))}
+        <label class="field">${this.t("settings.butt_capacity")}<input type="number" min="0" step="50" .value=${String(w.butt_capacity_l ?? 0)}
+          @change=${(e: Event) => set({ butt_capacity_l: Number((e.target as HTMLInputElement).value) || 0 })} /></label>
+      </div>
+      <p class="xs muted">${this.t("settings.water_hint")}</p>
+    </section>`;
+  }
+
+  private renderHousehold(): TemplateResult {
+    const s = this.snapshot.settings;
+    const assignment = s.assignment ?? {};
+    const notify = s.person_notify ?? {};
+    const people = persons();
+    const notifyServices = Object.keys(this.hass?.services?.notify ?? {}).map((x) => `notify.${x}`);
+    const types = ["water", "harvest", "sow_indoor", "sow_direct", "transplant", "weed", "pest_check", "feed", "ventilate", "prune", "clean_greenhouse", "tool_care"];
+    const who = (key: string) => html`<select @change=${(e: Event) => this.saveSettings({ assignment: { [key]: (e.target as HTMLSelectElement).value } })}>
+      <option value="" ?selected=${!assignment[key]}>${this.t(key === "*" ? "settings.nobody" : "settings.default_person")}</option>
+      ${people.map((p) => html`<option value=${p.id} ?selected=${assignment[key] === p.id}>${p.name}</option>`)}</select>`;
+    return html`<section class="card stack" aria-labelledby="s-household">
+      <h2 id="s-household">${this.t("settings.household")}</h2>
+      ${people.length === 0 ? html`<p class="small muted">${this.t("settings.no_persons")}</p>` : html`
+        <label class="field">${this.t("settings.assign_default")}${who("*")}</label>
+        <details><summary class="small">${this.t("settings.assign_per_type")}</summary>
+          <div class="form-grid" style="margin-top:8px">${types.map((ty) => html`<label class="field">${this.t(`type.${ty}`)}${who(ty)}</label>`)}</div>
+        </details>
+        <h3>${this.t("settings.person_notify")}</h3>
+        <datalist id="notify-person">${notifyServices.map((x) => html`<option value=${x}></option>`)}</datalist>
+        <div class="form-grid">${people.map((p) => html`<label class="field">${p.name}
+          <input list="notify-person" placeholder="notify.mobile_app_…" .value=${notify[p.id] ?? ""}
+            @change=${(e: Event) => this.saveSettings({ person_notify: { [p.id]: (e.target as HTMLInputElement).value.trim() } })} /></label>`)}</div>
+        <p class="xs muted">${this.t("settings.person_notify_hint")}</p>`}
+      <h3>${this.t("settings.voice")}</h3>
+      <p class="xs muted">${this.t("settings.voice_hint")}</p>
+      <div class="row wrap">
+        <button class="btn small" @click=${() => this.installVoice()}><ha-icon icon="mdi:microphone-message"></ha-icon>${this.t("settings.voice_install")}</button>
+      </div>
+    </section>`;
+  }
+
+  private async installVoice(): Promise<void> {
+    try {
+      await this.hass.callService("garden_manager", "install_voice_sentences", { overwrite: true });
+      this.toast(this.t("settings.voice_installed"));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
   private renderGeneral(): TemplateResult {
     const s = this.snapshot.settings;
     return html`<section class="card stack" aria-labelledby="s-general">
@@ -346,7 +403,7 @@ export class SettingsView extends LitElement {
       <fieldset ?disabled=${!this.admin || this.busy} style="border:0;padding:0;margin:0">
         <div class="sections">
           ${this.renderRegion()} ${this.renderWeather()} ${this.renderZones()} ${this.renderBeds()} ${this.renderIrrigation()}
-          ${this.renderResources()} ${this.renderNotifications()} ${this.renderGeneral()}
+          ${this.renderResources()} ${this.renderNotifications()} ${this.renderWater()} ${this.renderHousehold()} ${this.renderGeneral()}
         </div>
       </fieldset>
       ${this.datalists()}

@@ -42,6 +42,8 @@ Open‑Meteo for better evaporation estimates, and it is off until you switch it
 | 🤝 **Companions & rotation** | Live scoring while you drag: friends/enemies, **pest deterrence and trap crops, allelopathy, nutrient competition and shading** (hemisphere aware) – each with an explanation, better‑neighbour suggestions and alternative beds for rotation conflicts. |
 | 🌱 **Plant database** | **232 crops**: 100 vegetables, 75 herbs, 36 fruits (apple, pear, cherry, plum, peach, fig, currants, gooseberry, raspberries, blueberry, grape, kiwi berry …) and 21 flowers & green manures (EN/NL), with Kc per growth stage, N‑P‑K demand, yearly care rules, pollination, eco tips and an icon – fully editable, add your own. |
 | 📅 **Task engine & garden year** | Sowing to harvest per crop, plus the **seasonal calendar**: prepare the soil (with compost kg), wash the greenhouse windows, shading on/off, biological control, nettle and comfrey feed, gutters and water butts, nest boxes, seed saving, winter rest and covers, orchard care. **Weather episodes** (heat, dry spell, storm, heavy rain) with eco tips, **weather‑aware rescheduling**, the tools each job needs, **overdue reminders** and a weekly look‑ahead. |
+| 📓 **Journal & records** | A **garden diary** with photos per bed or crop, a **harvest log** in kg that teaches Autofill **your own yields**, a **seed box** that knows which packets are getting old and which crops still need seed, **water use** from a garden meter and the rain butt, and **soil analyses** per bed that steer the fertiliser and lime advice. A **year view** shows every crop month by month, also as a printable year plan. |
+| 👪 **Household, card & voice** | Assign tasks to people with automatic rules and personal reminders, tick tasks off from any dashboard with the **`hortulus-tasks-card`**, and ask Assist *"what do I need to do in the garden today?"* (English and Dutch). |
 | 💧 **Water, feeding, health** | FAO‑56 **Penman‑Monteith ET₀** (Hargreaves fallback), Kc per growth stage, a root‑zone **water balance** per bed, NPK/EC **nutrient balance index**, **disease risk** (Hutton criteria, leaf wetness, greenhouse humidity), degree‑day phenology with dynamic harvest dates. |
 | 🚿 **Safe hardware control** | Valves + pump with **pump interlock, max runtime, frost lockout and rain skip**; greenhouse vents and shade screens in auto mode; everything also as advice only. |
 | 🖨️ **Print & reMarkable** | Garden and greenhouse maps with legend, scale and north arrow, bed sheets with grid, checklists, season charts, blank planning sheets and plant cards – as PDF in A4/A3/A5/Letter or **reMarkable Paper Pro** with e‑ink patterns and dot‑grid note areas to draw on. |
@@ -60,6 +62,10 @@ Open‑Meteo for better evaporation estimates, and it is off until you switch it
   <tr>
     <td><img src="docs/images/calendar-timeline-nl.png" alt="Season timeline (Dutch)"></td>
     <td><img src="docs/images/print-nl.png" alt="Print for reMarkable (Dutch)"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/journal-nl.png" alt="Journal: diary, harvest, seed box and water (Dutch)"></td>
+    <td><img src="docs/images/calendar-year-nl.png" alt="Year view (Dutch)"></td>
   </tr>
   <tr>
     <td><img src="docs/images/handbook-chapter-nl.png" alt="Handbook (Dutch)"></td>
@@ -128,6 +134,8 @@ Then open **Hortulus** in the sidebar. Details: [CONFIGURATION](docs/en/CONFIGUR
 | disease & frost per zone | `sensor.<zone>_disease_risk`, `binary_sensor.<zone>_frost_risk_48h` |
 | irrigation control | `switch.hortulus_automatic_irrigation`, `select.hortulus_irrigation_mode`, `number.hortulus_irrigation_max_runtime` (+ frost lockout, rain skip), `button.hortulus_water_now`, `binary_sensor.hortulus_irrigation_frost_lockout`, `binary_sensor.hortulus_irrigation_running` |
 | tasks | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week`, `sensor.hortulus_tasks_due_today`, `sensor.hortulus_next_task` |
+| records | `sensor.hortulus_harvest_this_season`, `sensor.hortulus_garden_water_7_days`, `sensor.hortulus_rain_water_available`, `garden_manager.log_harvest`, `.add_journal_entry`, `.save_soil_test`, `.assign_task` |
+| dashboard & voice | `type: custom:hortulus-tasks-card` (loaded automatically), Assist intents via `garden_manager.install_voice_sentences` |
 | `garden.add_task` … | `garden_manager.add_task`, `.complete_task`, `.postpone_task`, `.delete_task`, `.generate_tasks`, `.recalculate_plan`, `.export_plan`, `.import_plan` |
 | plan & hardware | `garden_manager.add_planting`, `.update_planting`, `.remove_planting`, `.autofill_plan`, `.run_irrigation_plan` (with `dry_run`), `.stop_irrigation`, `.set_shading_mode`, `.export_pdf` |
 

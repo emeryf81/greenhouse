@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.3.0 – 2026-10
+
+### Added
+- **Journal tab**: garden diary with photos per bed, crop or the whole garden; harvest log in
+  kg and pieces (also when ticking off a harvest task and from the planner) with totals per
+  crop and **learned yields** (your own kg/m², used by Autofill); **seed box** with use-by
+  years per family and the crops in the plan that still need seed (the shopping list skips
+  seed you have); **water** use per day/week from a garden water meter and the rain butt level.
+- **Year view** in the calendar (crop × month: sow indoors, sow, plant out, growing,
+  harvest, plus tasks and hours per month) and a **year plan** printout (`document: year`).
+- **Lovelace card** `custom:hortulus-tasks-card`: today's and overdue tasks with a tick box,
+  loaded automatically on every dashboard.
+- **Household**: assign tasks to people (`person.*`), automatic assignment by default and per
+  task type, personal notify service per person for the digest and overdue reminders.
+- **Soil analysis per bed** (pH, organic matter, P, K, Mg, lime): fertiliser plan, lime advice
+  and shopping list follow the latest analysis.
+- **Voice**: six Assist intents (tasks today, overdue, harvest, greenhouse, water, frost) with
+  English and Dutch sentences, installed with one click.
+- **Rain water first**: watering tasks say how many litres are still in the butts.
+- Sensors *Harvest this season*, *Garden water (7 days)*, *Rain water available*.
+- Actions `log_harvest`, `add_journal_entry`, `assign_task`, `save_soil_test`,
+  `install_voice_sentences`; websocket `records/*`.
+
+### Changed
+- PDF exports are private: written to `/config/hortulus/exports/` and served through an
+  authenticated view with a signed link valid for 7 days.
+
+### Known limitations
+- One garden per Home Assistant: the panel shows the first config entry. Use zones for a
+  second plot.
+
 ## 1.2.0 – 2026-10
 
 ### Added

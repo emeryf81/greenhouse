@@ -3,6 +3,7 @@ import { customElement, property, query, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
+import type { SoilTest } from "../types";
 import type {
   AutofillResult, Bed, BedKind, CompatibilityReport, FamilyInfo, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
   PlantingStatus, Resources, Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
@@ -98,6 +99,8 @@ export class PlannerView extends LitElement {
   @state() private tool: Tool | null = null;
   @state() private focusZone = "";
   @state() private removing: Planting | null = null;
+  @state() private soilForm: Partial<SoilTest> | null = null;
+  @state() private harvestKg = "";
 
   @query("hl-garden-canvas") private canvas!: GardenCanvas;
 
@@ -204,6 +207,9 @@ export class PlannerView extends LitElement {
       .tips summary { cursor: pointer; font-weight: 600; }
       .tips ul { margin: 6px 0 0; padding-left: 18px; font-size: var(--hl-fs-sm); }
       .tips li { margin-bottom: 4px; }
+      table.soil { width: 100%; font-size: var(--hl-fs-xs); border-collapse: collapse; margin: 6px 0; }
+      table.soil th, table.soil td { text-align: left; padding: 2px 4px; border-bottom: 1px solid var(--hl-border); }
+      ul.notes { margin: 0; padding-left: 16px; }
       .plant-glyph { display: block; }
       .readonly-note { font-size: var(--hl-fs-xs); color: var(--hl-warning); }
       dialog { border: none; border-radius: var(--hl-r-lg); padding: var(--hl-s5); max-width: 520px; width: calc(100% - 32px); background: var(--hl-surface); color: var(--hl-text); box-shadow: var(--hl-shadow-3); }
@@ -1397,6 +1403,82 @@ export class PlannerView extends LitElement {
     </div>`;
   }
 
+  // -- records in the inspector ----------------------------------------- //
+  private renderSoilTests(bedId: string): TemplateResult {
+    const tests = [...(this.snapshot.beds.find((b) => b.id === bedId)?.soil_tests ?? [])].reverse();
+    const f = this.soilForm;
+    const num = (key: keyof SoilTest, label: string, step = 0.1) => html`<label class="field">${label}
+      <input type="number" step=${step} min="0" .value=${f?.[key] == null ? "" : String(f[key])}
+        @input=${(e: Event) => { const v = (e.target as HTMLInputElement).value; this.soilForm = { ...this.soilForm, [key]: v === "" ? null : Number(v) }; }} /></label>`;
+    return html`<details class="tips" ?open=${Boolean(f)}><summary><ha-icon icon="mdi:test-tube"></ha-icon> ${this.t("soil_test.title")}
+        ${tests[0] ? html`<span class="xs muted">· ${formatDate(tests[0].date, this.lang)}${tests[0].ph != null ? ` · pH ${tests[0].ph}` : ""}</span>` : nothing}</summary>
+      ${tests.length ? html`<table class="soil"><thead><tr><th>${this.t("journal.day")}</th><th>pH</th><th>OM%</th><th>P</th><th>K</th><th></th></tr></thead><tbody>
+        ${tests.map((st) => html`<tr><td>${formatDate(st.date, this.lang)}</td><td>${st.ph ?? "–"}</td><td>${st.organic_matter_pct ?? "–"}</td><td>${st.p_mg ?? "–"}</td><td>${st.k_mg ?? "–"}</td>
+          <td>${this.admin ? html`<button class="icon-btn" aria-label=${this.t("planner.remove")} @click=${() => this.deleteSoil(bedId, st.date)}><ha-icon icon="mdi:delete-outline"></ha-icon></button>` : nothing}</td></tr>`)}
+      </tbody></table>` : html`<p class="xs muted">${this.t("soil_test.none")}</p>`}
+      ${!this.admin ? nothing : f ? html`<div class="form-grid">
+          <label class="field">${this.t("journal.day")}<input type="date" .value=${f.date ?? ""} @input=${(e: Event) => (this.soilForm = { ...f, date: (e.target as HTMLInputElement).value })} /></label>
+          ${num("ph", "pH")} ${num("organic_matter_pct", this.t("soil_test.om"))} ${num("n_mg", "N (mg/100 g)", 1)}
+          ${num("p_mg", "P (mg/100 g)", 1)} ${num("k_mg", "K (mg/100 g)", 1)} ${num("mg_mg", "Mg (mg/100 g)", 1)}
+          <label class="field">${this.t("soil_test.lime")}<select @change=${(e: Event) => (this.soilForm = { ...f, lime_status: (e.target as HTMLSelectElement).value || null })}>
+            ${["", "low", "ok", "high"].map((v) => html`<option value=${v} ?selected=${(f.lime_status ?? "") === v}>${v ? this.t(`soil_test.lime.${v}`) : "–"}</option>`)}</select></label>
+          <label class="field full">${this.t("task.notes")}<input .value=${f.notes ?? ""} @input=${(e: Event) => (this.soilForm = { ...f, notes: (e.target as HTMLInputElement).value })} /></label>
+        </div>
+        <div class="row"><button class="btn small primary" ?disabled=${!f.date} @click=${() => this.saveSoil(bedId)}>${this.t("common.save")}</button>
+          <button class="btn small ghost" @click=${() => (this.soilForm = null)}>${this.t("common.cancel")}</button></div>
+        <p class="xs muted">${this.t("soil_test.hint")}</p>`
+      : html`<button class="btn small" @click=${() => (this.soilForm = { date: new Date().toISOString().slice(0, 10) })}><ha-icon icon="mdi:plus"></ha-icon>${this.t("soil_test.add")}</button>`}
+    </details>`;
+  }
+
+  private async saveSoil(bedId: string): Promise<void> {
+    if (!this.soilForm?.date) return;
+    try {
+      await this.api.saveSoilTest(bedId, this.soilForm);
+      this.soilForm = null;
+      this.toast(this.t("settings.saved"));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
+  private async deleteSoil(bedId: string, date: string): Promise<void> {
+    try {
+      await this.api.deleteSoilTest(bedId, date);
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
+  private renderHarvestQuick(p: Planting): TemplateResult {
+    const log = (this.snapshot.harvest_log ?? []).filter((h) => h.planting_id === p.id);
+    const kg = log.reduce((sum, h) => sum + h.kg, 0);
+    const notes = (this.snapshot.journal ?? []).filter((j) => j.planting_id === p.id).slice(-3).reverse();
+    const persisted = this.snapshot.plantings.some((x) => x.id === p.id);
+    return html`<div class="stack" style="gap:6px">
+      <h4><ha-icon icon="mdi:basket-outline"></ha-icon> ${this.t("journal.harvest")}${kg ? html` · ${kg.toFixed(2)} kg` : nothing}</h4>
+      ${this.admin && persisted ? html`<div class="row">
+        <input type="number" min="0" step="0.05" style="width:90px" placeholder="kg" aria-label="kg" .value=${this.harvestKg}
+          @input=${(e: Event) => (this.harvestKg = (e.target as HTMLInputElement).value)} />
+        <button class="btn small" ?disabled=${!(Number(this.harvestKg) > 0)} @click=${() => this.logHarvest(p)}>${this.t("journal.log_harvest")}</button>
+      </div>` : nothing}
+      ${notes.length ? html`<ul class="notes">${notes.map((j) => html`<li class="xs"><b>${formatDate(j.at.slice(0, 10), this.lang)}</b> ${j.text}
+        ${j.photos.length ? html`<ha-icon icon="mdi:camera-outline"></ha-icon>` : nothing}</li>`)}</ul>` : nothing}
+    </div>`;
+  }
+
+  private async logHarvest(p: Planting): Promise<void> {
+    const kg = Number(this.harvestKg);
+    if (!(kg > 0)) return;
+    try {
+      await this.api.logHarvest({ planting_id: p.id, kg });
+      this.harvestKg = "";
+      this.toast(this.t("journal.harvest_saved"));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
   private renderInspector(): TemplateResult {
     const sel = this.selection;
     const item = sel ? this.findItem(sel) : undefined;
@@ -1468,6 +1550,7 @@ export class PlannerView extends LitElement {
         <p class="small">${plant ? this.t("planner.count", { n: plantCount(p, plant) }) : ""}</p>
         ${advice?.reasons.length ? html`<div class="stack" style="gap:4px">${advice.reasons.filter((r) => r.key !== "reason.window_open").map((r) => html`<p class="small">${this.t(r.key, r.params)}</p>`)}</div>` : nothing}
         ${this.renderPhenology(p.id)}
+        ${this.renderHarvestQuick(p)}
         <h4>${this.t("planner.timeline")}</h4>
         ${this.renderTimeline(this.timelines[p.id])}
         <h4>${this.t("planner.warnings")}</h4>
@@ -1519,6 +1602,7 @@ export class PlannerView extends LitElement {
           </div>` : nothing}
         <div class="row"><span class="score">${Math.round(report?.score ?? 50)}</span><span class="small muted">${this.t("planner.score")}</span></div>
         ${this.renderFindings(b.id)}
+        ${this.renderSoilTests(b.id)}
         ${ro ? nothing : html`<div class="row"><button class="btn small danger" @click=${() => this.removeSelected()}>${this.t("planner.remove")}</button></div>`}
       `;
     } else {
