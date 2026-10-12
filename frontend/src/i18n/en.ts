@@ -160,6 +160,7 @@ export const en: Record<string, string> = {
   "lib.nutrients": "Nutrients",
   "lib.rotation": "Rotation",
   "lib.rotation_years": "{n} years before the same family returns",
+  "lib.open_plant": "Show this plant",
   "lib.friends": "Good companions",
   "lib.enemies": "Keep apart from",
   "lib.pests": "Pests",

@@ -1,4 +1,5 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
+import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import { tagLabel, type Translate } from "../i18n";
@@ -56,10 +57,13 @@ export class LibraryView extends LitElement {
       .cal { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1px; position: relative; height: 34px; }
       .cal .m { background: var(--hl-surface-2); font-size: 9px; color: var(--hl-text-muted); text-align: center; padding-top: 22px; }
       .cal .b { position: absolute; height: 5px; border-radius: 3px; }
-      .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--hl-surface); box-shadow: var(--hl-shadow-3);
-        z-index: 5; display: flex; flex-direction: column; border-left: 1px solid var(--hl-border); }
+      dialog.detail { border: none; border-radius: 16px; padding: 0; width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px);
+        background: var(--hl-surface); color: var(--hl-text); box-shadow: var(--hl-shadow-3); overflow: hidden; }
+      dialog.detail[open] { display: flex; flex-direction: column; }
+      dialog.detail::backdrop { background: rgba(20, 30, 20, .45); }
       .drawer header { padding: var(--hl-s4) var(--hl-s5); border-bottom: 1px solid var(--hl-border); display: flex; gap: var(--hl-s2); align-items: center; }
       .drawer .content { padding: var(--hl-s4) var(--hl-s5); overflow: auto; display: flex; flex-direction: column; gap: var(--hl-s4); }
+      .rel .chip { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; border: 0; font: inherit; }
       .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px var(--hl-s4); font-size: var(--hl-fs-sm); }
       .kv span:nth-child(odd) { color: var(--hl-text-muted); }
       .rel { display: flex; gap: var(--hl-s2); align-items: flex-start; font-size: var(--hl-fs-sm); }
@@ -177,8 +181,14 @@ export class LibraryView extends LitElement {
       return [...out.entries()];
     };
     const name = (id: string) => plantName(this.plants.find((x) => x.id === id), this.lang);
+    const chip = (id: string, kind: string) => {
+      const other = this.plants.find((x) => x.id === id);
+      return html`<button class="chip ${kind}" title=${this.t("lib.open_plant")} ?disabled=${!other} @click=${() => other && (this.selected = other)}>
+        ${other ? glyphIcon(glyphFor(other), other.color || familyColor(this.families, other.family), 16) : nothing}${name(id)}</button>`;
+    };
     return html`
-      <aside class="drawer" role="dialog" aria-modal="false" aria-label=${plantName(p, this.lang)} @keydown=${(e: KeyboardEvent) => e.key === "Escape" && (this.selected = null)}>
+      <dialog class="drawer detail" aria-label=${plantName(p, this.lang)} @close=${() => (this.selected = null)}
+        @click=${(e: MouseEvent) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLDialogElement).close(); }}>
         <header style=${`border-top: 6px solid ${familyColor(this.families, p.family)}`}>
           <div class="stack" style="gap:2px"><h2>${plantName(p, this.lang)}</h2>
             <span class="small muted"><i>${p.scientific_name}</i> · ${this.families[p.family]?.[lang] ?? p.family}</span></div>
@@ -213,9 +223,9 @@ export class LibraryView extends LitElement {
           </div>` : nothing}
           ${p.greenhouse.notes[lang] ? html`<p class="small">${p.greenhouse.notes[lang]}</p>` : nothing}
           <section class="stack"><h3>${this.t("lib.friends")}</h3>
-            ${rel("friend").map(([id, why]) => html`<div class="rel"><span class="chip ok">${name(id)}</span><span class="muted">${why}</span></div>`)}</section>
+            ${rel("friend").length ? rel("friend").map(([id, why]) => html`<div class="rel">${chip(id, "ok")}<span class="muted">${why}</span></div>`) : html`<p class="small muted">${this.t("common.none")}</p>`}</section>
           <section class="stack"><h3>${this.t("lib.enemies")}</h3>
-            ${rel("enemy").length ? rel("enemy").map(([id, why]) => html`<div class="rel"><span class="chip bad">${name(id)}</span><span class="muted">${why}</span></div>`) : html`<p class="small muted">${this.t("common.none")}</p>`}</section>
+            ${rel("enemy").length ? rel("enemy").map(([id, why]) => html`<div class="rel">${chip(id, "bad")}<span class="muted">${why}</span></div>`) : html`<p class="small muted">${this.t("common.none")}</p>`}</section>
           <section class="stack"><h3>${this.t("lib.pests")} & ${this.t("lib.diseases")}</h3>
             <div class="row wrap">${p.pests.map((x) => html`<span class="chip warn">${tagLabel(x, this.lang)}</span>`)}${p.diseases.map((x) => html`<span class="chip bad">${tagLabel(x, this.lang)}</span>`)}</div></section>
           ${p.care.length || p.pruning_notes[lang] ? html`<section class="stack"><h3>${this.t("lib.care")}</h3>
@@ -227,7 +237,7 @@ export class LibraryView extends LitElement {
             ${p.source !== "builtin" ? html`<button class="btn danger" @click=${() => this.removePlant(p)}>${p.source === "override" ? this.t("lib.reset") : this.t("common.delete")}</button>` : nothing}
           </div>` : nothing}
         </div>
-      </aside>`;
+      </dialog>`;
   }
 
   private async removePlant(p: Plant): Promise<void> {
@@ -286,8 +296,10 @@ export class LibraryView extends LitElement {
   }
 
   protected updated(): void {
-    const dialog = this.renderRoot.querySelector("dialog");
-    if (dialog && !dialog.open) dialog.showModal();
+    for (const dialog of this.renderRoot.querySelectorAll("dialog")) if (!dialog.open) dialog.showModal();
+    // jumping to a neighbour plant: start its details at the top
+    const content = this.renderRoot.querySelector<HTMLElement>("dialog.detail .content");
+    if (content && content.dataset.plant !== this.selected?.id) { content.scrollTop = 0; content.dataset.plant = this.selected?.id ?? ""; }
   }
 
   private renderEditor(): TemplateResult {

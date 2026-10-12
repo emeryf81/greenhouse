@@ -159,6 +159,7 @@ export const nl: Record<string, string> = {
   "lib.nutrients": "Voeding",
   "lib.rotation": "Wisselteelt",
   "lib.rotation_years": "{n} jaar voordat dezelfde familie terugkomt",
+  "lib.open_plant": "Toon deze plant",
   "lib.friends": "Goede buren",
   "lib.enemies": "Uit elkaar houden",
   "lib.pests": "Plagen",

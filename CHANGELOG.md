@@ -58,6 +58,8 @@
   small round thumbnails always use the illustration.
 
 ### Changed
+- **Plants**: a plant's details open in a popup instead of a side panel; good and bad
+  neighbours show their icon and open that plant when clicked.
 - **Planner**: larger map at a fixed height; clicking a bed, crop or element opens its details
   in a popup instead of a side column.
 - **Autofill** says per plant why it was not placed (too late, zone type, glass, frost,
