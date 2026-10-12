@@ -1,12 +1,14 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
-import { tagLabel, type Translate } from "../i18n";
+import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Snapshot, Window } from "../types";
-import { addDays, daysBetween, familyColor, formatDate, plantName, windowDates } from "../util/garden";
+import { familyColor, plantName } from "../util/garden";
 import "../components/info";
 import "../components/plant-image";
+import "../components/modal";
+import { plantCalendarStyles, renderPlantCalendar } from "../components/plant-detail";
 
 type Filter = "" | "greenhouse" | "quick" | "custom";
 
@@ -40,6 +42,7 @@ export class LibraryView extends LitElement {
 
   static styles = [
     shared,
+    plantCalendarStyles,
     css`
       .top { display: flex; flex-wrap: wrap; gap: var(--hl-s2); align-items: center; margin-bottom: var(--hl-s3); }
       .top input[type="search"] { max-width: 360px; }
@@ -49,17 +52,9 @@ export class LibraryView extends LitElement {
       .pcard:hover { box-shadow: var(--hl-shadow-2); transform: translateY(-1px); }
       .pcard .stripe { height: 6px; }
       .pcard hl-plant-image { border-radius: 0; }
-      .drawer hl-plant-image { margin-bottom: var(--hl-s3); }
       .pcard .inner { padding: var(--hl-s3) var(--hl-s4); display: flex; flex-direction: column; gap: var(--hl-s2); }
       .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
       .facts b { display: block; color: var(--hl-text); font-size: var(--hl-fs-sm); }
-      .cal { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1px; position: relative; height: 34px; }
-      .cal .m { background: var(--hl-surface-2); font-size: 9px; color: var(--hl-text-muted); text-align: center; padding-top: 22px; }
-      .cal .b { position: absolute; height: 5px; border-radius: 3px; }
-      .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--hl-surface); box-shadow: var(--hl-shadow-3);
-        z-index: 5; display: flex; flex-direction: column; border-left: 1px solid var(--hl-border); }
-      .drawer header { padding: var(--hl-s4) var(--hl-s5); border-bottom: 1px solid var(--hl-border); display: flex; gap: var(--hl-s2); align-items: center; }
-      .drawer .content { padding: var(--hl-s4) var(--hl-s5); overflow: auto; display: flex; flex-direction: column; gap: var(--hl-s4); }
       .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px var(--hl-s4); font-size: var(--hl-fs-sm); }
       .kv span:nth-child(odd) { color: var(--hl-text-muted); }
       .rel { display: flex; gap: var(--hl-s2); align-items: flex-start; font-size: var(--hl-fs-sm); }
@@ -71,39 +66,6 @@ export class LibraryView extends LitElement {
       .legend-row span::before { content: ""; display: inline-block; width: 14px; height: 5px; border-radius: 3px; margin-right: 4px; vertical-align: middle; background: var(--c); }
     `,
   ];
-
-  private get anchors(): { last_frost: string; first_frost: string } {
-    return this.snapshot.analysis?.anchors ?? { last_frost: `${new Date().getFullYear()}-04-20`, first_frost: `${new Date().getFullYear()}-10-25` };
-  }
-
-  private seasonStart(): string {
-    const lf = this.anchors.last_frost;
-    return this.snapshot.settings.region.hemisphere === "south" ? `${lf.slice(0, 4)}-07-01` : `${lf.slice(0, 4)}-01-01`;
-  }
-
-  private renderCalendar(plant: Plant): TemplateResult {
-    const start = this.seasonStart();
-    const pos = (iso: string) => Math.max(0, Math.min(100, (daysBetween(start, iso) / 365) * 100));
-    const bars: TemplateResult[] = [];
-    const add = (wins: Window[], top: number, color: string) => {
-      for (const w of wins) {
-        const [a, b] = windowDates(w, this.anchors);
-        bars.push(html`<div class="b" style=${`left:${pos(a)}%;width:${Math.max(pos(b) - pos(a), 1)}%;top:${top}px;background:${color}`}></div>`);
-      }
-    };
-    add(plant.sowing.indoor_sow, 2, "var(--hl-leaf-300)");
-    add(plant.sowing.direct_sow, 8, "var(--hl-leaf-500)");
-    add(plant.sowing.transplant, 14, "var(--hl-leaf-700)");
-    const ground = [...plant.sowing.direct_sow, ...plant.sowing.transplant][0];
-    if (ground && plant.harvestable) {
-      const [a, b] = windowDates(ground, this.anchors);
-      const offset = plant.maturity_from === "transplant" && !plant.sowing.transplant.length ? plant.germination_days[1] + 14 : 0;
-      bars.push(html`<div class="b" style=${`left:${pos(addDays(a, plant.days_to_maturity[0] + offset))}%;width:${Math.max(
-        pos(addDays(b, plant.days_to_maturity[1] + offset + plant.harvest_duration_days)) - pos(addDays(a, plant.days_to_maturity[0] + offset)), 1)}%;top:20px;background:var(--hl-sun-500)`}></div>`);
-    }
-    const months = Array.from({ length: 12 }, (_, i) => formatDate(addDays(start, Math.round(i * 30.5 + 10)), this.lang, { month: "narrow" }));
-    return html`<div class="cal" role="img" aria-label=${this.t("lib.calendar")}>${months.map((m) => html`<div class="m">${m}</div>`)}${bars}</div>`;
-  }
 
   private filtered(): Plant[] {
     const q = this.query.trim().toLowerCase();
@@ -158,7 +120,7 @@ export class LibraryView extends LitElement {
                 <span><b>${p.days_to_maturity[0]}–${p.days_to_maturity[1]}</b>${this.t("lib.maturity")}</span>
                 <span><b>${this.t(`level.${p.water_needs}`)}</b>${this.t("lib.water")}</span>
               </div>
-              ${this.renderCalendar(p)}
+              ${renderPlantCalendar(p, this.snapshot, this.lang, this.t)}
             </div>
           </button>`)}
       </div>
@@ -168,66 +130,26 @@ export class LibraryView extends LitElement {
   }
 
   private renderDetail(p: Plant): TemplateResult {
-    const lang = this.lang as "en" | "nl";
-    const rel = (kind: "friend" | "enemy") => {
-      const out = new Map<string, string>();
-      for (const link of p.companions) if (link.relation === kind) out.set(link.plant, link.reason[lang] ?? link.reason.en ?? "");
-      for (const other of this.plants) for (const link of other.companions)
-        if (link.plant === p.id && link.relation === kind && !out.has(other.id)) out.set(other.id, link.reason[lang] ?? link.reason.en ?? "");
-      return [...out.entries()];
-    };
-    const name = (id: string) => plantName(this.plants.find((x) => x.id === id), this.lang);
+    const list = this.filtered();
+    const i = list.findIndex((x) => x.id === p.id);
     return html`
-      <aside class="drawer" role="dialog" aria-modal="false" aria-label=${plantName(p, this.lang)} @keydown=${(e: KeyboardEvent) => e.key === "Escape" && (this.selected = null)}>
-        <header style=${`border-top: 6px solid ${familyColor(this.families, p.family)}`}>
-          <div class="stack" style="gap:2px"><h2>${plantName(p, this.lang)}</h2>
-            <span class="small muted"><i>${p.scientific_name}</i> · ${this.families[p.family]?.[lang] ?? p.family}</span></div>
-          <span class="spacer"></span>
-          <button class="icon-btn" aria-label=${this.t("common.close")} @click=${() => (this.selected = null)}><ha-icon icon="mdi:close"></ha-icon></button>
-        </header>
-        <div class="content">
-          <hl-plant-image .plant=${p} color=${familyColor(this.families, p.family)} lang=${this.lang} size="hero" credit></hl-plant-image>
-          ${this.renderCalendar(p)}
-          <div class="kv">
-            <span>${this.t("lib.spacing")}</span><span>${p.spacing_cm} × ${p.row_spacing_cm} cm</span>
-            <span>${this.t("lib.depth")}</span><span>${p.sowing_depth_cm} cm</span>
-            <span>${this.t("lib.germination")}</span><span>${p.germination_days[0]}–${p.germination_days[1]} d · ≥ ${p.min_soil_temp_c} °C</span>
-            <span>${this.t("lib.maturity")}</span><span>${p.days_to_maturity[0]}–${p.days_to_maturity[1]} d</span>
-            <span>${this.t("lib.habit")}</span><span>${this.t(`habit.${p.habit}`)}</span>
-            <span>${this.t("lib.frost")}</span><span>${this.t(`frost.${p.frost_tolerance}`)} (${p.min_temp_c} °C)</span>
-            <span>${this.t("lib.greenhouse")}</span><span>${this.t(`suit.${p.greenhouse.suitability}`)} · ${p.greenhouse.min_night_c}–${p.greenhouse.max_day_c} °C</span>
-            <span>${this.t("lib.water")} / ${this.t("lib.nutrients")}</span><span>${this.t(`level.${p.water_needs}`)} / ${this.t(`level.${p.nutrient_needs}`)}</span>
-            <span>${this.t("lib.rotation")} <hl-info term="rotation" .t=${this.t}></hl-info></span><span>${this.t("lib.rotation_years", { n: p.rotation_years })}</span>
-            ${p.category ? html`<span>${this.t("lib.category")}</span><span>${this.t(`category.${p.category}`)}${p.perennial ? ` · ${this.t("lib.perennial")}` : ""}</span>` : nothing}
-            ${p.height_cm ? html`<span>${this.t("lib.height")}</span><span>${p.height_cm} cm · ${this.t("lib.roots")} ${p.root_depth_cm ?? "?"} cm</span>` : nothing}
-            ${p.kc ? html`<span>Kc <hl-info term="kc" .t=${this.t}></hl-info></span><span>${p.kc.map((v) => v.toFixed(2)).join(" → ")}</span>` : nothing}
-            ${p.npk ? html`<span>N · P · K <hl-info term="npk" .t=${this.t}></hl-info></span><span>${p.npk.join(" · ")} / 3</span>` : nothing}
-            ${p.gdd_to_maturity ? html`<span>${this.t("lib.gdd")} <hl-info term="gdd" .t=${this.t}></hl-info></span><span>${p.gdd_to_maturity} °C·d (${this.t("lib.base")} ${p.gdd_base_c} °C)</span>` : nothing}
-            ${p.plants_per_person ? html`<span>${this.t("lib.per_person")}</span><span>${p.plants_per_person} · ${p.yield_kg_m2 ?? "?"} kg/m²</span>` : nothing}
-          </div>
-          ${p.deters?.length || p.trap_for?.length || p.allelopathic || p.shade_tolerant ? html`<div class="row wrap">
-            ${(p.deters ?? []).map((x) => html`<span class="chip ok" title=${this.t("lib.deters")}>🛡 ${tagLabel(x, this.lang)}</span>`)}
-            ${(p.trap_for ?? []).map((x) => html`<span class="chip warn" title=${this.t("lib.trap_for")}>🪤 ${tagLabel(x, this.lang)} <hl-info term="trap_crop" .t=${this.t}></hl-info></span>`)}
-            ${p.allelopathic ? html`<span class="chip bad">${this.t("lib.allelopathic")} <hl-info term="allelopathy" .t=${this.t}></hl-info></span>` : nothing}
-            ${p.shade_tolerant ? html`<span class="chip cold">${this.t("lib.shade_tolerant")}</span>` : nothing}
-          </div>` : nothing}
-          ${p.greenhouse.notes[lang] ? html`<p class="small">${p.greenhouse.notes[lang]}</p>` : nothing}
-          <section class="stack"><h3>${this.t("lib.friends")}</h3>
-            ${rel("friend").map(([id, why]) => html`<div class="rel"><span class="chip ok">${name(id)}</span><span class="muted">${why}</span></div>`)}</section>
-          <section class="stack"><h3>${this.t("lib.enemies")}</h3>
-            ${rel("enemy").length ? rel("enemy").map(([id, why]) => html`<div class="rel"><span class="chip bad">${name(id)}</span><span class="muted">${why}</span></div>`) : html`<p class="small muted">${this.t("common.none")}</p>`}</section>
-          <section class="stack"><h3>${this.t("lib.pests")} & ${this.t("lib.diseases")}</h3>
-            <div class="row wrap">${p.pests.map((x) => html`<span class="chip warn">${tagLabel(x, this.lang)}</span>`)}${p.diseases.map((x) => html`<span class="chip bad">${tagLabel(x, this.lang)}</span>`)}</div></section>
-          ${p.care.length || p.pruning_notes[lang] ? html`<section class="stack"><h3>${this.t("lib.care")}</h3>
-            ${p.care.map((c) => html`<p class="small"><b>${this.t(`type.${c.task}`)}</b>${c.interval_days ? ` · ↻ ${c.interval_days} d` : ""} – ${c.notes[lang] ?? c.notes.en ?? ""}</p>`)}
-            ${p.pruning_notes[lang] ? html`<p class="small">${p.pruning_notes[lang]}</p>` : nothing}</section>` : nothing}
-          ${this.admin ? html`<div class="row">
-            <button class="btn" @click=${() => (this.editing = { plant: structuredClone(p), mode: p.source === "custom" ? "custom" : "override" })}>
-              <ha-icon icon="mdi:pencil"></ha-icon>${this.t("lib.customize")}</button>
-            ${p.source !== "builtin" ? html`<button class="btn danger" @click=${() => this.removePlant(p)}>${p.source === "override" ? this.t("lib.reset") : this.t("common.delete")}</button>` : nothing}
-          </div>` : nothing}
-        </div>
-      </aside>`;
+      <hl-modal heading=${plantName(p, this.lang)} accent=${familyColor(this.families, p.family)} nav ?has-prev=${i > 0} ?has-next=${i >= 0 && i < list.length - 1}
+        closeLabel=${this.t("common.close")} prevLabel=${this.t("common.previous")} nextLabel=${this.t("common.next")}
+        @prev=${() => (this.selected = list[i - 1])} @next=${() => (this.selected = list[i + 1])}
+        @closed=${() => (this.selected = null)} @select-plant=${(e: CustomEvent<Plant>) => this.showPlant(e.detail)}>
+        <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${this.families[p.family]?.[this.lang as "en" | "nl"] ?? p.family}</span>
+        <hl-plant-detail .plant=${p} .plants=${this.plants} .families=${this.families} .snapshot=${this.snapshot} .t=${this.t} lang=${this.lang}></hl-plant-detail>
+        ${this.admin ? html`<div slot="actions" class="row">
+          <button class="btn" @click=${() => (this.editing = { plant: structuredClone(p), mode: p.source === "custom" ? "custom" : "override" })}>
+            <ha-icon icon="mdi:pencil"></ha-icon>${this.t("lib.customize")}</button>
+          ${p.source !== "builtin" ? html`<button class="btn danger" @click=${() => this.removePlant(p)}>${p.source === "override" ? this.t("lib.reset") : this.t("common.delete")}</button>` : nothing}
+        </div>` : nothing}
+      </hl-modal>`;
+  }
+
+  private showPlant(plant: Plant): void {
+    this.selected = plant;
+    void this.updateComplete.then(() => this.renderRoot.querySelector("hl-modal")?.toTop());
   }
 
   private async removePlant(p: Plant): Promise<void> {

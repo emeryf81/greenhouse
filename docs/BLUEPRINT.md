@@ -714,6 +714,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
     entry.async_on_unload(coordinator.async_add_post_compute_hook(notifier.async_process))
     entry.async_on_unload(coordinator.async_add_listener(climate.async_apply))
     entry.async_on_unload(irrigation.async_stop_on_unload)
+    irrigation.notifier = notifier
+    entry.async_on_unload(async_track_time_interval(hass, irrigation.async_watch, timedelta(minutes=1)))
 
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -1443,6 +1445,8 @@ private onPalettePointerUp(ev: PointerEvent): void {
   doc.plantings.push(planting);
   this.selection = { kind: "planting", id: planting.id };
   this.commit(doc, this.t("planner.placed", { plant: plantName(drag.plant, this.lang), bed: bed.name }), [bed.id]);
+  this.dropWarning = null;
+  void this.checkDrop(planting);
 }
 ```
 
@@ -1651,13 +1655,15 @@ private onKeyDown(ev: KeyboardEvent): void {
 ### 5.6 Plant library – sowing calendar for *your* frost dates
 
 ```ts
-private renderCalendar(plant: Plant): TemplateResult {
-  const start = this.seasonStart();
+export function renderPlantCalendar(plant: Plant, snapshot: Snapshot, lang: string, t: Translate): TemplateResult {
+  const anchors = snapshot.analysis?.anchors ?? { last_frost: `${new Date().getFullYear()}-04-20`, first_frost: `${new Date().getFullYear()}-10-25` };
+  const lf = anchors.last_frost;
+  const start = snapshot.settings.region.hemisphere === "south" ? `${lf.slice(0, 4)}-07-01` : `${lf.slice(0, 4)}-01-01`;
   const pos = (iso: string) => Math.max(0, Math.min(100, (daysBetween(start, iso) / 365) * 100));
   const bars: TemplateResult[] = [];
   const add = (wins: Window[], top: number, color: string) => {
     for (const w of wins) {
-      const [a, b] = windowDates(w, this.anchors);
+      const [a, b] = windowDates(w, anchors);
       bars.push(html`<div class="b" style=${`left:${pos(a)}%;width:${Math.max(pos(b) - pos(a), 1)}%;top:${top}px;background:${color}`}></div>`);
     }
   };
@@ -1666,13 +1672,13 @@ private renderCalendar(plant: Plant): TemplateResult {
   add(plant.sowing.transplant, 14, "var(--hl-leaf-700)");
   const ground = [...plant.sowing.direct_sow, ...plant.sowing.transplant][0];
   if (ground && plant.harvestable) {
-    const [a, b] = windowDates(ground, this.anchors);
+    const [a, b] = windowDates(ground, anchors);
     const offset = plant.maturity_from === "transplant" && !plant.sowing.transplant.length ? plant.germination_days[1] + 14 : 0;
     bars.push(html`<div class="b" style=${`left:${pos(addDays(a, plant.days_to_maturity[0] + offset))}%;width:${Math.max(
       pos(addDays(b, plant.days_to_maturity[1] + offset + plant.harvest_duration_days)) - pos(addDays(a, plant.days_to_maturity[0] + offset)), 1)}%;top:20px;background:var(--hl-sun-500)`}></div>`);
   }
-  const months = Array.from({ length: 12 }, (_, i) => formatDate(addDays(start, Math.round(i * 30.5 + 10)), this.lang, { month: "narrow" }));
-  return html`<div class="cal" role="img" aria-label=${this.t("lib.calendar")}>${months.map((m) => html`<div class="m">${m}</div>`)}${bars}</div>`;
+  const months = Array.from({ length: 12 }, (_, i) => formatDate(addDays(start, Math.round(i * 30.5 + 10)), lang, { month: "narrow" }));
+  return html`<div class="cal" role="img" aria-label=${t("lib.calendar")}>${months.map((m) => html`<div class="m">${m}</div>`)}${bars}</div>`;
 }
 ```
 

@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from custom_components.garden_manager.engine import diagnose, handbook, seasons  # noqa: E402
+from custom_components.garden_manager.engine import diagnose, handbook, planning, seasons  # noqa: E402
 from custom_components.garden_manager.engine.advisor import advise, harvest_coverage  # noqa: E402
 from custom_components.garden_manager.engine.analysis import analyze  # noqa: E402
 from custom_components.garden_manager.engine.autoplan import AutoplanOptions, autoplan  # noqa: E402
@@ -62,7 +62,7 @@ from custom_components.garden_manager.engine.records import (  # noqa: E402
     year_overview,
 )
 from custom_components.garden_manager.engine.region import season_anchors  # noqa: E402
-from custom_components.garden_manager.engine.schedule import planting_timeline  # noqa: E402
+from custom_components.garden_manager.engine.schedule import season_timeline  # noqa: E402
 from custom_components.garden_manager.engine.serde import to_dict  # noqa: E402
 from custom_components.garden_manager.engine.supplies import catalog, shopping_list  # noqa: E402
 from custom_components.garden_manager.engine.tasks import generate_specs, merge_tasks  # noqa: E402
@@ -326,7 +326,16 @@ def build(lang: str) -> dict:
         bed = data.bed(p.bed_id)
         zone = data.zone(bed.zone_id) if bed else None
         tl = (
-            planting_timeline(p, plant, season_anchors(data.settings.region, p.season), zone, NOW.date()).to_dict()
+            season_timeline(
+                p,
+                plant,
+                NOW.year,
+                lambda y: season_anchors(data.settings.region, y),
+                zone,
+                NOW.date(),
+                date(NOW.year, 1, 1),
+                date(NOW.year, 12, 31),
+            ).to_dict()
             if plant
             else None
         )
@@ -339,7 +348,42 @@ def build(lang: str) -> dict:
             }
         )
     issues = diagnose.check_garden(data, db, today=NOW.date(), current_season=NOW.year, lang=lang)
+    snapshot["diagnosis"] = diagnose.summary(issues)
+    here = diagnose.plan_view(data, season=NOW.year)
+    other = diagnose.plan_view(data, season=NOW.year - 1) or here
+    plan_tl = {
+        p.id: season_timeline(
+            p, db.get(p.plant_id), NOW.year, lambda y: season_anchors(data.settings.region, y),
+            data.zone(data.bed(p.bed_id).zone_id) if data.bed(p.bed_id) else None, NOW.date(),
+            date(NOW.year, 1, 1), date(NOW.year, 12, 31),
+        )
+        for p in data.plantings
+        if db.get(p.plant_id) and seasons.present_in(p, False, NOW.year)
+    }  # fmt: skip
     extras = {
+        "report": planning.season_report(data, db, NOW.year, today=NOW.date()),
+        "planning": {
+            "season": NOW.year,
+            "seeds": [n.to_dict() for n in planning.seed_needs(data, db, NOW.year)],
+            "successions": [
+                b.to_dict()
+                for b in planning.successions(
+                    data,
+                    db,
+                    NOW.year,
+                    plan_tl,
+                    today=NOW.date(),
+                    first_frost=season_anchors(data.settings.region, NOW.year).first_frost,
+                    lang=lang,
+                )
+            ],
+            "harvest": planning.harvest_forecast(data, db, NOW.year, plan_tl),
+        },
+        "compare": diagnose.compare_plans(other, here, db, lang),
+        "still_possible": {
+            "season": NOW.year,
+            "plants": diagnose.still_possible(data, db, NOW.year, today=NOW.date()),
+        },
         "crop_rows": crop_rows,
         "analysis": {
             "season": NOW.year,

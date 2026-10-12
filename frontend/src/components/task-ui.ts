@@ -8,6 +8,7 @@ import { shared } from "../styles/tokens";
 import type { Bed, FamilyInfo, Plant, Priority, Snapshot, Task, TaskType } from "../types";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import "./info";
+import "./date-input";
 import { TASK_COLORS, TASK_ICONS, addDays, familyColor, formatDate } from "../util/garden";
 
 export interface TaskCtx {
@@ -224,7 +225,7 @@ export class TaskDialog extends LitElement {
       <div class="body">
         <div class="form-grid">
           <label class="field full">${this.t("task.title")}<input name="title" required autofocus /></label>
-          <label class="field">${this.t("task.due")}<input name="due" type="date" .value=${this.today} /></label>
+          <label class="field">${this.t("task.due")}<hl-date-input name="due" .value=${this.today} lang=${this.lang} pickLabel=${this.t("crops.pick_date")}></hl-date-input></label>
           <label class="field">${this.t("task.type")}<select name="type">${types.map((ty) => html`<option value=${ty}>${this.t(`type.${ty}`)}</option>`)}</select></label>
           <label class="field">${this.t("task.priority")}<select name="priority">${(["low", "normal", "high", "urgent"] as Priority[]).map((p) => html`<option value=${p} ?selected=${p === "normal"}>${this.t(`priority.${p}`)}</option>`)}</select></label>
           <label class="field">${this.t("task.duration")}<input name="minutes" type="number" min="1" value="15" /></label>
@@ -347,8 +348,8 @@ export class TaskDialog extends LitElement {
             <button class="btn small" ?disabled=${this.busy} @click=${() => postpone(1)}>${this.t("task.postpone_1")}</button>
             <button class="btn small" ?disabled=${this.busy} @click=${() => postpone(3)}>${this.t("task.postpone_3")}</button>
             <button class="btn small" ?disabled=${this.busy} @click=${() => postpone(7)}>${this.t("task.postpone_7")}</button>
-            <input type="date" style="width:auto" aria-label=${this.t("task.postpone_to")} .min=${addDays(this.today, 1)}
-              @change=${(e: Event) => postpone(undefined, (e.target as HTMLInputElement).value)} />
+            <hl-date-input label=${this.t("task.postpone_to")} min=${addDays(this.today, 1)} lang=${this.lang} pickLabel=${this.t("crops.pick_date")}
+              @date-change=${(e: CustomEvent<string | null>) => e.detail && postpone(undefined, e.detail)}></hl-date-input>
           </div>` : nothing}
         ${this.error ? html`<p class="field-error" role="alert">${this.error}</p>` : nothing}
       </div>

@@ -33,6 +33,20 @@
     connection: {
       async sendMessagePromise(msg) {
         window.__calls.push(msg);
+        if (msg.type === "history/history_during_period") {
+          // a believable soil-moisture curve: dries out, jumps after watering
+          const out = {};
+          const start = new Date(msg.start_time).getTime(), end = new Date(msg.end_time).getTime();
+          for (const id of msg.entity_ids) {
+            const pts = []; let v = 38;
+            for (let t = start; t < end; t += 3 * 3600_000) {
+              v -= 0.6; if (v < 22) v = 41;
+              pts.push({ s: id.includes("rain") ? String(Math.max(0, Math.round(Math.sin(t / 9e7) * 6))) : v.toFixed(1), lu: t / 1000 });
+            }
+            out[id] = pts;
+          }
+          return out;
+        }
         const type = msg.type.split("/").slice(1).join("/");
         if (type === "plants") return data.plants;
         if (type === "plan/check") {
@@ -49,6 +63,15 @@
           return { planting: row && row.planting, row, revision: data.snapshot.revision };
         }
         if (type === "analysis") return (data.extras || {}).analysis;
+        if (type === "analysis/fix") return { revision: data.snapshot.revision };
+        if (type === "analysis/still_possible") return (data.extras || {}).still_possible;
+        if (type === "report/season") return { ...(data.extras || {}).report, season: msg.season };
+        if (type === "planning") return (data.extras || {}).planning;
+        if (type === "plan/compare") return (data.extras || {}).compare;
+        if (type === "plantings/update_many") return { updated: msg.planting_ids.length, revision: data.snapshot.revision };
+        if (type === "irrigation/test") return { entity_id: msg.entity_id, seconds: msg.seconds, before: "off", ok: true, opened: true, open_state: "open", closed: true, closed_state: "closed", pump: null };
+        if (type === "irrigation/close") return { state: "closed" };
+        if (type === "syslog/list") return { entries: [], more: false, total: 0 };
         if (type === "analysis/explain") return { ...(data.extras || {}).explain, plant_id: msg.plant_id };
         if (type === "year/preview") return (data.extras || {}).year_preview;
         if (type === "year/apply") return { season: msg.from_season + 1, carried: msg.planting_ids, skipped: [], activated: msg.activate, revision: data.snapshot.revision };

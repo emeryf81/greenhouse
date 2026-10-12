@@ -165,3 +165,46 @@ In het tabblad **Analyse**:
 ## Kan ik de datums van mijn gewassen aanpassen zonder te slepen?
 
 Ja, in het tabblad **Teelten** staan alle gewassen van een seizoen op één lijst (per bed, per gewas of op datum). Daar pas je methode, status, aantal, geplande en echte zaai-, uitplant-, oogst- en einddatums en notities rechtstreeks aan. Een lege geplande datum rekent Hortulus zelf uit (grijs eronder). Klik op een plant voor alle details.
+
+## Waarom past een plant niet waar ik hem zet?
+
+Klik in de planner op het gewas en kies **Waarom (niet) hier?**: je ziet per reden waarom dat bed niet goed is (te laat, verkeerd zonetype, niet onder glas, vorst vóór de oogst, vruchtwisseling, slechte buur, geen plaats) en in welke bedden hij wel past. Sleep je een plant naar een bed waar hij niet hoort, dan verschijnt die uitleg meteen boven de kaart. Klik je op een bed, dan zie je ook welke plantenfamilies er de laatste vijf jaar stonden.
+
+## Kan ik meerdere teelten tegelijk aanpassen?
+
+Ja. Vink in **Teelten** de gewassen aan; bovenaan verschijnt een balk waarmee je voor allemaal tegelijk de status en/of een datum (bv. *Gezaaid op* = vandaag) zet. Dat komt als één regel in het systeemlogboek en kan je in één keer terugdraaien. Met 🗺 **Toon op kaart** spring je naar dat gewas in de planner; in de plannerpopup brengt **In Teelten** je terug.
+
+## Kan Hortulus problemen zelf oplossen?
+
+Voor een aantal meldingen in **Analyse → Controle** staat een knop: een ontbrekend tuinplan kopiëren, gewassen die niet op het plan of buiten hun bed staan terugzetten, een bed in zijn zone schuiven, of een vergeten vaste plant overzetten naar dit jaar. Elke oplossing staat in het systeemlogboek en kan je terugdraaien. Het getal op het tabblad **Analyse** toont hoeveel problemen er nu zijn; het wordt na elke wijziging opnieuw berekend. Met **Diagnose exporteren** krijg je één bestand (controle, fouten, laatste logboek) om mee te sturen als je een probleem meldt.
+
+## Kan ik twee plannen vergelijken?
+
+Ja, in **Analyse → Vergelijken** of in **Tuinplan → Plannen** (knop *Vergelijk* bij een niet-actief plan). Je ziet welke zones, bedden, elementen en gewassen toegevoegd, verdwenen of veranderd zijn.
+
+## Mijn pomp is een slimme kraan (valve), kan dat?
+
+Ja. Bij **Instellingen → Bewateringshardware** kan je als pomp en als bedkraan ook `valve.*`- en `input_boolean.*`-entiteiten kiezen. Hortulus opent en sluit een `valve` met `valve.open_valve` / `valve.close_valve`, in dezelfde veilige volgorde (kraan open → pomp aan … pomp uit → kraan dicht).
+
+
+## Hoe test ik mijn kraan of pomp?
+
+In **Instellingen → Bewateringshardware** staat naast elke bedkraan **Test (5 s)**. Hortulus opent de kraan 5 seconden (met de pomp erbij, in de veilige volgorde; de pomp test je zo mee, nooit alleen), sluit hem weer en zegt of de kraan meldde dat hij open en dicht ging. Sla de instellingen eerst op: alleen gekoppelde kranen worden getest. Na elke beregeningsbeurt controleert Hortulus ook of de kraan dicht meldt. Staat een kraan of de pomp veel langer open dan een beurt kan duren (maximale looptijd + 10 minuten) terwijl Hortulus niet beregent, dan krijg je een melding en een rode balk op **Vandaag** met **Kraan sluiten**.
+
+Let op bij slimme kranen met een eigen timer (zoals een kraan met *Watering Duration*): de kraan sluit zelf na zijn eigen duur. Zet die duur langer dan de maximale looptijd in Hortulus, anders stopt de kraan vroeger dan gepland.
+
+## Kan ik zien of het water geven helpt?
+
+Ja: **Logboek → Water → Bewatering per bed** toont per bed het bodemvocht (uit de geschiedenis van Home Assistant), het water dat Hortulus gaf en de regen (regensensor), over 7, 14 of 30 dagen. Dezelfde grafiek staat in de plannerpopup van een bed.
+
+## Wat moet ik deze week zaaien, en welke zaden moet ik kopen?
+
+In **Teelten** staan naast de lijst vier weergaven: **Zaaiplan** (per week wat je binnen of buiten zaait, uitplant en begint te oogsten; **Gedaan** vult de echte datum in), **Zaden** (hoeveel zaad het plan nodig heeft tegenover je zaadvoorraad), **Opvolgteelt** (welke bedden dit seizoen vrijkomen en wat daar daarna nog past) en **Oogstverwachting** (kg per week; met je eigen oogsten wordt die nauwkeuriger). Op een gsm toont de lijst één kaartje per gewas.
+
+## Kan ik snel een notitie of foto bij een gewas zetten?
+
+Ja, in de popup van een gewas of bed (planner of Teelten) onder **Notitie of foto**. Op een gsm opent de knop *Foto* meteen de camera. De notitie komt in het dagboek bij dat gewas; de laatste notities staan eronder.
+
+## Krijg ik een overzicht van het seizoen?
+
+**Logboek → Seizoensrapport** (en in de **Jaarovergang**) toont per gewas wat je plantte en oogstte tegenover wat verwacht werd, wat mislukte, de problemen uit het dagboek en hoeveel water er gegeven werd. Je kan het downloaden als Markdown.

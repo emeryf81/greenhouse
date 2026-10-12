@@ -44,6 +44,35 @@ jobs:
       - name: Committed bundle matches sources
         run: git diff --exit-code -- ../custom_components/garden_manager/frontend/hortulus-panel.js ../custom_components/garden_manager/frontend/hortulus-card.js
 
+  ui:
+    name: Frontend - click through the panel (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+      - run: pip install -r requirements_test.txt
+      - name: Demo data from the real engine
+        run: |
+          python frontend/dev/make_snapshot.py nl
+          python frontend/dev/make_snapshot.py en
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: npm run test:ui
+        working-directory: frontend
+
   hassfest:
     name: hassfest
     runs-on: ubuntu-latest

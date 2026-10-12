@@ -3,6 +3,50 @@
 ## Unreleased
 
 ### Added
+- **Valve test** (*Settings*, next to every bed valve): opens it for 5 s with the pump in the
+  safe order (the pump only after the valve reports open, never on its own) and checks it
+  reports open and closed again. Websocket `irrigation/test`.
+- **Valve left open**: after every run Hortulus checks the valve reports closed; a valve or
+  the pump open far longer than any run (max runtime + 10 min) while Hortulus is not
+  watering is reported – system log, notification, and a red banner on the dashboard with
+  *Close valve* (`irrigation/close`).
+- **Watering per bed** (*Journal → Water*, planner bed popup): soil moisture from Home
+  Assistant's history, water given from Hortulus' log and rain from the rain sensor, for
+  7, 14 or 30 days.
+- **Crops tab: sowing plan, seeds, succession, harvest forecast** – what to sow, plant out
+  and harvest week by week (*Done* fills in today's date); seeds the plan needs against the
+  seed stock; beds that free up this season and what can follow there; expected kg per
+  week. New engine module `planning`, websocket `planning`.
+- **Crops on a phone**: one card per crop with the next date to fill in.
+- **Quick note with photo** in the planner and crops popups (camera on a phone); the last
+  notes about that crop or bed are shown below it.
+- **Season report** (*Journal → Season report*, and in the year-end transition): crops,
+  harvest against expectation, failures, problems from the journal, water; download as
+  Markdown. Websocket `report/season`.
+- **Why (not) here?** in the planner popup: per crop, why its bed does or does not suit it
+  and which beds would; right after dropping a crop where it does not belong a warning
+  says why.
+- **Links between planner and crops list**: *Show on map* from the crops list (and from
+  the analysis) opens the planner with that crop selected; *In Crops* from the planner
+  highlights its row.
+- **Crops list: several at once** – tick crops and set a status or a date for all of them
+  (one system-log entry). Websocket `plantings/update_many`.
+- **One popup everywhere** (`hl-modal`): same header, close button, backdrop click and
+  Escape; previous/next with the arrow keys in the plant library and crops list. A plant's
+  details open from the dashboard, calendar, advice, journal, planner and crops list, and
+  show where it grows in your garden.
+- **Compare plans** (*Analysis → Compare*, and *Garden plan → Plans → Compare*): zones,
+  beds, elements and crops added, removed or changed between two plans. Websocket
+  `plan/compare`.
+- **Crop rotation strip** per bed in the planner: plant families of the last five years.
+- **End of season banner** in the planner: what can still be sown or planted, with a
+  jump to next year's plan. Websocket `analysis/still_possible`.
+- **Analysis badge** on the tab with the number of problems, re-checked on every change
+  (snapshot `diagnosis`); **one-click repairs** (copy a missing plan, put crops back on
+  the plan or into their bed, move a bed into its zone, carry a forgotten perennial),
+  logged and undoable – websocket `analysis/fix`; **export the diagnosis** as one JSON
+  file to attach to a bug report.
+- **Click-through UI test** in CI (Playwright, `npm run test:ui`).
 - **Start over with a new plan** (*Garden plan → Plans*): from scratch, with the same zones
   but empty, or with zones and beds but no crops. The current plan becomes **inactive** and is
   kept with its beds and crops; activate it again later (swapping places with the active one)
@@ -58,6 +102,14 @@
   small round thumbnails always use the illustration.
 
 ### Changed
+- Date fields in the harvest form, new task and postpone-to-date also read day-month-year.
+- *What can still go in* is sorted alphabetically in your language.
+- Dates read day-month-year in the panel's language (13-04-2026) whatever the browser's
+  locale; the calendar button still opens the browser's date picker.
+- The pump (and bed valve) picker also lists `valve.*` and `input_boolean.*` entities, e.g.
+  a smart garden tap.
+- **Plants**: a plant's details open in a popup instead of a side panel; good and bad
+  neighbours show their icon and open that plant when clicked.
 - **Planner**: larger map at a fixed height; clicking a bed, crop or element opens its details
   in a popup instead of a side column.
 - **Autofill** says per plant why it was not placed (too late, zone type, glass, frost,
@@ -69,6 +121,8 @@
 - Printouts use the garden plan of the chosen season.
 
 ### Fixed
+- Crops list and planning re-anchor perennials carried into a year on that year (an apple
+  tree planted in 2022 no longer shows as overdue for planting out).
 - Autofill could hardly assign anything for another season: it proposed on today's beds, and
   applying refused beds of next year's plan as "unknown bed".
 - Beds in orchards, herb, flower and the new garden zones now use the outdoor sensors (only

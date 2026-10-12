@@ -8,8 +8,11 @@ import { shared } from "../styles/tokens";
 import type { FamilyInfo, JournalEntry, Plant, Planting, RecordsOverview, SeedPacket, Snapshot, SyslogEntry, SyslogSummary } from "../types";
 import { familyColor, formatDate, plantName, presentIn } from "../util/garden";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
+import "../components/date-input";
+import "../components/water-chart";
+import "../components/season-report";
 
-type Section = "diary" | "harvest" | "seeds" | "water" | "system";
+type Section = "diary" | "harvest" | "seeds" | "water" | "report" | "system";
 const SYSLOG_PAGE = 50;
 const SYSLOG_SHOWN_LINES = 6;
 const OP_ICON: Record<string, string> = { add: "mdi:plus-circle-outline", remove: "mdi:minus-circle-outline", change: "mdi:pencil-outline" };
@@ -32,6 +35,8 @@ export class JournalView extends LitElement {
   /** Show only the system log (used by the Analysis tab). */
   @property({ type: Boolean }) systemOnly = false;
 
+  @state() private waterBed = "";
+  @state() private waterDays = 14;
   @state() private overview: RecordsOverview | null = null;
   @state() private filter = "";
   @state() private draftPhotos: string[] = [];
@@ -43,6 +48,7 @@ export class JournalView extends LitElement {
   static styles = [
     shared,
     css`
+      .plant-icon { border: 0; background: none; padding: 0; cursor: pointer; display: inline-grid; vertical-align: middle; }
       :host { display: block; }
       .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--hl-s3); }
       .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--hl-s4); align-items: start; }
@@ -153,7 +159,8 @@ export class JournalView extends LitElement {
 
   private icon(id: string | null | undefined, size = 24): TemplateResult {
     const p = this.plant(id);
-    return p ? glyphIcon(glyphFor(p), p.color || familyColor(this.families, p.family), size) : html``;
+    return p ? html`<button class="plant-icon" title=${this.t("lib.open_plant")} aria-label=${plantName(p, this.lang)}
+      @click=${() => this.dispatchEvent(new CustomEvent("open-plant", { detail: p.id, bubbles: true, composed: true }))}>${glyphIcon(glyphFor(p), p.color || familyColor(this.families, p.family), size)}</button>` : html``;
   }
 
   private get season(): number {
@@ -171,14 +178,18 @@ export class JournalView extends LitElement {
 
   render(): TemplateResult {
     if (this.systemOnly) return this.renderSystem();
-    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["system", "mdi:history"]];
+    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["report", "mdi:file-chart-outline"], ["system", "mdi:history"]];
     return html`
       <div class="tabs" role="tablist">
         ${sections.map(([id, icon]) => html`<button class="chip" role="tab" aria-selected=${String(this.section === id)} aria-pressed=${String(this.section === id)}
           @click=${() => this.openSection(id)}><ha-icon icon=${icon}></ha-icon>${this.t(`journal.${id}`)}</button>`)}
       </div>
       ${this.section === "diary" ? this.renderDiary() : this.section === "harvest" ? this.renderHarvest() : this.section === "seeds" ? this.renderSeeds()
-        : this.section === "water" ? this.renderWater() : this.renderSystem()}
+        : this.section === "water" ? this.renderWater()
+        : this.section === "report" ? html`<section class="card stack"><h2><ha-icon icon="mdi:file-chart-outline"></ha-icon> ${this.t("journal.report")}</h2>
+            <hl-season-report .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang}
+              .plants=${new Map(this.plants.map((x) => [x.id, x]))} .families=${this.families}></hl-season-report></section>`
+        : this.renderSystem()}
     `;
   }
 
@@ -306,7 +317,7 @@ export class JournalView extends LitElement {
           <div class="form-grid">
             <label class="field">${this.t("journal.kg")}<input name="kg" type="number" min="0" step="0.05" inputmode="decimal" /></label>
             <label class="field">${this.t("journal.count")}<input name="count" type="number" min="0" step="1" inputmode="numeric" /></label>
-            <label class="field">${this.t("journal.day")}<input name="day" type="date" .value=${this.snapshot.analysis?.today ?? ""} /></label>
+            <label class="field">${this.t("journal.day")}<hl-date-input name="day" .value=${this.snapshot.analysis?.today ?? ""} lang=${this.lang} pickLabel=${this.t("crops.pick_date")}></hl-date-input></label>
             <div class="field">${this.t("journal.quality")}<span class="stars" role="group">${[1, 2, 3, 4, 5].map((n) => html`<button type="button" aria-label=${String(n)}
               aria-pressed=${String(this.quality >= n)} @click=${() => (this.quality = this.quality === n ? 0 : n)}>★</button>`)}</span></div>
             <label class="field full">${this.t("task.notes")}<input name="note" /></label>
@@ -406,6 +417,24 @@ export class JournalView extends LitElement {
       ${w?.per_day.length ? html`<h3>${this.t("journal.per_day")}</h3><div class="days" role="img" aria-label=${this.t("journal.per_day")}>
         ${w.per_day.map((d) => html`<div title=${`${d.day}: ${d.liters} L`} style=${`height:${(d.liters / max) * 100}%`}></div>`)}</div>` : nothing}
       <p class="xs muted">${this.t("journal.water_hint")}</p>
+    </section>
+    ${this.renderBedWater()}`;
+  }
+
+  /** Per bed: moisture, water given and rain over the last two weeks. */
+  private renderBedWater(): TemplateResult | typeof nothing {
+    const beds = this.snapshot.beds.filter((b) => b.irrigation_entity || b.sensors?.soil_moisture);
+    if (!beds.length) return nothing;
+    const bed = beds.find((b) => b.id === this.waterBed) ?? beds[0];
+    return html`<section class="card stack" aria-labelledby="wb-h">
+      <h2 id="wb-h"><ha-icon icon="mdi:chart-bell-curve"></ha-icon> ${this.t("water.per_bed")}</h2>
+      <div class="row wrap">
+        <select style="width:auto" aria-label=${this.t("task.bed")} @change=${(e: Event) => (this.waterBed = (e.target as HTMLSelectElement).value)}>
+          ${beds.map((b) => html`<option value=${b.id} ?selected=${b.id === bed.id}>${b.name}</option>`)}</select>
+        ${[7, 14, 30].map((n) => html`<button class="chip" aria-pressed=${String(this.waterDays === n)} @click=${() => (this.waterDays = n)}>${this.t("water.days", { n })}</button>`)}
+      </div>
+      <hl-water-chart .bed=${bed} .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} days=${this.waterDays}></hl-water-chart>
+      <p class="xs muted">${this.t("water.chart_hint")}</p>
     </section>`;
   }
 

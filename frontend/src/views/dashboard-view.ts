@@ -52,7 +52,7 @@ export class DashboardView extends LitElement {
       .gauge .target { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--hl-leaf-500) 30%, transparent); }
       .gauge .value { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--hl-text); border-radius: 2px; }
       .avatars { display: flex; flex-wrap: wrap; gap: 4px; }
-      .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
+      .avatar { border: 0; cursor: pointer; padding: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
       .days { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--hl-s2); }
       .day { text-align: center; padding: var(--hl-s2); border-radius: var(--hl-r-md); background: var(--hl-surface-2); }
       .day .temp { font-size: var(--hl-fs-lg); font-weight: 600; }
@@ -75,6 +75,19 @@ export class DashboardView extends LitElement {
       onPostpone: (task: Task, days: number) => this.emit("postpone-task", { task, days }),
       plantOf: taskPlantResolver(this.snapshot, this.plants, this.families),
     };
+  }
+
+  /** A valve or the pump stayed open: say so, with a button to close it. */
+  private renderStuck(): TemplateResult | typeof nothing {
+    const stuck = this.snapshot.irrigation_status?.stuck ?? [];
+    if (!stuck.length) return nothing;
+    return html`<section class="alerts" aria-label=${this.t("valve.stuck_title")}>${stuck.map((v) => html`<div class="alert critical" role="alert">
+      <ha-icon icon="mdi:valve-open"></ha-icon>
+      <div><b>${this.t("valve.stuck", { what: v.what === "pump" ? this.t("valve.pump") : v.what, entity: v.entity_id })}</b>
+        <div class="small">${this.t("valve.stuck_since", { time: new Date(v.since).toLocaleTimeString(this.lang === "nl" ? "nl-NL" : "en-GB", { hour: "2-digit", minute: "2-digit" }) })}</div></div>
+      <span class="spacer"></span>
+      ${this.admin ? html`<button class="btn small danger" @click=${() => this.emit("close-valve", v.entity_id)}>${this.t("valve.close")}</button>` : nothing}
+    </div>`)}</section>`;
   }
 
   private greeting(): string {
@@ -102,6 +115,7 @@ export class DashboardView extends LitElement {
         <span class="chip"><ha-icon icon="mdi:thermometer-plus"></ha-icon>${Math.round(a.gdd.season_total)} GDD</span>
       </section>
 
+      ${this.renderStuck()}
       ${a.alerts.length ? html`<section class="alerts" aria-label="Alerts">
         ${a.alerts.map((al) => html`<div class="alert ${al.kind === "frost" ? "frost" : al.severity}" role=${al.severity === "critical" ? "alert" : "status"}>
           <ha-icon icon=${ALERT_ICON[al.kind] ?? "mdi:information-outline"}></ha-icon>
@@ -220,7 +234,8 @@ export class DashboardView extends LitElement {
             const plant = this.plants.get(p!.plant_id);
             const name = plantName(plant, this.lang);
             const color = plant?.color || familyColor(this.families, plant?.family);
-            return html`<span class="avatar" title=${name} style=${`background:${tileColor(color)}`}>${plant ? glyphIcon(glyphFor(plant), color, 22) : name.slice(0, 2)}</span>`;
+            return html`<button class="avatar" title=${name} style=${`background:${tileColor(color)}`}
+              @click=${() => plant && this.emit("open-plant", plant.id)}>${plant ? glyphIcon(glyphFor(plant), color, 22) : name.slice(0, 2)}</button>`;
           })}
         </div>
       </article>`;

@@ -212,3 +212,46 @@ In the **Analysis** tab:
 ## Can I change my crops' dates without dragging?
 
 Yes, the **Crops** tab lists every crop of a season (by bed, by crop or by date). Change method, status, count, planned and actual sowing, planting-out, harvest and end dates and notes right there. Leave a planned date empty and Hortulus computes it (in grey below). Click a plant for all details.
+
+## Why does a plant not fit where I put it?
+
+Click the crop in the planner and choose **Why (not) here?**: you see each reason the bed does not suit it (too late, wrong zone type, not under glass, frost before harvest, crop rotation, bad neighbour, no room) and which beds would. Drop a plant on a bed where it does not belong and that explanation appears above the map right away. Click a bed to see which plant families grew there over the last five years.
+
+## Can I change several crops at once?
+
+Yes. Tick the crops in **Crops**; a bar appears to set the status and/or a date (e.g. *Sown on* = today) for all of them. That is one entry in the system log and can be undone in one go. 🗺 **Show on map** jumps to the crop in the planner; **In Crops** in the planner popup takes you back.
+
+## Can Hortulus fix problems itself?
+
+Several findings in **Analysis → Check** have a button: copy a missing garden plan, put crops that are off the plan or outside their bed back, move a bed into its zone, or carry a forgotten perennial into this year. Every fix is in the system log and can be undone. The number on the **Analysis** tab shows how many problems there are right now; it is recomputed after every change. **Export diagnosis** gives one file (check, errors, recent log) to attach when you report a problem.
+
+## Can I compare two plans?
+
+Yes, in **Analysis → Compare** or in **Garden plan → Plans** (*Compare* next to an inactive plan). You see which zones, beds, elements and crops were added, removed or changed.
+
+## My pump is a smart tap (valve) - does that work?
+
+Yes. In **Settings → Irrigation hardware** the pump and bed valve pickers also list `valve.*` and `input_boolean.*` entities. Hortulus opens and closes a `valve` with `valve.open_valve` / `valve.close_valve`, in the same safe order (valve open → pump on … pump off → valve closed).
+
+
+## How do I test my valve or pump?
+
+In **Settings → Irrigation hardware** every bed valve has **Test (5 s)**. Hortulus opens the valve for 5 seconds (with the pump, in the safe order; the pump is tested this way, never on its own), closes it again and tells you whether the valve reported open and closed. Save the settings first: only linked valves are tested. After every watering run Hortulus also checks the valve reports closed. A valve or the pump open far longer than any run can last (max runtime + 10 minutes) while Hortulus is not watering triggers a notification and a red banner on **Today** with **Close valve**.
+
+Smart taps with their own timer (such as a *Watering Duration* setting) close by themselves after that time. Set it longer than Hortulus' max runtime, or the tap stops earlier than planned.
+
+## Can I see whether watering helps?
+
+Yes: **Journal → Water → Watering per bed** shows soil moisture (from Home Assistant's history), the water Hortulus gave and the rain (rain sensor) per bed over 7, 14 or 30 days. The same chart is in a bed's planner popup.
+
+## What should I sow this week, and which seeds do I need?
+
+**Crops** has four views next to the list: **Sowing plan** (week by week what to sow indoors or outdoors, plant out and start harvesting; **Done** fills in the real date), **Seeds** (seed the plan needs against your stock), **Succession** (beds that free up this season and what still fits there) and **Harvest forecast** (kg per week; it gets more accurate with your own harvests). On a phone the list shows one card per crop.
+
+## Can I quickly add a note or photo to a crop?
+
+Yes, in a crop's or bed's popup (planner or Crops) under **Note or photo**. On a phone *Photo* opens the camera. The note goes into the journal with that crop; the latest notes are shown below.
+
+## Is there a season overview?
+
+**Journal → Season report** (and the **year-end transition**) shows per crop what you planted and harvested against the expectation, what failed, problems from the journal and the water given. Download it as Markdown.

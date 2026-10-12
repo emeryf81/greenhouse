@@ -586,3 +586,222 @@ async def test_crops_list_and_date_edits_without_the_planner(hass: HomeAssistant
 
     await client.send_json_auto_id({"type": f"{DOMAIN}/planting/update", "planting_id": "nope", "changes": {}})
     assert not (await _result(client))["success"]
+
+
+async def test_bulk_update_fix_compare_and_still_possible(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    ids = [p.id for p in repo.data.plantings[:2]]
+    log_before = len(repo.syslog)
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plantings/update_many", "planting_ids": ids, "changes": {"notes": "samen"}}
+    )
+    res = await _result(client)
+    assert res["success"] and res["result"]["updated"] == 2
+    assert all(p.notes == "samen" for p in repo.data.plantings if p.id in ids)
+    assert len(repo.syslog) == log_before + 1  # one entry, one undo
+
+    seasons_before = {p.id: p.season for p in repo.data.plantings if p.id in ids}
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plantings/update_many", "planting_ids": ids, "changes": {"season": 1999, "notes": "x"}}
+    )
+    assert (await _result(client))["success"]
+    assert {p.id: p.season for p in repo.data.plantings if p.id in ids} == seasons_before  # never moves a crop's year
+
+    season = repo.data.layout_season
+    await client.send_json_auto_id({"type": f"{DOMAIN}/plan/compare", "a": {"season": season}, "b": {"season": season}})
+    assert (await _result(client))["result"]["identical"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/plan/compare", "a": {"plan_id": "x"}, "b": {"season": season}})
+    assert not (await _result(client))["success"]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/analysis/still_possible", "season": season})
+    assert "plants" in (await _result(client))["result"]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/analysis/fix", "code": "zone_without_beds"})
+    assert not (await _result(client))["success"]
+    from custom_components.garden_manager.websocket_api import build_snapshot
+
+    assert set(build_snapshot(entry.runtime_data)["diagnosis"]) == {"error", "warning", "info"}
+
+    # the cached garden check follows a region change made in place, and is dropped on unload
+    from custom_components.garden_manager import websocket_api as ws
+
+    runtime = entry.runtime_data
+    key = ws._DIAGNOSIS_CACHE[id(runtime)][0]
+    runtime.repo.data.settings.region.last_frost = "05-15"
+    build_snapshot(runtime)
+    assert ws._DIAGNOSIS_CACHE[id(runtime)][0] != key
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert id(runtime) not in ws._DIAGNOSIS_CACHE
+
+
+def test_a_valve_can_drive_the_pump_or_a_bed() -> None:
+    """A tap behind a ``valve`` entity (e.g. valve.tuinkraan_watervalve_one) works as pump or bed valve."""
+    assert controllers._on_service("valve.tuinkraan_watervalve_one", True) == ("valve", "open_valve")
+    assert controllers._on_service("valve.tuinkraan_watervalve_one", False) == ("valve", "close_valve")
+    assert controllers._on_service("input_boolean.pomp", True) == ("input_boolean", "turn_on")
+
+
+async def test_valve_test_reports_open_and_closed_with_the_pump_in_order(
+    hass: HomeAssistant, garden, hass_ws_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    repo.data.settings.irrigation.pump_entity = "switch.pump"
+    order: list[tuple[str, bool]] = []
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        order.append((entity_id, on))
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    valve = next(b.irrigation_entity for b in repo.data.beds if b.irrigation_entity)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/test", "entity_id": valve, "seconds": 1})
+    res = await _result(client)
+    assert res["success"], res
+    assert res["result"]["ok"] and res["result"]["opened"] and res["result"]["closed"]
+    assert order == [(valve, True), ("switch.pump", True), ("switch.pump", False), (valve, False)]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/test", "entity_id": "switch.kettle"})
+    assert not (await _result(client))["success"]  # only valves Hortulus drives
+
+
+async def test_a_valve_that_does_not_respond_or_stays_open_is_reported(
+    hass: HomeAssistant, garden, hass_ws_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    from custom_components.garden_manager.websocket_api import build_snapshot
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    monkeypatch.setattr(controllers, "STATE_TIMEOUT_S", 0.5)
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+
+    async def dead_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        return None
+
+    monkeypatch.setattr(controllers, "_switch", dead_switch)
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    hass.states.async_set(valve, "off")
+    result = await runtime.irrigation.async_test(valve, seconds=1, with_pump=False)
+    assert not result["ok"] and result["opened"] is False
+    assert any(
+        e.get("source") == "error" and e["summary"][0]["key"] == "valve_did_not_open" for e in runtime.repo.syslog
+    )
+
+    # left open by hand / stuck: reported once it is open far longer than any run
+    hass.states.async_set(valve, "open")
+    now = dt_util.now()
+    runtime.irrigation.async_watch(now)
+    assert not runtime.irrigation.stuck
+    runtime.irrigation.async_watch(now + timedelta(minutes=runtime.repo.data.settings.irrigation.max_runtime_min + 11))
+    assert valve in runtime.irrigation.stuck
+    assert build_snapshot(runtime)["irrigation_status"]["stuck"][0]["entity_id"] == valve
+
+    async def working_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(controllers, "_switch", working_switch)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/close", "entity_id": valve})
+    res = await _result(client)
+    assert res["success"] and res["result"]["state"] == "off"
+    assert not runtime.irrigation.stuck
+
+
+async def test_planning_overview(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    client = await hass_ws_client(hass)
+    season = entry.runtime_data.repo.data.layout_season
+    await client.send_json_auto_id({"type": f"{DOMAIN}/planning", "season": season})
+    res = await _result(client)
+    assert res["success"], res
+    assert {"seeds", "successions", "harvest"} <= set(res["result"])
+    assert all(w["kg"] >= 0 for w in res["result"]["harvest"]["weeks"])
+
+
+async def test_valve_test_never_runs_the_pump_against_a_closed_valve(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    runtime.repo.data.settings.irrigation.pump_entity = "switch.pump"
+    monkeypatch.setattr(controllers, "STATE_TIMEOUT_S", 0.5)
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    order: list[tuple[str, bool]] = []
+
+    async def stuck_closed(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        order.append((entity_id, on))
+        if entity_id == "switch.pump":
+            hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(controllers, "_switch", stuck_closed)
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    hass.states.async_set(valve, "off")
+    result = await runtime.irrigation.async_test(valve, seconds=1)
+    assert not result["ok"] and ("switch.pump", True) not in order and order[-1] == (valve, False)
+
+    # a stuck valve that stops reporting is not taken for closed
+    hass.states.async_set(valve, "open")
+    now = dt_util.now()
+    runtime.irrigation.async_watch(now)
+    runtime.irrigation.async_watch(now + timedelta(minutes=runtime.repo.data.settings.irrigation.max_runtime_min + 11))
+    assert valve in runtime.irrigation.stuck
+    hass.states.async_set(valve, "unavailable")
+    runtime.irrigation.async_watch(now + timedelta(minutes=60))
+    assert valve in runtime.irrigation.stuck
+    hass.states.async_set(valve, "closing")
+    assert await runtime.irrigation.async_close(valve) == "closing" and valve in runtime.irrigation.stuck
+
+
+async def test_pump_is_never_tested_alone_and_close_stops_a_run(
+    hass: HomeAssistant, garden, hass_ws_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    runtime.repo.data.settings.irrigation.pump_entity = "switch.pump"
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/test", "entity_id": "switch.pump"})
+    assert not (await _result(client))["success"]
+    with pytest.raises(Exception, match="bed valve"):
+        await runtime.irrigation.async_test("switch.pump")
+
+    stopped: list[bool] = []
+
+    async def fake_stop() -> None:
+        stopped.append(True)
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(runtime.irrigation, "async_stop", fake_stop)
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(type(runtime.irrigation), "running", property(lambda self: not stopped))
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    assert await runtime.irrigation.async_close(valve) == "off" and stopped == [True]

@@ -560,6 +560,8 @@ export interface Snapshot {
   plantings: Planting[];
   tasks: Task[];
   features?: Feature[];
+  /** Families grown per bed and season before Hortulus knew the plantings (crop rotation). */
+  rotation_history?: { bed_id: string; season: number; family: string; plant_id?: string | null; source?: string }[];
   /** Season of the live garden plan (zones/beds/features above). */
   layout_season?: number | null;
   /** Garden plans of other seasons (archived years, next year's draft). */
@@ -568,11 +570,17 @@ export interface Snapshot {
   transition_due?: number | null;
   /** Plans set aside with "start a new plan". */
   archived_plans?: ArchivedPlanSummary[];
+  /** Number of problems the garden check finds right now (badge on the Analysis tab). */
+  diagnosis?: { error: number; warning: number; info: number } | null;
   harvest_log?: HarvestEntry[];
   journal?: JournalEntry[];
   seed_stock?: SeedPacket[];
   irrigation_log?: { bed_id: string; at: ISODateTime; mm: number; liters: number; minutes: number; source: string }[];
-  irrigation_status?: { running: boolean; bed_id: string | null; ends_at: ISODateTime | null; last_error: string | null };
+  irrigation_status?: {
+    running: boolean; bed_id: string | null; ends_at: ISODateTime | null; last_error: string | null;
+    /** Valves or the pump open far longer than any run could last. */
+    stuck?: { entity_id: string; since: ISODateTime; what: string }[];
+  };
   analysis: Analysis | null;
   weather: {
     available: boolean;
@@ -595,7 +603,23 @@ export interface ArchivedPlanSummary {
 /** A machine-readable reason with parameters, explained in the UI (``reason.<code>``). */
 export interface Reason { code: string; params: Record<string, unknown> }
 
-export interface AnalysisIssue { code: string; severity: "error" | "warning" | "info"; params: Record<string, unknown>; refs: Record<string, string[]> }
+export interface AnalysisIssue { code: string; severity: "error" | "warning" | "info"; params: Record<string, unknown>; refs: Record<string, string[]>; fixable?: boolean }
+
+export interface ValveTest {
+  entity_id: string; seconds: number; before: string | null; ok: boolean;
+  opened: boolean | null; open_state: string | null; closed: boolean; closed_state: string | null; pump: string | null;
+}
+
+export interface PlanRef { season?: number | null; plan_id?: string | null }
+
+export interface DiffPart<T = { id: string; name: string }> { added: T[]; removed: T[]; changed: (T & { was?: string; what: string[] })[] }
+
+export interface CropDiff { id: string; plant_id: string; name: string; bed: string; was_bed?: string }
+
+export interface PlanComparison {
+  a: string; b: string; identical: boolean;
+  zones: DiffPart; beds: DiffPart; features: DiffPart; plantings: DiffPart<CropDiff>;
+}
 
 export interface AnalysisResult {
   season: number;

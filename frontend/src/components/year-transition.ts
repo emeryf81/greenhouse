@@ -10,6 +10,7 @@ import type { FamilyInfo, Plant, Snapshot, TransitionPreview } from "../types";
 import { familyColor, plantName } from "../util/garden";
 import { FEATURE_STYLE, ZONE_STYLE } from "../planner/garden-canvas";
 import "./plant-image";
+import "./season-report";
 
 @customElement("hl-year-transition")
 export class YearTransition extends LitElement {
@@ -131,6 +132,9 @@ export class YearTransition extends LitElement {
     return html`<div class="stack">
       <h2>${this.t("year.title", { from, to })}</h2>
       <p class="small">${this.t("year.intro", { from, to })}</p>
+      <details class="report"><summary><ha-icon icon="mdi:file-chart-outline"></ha-icon> ${this.t("report.title", { season: from })}</summary>
+        <hl-season-report .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} season=${from} .pick=${false}
+          .plants=${new Map(this.plants.map((x) => [x.id, x]))} .families=${this.families}></hl-season-report></details>
 
       <section>
         <h3><ha-icon icon="mdi:floor-plan"></ha-icon>${this.t("year.plan")}</h3>

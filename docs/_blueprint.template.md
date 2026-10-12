@@ -395,7 +395,7 @@ Lit 3 + TypeScript, bundled by esbuild into one ES module served from
 ### 5.6 Plant library – sowing calendar for *your* frost dates
 
 ```ts
-{{ts:frontend/src/views/library-view.ts::private renderCalendar::private filtered}}
+{{ts:frontend/src/components/plant-detail.ts::export function renderPlantCalendar::@customElement}}
 ```
 
 ### 5.7 Task calendar – overdue tasks surface on today

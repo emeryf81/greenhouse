@@ -25,7 +25,11 @@ import type {
   Settings,
   Snapshot,
   SyslogPage,
+  AnalysisIssue,
   AnalysisResult,
+  PlanComparison,
+  PlanRef,
+  ValveTest,
   ExplainResult,
   TransitionPreview,
   TransitionResult,
@@ -176,6 +180,31 @@ export class GardenApi {
     return this.call("planting/update", { planting_id: plantingId, changes });
   }
 
+  updatePlantings(plantingIds: string[], changes: Partial<Planting>): Promise<{ updated: number; revision: number }> {
+    return this.call("plantings/update_many", { planting_ids: plantingIds, changes });
+  }
+
+  fixIssue(issue: AnalysisIssue): Promise<Record<string, unknown>> {
+    return this.call("analysis/fix", { code: issue.code, params: issue.params, refs: issue.refs });
+  }
+
+  comparePlans(a: PlanRef, b: PlanRef): Promise<PlanComparison> {
+    return this.call("plan/compare", { a, b });
+  }
+
+  seasonReport(season: number): Promise<unknown> {
+    return this.call("report/season", { season });
+  }
+
+  /** Seeds to buy, what can follow a crop, expected harvest per week. */
+  planning(season: number): Promise<unknown> {
+    return this.call("planning", { season });
+  }
+
+  stillPossible(season: number): Promise<{ season: number; plants: { plant_id: string; beds: string[] }[] }> {
+    return this.call("analysis/still_possible", { season });
+  }
+
   analysis(): Promise<AnalysisResult> {
     return this.call("analysis");
   }
@@ -231,6 +260,29 @@ export class GardenApi {
 
   irrigationStop(): Promise<void> {
     return this.call("irrigation/stop");
+  }
+
+  /** Open a valve for a few seconds and check it reports open and closed. */
+  irrigationTest(entityId: string, seconds = 5, withPump = true): Promise<ValveTest> {
+    return this.call("irrigation/test", { entity_id: entityId, seconds, with_pump: withPump });
+  }
+
+  irrigationClose(entityId: string): Promise<{ state: string | null }> {
+    return this.call("irrigation/close", { entity_id: entityId });
+  }
+
+  /** Home Assistant's recorder: states of a few entities over a period (minimal form). */
+  async history(entityIds: string[], start: Date, end = new Date()): Promise<Record<string, { s: string; lu: number }[]>> {
+    if (!entityIds.length) return {};
+    return this.hass.connection.sendMessagePromise({
+      type: "history/history_during_period",
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      entity_ids: entityIds,
+      minimal_response: true,
+      no_attributes: true,
+      significant_changes_only: false,
+    });
   }
 
   // -- advice, Q&A, supplies ------------------------------------------------ //

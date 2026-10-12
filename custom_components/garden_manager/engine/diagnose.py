@@ -23,14 +23,25 @@ from typing import Any, Literal
 
 from .autoplan import feasibility
 from .compatibility import check_rotation, rotation_history
-from .geometry import Rect, planting_rect
+from .geometry import Rect, clamp_into, planting_rect
 from .models import GardenData, Plant, Planting, Relation, present_in
 from .plantdb import PlantDatabase
 from .region import season_anchors
 from .schedule import planting_timeline
-from .seasons import has_layout, layout_for, pending_transition
+from .seasons import copy_plan, has_layout, layout_for, pending_transition, plan_seasons
 
 Severity = Literal["error", "warning", "info"]
+
+# Issues :func:`fix_issue` can repair in one click.
+FIXABLE = frozenset(
+    {
+        "season_without_plan",
+        "planting_not_on_plan",
+        "planting_outside_bed",
+        "bed_outside_zone",
+        "perennial_not_carried",
+    }
+)
 
 
 @dataclass(slots=True)
@@ -41,7 +52,13 @@ class Issue:
     refs: dict[str, list[str]] = field(default_factory=dict)  # kind -> ids (planting, bed, zone)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"code": self.code, "severity": self.severity, "params": self.params, "refs": self.refs}
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "params": self.params,
+            "refs": self.refs,
+            "fixable": self.code in FIXABLE,
+        }
 
 
 def _name(db: PlantDatabase, plant_id: str, lang: str) -> str:
@@ -235,4 +252,260 @@ def explain_plant(
             reasons.append({"code": "no_space", "params": {"free_m2": round(free, 2), "need_m2": round(need, 2)}})
         out.append(BedVerdict(bed.id, bed.name, zone.name if zone else "", not reasons, reasons, warnings, free))
     out.sort(key=lambda v: (not v.ok, len(v.reasons)))
+    return out
+
+
+def summary(issues: Iterable[Issue]) -> dict[str, int]:
+    """Number of issues per severity (for a badge)."""
+    out = {"error": 0, "warning": 0, "info": 0}
+    for issue in issues:
+        out[issue.severity] += 1
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# One-click repairs
+# --------------------------------------------------------------------------- #
+def _nearest_plan(data: GardenData, season: int) -> int | None:
+    """The plan closest to ``season`` (an earlier year wins a tie)."""
+    others = [s for s in plan_seasons(data) if s != season]
+    return min(others, key=lambda s: (abs(s - season), s > season)) if others else None
+
+
+def fix_issue(
+    data: GardenData,
+    code: str,
+    params: Mapping[str, Any],
+    refs: Mapping[str, list[str]],
+    *,
+    current_season: int,
+) -> dict[str, Any]:
+    """Repair what :func:`check_garden` reported.  Returns what was done.
+
+    Raises ``ValueError`` when the issue cannot be repaired (any more).
+    """
+    season = int(params.get("season", current_season))
+    plantings = {p.id: p for p in data.plantings}
+    ids = [i for i in refs.get("planting", []) if i in plantings]
+
+    if code == "season_without_plan":
+        source = _nearest_plan(data, season)
+        if source is None or not copy_plan(data, source, season):
+            raise ValueError("no plan to copy")
+        return {"copied_from": source, "season": season}
+
+    layout = layout_for(data, season)
+    if layout is None:
+        raise ValueError("season has no plan")
+    beds = {b.id: b for b in layout.beds}
+
+    if code == "planting_not_on_plan":
+        if not layout.beds:
+            raise ValueError("plan has no beds")
+        # a bed that was renamed keeps its name elsewhere: look it up in the other plans
+        names: dict[str, str] = {}
+        for other in plan_seasons(data):
+            other_layout = layout_for(data, other)
+            for bed in other_layout.beds if other_layout else []:
+                names.setdefault(bed.id, bed.name)
+        by_name = {b.name.casefold(): b for b in layout.beds}
+        moved = []
+        for pid in ids:
+            planting = plantings[pid]
+            if planting.bed_id in beds:
+                continue
+            target = by_name.get(names.get(planting.bed_id, "").casefold()) or layout.beds[0]
+            planting.bed_id = target.id
+            _clamp_planting(planting, target)
+            moved.append({"planting": pid, "bed": target.name})
+        if not moved:
+            raise ValueError("nothing to move")
+        return {"moved": moved}
+
+    if code == "planting_outside_bed":
+        done = []
+        for pid in ids:
+            planting = plantings[pid]
+            bed = beds.get(planting.bed_id)
+            if bed is not None:
+                _clamp_planting(planting, bed)
+                done.append(pid)
+        if not done:
+            raise ValueError("nothing to move")
+        return {"moved": done}
+
+    if code == "bed_outside_zone":
+        zones = {z.id: z for z in layout.zones}
+        done = []
+        for bed_id in refs.get("bed", []):
+            bed = beds.get(bed_id)
+            zone = zones.get(bed.zone_id) if bed else None
+            if bed is None or zone is None:
+                continue
+            r = clamp_into(
+                Rect(bed.x_cm, bed.y_cm, bed.width_cm, bed.length_cm),
+                Rect(zone.x_cm, zone.y_cm, zone.width_cm, zone.length_cm),
+            )
+            bed.x_cm, bed.y_cm, bed.width_cm, bed.length_cm = r.x, r.y, r.w, r.h
+            done.append(bed_id)
+        if not done:
+            raise ValueError("nothing to move")
+        return {"moved": done}
+
+    if code == "perennial_not_carried":
+        carried = []
+        for pid in ids:
+            planting = plantings[pid]
+            if (
+                planting.bed_id in beds
+                and planting.removed_season is None
+                and planting.finished_on is None
+                and not present_in(planting, True, season)
+            ):
+                planting.last_season = season
+                carried.append(pid)
+        if not carried:
+            raise ValueError("nothing to carry over")
+        return {"carried": carried, "season": season}
+
+    raise ValueError(f"cannot fix {code}")
+
+
+def _clamp_planting(planting: Planting, bed: Any) -> None:
+    r = clamp_into(
+        Rect(planting.x_cm, planting.y_cm, planting.width_cm, planting.length_cm),
+        Rect(0, 0, bed.width_cm, bed.length_cm),
+    )
+    planting.x_cm, planting.y_cm, planting.width_cm, planting.length_cm = r.x, r.y, r.w, r.h
+
+
+# --------------------------------------------------------------------------- #
+# Compare two plans
+# --------------------------------------------------------------------------- #
+@dataclass(slots=True)
+class PlanView:
+    label: str
+    zones: list[Any]
+    beds: list[Any]
+    features: list[Any]
+    plantings: list[Planting]
+
+
+def plan_view(data: GardenData, *, season: int | None = None, plan_id: str | None = None) -> PlanView | None:
+    """A season's plan with its crops, or a plan that was set aside."""
+    if plan_id:
+        plan = next((p for p in data.archived_plans if p.id == plan_id), None)
+        if plan is None:
+            return None
+        return PlanView(plan.name, plan.zones, plan.beds, plan.features, list(plan.plantings))
+    if season is None:
+        return None
+    layout = layout_for(data, season)
+    if layout is None:
+        return None
+    crops = [p for p in data.plantings if present_in(p, False, season)]
+    return PlanView(str(season), layout.zones, layout.beds, layout.features, crops)
+
+
+def _moved(a: Any, b: Any) -> bool:
+    return any(abs(getattr(a, k, 0) - getattr(b, k, 0)) > 1 for k in ("x_cm", "y_cm", "width_cm", "length_cm"))
+
+
+def compare_plans(a: PlanView, b: PlanView, db: PlantDatabase, lang: str = "en") -> dict[str, Any]:
+    """What changed from plan ``a`` to plan ``b``: zones, beds, elements and crops."""
+
+    def items(kind: str, left: list[Any], right: list[Any]) -> dict[str, list[dict[str, Any]]]:
+        la, rb = {i.id: i for i in left}, {i.id: i for i in right}
+        out: dict[str, list[dict[str, Any]]] = {"added": [], "removed": [], "changed": []}
+        for i in right:
+            if i.id not in la:
+                out["added"].append({"id": i.id, "name": i.name})
+        for i in left:
+            if i.id not in rb:
+                out["removed"].append({"id": i.id, "name": i.name})
+            else:
+                other = rb[i.id]
+                what = []
+                if _moved(i, other):
+                    what.append("moved")
+                if i.name != other.name:
+                    what.append("renamed")
+                if kind == "beds" and i.zone_id != other.zone_id:
+                    what.append("zone")
+                if kind in ("zones", "features") and getattr(i, "type", None) != getattr(other, "type", None):
+                    what.append("type")
+                if what:
+                    out["changed"].append({"id": i.id, "name": other.name, "was": i.name, "what": what})
+        return out
+
+    bed_names = {b.id: b.name for b in [*a.beds, *b.beds]}
+
+    def crop(p: Planting) -> dict[str, Any]:
+        return {
+            "id": p.id,
+            "plant_id": p.plant_id,
+            "name": _name(db, p.plant_id, lang),
+            "bed": bed_names.get(p.bed_id, p.bed_id),
+        }
+
+    pa, pb = {p.id: p for p in a.plantings}, {p.id: p for p in b.plantings}
+    crops: dict[str, list[dict[str, Any]]] = {"added": [], "removed": [], "changed": []}
+    for p in b.plantings:
+        if p.id not in pa:
+            crops["added"].append(crop(p))
+    for p in a.plantings:
+        other = pb.get(p.id)
+        if other is None:
+            crops["removed"].append(crop(p))
+            continue
+        what = []
+        if p.bed_id != other.bed_id:
+            what.append("bed")
+        elif _moved(p, other):
+            what.append("moved")
+        if p.status != other.status:
+            what.append("status")
+        if what:
+            crops["changed"].append({**crop(other), "was_bed": bed_names.get(p.bed_id, p.bed_id), "what": what})
+    # the same plant in the same bed under a new id is no real change
+    added_keys = {(c["plant_id"], c["bed"]) for c in crops["added"]}
+    removed_keys = {(c["plant_id"], c["bed"]) for c in crops["removed"]}
+    same = added_keys & removed_keys
+    crops["added"] = [c for c in crops["added"] if (c["plant_id"], c["bed"]) not in same]
+    crops["removed"] = [c for c in crops["removed"] if (c["plant_id"], c["bed"]) not in same]
+
+    result = {
+        "a": a.label,
+        "b": b.label,
+        "zones": items("zones", a.zones, b.zones),
+        "beds": items("beds", a.beds, b.beds),
+        "features": items("features", a.features, b.features),
+        "plantings": crops,
+    }
+    result["identical"] = all(
+        not v for part in ("zones", "beds", "features", "plantings") for v in result[part].values()
+    )
+    return result
+
+
+# --------------------------------------------------------------------------- #
+# What can still go in this season?
+# --------------------------------------------------------------------------- #
+def still_possible(
+    data: GardenData, db: PlantDatabase, season: int, *, today: date, limit: int = 200, lang: str = "en"
+) -> list[dict[str, Any]]:
+    """Plants that still fit into at least one bed of ``season``'s plan, with those beds."""
+    layout = layout_for(data, season)
+    if layout is None:
+        return []
+    zones = {z.id: z for z in layout.zones}
+    out = []
+    for plant in sorted(db.all(), key=lambda p: p.name(lang).casefold()):
+        if plant.perennial:
+            continue
+        beds = [b.id for b in layout.beds if not feasibility(plant, b, zones.get(b.zone_id), data, season, today, True)]
+        if beds:
+            out.append({"plant_id": plant.id, "beds": beds})
+        if len(out) >= limit:
+            break
     return out
