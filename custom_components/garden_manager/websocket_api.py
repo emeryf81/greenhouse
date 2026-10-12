@@ -1419,5 +1419,7 @@ def ws_still_possible(hass: HomeAssistant, connection: websocket_api.ActiveConne
     runtime = _require_runtime(hass, connection, msg)
     if runtime is not None:
         today = dt_util.now().date()
-        rows = diagnose.still_possible(runtime.repo.data, runtime.repo.db, msg["season"], today=today)
+        rows = diagnose.still_possible(
+            runtime.repo.data, runtime.repo.db, msg["season"], today=today, lang=runtime.coordinator.lang
+        )
         connection.send_result(msg["id"], {"season": msg["season"], "plants": rows})

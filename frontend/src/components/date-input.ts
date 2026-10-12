@@ -7,6 +7,12 @@ import { displayDate, parseDate } from "../util/dates";
 
 @customElement("hl-date-input")
 export class DateInput extends LitElement {
+  /** Takes part in a <form> like an <input name=...> (form.elements, FormData). */
+  static formAssociated = true;
+  private internals?: ElementInternals;
+  @property({ reflect: true }) name = "";
+  /** Earliest allowed date (ISO), for the picker and typed input. */
+  @property() min = "";
   /** ISO date (``YYYY-MM-DD``) or empty. */
   @property() value = "";
   @property() lang = "en";
@@ -29,7 +35,26 @@ export class DateInput extends LitElement {
     input[type="date"] { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; pointer-events: none; }
   `;
 
+  constructor() {
+    super();
+    try {
+      this.internals = this.attachInternals();
+    } catch {
+      /* very old browser: works without forms */
+    }
+  }
+
+  protected updated(changed: Map<string, unknown>): void {
+    if (changed.has("value")) this.internals?.setFormValue(this.value || "");
+  }
+
   private emit(value: string | null): void {
+    if (value && this.min && value < this.min) {
+      this.invalid = true;
+      return;
+    }
+    this.invalid = false;
+    this.value = value ?? "";
     this.dispatchEvent(new CustomEvent("date-change", { detail: value, bubbles: true, composed: true }));
   }
 
@@ -57,7 +82,7 @@ export class DateInput extends LitElement {
     return html`<input class="text ${this.invalid ? "invalid" : ""}" .value=${displayDate(this.value, this.lang)} placeholder=${placeholder}
         aria-label=${this.label} aria-invalid=${String(this.invalid)} ?disabled=${this.disabled} inputmode="numeric" @change=${this.onText} />
       ${this.disabled ? nothing : html`<button type="button" aria-label=${this.pickLabel} title=${this.pickLabel} @click=${this.openPicker}>📅</button>`}
-      <input type="date" tabindex="-1" aria-hidden="true" @change=${(e: Event) => this.emit((e.target as HTMLInputElement).value || null)} />`;
+      <input type="date" tabindex="-1" aria-hidden="true" .min=${this.min} @change=${(e: Event) => this.emit((e.target as HTMLInputElement).value || null)} />`;
   }
 }
 

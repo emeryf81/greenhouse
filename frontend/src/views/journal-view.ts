@@ -8,6 +8,7 @@ import { shared } from "../styles/tokens";
 import type { FamilyInfo, JournalEntry, Plant, Planting, RecordsOverview, SeedPacket, Snapshot, SyslogEntry, SyslogSummary } from "../types";
 import { familyColor, formatDate, plantName, presentIn } from "../util/garden";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
+import "../components/date-input";
 
 type Section = "diary" | "harvest" | "seeds" | "water" | "system";
 const SYSLOG_PAGE = 50;
@@ -308,7 +309,7 @@ export class JournalView extends LitElement {
           <div class="form-grid">
             <label class="field">${this.t("journal.kg")}<input name="kg" type="number" min="0" step="0.05" inputmode="decimal" /></label>
             <label class="field">${this.t("journal.count")}<input name="count" type="number" min="0" step="1" inputmode="numeric" /></label>
-            <label class="field">${this.t("journal.day")}<input name="day" type="date" .value=${this.snapshot.analysis?.today ?? ""} /></label>
+            <label class="field">${this.t("journal.day")}<hl-date-input name="day" .value=${this.snapshot.analysis?.today ?? ""} lang=${this.lang} pickLabel=${this.t("crops.pick_date")}></hl-date-input></label>
             <div class="field">${this.t("journal.quality")}<span class="stars" role="group">${[1, 2, 3, 4, 5].map((n) => html`<button type="button" aria-label=${String(n)}
               aria-pressed=${String(this.quality >= n)} @click=${() => (this.quality = this.quality === n ? 0 : n)}>★</button>`)}</span></div>
             <label class="field full">${this.t("task.notes")}<input name="note" /></label>

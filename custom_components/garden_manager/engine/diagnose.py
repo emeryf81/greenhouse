@@ -487,7 +487,7 @@ def compare_plans(a: PlanView, b: PlanView, db: PlantDatabase, lang: str = "en")
 # What can still go in this season?
 # --------------------------------------------------------------------------- #
 def still_possible(
-    data: GardenData, db: PlantDatabase, season: int, *, today: date, limit: int = 200
+    data: GardenData, db: PlantDatabase, season: int, *, today: date, limit: int = 200, lang: str = "en"
 ) -> list[dict[str, Any]]:
     """Plants that still fit into at least one bed of ``season``'s plan, with those beds."""
     layout = layout_for(data, season)
@@ -495,7 +495,7 @@ def still_possible(
         return []
     zones = {z.id: z for z in layout.zones}
     out = []
-    for plant in sorted(db.all(), key=lambda p: p.id):
+    for plant in sorted(db.all(), key=lambda p: p.name(lang).casefold()):
         if plant.perennial:
             continue
         beds = [b.id for b in layout.beds if not feasibility(plant, b, zones.get(b.zone_id), data, season, today, True)]

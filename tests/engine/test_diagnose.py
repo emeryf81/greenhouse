@@ -209,3 +209,6 @@ def test_still_possible_in_october_is_short(garden, db):
     late = {r["plant_id"] for r in diagnose.still_possible(garden, db, 2026, today=TODAY)}
     spring = {r["plant_id"] for r in diagnose.still_possible(garden, db, 2026, today=date(2026, 3, 1))}
     assert len(late) < len(spring) and "tomato" not in late
+    rows = diagnose.still_possible(garden, db, 2026, today=date(2026, 3, 1), lang="nl")
+    names = [db.get(r["plant_id"]).name("nl").casefold() for r in rows]
+    assert names == sorted(names)

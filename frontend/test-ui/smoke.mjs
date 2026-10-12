@@ -122,6 +122,16 @@ await step("plant popup from the dashboard", async () => {
   await page.locator("hortulus-panel hl-plant-detail").waitFor();
 });
 
+await step("journal: date field works inside a form", async () => {
+  await open("journal");
+  await page.locator("hl-journal-view button[role=tab]", { hasText: "Oogst" }).click();
+  const value = await page.locator("hl-journal-view hl-date-input[name=day]").first().evaluate((el) => {
+    const form = el.closest("form");
+    return form ? form.elements.namedItem("day").value : "no form";
+  });
+  assert.match(value, /^\d{4}-\d{2}-\d{2}$/);
+});
+
 await browser.close();
 server.close();
 for (const r of results) console.log(r.join("  "));
