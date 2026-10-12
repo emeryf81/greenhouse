@@ -23,7 +23,17 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal
 
-from .models import Feature, GardenBed, GardenData, GardenLayout, Planting, PlantingStatus, Zone, present_in
+from .models import (
+    ArchivedPlan,
+    Feature,
+    GardenBed,
+    GardenData,
+    GardenLayout,
+    Planting,
+    PlantingStatus,
+    Zone,
+    present_in,
+)
 from .plantdb import PlantDatabase
 from .schedule import DateWindow
 
@@ -42,6 +52,27 @@ def layout_for(data: GardenData, season: int) -> GardenLayout | None:
 
 def has_layout(data: GardenData, season: int) -> bool:
     return data.layout_season is None or season == data.layout_season or str(season) in data.layouts
+
+
+def plan_seasons(data: GardenData) -> list[int]:
+    """Seasons that have a saved garden plan."""
+    out = {int(k) for k in data.layouts if str(k).lstrip("-").isdigit()}
+    if data.layout_season is not None:
+        out.add(data.layout_season)
+    return sorted(out)
+
+
+def copy_plan(data: GardenData, source: int, target: int, *, now: datetime | None = None) -> bool:
+    """Give ``target`` a copy of ``source``'s plan (same ids) when it has none yet."""
+    if has_layout(data, target):
+        return False
+    layout = layout_for(data, source)
+    if layout is None:
+        return False
+    store_layout(
+        data, target, copy.deepcopy(layout.zones), copy.deepcopy(layout.beds), copy.deepcopy(layout.features), now=now
+    )
+    return True
 
 
 def store_layout(
@@ -71,6 +102,8 @@ def all_bed_ids(data: GardenData) -> set[str]:
     ids = {b.id for b in data.beds}
     for layout in data.layouts.values():
         ids |= {b.id for b in layout.beds}
+    for plan in data.archived_plans:
+        ids |= {b.id for b in plan.beds}
     return ids
 
 
@@ -268,3 +301,91 @@ def apply(
 
 def planting_bed_ok(planting: Planting, data: GardenData) -> bool:
     return planting.bed_id in all_bed_ids(data)
+
+
+# --------------------------------------------------------------------------- #
+# Start a new plan / set a plan aside
+# --------------------------------------------------------------------------- #
+NewPlanStart = Literal["empty", "zones", "zones_beds"]
+
+
+def _set_aside(data: GardenData, season: int, name: str, plan_id: str, now: datetime | None) -> ArchivedPlan:
+    """Move ``season``'s plan and its crops into an archived plan.
+
+    Crops of this season leave the plan (kept in the archive); crops carried in
+    from earlier years end the year before, so their history stays intact.
+    """
+    layout = layout_for(data, season) or GardenLayout()
+    beds = {b.id for b in layout.beds}
+    taken: list[Planting] = []
+    keep: list[Planting] = []
+    for p in data.plantings:
+        if p.bed_id in beds and present_in(p, False, season):
+            taken.append(copy.deepcopy(p))
+            if p.season < season:
+                p.last_season = season - 1
+                keep.append(p)
+            continue
+        keep.append(p)
+    data.plantings = keep
+    plan = ArchivedPlan(
+        id=plan_id,
+        name=name,
+        season=season,
+        archived_at=now,
+        zones=copy.deepcopy(layout.zones),
+        beds=copy.deepcopy(layout.beds),
+        features=copy.deepcopy(layout.features),
+        plantings=taken,
+    )
+    data.archived_plans.append(plan)
+    return plan
+
+
+def start_new_plan(
+    data: GardenData,
+    season: int,
+    *,
+    start: NewPlanStart = "empty",
+    old_name: str,
+    plan_id: str,
+    now: datetime | None = None,
+) -> ArchivedPlan:
+    """Set the current plan of ``season`` aside and begin a fresh one.
+
+    ``empty`` starts from scratch; ``zones`` keeps the zones and the garden
+    elements (house, paths ...) but no beds or crops; ``zones_beds`` keeps zones,
+    beds and elements and only clears the crops.
+    """
+    layout = layout_for(data, season) or GardenLayout()
+    zones = copy.deepcopy(layout.zones) if start != "empty" else []
+    beds = copy.deepcopy(layout.beds) if start == "zones_beds" else []
+    features = copy.deepcopy(layout.features) if start != "empty" else []
+    plan = _set_aside(data, season, old_name, plan_id, now)
+    store_layout(data, season, zones, beds, features, now=now)
+    return plan
+
+
+def activate_plan(
+    data: GardenData, plan_id: str, *, old_name: str, new_id: str, now: datetime | None = None
+) -> ArchivedPlan:
+    """Make an archived plan active again; the plan it replaces is set aside."""
+    plan = next((p for p in data.archived_plans if p.id == plan_id), None)
+    if plan is None:
+        raise KeyError(plan_id)
+    replaced = _set_aside(data, plan.season, old_name, new_id, now)
+    data.archived_plans = [p for p in data.archived_plans if p.id != plan_id]
+    store_layout(data, plan.season, plan.zones, plan.beds, plan.features, now=now)
+    by_id = {p.id: i for i, p in enumerate(data.plantings)}
+    for p in plan.plantings:
+        if p.id in by_id:
+            data.plantings[by_id[p.id]] = p
+        else:
+            data.plantings.append(p)
+    return replaced
+
+
+def delete_plan(data: GardenData, plan_id: str) -> bool:
+    before = len(data.archived_plans)
+    data.archived_plans = [p for p in data.archived_plans if p.id != plan_id]
+    return len(data.archived_plans) != before

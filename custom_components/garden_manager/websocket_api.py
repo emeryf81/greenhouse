@@ -19,7 +19,7 @@ from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
 from .const import DOMAIN
-from .engine import handbook, seasons, syslog
+from .engine import diagnose, handbook, seasons, syslog
 from .engine.advisor import advise, harvest_coverage
 from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
@@ -37,16 +37,19 @@ from .engine.succession import expand_succession
 from .engine.supplies import catalog as supplies_catalog, shopping_list
 from .operations import (
     RevisionConflict,
+    op_activate_plan,
     op_add_task,
     op_apply_autoplan,
     op_complete_task,
     op_delete_layout,
+    op_delete_plan,
     op_delete_plant,
     op_delete_record,
     op_delete_soil_test,
     op_delete_task,
     op_import_plan,
     op_log_harvest,
+    op_new_plan,
     op_postpone_task,
     op_save_journal,
     op_save_plan,
@@ -109,6 +112,11 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_layout_delete,
         ws_year_preview,
         ws_year_apply,
+        ws_plan_new,
+        ws_plan_activate,
+        ws_plan_delete,
+        ws_analysis,
+        ws_analysis_explain,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -148,6 +156,19 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
         "features": [to_dict(f) for f in data.features],
         "layout_season": data.layout_season,
         "layouts": {k: to_dict(v) for k, v in data.layouts.items()},
+        "archived_plans": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "season": p.season,
+                "archived_at": p.archived_at.isoformat() if p.archived_at else None,
+                "zones": len(p.zones),
+                "beds": len(p.beds),
+                "features": len(p.features),
+                "plantings": len(p.plantings),
+            }
+            for p in data.archived_plans
+        ],
         "transition_due": seasons.pending_transition(
             data, coordinator.data.season if coordinator.data else data.layout_season or 0
         ),
@@ -310,9 +331,11 @@ def ws_plan_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection
             season=msg.get("season"),
         )
     except RevisionConflict as err:
+        _log_error(hass, msg, "revision_conflict", err)
         connection.send_error(msg["id"], "revision_conflict", str(err))
         return
     except HomeAssistantError as err:
+        _log_error(hass, msg, "invalid_plan", err)
         connection.send_error(msg["id"], "invalid_plan", str(err))
         return
     connection.send_result(msg["id"], {"revision": revision})
@@ -624,6 +647,7 @@ async def ws_autofill(hass: HomeAssistant, connection: websocket_api.ActiveConne
         vol.Optional("base_revision"): vol.Any(int, None),
         vol.Required("plantings"): list,
         vol.Optional("replace_beds", default=[]): [str],
+        vol.Optional("plan_from"): vol.Any(int, None),
     }
 )
 @websocket_api.require_admin
@@ -638,8 +662,10 @@ def ws_autofill_apply(hass: HomeAssistant, connection: websocket_api.ActiveConne
             base_revision=msg.get("base_revision"),
             plantings=msg["plantings"],
             replace_beds=msg["replace_beds"],
+            plan_from=msg.get("plan_from"),
         )
     except RevisionConflict as err:
+        _log_error(hass, msg, "revision_conflict", err)
         connection.send_error(msg["id"], "revision_conflict", str(err))
         return
     except HomeAssistantError as err:
@@ -862,13 +888,29 @@ def ws_records_overview(hass: HomeAssistant, connection: websocket_api.ActiveCon
     )
 
 
+def _log_error(hass: HomeAssistant | None, msg: dict[str, Any], code: str, err: BaseException) -> None:
+    """Keep failed panel actions in the system log for the analysis view."""
+    runtime = _runtime(hass) if hass is not None else None
+    if runtime is None:
+        return
+    context = {
+        k: v for k, v in msg.items() if k not in ("id", "type") and isinstance(v, (str, int, float, bool, type(None)))
+    }
+    runtime.repo.record_error(str(msg.get("type", "")).split("/", 1)[-1], code, str(err) or type(err).__name__, context)
+
+
 def _ws_op(connection: websocket_api.ActiveConnection, msg: dict[str, Any], fn: Any) -> None:
-    """Run an operation and translate validation errors into websocket errors."""
+    """Run an operation and translate validation errors into websocket errors (and log them)."""
+    hass = getattr(connection, "hass", None)
     try:
         result = fn()
     except ServiceValidationError as err:
+        _log_error(hass, msg, err.translation_key or "invalid_format", err)
         connection.send_error(msg["id"], err.translation_key or "invalid_format", str(err))
         return
+    except Exception as err:
+        _log_error(hass, msg, "unexpected", err)
+        raise
     connection.send_result(msg["id"], result)
 
 
@@ -1090,3 +1132,121 @@ def ws_year_apply(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
                 activate=msg["activate"],
             ),
         )
+
+
+# --------------------------------------------------------------------------- #
+# Several plans per season
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/new",
+        vol.Required("season"): int,
+        vol.Optional("start", default="empty"): vol.In(["empty", "zones", "zones_beds"]),
+        vol.Optional("old_name"): vol.Any(str, None),
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_plan_new(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(
+            connection,
+            msg,
+            lambda: op_new_plan(hass, runtime, msg["season"], start=msg["start"], old_name=msg.get("old_name")),
+        )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/activate",
+        vol.Required("plan_id"): str,
+        vol.Optional("old_name"): vol.Any(str, None),
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_plan_activate(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: op_activate_plan(hass, runtime, msg["plan_id"], old_name=msg.get("old_name")))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plan/delete", vol.Required("plan_id"): str})
+@websocket_api.require_admin
+@callback
+def ws_plan_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: op_delete_plan(runtime, msg["plan_id"]) or {})
+
+
+# --------------------------------------------------------------------------- #
+# Analysis
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/analysis"})
+@callback
+def ws_analysis(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Consistency check of the plan plus the most recent errors."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    today = dt_util.now().date()
+    current = season_for_date(data.settings.region, today)
+    issues = diagnose.check_garden(
+        data, runtime.repo.db, today=today, current_season=current, lang=runtime.coordinator.lang
+    )
+    errors = [syslog.public(e) for e in reversed(runtime.repo.syslog) if e.get("source") == "error"][:50]
+    connection.send_result(
+        msg["id"],
+        {
+            "season": current,
+            "layout_season": data.layout_season,
+            "issues": [i.to_dict() for i in issues],
+            "errors": errors,
+            "counts": {
+                "zones": len(data.zones),
+                "beds": len(data.beds),
+                "features": len(data.features),
+                "plantings": len(data.plantings),
+                "plans": len(seasons.plan_seasons(data)),
+                "archived_plans": len(data.archived_plans),
+                "log_entries": len(runtime.repo.syslog),
+            },
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/analysis/explain",
+        vol.Required("plant_id"): str,
+        vol.Optional("season"): vol.Any(int, None),
+        vol.Optional("match_zone", default=True): bool,
+    }
+)
+@callback
+def ws_analysis_explain(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Why can (or can't) a plant go into each bed of a season's plan?"""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    db = runtime.repo.db
+    plant = db.get(msg["plant_id"])
+    if plant is None:
+        connection.send_error(msg["id"], "unknown_plant", msg["plant_id"])
+        return
+    data = runtime.repo.data
+    today = dt_util.now().date()
+    season = msg.get("season") or data.layout_season or season_for_date(data.settings.region, today)
+    verdicts = diagnose.explain_plant(plant, data, db, season, today=today, match_zone=msg["match_zone"])
+    connection.send_result(
+        msg["id"],
+        {
+            "plant_id": plant.id,
+            "season": season,
+            "has_plan": seasons.has_layout(data, season),
+            "beds": [v.to_dict() for v in verdicts],
+        },
+    )

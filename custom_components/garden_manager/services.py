@@ -408,6 +408,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 base_revision=None,
                 plantings=response["plantings"],
                 replace_beds=result.beds if call.data["replace"] else [],
+                plan_from=result.plan_from,
             )
             response["applied"] = True
         return response

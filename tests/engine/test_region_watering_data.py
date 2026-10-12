@@ -147,7 +147,8 @@ def test_migrates_legacy_document():
     assert data.tasks[0].notes[0].text == "done quickly"
     assert doc["layout_season"] is None and doc["layouts"] == {}
     assert doc["plantings"][0]["last_season"] is None
-    assert STORAGE_MINOR_VERSION == 6
+    assert doc["archived_plans"] == []
+    assert STORAGE_MINOR_VERSION == 7
 
 
 def test_future_major_version_is_rejected():

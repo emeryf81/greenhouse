@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date
 from typing import TYPE_CHECKING, Any
+import uuid
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -487,9 +488,11 @@ PLANTING_FIELDS = {
 
 
 def _check_planting(runtime: GardenRuntime, planting: Planting) -> None:
+    """A planting must sit on a bed of its own season's plan (or, without one, of any plan)."""
     repo = runtime.repo
-    bed = repo.data.bed(planting.bed_id)
-    if bed is None:
+    layout = seasons.layout_for(repo.data, planting.season)
+    beds = {b.id for b in layout.beds} if layout is not None else seasons.all_bed_ids(repo.data)
+    if planting.bed_id not in beds:
         raise _err("unknown_bed", bed=planting.bed_id)
     if repo.db.get(planting.plant_id) is None:
         raise _err("unknown_plant", plant=planting.plant_id)
@@ -558,9 +561,18 @@ def op_remove_planting(runtime: GardenRuntime, planting_id: str) -> None:
 
 @callback
 def op_apply_autoplan(
-    runtime: GardenRuntime, *, base_revision: int | None, plantings: list[dict[str, Any]], replace_beds: list[str]
+    runtime: GardenRuntime,
+    *,
+    base_revision: int | None,
+    plantings: list[dict[str, Any]],
+    replace_beds: list[str],
+    plan_from: int | None = None,
 ) -> int:
-    """Store an autofill proposal; ``replace_beds`` drops that season's crops first."""
+    """Store an autofill proposal; ``replace_beds`` drops that season's crops first.
+
+    When the proposal was made on another year's plan (``plan_from``) because
+    its own season had none, that plan is copied into the season first.
+    """
     repo = runtime.repo
     if base_revision is not None and base_revision != repo.data.revision:
         raise RevisionConflict(f"revision {base_revision} != {repo.data.revision}")
@@ -568,10 +580,13 @@ def op_apply_autoplan(
         new = [from_dict(Planting, p) for p in plantings]
     except (TypeError, ValueError, KeyError) as err:
         raise _err("invalid_plan", reason=str(err)) from err
+    if plan_from is not None:
+        for season in {p.season for p in new}:
+            seasons.copy_plan(repo.data, plan_from, season, now=dt_util.now())
     for planting in new:
         _check_planting(runtime, planting)
-    seasons = {p.season for p in new}
-    keep = [p for p in repo.data.plantings if not (p.bed_id in replace_beds and p.season in seasons)]
+    new_seasons = {p.season for p in new}
+    keep = [p for p in repo.data.plantings if not (p.bed_id in replace_beds and p.season in new_seasons)]
     repo.data.plantings = keep + new
     repo.async_changed("plan")
     return repo.data.revision
@@ -772,3 +787,71 @@ def op_undo(hass: HomeAssistant, runtime: GardenRuntime, entry_id: str, *, force
         "undone_by": entry.get("undone_by") if entry else None,
         "revision": repo.data.revision,
     }
+
+
+# --------------------------------------------------------------------------- #
+# Several plans per season: start anew, set aside, reactivate
+# --------------------------------------------------------------------------- #
+def _plan_name(data: Any, season: int, name: str | None) -> str:
+    if name and name.strip():
+        return name.strip()[:80]
+    n = sum(1 for p in data.archived_plans if p.season == season) + 1
+    return f"{season} – {n}"
+
+
+@callback
+def op_new_plan(
+    hass: HomeAssistant,
+    runtime: GardenRuntime,
+    season: int,
+    *,
+    start: str = "empty",
+    old_name: str | None = None,
+) -> dict[str, Any]:
+    """Set the plan of ``season`` aside (restorable) and start a fresh one."""
+    data = runtime.repo.data
+    if start not in ("empty", "zones", "zones_beds"):
+        raise _err("invalid_plan", reason=f"unknown start {start}")
+    before = _live_layout_snapshot(data)
+    plan = seasons.start_new_plan(
+        data,
+        season,
+        start=start,  # type: ignore[arg-type]
+        old_name=_plan_name(data, season, old_name),
+        plan_id=f"plan_{uuid.uuid4().hex[:10]}",
+        now=dt_util.now(),
+    )
+    runtime.repo.async_changed("plan")
+    if season == data.layout_season:
+        _sync_devices(hass, runtime, before)
+    return {"archived": plan.id, "name": plan.name, "plantings": len(plan.plantings), "revision": data.revision}
+
+
+@callback
+def op_activate_plan(
+    hass: HomeAssistant, runtime: GardenRuntime, plan_id: str, *, old_name: str | None = None
+) -> dict[str, Any]:
+    """Make a plan that was set aside active again; the current one is set aside."""
+    data = runtime.repo.data
+    plan = next((p for p in data.archived_plans if p.id == plan_id), None)
+    if plan is None:
+        raise _err("unknown_record", record=plan_id)
+    before = _live_layout_snapshot(data)
+    replaced = seasons.activate_plan(
+        data,
+        plan_id,
+        old_name=_plan_name(data, plan.season, old_name),
+        new_id=f"plan_{uuid.uuid4().hex[:10]}",
+        now=dt_util.now(),
+    )
+    runtime.repo.async_changed("plan")
+    if plan.season == data.layout_season:
+        _sync_devices(hass, runtime, before)
+    return {"season": plan.season, "archived": replaced.id, "revision": data.revision}
+
+
+@callback
+def op_delete_plan(runtime: GardenRuntime, plan_id: str) -> None:
+    if not seasons.delete_plan(runtime.repo.data, plan_id):
+        raise _err("unknown_record", record=plan_id)
+    runtime.repo.async_changed("plan")

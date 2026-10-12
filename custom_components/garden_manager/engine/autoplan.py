@@ -55,6 +55,7 @@ from .plantdb import PlantDatabase
 from .records import learned_yields
 from .region import resolve_profile, season_anchors
 from .schedule import default_method, planting_timeline
+from .seasons import layout_for, plan_seasons
 from .succession import expand_succession
 from .tasks import new_id
 
@@ -147,7 +148,8 @@ class Placement:
 class AutoplanResult:
     plantings: list[Planting] = field(default_factory=list)
     placements: list[Placement] = field(default_factory=list)
-    skipped: list[dict[str, Any]] = field(default_factory=list)  # {plant_id, reason}
+    skipped: list[dict[str, Any]] = field(default_factory=list)  # {plant_id, reason, beds: {bed_id: reasons}}
+    plan_from: int | None = None  # the season's plan did not exist: proposal made on this year's plan
     warnings: list[dict[str, Any]] = field(default_factory=list)  # {key, params}
     beds: list[str] = field(default_factory=list)
     compost_kg: float = 0.0
@@ -172,6 +174,7 @@ class AutoplanResult:
             "plantings": [to_dict(p) for p in self.plantings],
             "placements": [p.to_dict() for p in self.placements],
             "skipped": self.skipped,
+            "plan_from": self.plan_from,
             "warnings": self.warnings,
             "beds": self.beds,
             "summary": {
@@ -305,25 +308,43 @@ def _prefers_glass(plant: Plant) -> bool:
     )
 
 
-def _feasible(
+def feasibility(
     plant: Plant, bed: GardenBed, zone: Zone | None, data: GardenData, season: int, today: date, match_zone: bool = True
-) -> bool:
+) -> list[dict[str, Any]]:
+    """Why ``plant`` cannot go into ``bed`` this season (empty list = it can).
+
+    Each reason is ``{"code": ..., "params": {...}}`` so the UI and the
+    analysis view can explain it in plain words.
+    """
+    reasons: list[dict[str, Any]] = []
     enclosed = bool(zone and zone.is_enclosed)
     if match_zone and zone is not None:
         allowed = ZONE_CATEGORIES.get(zone.type.value)
         if allowed and plant.category.value not in allowed:
-            return False
+            reasons.append({"code": "zone_type", "params": {"zone": zone.name, "zone_type": zone.type.value,
+                                                            "category": plant.category.value, "allowed": list(allowed)}})  # fmt: skip
     if enclosed and plant.greenhouse.suitability is Suitability.NO:
-        return False
+        reasons.append({"code": "not_under_glass", "params": {"zone": zone.name if zone else ""}})
     anchors = season_anchors(data.settings.region, season)
     probe = Planting("probe", plant.id, bed.id, season, method=default_method(plant))
     tl = planting_timeline(probe, plant, anchors, zone, today)
     if tl.late:
-        return False
-    if not enclosed and not anchors.frost_free and plant.frost_tolerance is FrostTolerance.TENDER:
+        window = tl.sow_window or tl.transplant_window
+        reasons.append(
+            {"code": "too_late", "params": {"season": season, "until": window.end.isoformat() if window else None}}
+        )
+    elif not enclosed and not anchors.frost_free and plant.frost_tolerance is FrostTolerance.TENDER:
         # A tender crop must give a harvest before the first autumn frost.
-        return tl.harvest_start <= anchors.first_frost - timedelta(days=14)
-    return True
+        if tl.harvest_start > anchors.first_frost - timedelta(days=14):
+            reasons.append({"code": "frost_before_harvest", "params": {
+                "harvest": tl.harvest_start.isoformat(), "frost": anchors.first_frost.isoformat()}})  # fmt: skip
+    return reasons
+
+
+def _feasible(
+    plant: Plant, bed: GardenBed, zone: Zone | None, data: GardenData, season: int, today: date, match_zone: bool = True
+) -> bool:
+    return not feasibility(plant, bed, zone, data, season, today, match_zone)
 
 
 def _bed_score(
@@ -335,6 +356,7 @@ def _bed_score(
     history: list[Any],
     season: int,
     respect: bool = True,
+    why: list[dict[str, Any]] | None = None,
 ) -> float | None:
     plant = demand.plant
     enclosed = bool(zone and zone.is_enclosed)
@@ -346,12 +368,17 @@ def _bed_score(
     probe = Planting("probe", plant.id, bed.id, season)
     for finding in check_rotation(probe, bed, history, db):
         if finding.severity == "error":
+            if why is not None:
+                why.append({"code": "rotation", "params": {"family": finding.family, "season": finding.conflicting_season,
+                                                           "years": finding.years_required}})  # fmt: skip
             return None
         score -= 20
     for other in placed:
         rel = db.relation(plant.id, other.plant.id)
         if rel.relation is Relation.ENEMY and respect:
             if rel.strength >= 2:
+                if why is not None:
+                    why.append({"code": "bad_neighbour", "params": {"plant_id": other.plant.id}})
                 return None
             score -= 15
         elif rel.relation is Relation.FRIEND:
@@ -488,6 +515,17 @@ def peak_water_l_week(plant: Plant, area_m2: float, enclosed: bool) -> float:
 # --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #
+def main_reason(why_by_bed: dict[str, list[dict[str, Any]]]) -> str:
+    """The reason that blocks a crop in most beds (``no_suitable_bed`` when there are none)."""
+    counts: dict[str, int] = {}
+    for reasons in why_by_bed.values():
+        for code in {r["code"] for r in reasons}:
+            counts[code] = counts.get(code, 0) + 1
+    if not counts:
+        return "no_suitable_bed"
+    return max(counts, key=lambda c: (counts[c], c))
+
+
 def autoplan(
     data: GardenData,
     db: PlantDatabase,
@@ -502,22 +540,33 @@ def autoplan(
     hemisphere = resolve_profile(data.settings.region).hemisphere
     result = AutoplanResult()
 
-    occupied = {
-        p.bed_id
-        for p in data.plantings
-        if p.season == season or ((db.get(p.plant_id) or _NoPlant).perennial and present_in(p, True, season))
-    }
+    # The garden plan of the season being filled (not necessarily today's garden).
+    layout = layout_for(data, season)
+    if layout is None:
+        # No plan for that year yet: propose on the most recent earlier plan;
+        # applying the proposal copies that plan into the year.
+        earlier = sorted(s for s in plan_seasons(data) if s < season)
+        if not earlier:
+            result.warnings.append({"key": "autoplan.no_plan", "params": {"season": season}})
+            return result
+        result.plan_from = earlier[-1]
+        layout = layout_for(data, earlier[-1])
+        result.warnings.append({"key": "autoplan.plan_from", "params": {"season": season, "from": earlier[-1]}})
+    assert layout is not None
+    all_beds = list(layout.beds)
+    zones = {z.id: z for z in layout.zones}
+    occupied = {p.bed_id for p in data.plantings if present_in(p, False, season)}
     if options.bed_ids is not None:
-        beds = [b for b in data.beds if b.id in options.bed_ids]
+        beds = [b for b in all_beds if b.id in options.bed_ids]
         if not options.replace:
             for bed in beds:
                 if bed.id in occupied:
                     result.warnings.append({"key": "autoplan.bed_not_empty", "params": {"bed": bed.name}})
             beds = [b for b in beds if b.id not in occupied]
     elif options.replace:
-        beds = list(data.beds)
+        beds = list(all_beds)
     else:
-        beds = [b for b in data.beds if b.id not in occupied]
+        beds = [b for b in all_beds if b.id not in occupied]
     result.beds = [b.id for b in beds]
     if not beds:
         result.warnings.append({"key": "autoplan.no_beds", "params": {}})
@@ -536,10 +585,14 @@ def autoplan(
     for demand in demands:
         plant = demand.plant
         ranked: list[tuple[float, GardenBed]] = []
+        why_by_bed: dict[str, list[dict[str, Any]]] = {}
         for bed in beds:
-            zone = data.zone(bed.zone_id)
-            if not _feasible(plant, bed, zone, data, season, today, resources.match_zone_type):
+            zone = zones.get(bed.zone_id)
+            reasons = feasibility(plant, bed, zone, data, season, today, resources.match_zone_type)
+            if reasons:
+                why_by_bed[bed.id] = reasons
                 continue
+            why: list[dict[str, Any]] = []
             score = _bed_score(
                 demand,
                 bed,
@@ -549,11 +602,14 @@ def autoplan(
                 history,
                 season,
                 resources.respect_companions,
+                why,
             )
             if score is not None:
                 ranked.append((score, bed))
+            else:
+                why_by_bed[bed.id] = why
         if not ranked:
-            result.skipped.append({"plant_id": plant.id, "reason": "no_suitable_bed"})
+            result.skipped.append({"plant_id": plant.id, "reason": main_reason(why_by_bed), "beds": why_by_bed})
             continue
         ranked.sort(key=lambda r: -r[0])
         placed_in: GardenBed | None = None
@@ -570,7 +626,7 @@ def autoplan(
         if placed_in is None:
             result.skipped.append({"plant_id": plant.id, "reason": "no_space"})
             continue
-        zone = data.zone(placed_in.zone_id)
+        zone = zones.get(placed_in.zone_id)
         enclosed = bool(zone and zone.is_enclosed)
         area_m2 = item.width * item.depth / 10_000
         water = peak_water_l_week(plant, area_m2, enclosed)
@@ -592,7 +648,7 @@ def autoplan(
         if not items:
             continue
         _pack(items, bed, hemisphere)
-        zone = data.zone(bed.zone_id)
+        zone = zones.get(bed.zone_id)
         enclosed = bool(zone and zone.is_enclosed)
         plants_here = [i.demand.plant for i in items]
         fert = bed_fertilizer_plan(bed.area_m2, plants_here, options.lang, bed.latest_soil_test)

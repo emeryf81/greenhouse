@@ -497,3 +497,63 @@ async def test_garden_plan_per_season_and_year_transition(hass: HomeAssistant, g
     # The archived plan of a closed year cannot be deleted while plantings use it; the live one never.
     await client.send_json_auto_id({"type": f"{DOMAIN}/layout/delete", "season": 2027})
     assert not (await _result(client))["success"]
+
+
+async def test_new_plan_analysis_and_autofill_on_next_years_plan(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+
+    # A 2027 plan with a brand-new bed: autofill must be able to place crops there.
+    data = repo.data
+    zones = [to_dict(z) for z in data.zones]
+    beds = [*(to_dict(b) for b in data.beds),
+            {"id": "bed_new", "name": "Nieuw bed", "zone_id": data.beds[0].zone_id, "x_cm": data.beds[0].x_cm,
+             "y_cm": data.beds[0].y_cm + 200, "width_cm": 120, "length_cm": 300}]  # fmt: skip
+    zone = next(z for z in zones if z["id"] == data.beds[0].zone_id)
+    zone["length_cm"] = max(zone["length_cm"], 900)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plan/save", "season": 2027, "base_revision": data.revision, "zones": zones, "beds": beds,
+         "plantings": [to_dict(p) for p in data.plantings], "features": []}
+    )  # fmt: skip
+    assert (await _result(client))["success"]
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/plan/autofill",
+            "season": 2027,
+            "bed_ids": ["bed_new"],
+            "replace": True,
+            "resources": {"hours_per_week": 20},
+        }
+    )
+    proposal = (await _result(client))["result"]
+    assert proposal["plantings"] and {p["bed_id"] for p in proposal["plantings"]} == {"bed_new"}
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plan/autofill/apply", "plantings": proposal["plantings"], "replace_beds": ["bed_new"]}
+    )
+    applied = await _result(client)
+    assert applied["success"], applied  # used to fail with "unknown bed": only today's beds were accepted
+
+    # Why can't a tomato go into this year's beds in late May? (it can - or the reasons say why)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/analysis/explain", "plant_id": "tomato", "season": 2027})
+    explained = (await _result(client))["result"]
+    assert explained["has_plan"] and any(b["bed_id"] == "bed_new" for b in explained["beds"])
+
+    # Start over in 2026 with the same zones; the old plan is kept and can come back.
+    planted = {p.id for p in repo.data.plantings if p.season == 2026}
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plan/new", "season": 2026, "start": "zones", "old_name": "Eerste plan"}
+    )
+    res = (await _result(client))["result"]
+    assert repo.data.beds == [] and repo.data.archived_plans[0].name == "Eerste plan"
+    await client.send_json_auto_id({"type": f"{DOMAIN}/plan/activate", "plan_id": res["archived"]})
+    assert (await _result(client))["success"]
+    assert repo.data.beds and {p.id for p in repo.data.plantings if p.season == 2026} >= planted
+
+    # Refused actions end up in the error log the analysis view shows.
+    await client.send_json_auto_id({"type": f"{DOMAIN}/plan/activate", "plan_id": "nope"})
+    assert not (await _result(client))["success"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/analysis"})
+    analysis = (await _result(client))["result"]
+    assert analysis["errors"] and analysis["errors"][0]["source"] == "error"
+    assert analysis["counts"]["archived_plans"] == 1
