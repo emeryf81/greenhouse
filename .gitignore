@@ -9,3 +9,5 @@ frontend/.cache/
 .DS_Store
 *.log
 .test-dist/
+frontend/dev/data-*.json
+frontend/dev/icons.json

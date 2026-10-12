@@ -651,7 +651,7 @@ var Me=Object.defineProperty;var Pe=Object.getOwnPropertyDescriptor;var p=(o,n,t
         <div class="pane-body stack">
           <input type="search" placeholder=${this.t("common.search")} aria-label=${this.t("common.search")} .value=${this.search}
             @input=${i=>this.search=i.target.value} />
-          <div class="row wrap">
+          <div class="row wrap family-chips">
             <button class="chip" aria-pressed=${String(!this.familyFilter)} @click=${()=>this.familyFilter=""}>${this.t("common.all")}</button>
             ${s.map(i=>h`
               <button class="chip" aria-pressed=${String(this.familyFilter===i)} @click=${()=>this.familyFilter=this.familyFilter===i?"":i}
@@ -672,10 +672,12 @@ var Me=Object.defineProperty;var Pe=Object.getOwnPropertyDescriptor;var p=(o,n,t
                   <span class="meta"><span>${a}</span><span class="xs muted">${i.spacing_cm} cm · ${i.days_to_maturity[0]}–${i.days_to_maturity[1]} d</span></span>
                 </button>`})}
           </div>
+          <div class="legend-block stack" style="gap:8px">
           <div class="divider"></div>
           <h4>${this.t("planner.legend")}</h4>
           <div class="legend">
             ${s.map(i=>h`<span><span class="family-dot" style=${`background:${L(this.families,i)}`}></span>${this.families[i]?.[this.lang]??i}</span>`)}
+          </div>
           </div>
         </div>
       </aside>
@@ -819,7 +821,13 @@ var Me=Object.defineProperty;var Pe=Object.getOwnPropertyDescriptor;var p=(o,n,t
       :host { display: block; height: 100%; }
       .layout { display: grid; grid-template-columns: 260px 1fr 320px; gap: var(--hl-s3); height: calc(100vh - 150px); min-height: 520px; }
       .layout.narrow { grid-template-columns: 1fr; height: auto; }
-      .layout.narrow hl-garden-canvas { height: 60vh; }
+      .layout.narrow hl-garden-canvas { height: 58vh; }
+      /* Mobile: canvas first, palette becomes a horizontal strip, inspector last. */
+      .layout.narrow .center { order: -1; }
+      .layout.narrow .palette-list { flex-direction: row; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+      .layout.narrow .plant-card { min-width: 168px; scroll-snap-align: start; }
+      .layout.narrow .family-chips { flex-wrap: nowrap; overflow-x: auto; }
+      .layout.narrow .legend-block { display: none; }
       .layout.palette-closed { grid-template-columns: 0 1fr 320px; }
       .pane { background: var(--hl-surface); border: 1px solid var(--hl-border); border-radius: var(--hl-r-lg); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
       .pane > header { padding: var(--hl-s3) var(--hl-s4); border-bottom: 1px solid var(--hl-border); display: flex; align-items: center; gap: var(--hl-s2); }
@@ -866,10 +874,11 @@ var Me=Object.defineProperty;var Pe=Object.getOwnPropertyDescriptor;var p=(o,n,t
       <div class="top">
         <input type="search" placeholder=${this.t("lib.search")} aria-label=${this.t("lib.search")} .value=${this.query}
           @input=${e=>this.query=e.target.value} />
-        <select style="width:auto" aria-label=${this.t("lib.family")} @change=${e=>this.family=e.target.value}>
-          <option value="">${this.t("lib.family")}: ${this.t("common.all")}</option>
-          ${t.map(e=>h`<option value=${e}>${this.families[e]?.[this.lang]??e}</option>`)}
-        </select>
+        <label class="row small"><span class="visually-hidden">${this.t("lib.family")}</span>
+          <select style="width:auto" @change=${e=>this.family=e.target.value}>
+            ${["",...t].map(e=>h`<option value=${e} ?selected=${e===this.family}>${e?this.families[e]?.[this.lang]??e:`${this.t("lib.family")}: ${this.t("common.all")}`}</option>`)}
+          </select>
+        </label>
         ${["greenhouse","quick","custom"].map(e=>h`
           <button class="chip" aria-pressed=${String(this.filter===e)} @click=${()=>this.filter=this.filter===e?"":e}>${this.t(`lib.filter_${e}`)}</button>`)}
         <span class="spacer"></span>
@@ -1039,10 +1048,11 @@ var Me=Object.defineProperty;var Pe=Object.getOwnPropertyDescriptor;var p=(o,n,t
         <div class="row" role="group">
           ${["month","week","list"].map(e=>h`<button class="chip" aria-pressed=${String(this.mode===e)} @click=${()=>this.mode=e}>${this.t(`cal.${e}`)}</button>`)}
         </div>
-        <select style="width:auto" aria-label=${this.t("task.bed")} @change=${e=>this.bedFilter=e.target.value}>
-          <option value="">${this.t("cal.all_beds")}</option>
-          ${this.snapshot.beds.map(e=>h`<option value=${e.id}>${e.name}</option>`)}
-        </select>
+        <label class="row small"><span class="visually-hidden">${this.t("task.bed")}</span>
+          <select style="width:auto" @change=${e=>this.bedFilter=e.target.value}>
+            ${[{id:"",name:this.t("cal.all_beds")},...this.snapshot.beds].map(e=>h`<option value=${e.id} ?selected=${e.id===this.bedFilter}>${e.name}</option>`)}
+          </select>
+        </label>
         <label class="row small"><input type="checkbox" .checked=${this.showDone} @change=${e=>this.showDone=e.target.checked} />${this.t("cal.show_done")}</label>
         <button class="btn primary small" @click=${()=>this.emit("new-task",null)}><ha-icon icon="mdi:plus"></ha-icon>${this.t("cal.add_task")}</button>
       </div>

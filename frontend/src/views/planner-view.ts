@@ -79,7 +79,13 @@ export class PlannerView extends LitElement {
       :host { display: block; height: 100%; }
       .layout { display: grid; grid-template-columns: 260px 1fr 320px; gap: var(--hl-s3); height: calc(100vh - 150px); min-height: 520px; }
       .layout.narrow { grid-template-columns: 1fr; height: auto; }
-      .layout.narrow hl-garden-canvas { height: 60vh; }
+      .layout.narrow hl-garden-canvas { height: 58vh; }
+      /* Mobile: canvas first, palette becomes a horizontal strip, inspector last. */
+      .layout.narrow .center { order: -1; }
+      .layout.narrow .palette-list { flex-direction: row; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+      .layout.narrow .plant-card { min-width: 168px; scroll-snap-align: start; }
+      .layout.narrow .family-chips { flex-wrap: nowrap; overflow-x: auto; }
+      .layout.narrow .legend-block { display: none; }
       .layout.palette-closed { grid-template-columns: 0 1fr 320px; }
       .pane { background: var(--hl-surface); border: 1px solid var(--hl-border); border-radius: var(--hl-r-lg); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
       .pane > header { padding: var(--hl-s3) var(--hl-s4); border-bottom: 1px solid var(--hl-border); display: flex; align-items: center; gap: var(--hl-s2); }
@@ -709,7 +715,7 @@ export class PlannerView extends LitElement {
         <div class="pane-body stack">
           <input type="search" placeholder=${this.t("common.search")} aria-label=${this.t("common.search")} .value=${this.search}
             @input=${(e: Event) => (this.search = (e.target as HTMLInputElement).value)} />
-          <div class="row wrap">
+          <div class="row wrap family-chips">
             <button class="chip" aria-pressed=${String(!this.familyFilter)} @click=${() => (this.familyFilter = "")}>${this.t("common.all")}</button>
             ${families.map((f) => html`
               <button class="chip" aria-pressed=${String(this.familyFilter === f)} @click=${() => (this.familyFilter = this.familyFilter === f ? "" : f)}
@@ -733,10 +739,12 @@ export class PlannerView extends LitElement {
                 </button>`;
             })}
           </div>
+          <div class="legend-block stack" style="gap:8px">
           <div class="divider"></div>
           <h4>${this.t("planner.legend")}</h4>
           <div class="legend">
             ${families.map((f) => html`<span><span class="family-dot" style=${`background:${familyColor(this.families, f)}`}></span>${this.families[f]?.[this.lang as "en" | "nl"] ?? f}</span>`)}
+          </div>
           </div>
         </div>
       </aside>

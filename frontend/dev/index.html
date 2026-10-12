@@ -1,0 +1,60 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0;font-family:Roboto,"DejaVu Sans",sans-serif}</style></head>
+<body>
+<script type="module">
+  // Minimal ha-icon stand-in: renders an MDI-like glyph box so layouts keep their rhythm.
+  const ICONS = await fetch("icons.json").then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+  customElements.define("ha-icon", class extends HTMLElement {
+    static get observedAttributes() { return ["icon"]; }
+    attributeChangedCallback() { this.draw(); }
+    connectedCallback() { this.draw(); }
+    draw() {
+      const d = ICONS[this.getAttribute("icon")] || "";
+      this.style.cssText = "display:inline-flex;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);vertical-align:middle;flex:none";
+      (this.shadowRoot || this.attachShadow({ mode: "open" })).innerHTML = `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="${d}"/></svg>`;
+    }
+  });
+  const params = new URLSearchParams(location.search);
+  const lang = params.get("lang") || "en";
+  const data = await (await fetch(`data-${lang}.json`)).json();
+  window.__calls = [];
+  const subs = [];
+  const hass = {
+    language: lang, locale: { language: lang }, themes: { darkMode: params.get("dark") === "1" },
+    user: { id: "u", is_admin: true, name: "Emery" },
+    states: {
+      "sensor.soil_moisture_bed_1": { entity_id: "sensor.soil_moisture_bed_1", state: "21", attributes: { device_class: "moisture", unit_of_measurement: "%" } },
+      "sensor.soil_temp_bed_1": { entity_id: "sensor.soil_temp_bed_1", state: "13.4", attributes: { device_class: "temperature", unit_of_measurement: "°C" } },
+      "sensor.greenhouse_temp": { entity_id: "sensor.greenhouse_temp", state: "29.5", attributes: { device_class: "temperature", unit_of_measurement: "°C" } },
+      "weather.home": { entity_id: "weather.home", state: "partlycloudy", attributes: {} },
+    },
+    services: { notify: { mobile_app_phone: {} } },
+    connection: {
+      async sendMessagePromise(msg) {
+        window.__calls.push(msg);
+        const type = msg.type.split("/").slice(1).join("/");
+        if (type === "plants") return data.plants;
+        if (type === "plan/check") {
+          const ids = new Set(msg.plantings.map((p) => p.id));
+          const enemy = msg.plantings.find((p) => p.plant_id === "kale") && msg.plantings.find((p) => p.plant_id === "tomato");
+          return { score: enemy ? 32 : 64, pairs: enemy ? [{ a: [...ids][0], b: "pl_kale", kind: "enemy", severity: "error", score: -20, distance_cm: 5, key: "compat.enemy", params: { a: "Tomato", b: "Kale", reason: "Brassicas compete heavily for nutrients." } }] : [], rotation: [], out_of_bounds: [], timelines: {} };
+        }
+        if (type === "plan/save") { data.snapshot.revision += 1; return { revision: data.snapshot.revision }; }
+        if (type === "plans/windows") return {};
+        return {};
+      },
+      async subscribeMessage(cb, msg) { window.__calls.push(msg); subs.push(cb); setTimeout(() => cb(data.snapshot), 10); return async () => {}; },
+    },
+    fetchWithAuth: async () => new Response("{}"),
+    callService: async () => ({}),
+  };
+  const el = document.createElement("hortulus-panel");
+  el.hass = hass;
+  el.narrow = params.get("narrow") === "1";
+  el.route = { prefix: "/hortulus", path: "/" + (params.get("tab") || "") };
+  document.body.appendChild(el);
+  window.addEventListener("error", (e) => (window.__errors = [...(window.__errors || []), String(e.message)]));
+</script>
+<script type="module" src="../../custom_components/garden_manager/frontend/hortulus-panel.js"></script>
+</body></html>

@@ -7,7 +7,7 @@ from datetime import datetime
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.storage import Store
@@ -84,18 +84,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
 
 
 def _schedule_digest(hass: HomeAssistant, entry: GardenConfigEntry) -> None:
+    """Daily digest at the configured time; follows changes made in the panel."""
     runtime = entry.runtime_data
-    hh, _, mm = runtime.repo.data.settings.notifications.digest_time.partition(":")
-    try:
-        hour, minute = int(hh), int(mm or 0)
-    except ValueError:
-        hour, minute = 7, 30
+    unsub: CALLBACK_TYPE | None = None
+    scheduled_for: str | None = None
 
     async def _digest(now: datetime) -> None:
         if runtime.coordinator.data is not None:
             await runtime.notifier.async_send_digest(runtime.coordinator.data)
 
-    entry.async_on_unload(async_track_time_change(hass, _digest, hour=hour, minute=minute, second=0))
+    @callback
+    def _reschedule(reason: str = "settings") -> None:
+        nonlocal unsub, scheduled_for
+        if reason != "settings":
+            return
+        wanted = runtime.repo.data.settings.notifications.digest_time
+        if wanted == scheduled_for:
+            return
+        if unsub:
+            unsub()
+        hh, _, mm = wanted.partition(":")
+        try:
+            hour, minute = int(hh), int(mm or 0)
+        except ValueError:
+            hour, minute = 7, 30
+        unsub = async_track_time_change(hass, _digest, hour=hour, minute=minute, second=0)
+        scheduled_for = wanted
+
+    @callback
+    def _cancel() -> None:
+        if unsub:
+            unsub()
+
+    _reschedule()
+    entry.async_on_unload(runtime.repo.async_add_listener(_reschedule))
+    entry.async_on_unload(_cancel)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: GardenConfigEntry) -> None:

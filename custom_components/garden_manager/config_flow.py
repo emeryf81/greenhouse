@@ -53,7 +53,7 @@ from .const import (
     CONF_WIND,
     DOMAIN,
 )
-from .engine.models import SoilType, WindExposure
+from .engine.models import GardenSettings, SoilType, WindExposure
 from .engine.region import PRESETS, USDA_FROST_DATES, resolve_profile
 from .options import settings_to_options
 from .seed import region_from_conf
@@ -62,16 +62,18 @@ MMDD = re.compile(r"^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
 USDA_ZONES = [f"{n}{s}" for n in range(1, 14) for s in ("a", "b")]
 
 
-def _select(options: list[str], key: str, *, multiple: bool = False, custom: bool = False) -> selector.SelectSelector:
-    return selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=options,
-            translation_key=key,
-            mode=selector.SelectSelectorMode.DROPDOWN,
-            multiple=multiple,
-            custom_value=custom,
-        )
+def _select(
+    options: list[str], key: str | None, *, multiple: bool = False, custom: bool = False
+) -> selector.SelectSelector:
+    config = selector.SelectSelectorConfig(
+        options=options,
+        mode=selector.SelectSelectorMode.DROPDOWN,
+        multiple=multiple,
+        custom_value=custom,
     )
+    if key:
+        config["translation_key"] = key
+    return selector.SelectSelector(config)
 
 
 def _entity(
@@ -103,7 +105,7 @@ def region_schema(mode: str, defaults: dict[str, Any]) -> vol.Schema:
         )
     elif mode == "usda":
         fields[vol.Required(CONF_HARDINESS_ZONE, default=defaults.get(CONF_HARDINESS_ZONE) or "8a")] = _select(
-            USDA_ZONES, "hardiness_zone"
+            USDA_ZONES, None
         )
     else:
         fields[vol.Required(CONF_LAST_FROST, default=defaults.get(CONF_LAST_FROST) or "04-20")] = str
@@ -136,7 +138,7 @@ def notification_schema(defaults: dict[str, Any], notify_services: list[str]) ->
         {
             vol.Required(CONF_PERSISTENT, default=defaults.get(CONF_PERSISTENT, True)): bool,
             vol.Optional(CONF_NOTIFY_SERVICES, default=defaults.get(CONF_NOTIFY_SERVICES, [])): _select(
-                notify_services, "notify_services", multiple=True, custom=True
+                notify_services, None, multiple=True, custom=True
             ),
             vol.Optional(CONF_TTS_ENTITY, description={"suggested_value": defaults.get(CONF_TTS_ENTITY)}): _entity(
                 "tts"
@@ -331,7 +333,9 @@ class GardenOptionsFlow(OptionsFlow):
         self._mode: str | None = None
 
     def _current(self) -> dict[str, Any]:
-        return settings_to_options(self.config_entry.runtime_data.repo.data.settings)
+        runtime = getattr(self.config_entry, "runtime_data", None)
+        settings = runtime.repo.data.settings if runtime is not None else GardenSettings()
+        return settings_to_options(settings)
 
     def _save(self, key: str, value: Any) -> ConfigFlowResult:
         return self.async_create_entry(data={**self.config_entry.options, key: value})

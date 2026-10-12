@@ -26,7 +26,7 @@ const options = {
   bundle: true,
   format: "esm",
   target: "es2022",
-  minify: !watch,
+  minify: !watch && !process.env.NOMINIFY,
   sourcemap: watch ? "inline" : false,
   legalComments: "none",
   logLevel: "info",

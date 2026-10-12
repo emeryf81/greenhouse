@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.garden_manager.const import DOMAIN
 
@@ -239,3 +239,48 @@ async def test_unload(hass: HomeAssistant, setup_garden) -> None:
     entry, _ = setup_garden
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert entry.state is ConfigEntryState.NOT_LOADED
+
+
+async def test_options_flow_updates_store(hass: HomeAssistant, setup_garden) -> None:
+    entry, _ = setup_garden
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] == "menu"
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "advanced"})
+    assert result["step_id"] == "advanced"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "language": "nl",
+            "companion_radius_cm": 80,
+            "sensor_stale_minutes": 120,
+            "root_zone_depth_mm": 250,
+            "max_irrigation_mm": 15,
+        },
+    )
+    assert result["type"] == "create_entry"
+    await hass.async_block_till_done()
+    settings = entry.runtime_data.repo.data.settings
+    assert settings.language == "nl" and settings.companion_radius_cm == 80 and settings.max_irrigation_mm == 15
+    # Generated task titles follow the new language after the reload.
+    assert any(
+        t.title.startswith("Tomaat") or "zaaien" in t.title for t in entry.runtime_data.repo.data.tasks if t.is_open
+    )
+
+
+async def test_digest_follows_settings_changed_in_panel(
+    hass: HomeAssistant, setup_garden, hass_ws_client, freezer: FrozenDateTimeFactory
+) -> None:
+    _entry, pushes = setup_garden
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/settings/save", "settings": {"notifications": {"digest_time": "13:15"}}}
+    )
+    assert (await _result(client))["success"]
+    await hass.async_block_till_done()
+    pushes.clear()
+    # 28 March 2026 is still winter time in Amsterdam: 13:15 local == 12:15 UTC.
+    freezer.move_to("2026-03-28T12:15:00+00:00")
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    digest = [c for c in pushes if c.data["title"] == "Garden today"]
+    assert len(digest) == 1 and "tasks today" in digest[0].data["message"]

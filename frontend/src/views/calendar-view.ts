@@ -161,10 +161,11 @@ export class CalendarView extends LitElement {
         <div class="row" role="group">
           ${(["month", "week", "list"] as Mode[]).map((m) => html`<button class="chip" aria-pressed=${String(this.mode === m)} @click=${() => (this.mode = m)}>${this.t(`cal.${m}`)}</button>`)}
         </div>
-        <select style="width:auto" aria-label=${this.t("task.bed")} @change=${(e: Event) => (this.bedFilter = (e.target as HTMLSelectElement).value)}>
-          <option value="">${this.t("cal.all_beds")}</option>
-          ${this.snapshot.beds.map((b) => html`<option value=${b.id}>${b.name}</option>`)}
-        </select>
+        <label class="row small"><span class="visually-hidden">${this.t("task.bed")}</span>
+          <select style="width:auto" @change=${(e: Event) => (this.bedFilter = (e.target as HTMLSelectElement).value)}>
+            ${[{ id: "", name: this.t("cal.all_beds") }, ...this.snapshot.beds].map((b) => html`<option value=${b.id} ?selected=${b.id === this.bedFilter}>${b.name}</option>`)}
+          </select>
+        </label>
         <label class="row small"><input type="checkbox" .checked=${this.showDone} @change=${(e: Event) => (this.showDone = (e.target as HTMLInputElement).checked)} />${this.t("cal.show_done")}</label>
         <button class="btn primary small" @click=${() => this.emit("new-task", null)}><ha-icon icon="mdi:plus"></ha-icon>${this.t("cal.add_task")}</button>
       </div>

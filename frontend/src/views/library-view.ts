@@ -117,10 +117,11 @@ export class LibraryView extends LitElement {
       <div class="top">
         <input type="search" placeholder=${this.t("lib.search")} aria-label=${this.t("lib.search")} .value=${this.query}
           @input=${(e: Event) => (this.query = (e.target as HTMLInputElement).value)} />
-        <select style="width:auto" aria-label=${this.t("lib.family")} @change=${(e: Event) => (this.family = (e.target as HTMLSelectElement).value)}>
-          <option value="">${this.t("lib.family")}: ${this.t("common.all")}</option>
-          ${families.map((f) => html`<option value=${f}>${this.families[f]?.[this.lang as "en" | "nl"] ?? f}</option>`)}
-        </select>
+        <label class="row small"><span class="visually-hidden">${this.t("lib.family")}</span>
+          <select style="width:auto" @change=${(e: Event) => (this.family = (e.target as HTMLSelectElement).value)}>
+            ${["", ...families].map((f) => html`<option value=${f} ?selected=${f === this.family}>${f ? (this.families[f]?.[this.lang as "en" | "nl"] ?? f) : `${this.t("lib.family")}: ${this.t("common.all")}`}</option>`)}
+          </select>
+        </label>
         ${(["greenhouse", "quick", "custom"] as Filter[]).map((f) => html`
           <button class="chip" aria-pressed=${String(this.filter === f)} @click=${() => (this.filter = this.filter === f ? "" : f)}>${this.t(`lib.filter_${f}`)}</button>`)}
         <span class="spacer"></span>
