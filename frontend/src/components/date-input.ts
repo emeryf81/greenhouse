@@ -18,6 +18,8 @@ export class DateInput extends LitElement {
   @property() lang = "en";
   @property() label = "";
   @property() pickLabel = "Calendar";
+  /** Shown by the browser when a form is submitted with unreadable text. */
+  @property() invalidMessage = "dd-mm-yyyy";
   @property({ type: Boolean }) disabled = false;
   @state() private invalid = false;
   @query("input[type=date]") private picker!: HTMLInputElement;
@@ -48,12 +50,21 @@ export class DateInput extends LitElement {
     if (changed.has("value")) this.internals?.setFormValue(this.value || "");
   }
 
+  /** Mark the field (and its form) invalid while the text cannot be used. */
+  private setInvalid(invalid: boolean): void {
+    this.invalid = invalid;
+    if (!this.internals) return;
+    const anchor = this.renderRoot.querySelector<HTMLInputElement>("input.text") ?? undefined;
+    if (invalid) this.internals.setValidity({ badInput: true }, this.invalidMessage, anchor);
+    else this.internals.setValidity({});
+  }
+
   private emit(value: string | null): void {
     if (value && this.min && value < this.min) {
-      this.invalid = true;
+      this.setInvalid(true);
       return;
     }
-    this.invalid = false;
+    this.setInvalid(false);
     this.value = value ?? "";
     this.dispatchEvent(new CustomEvent("date-change", { detail: value, bubbles: true, composed: true }));
   }
@@ -61,8 +72,12 @@ export class DateInput extends LitElement {
   private onText(e: Event): void {
     const el = e.target as HTMLInputElement;
     const parsed = parseDate(el.value);
-    this.invalid = parsed === undefined;
-    if (parsed === undefined) return;
+    if (parsed === undefined) {
+      // keep the typed text for correction; the form cannot submit the old date meanwhile
+      this.setInvalid(true);
+      return;
+    }
+    this.setInvalid(false);
     el.value = displayDate(parsed, this.lang);
     if ((parsed ?? "") !== (this.value ?? "")) this.emit(parsed);
   }

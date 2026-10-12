@@ -47,7 +47,13 @@ async function step(name, fn) {
 const open = async (tab, lang = "nl") => {
   await page.goto(`${base}?tab=${tab}&lang=${lang}`);
   await page.locator("hortulus-panel").waitFor();
-  await page.waitForTimeout(1200);
+  // the tab's view has rendered (not just "loading")
+  await page.waitForFunction(() => {
+    const deep = (node) => [...(node.shadowRoot ? node.shadowRoot.childNodes : []), ...node.childNodes]
+      .map((n) => (n.nodeType === 3 ? n.textContent : n.nodeType === 1 && !["STYLE", "SCRIPT"].includes(n.tagName) ? deep(n) : "")).join(" ");
+    const view = document.querySelector("hortulus-panel")?.shadowRoot?.querySelector("main")?.firstElementChild;
+    return !!view && view.tagName !== "P" && deep(view).trim().length > 20;
+  });
 };
 const modal = () => page.locator("hl-modal");
 // the popup's <dialog> lives in the top layer, the hl-modal host itself has no size
@@ -76,11 +82,10 @@ await step("plants: popup, arrow keys, neighbour, close", async () => {
   await modalOpen();
   const first = await modalTitle();
   await page.keyboard.press("ArrowRight");
-  await page.waitForTimeout(200);
-  assert.notEqual(await modalTitle(), first, "next plant");
+  await page.waitForFunction((was) => document.querySelector("hortulus-panel")?.shadowRoot?.querySelector("hl-library-view")
+    ?.shadowRoot?.querySelector("hl-modal")?.shadowRoot?.querySelector("h2")?.textContent !== was, first);
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(200);
-  assert.equal(await modal().count(), 0, "closed");
+  await modal().first().waitFor({ state: "detached" });
 });
 
 await step("planner: crop popup and why-here", async () => {

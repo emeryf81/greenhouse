@@ -603,6 +603,13 @@ async def test_bulk_update_fix_compare_and_still_possible(hass: HomeAssistant, g
     assert all(p.notes == "samen" for p in repo.data.plantings if p.id in ids)
     assert len(repo.syslog) == log_before + 1  # one entry, one undo
 
+    seasons_before = {p.id: p.season for p in repo.data.plantings if p.id in ids}
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plantings/update_many", "planting_ids": ids, "changes": {"season": 1999, "notes": "x"}}
+    )
+    assert (await _result(client))["success"]
+    assert {p.id: p.season for p in repo.data.plantings if p.id in ids} == seasons_before  # never moves a crop's year
+
     season = repo.data.layout_season
     await client.send_json_auto_id({"type": f"{DOMAIN}/plan/compare", "a": {"season": season}, "b": {"season": season}})
     assert (await _result(client))["result"]["identical"]

@@ -153,10 +153,19 @@ def _require_runtime(
     return runtime
 
 
+# (runtime id) -> ((revision, day, plant database), summary): the check only reruns when
+# the plan, the day or the plant data changed, not on every sensor-driven snapshot push.
+_DIAGNOSIS_CACHE: dict[int, tuple[tuple[Any, ...], dict[str, int] | None]] = {}
+
+
 def _diagnosis_summary(runtime: GardenRuntime) -> dict[str, int] | None:
-    """Issue counts for the badge on the Analysis tab (re-checked on every change)."""
+    """Issue counts for the badge on the Analysis tab (re-checked when the plan changes)."""
     data = runtime.repo.data
     today = dt_util.now().date()
+    key = (data.revision, data.layout_season, today, id(runtime.repo.db))
+    cached = _DIAGNOSIS_CACHE.get(id(runtime))
+    if cached is not None and cached[0] == key:
+        return cached[1]
     try:
         issues = diagnose.check_garden(
             data, runtime.repo.db, today=today, current_season=season_for_date(data.settings.region, today)
@@ -164,7 +173,9 @@ def _diagnosis_summary(runtime: GardenRuntime) -> dict[str, int] | None:
     except Exception:  # a broken check must never break the panel
         _LOGGER.exception("Garden check failed")
         return None
-    return diagnose.summary(issues)
+    summary = diagnose.summary(issues)
+    _DIAGNOSIS_CACHE[id(runtime)] = (key, summary)
+    return summary
 
 
 def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:

@@ -65,9 +65,13 @@ export class PlanCompare extends LitElement {
 
   private async run(): Promise<void> {
     if (!this.left || !this.right) return;
+    const left = this.left;
+    const right = this.right;
     this.error = "";
     try {
-      this.result = await this.api.comparePlans(parseRef(this.left), parseRef(this.right));
+      const res = await this.api.comparePlans(parseRef(left), parseRef(right));
+      // a slower answer for an earlier choice must not overwrite the current one
+      if (left === this.left && right === this.right) this.result = res;
     } catch (err) {
       this.result = null;
       this.error = (err as Error).message ?? String(err);

@@ -215,6 +215,7 @@ export class HortulusPanel extends LitElement {
 
   /** Show one crop in the crops list. */
   private focusCrop(detail: { planting_id: string; season: number }): void {
+    this.popupPlant = null;
     this.plannerSeason = detail.season;
     this.cropsFocus = { id: detail.planting_id, season: detail.season, n: (this.cropsFocus?.n ?? 0) + 1 };
     this.navigate("crops");

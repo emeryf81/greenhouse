@@ -289,6 +289,7 @@ export class PlannerView extends LitElement {
     }
     if (changed.has("transitionRequest") && this.transitionRequest > 0) this.dialog = "transition";
     if (changed.has("focusPlanting") && this.focusPlanting) void this.openFocus(this.focusPlanting);
+    this.loadStillPossible();
   }
 
   private async openFocus(focus: { id: string; season: number }): Promise<void> {
@@ -1963,18 +1964,29 @@ export class PlannerView extends LitElement {
     </div>`;
   }
 
+  /** Is the running season close to its first frost (end-of-season banner)? */
+  private get lateInSeason(): boolean {
+    const snap = this.snapshot;
+    const today = snap?.analysis?.today;
+    const firstFrost = snap?.analysis?.anchors?.first_frost;
+    if (this.mode !== "plant" || this.lateDismissed || !today || !firstFrost) return false;
+    return this.season === snap.analysis?.season && daysBetween(today, firstFrost) <= 45;
+  }
+
+  /** Fetch "what can still go in" once per season; a failed request may be retried later. */
+  private loadStillPossible(): void {
+    if (!this.lateInSeason || this.stillPossibleFor === this.season || !this.api) return;
+    const season = this.season;
+    this.stillPossibleFor = season;
+    this.api.stillPossible(season).then((r) => (this.stillPossible = r)).catch(() => {
+      if (this.stillPossibleFor === season) this.stillPossibleFor = null;
+      this.stillPossible = { season, plants: [] };
+    });
+  }
+
   /** Late in the running season: what can still go in, and planning next year instead. */
   private renderLateBanner(): TemplateResult | typeof nothing {
-    const snap = this.snapshot;
-    const today = snap.analysis?.today;
-    const firstFrost = snap.analysis?.anchors?.first_frost;
-    if (this.mode !== "plant" || this.lateDismissed || !today || !firstFrost) return nothing;
-    if (this.season !== snap.analysis?.season || daysBetween(today, firstFrost) > 45) return nothing;
-    if (this.stillPossibleFor !== this.season) {
-      this.stillPossibleFor = this.season;
-      const season = this.season;
-      this.api.stillPossible(season).then((r) => (this.stillPossible = r)).catch(() => undefined);
-    }
+    if (!this.lateInSeason) return nothing;
     const rows = this.stillPossible?.season === this.season ? this.stillPossible.plants : null;
     return html`<div class="late-banner" role="status">
       <ha-icon icon="mdi:weather-snowy"></ha-icon>

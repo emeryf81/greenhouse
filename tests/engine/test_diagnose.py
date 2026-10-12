@@ -212,3 +212,16 @@ def test_still_possible_in_october_is_short(garden, db):
     rows = diagnose.still_possible(garden, db, 2026, today=date(2026, 3, 1), lang="nl")
     names = [db.get(r["plant_id"]).name("nl").casefold() for r in rows]
     assert names == sorted(names)
+
+
+def test_fix_does_not_carry_a_removed_or_finished_perennial(garden, db, make_planting):
+    import pytest
+
+    garden.layout_season = 2026
+    gone = make_planting("apple", "bed_1", 2024, id="gone", last_season=2025, removed_season=2026)
+    done = make_planting("apple", "bed_1", 2024, id="done", last_season=2025, finished_on=date(2025, 10, 1))
+    garden.plantings = [gone, done]
+    refs = {"planting": ["gone", "done"]}  # a stale or hand-made request
+    with pytest.raises(ValueError):
+        diagnose.fix_issue(garden, "perennial_not_carried", {"season": 2026}, refs, current_season=2026)
+    assert gone.last_season == 2025 and done.last_season == 2025

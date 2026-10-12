@@ -111,6 +111,8 @@ export class CropsView extends LitElement {
   protected willUpdate(changed: Map<string, unknown>): void {
     if (changed.has("plants")) this.plantMap = new Map(this.plants.map((p) => [p.id, p]));
     if (changed.has("focusPlanting") && this.focusPlanting) void this.showFocus(this.focusPlanting);
+    // a selection belongs to the season it was made in
+    if (changed.has("season") && changed.get("season") && this.picked.size) this.picked = new Set();
     if (changed.has("snapshot") && changed.get("snapshot") !== undefined && !this.saving.size) {
       window.clearTimeout(this.reloadTimer);
       this.reloadTimer = window.setTimeout(() => void this.load(), 600);
@@ -128,8 +130,9 @@ export class CropsView extends LitElement {
     if (!row) return;
     this.filter = "";
     this.highlight = focus.id;
+    this.open = row;
     await this.updateComplete;
-    this.renderRoot.querySelector(`tr[data-id="${focus.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    this.renderRoot.querySelector(`[data-id="${focus.id}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
   private emit(name: string, detail: unknown): void {

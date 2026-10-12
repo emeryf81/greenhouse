@@ -356,7 +356,12 @@ def fix_issue(
         carried = []
         for pid in ids:
             planting = plantings[pid]
-            if planting.bed_id in beds and not present_in(planting, True, season):
+            if (
+                planting.bed_id in beds
+                and planting.removed_season is None
+                and planting.finished_on is None
+                and not present_in(planting, True, season)
+            ):
                 planting.last_season = season
                 carried.append(pid)
         if not carried:

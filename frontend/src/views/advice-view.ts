@@ -201,7 +201,11 @@ export class AdviceView extends LitElement {
     if (plant) {
       return html`<span class="pic" title=${`${title} · ${this.t("lib.open_plant")}`} role="button" tabindex="0"
         @click=${() => this.dispatchEvent(new CustomEvent("open-plant", { detail: plant.id, bubbles: true, composed: true }))}
-        @keydown=${(e: KeyboardEvent) => e.key === "Enter" && this.dispatchEvent(new CustomEvent("open-plant", { detail: plant.id, bubbles: true, composed: true }))}><hl-plant-image .plant=${plant} color=${familyColor(this.families, plant.family)}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          this.dispatchEvent(new CustomEvent("open-plant", { detail: plant.id, bubbles: true, composed: true }));
+        }}><hl-plant-image .plant=${plant} color=${familyColor(this.families, plant.family)}
         lang=${this.lang} size="thumb"></hl-plant-image><span class="badge">${icon}</span></span>`;
     }
     if (s.handbook) return html`<span class="pic" title=${title}>${chapterArt(s.handbook, 44)}<span class="badge">${icon}</span></span>`;

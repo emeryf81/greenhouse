@@ -554,7 +554,9 @@ def op_update_planting(runtime: GardenRuntime, planting_id: str, changes: Mappin
 def op_update_plantings(runtime: GardenRuntime, planting_ids: list[str], changes: Mapping[str, Any]) -> list[Planting]:
     """The same change for several crops at once (one entry in the system log)."""
     repo = runtime.repo
-    patch = {k: v for k, v in changes.items() if k in PLANTING_FIELDS and k not in ("bed_id", "x_cm", "y_cm")}
+    # status, dates, method, count, notes - never where, what or which year
+    fixed = ("bed_id", "x_cm", "y_cm", "season", "plant_id")
+    patch = {k: v for k, v in changes.items() if k in PLANTING_FIELDS and k not in fixed}
     if not patch:
         raise _err("invalid_plan", reason="nothing to change")
     by_id = {p.id: p for p in repo.data.plantings}
