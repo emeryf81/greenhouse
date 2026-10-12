@@ -106,7 +106,10 @@ def test_real_cross_season_overlap_is_still_found(garden, db, make_planting):
         beans.id: DateWindow(date(2027, 5, 15), date(2027, 8, 30)),
     }
     report = check_bed(bed(garden), [garlic, beans], db, timelines=planned, planned=planned)
-    assert any(p.kind == "overlap" for p in report.pairs)
+    overlap = next(p for p in report.pairs if p.kind == "overlap")
+    seasons_by_id = {garlic.id: 2026, beans.id: 2027}
+    assert overlap.params["season_a"] == seasons_by_id[overlap.a]
+    assert overlap.params["season_b"] == seasons_by_id[overlap.b]
 
 
 def test_out_of_bounds_planting(garden, db, make_planting):

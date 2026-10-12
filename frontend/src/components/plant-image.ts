@@ -41,7 +41,8 @@ export class PlantImage extends LitElement {
     .art svg { position: relative; filter: drop-shadow(0 2px 3px rgba(0,0,0,.18)); }
     img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
     img.on { opacity: 1; }
-    .credit { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: #fff; background: rgba(0,0,0,.45);
+    .credit { position: absolute; right: 6px; bottom: 4px; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-size: 10px; color: #fff; background: rgba(0,0,0,.45);
       padding: 1px 6px; border-radius: 8px; text-decoration: none; }
     .credit:hover { background: rgba(0,0,0,.65); }
   `;
@@ -58,14 +59,15 @@ export class PlantImage extends LitElement {
   }
 
   protected updated(changed: PropertyValues): void {
-    if (changed.has("plant") || changed.has("lang")) this.reset();
+    if (changed.has("plant") || changed.has("lang") || changed.has("size")) this.reset();
   }
 
   private reset(): void {
     this.photo = null;
     this.loaded = false;
     this.observer?.disconnect();
-    this.wantPhoto = !!this.plant && photosEnabled() && photoQueries(this.plant.scientific_name).length > 0;
+    // Tiny round thumbnails have no room for the credit a photo's licence requires: illustration only.
+    this.wantPhoto = this.size !== "thumb" && !!this.plant && photosEnabled() && photoQueries(this.plant.scientific_name).length > 0;
     if (!this.wantPhoto) return;
     if (typeof IntersectionObserver === "undefined") {
       void this.load();
@@ -87,6 +89,14 @@ export class PlantImage extends LitElement {
     if (plant === this.plant && this.wantPhoto) this.photo = photo;
   }
 
+  /** Creator and licence, as the photo's licence requires (tooltip only on tiny thumbnails). */
+  private renderCredit(photo: Photo): TemplateResult | typeof nothing {
+    const text = `© ${photo.artist} · ${photo.license}`;
+    if (this.size === "thumb") return nothing;
+    return html`<a class="credit" href=${photo.filePage || photo.page} target="_blank" rel="noopener noreferrer"
+      title=${`${photo.title} – ${text} (Wikimedia Commons)`}>${this.credit ? text : `© ${photo.license}`}</a>`;
+  }
+
   render(): TemplateResult {
     const p = this.plant;
     const px = this.size === "hero" ? 150 : this.size === "card" ? 84 : 32;
@@ -97,8 +107,7 @@ export class PlantImage extends LitElement {
       </div>
       ${this.photo ? html`<img class=${this.loaded ? "on" : ""} src=${this.photo.src} alt=${name} loading="lazy" referrerpolicy="no-referrer"
         @load=${() => (this.loaded = true)} @error=${() => (this.photo = null)} />` : nothing}
-      ${this.photo && this.loaded && this.credit && this.photo.page ? html`<a class="credit" href=${this.photo.page} target="_blank" rel="noopener noreferrer"
-        title=${this.photo.title}>Wikipedia</a>` : nothing}
+      ${this.photo && this.loaded ? this.renderCredit(this.photo) : nothing}
     `;
   }
 }

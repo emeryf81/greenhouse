@@ -37,8 +37,10 @@
   advice suggestions and answers, and every handbook chapter has an illustrated garden scene
   (overview tiles and chapter header). Pictures are illustrations built from the plant
   stickers, so they work offline; on top of that the browser shows a **photo from
-  Wikipedia**, looked up by scientific name, with a credit link (Settings → *Display*, per
-  browser, on by default; cached for 30 days).
+  Wikipedia**, looked up by scientific name (Settings → *Display*, per browser, on by default;
+  cached for 30 days). Only photos under a licence Hortulus can honour (CC BY, CC BY-SA, CC0,
+  public domain) are shown, credited with creator and licence and linked to the file page;
+  small round thumbnails always use the illustration.
 
 ### Changed
 - **Perennials no longer stay in the plan automatically**: a planting belongs to its own season

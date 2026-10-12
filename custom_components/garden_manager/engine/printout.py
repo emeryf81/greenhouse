@@ -243,6 +243,8 @@ ZONE_COLORS: dict[str, tuple[str, str]] = {
     "orchard": ("#9CC46A", "#5F8F45"),
     "fruit": ("#D27A8E", "#A8506A"),
     "herbs": ("#8FA3D6", "#4F6FB0"),
+    "garden": ("#6E965A", "#7A9A5A"),
+    "containers": ("#B07A5C", "#8A5A3E"),
     "flowers": ("#E39AC0", "#B25A8A"),
 }
 FEATURE_STYLE: dict[FeatureType, tuple[str, str]] = {

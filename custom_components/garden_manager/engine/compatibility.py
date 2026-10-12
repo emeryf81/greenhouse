@@ -331,7 +331,7 @@ def check_bed(
                 windows = {**timelines, **planned}
             if not _overlaps_in_time(windows.get(pa.id), windows.get(pb.id)):
                 continue
-            for finding in evaluate_pair(
+            pair_findings = evaluate_pair(
                 pa,
                 ra,
                 plant_a,
@@ -342,7 +342,14 @@ def check_bed(
                 radius_cm=radius_cm,
                 lang=lang,
                 hemisphere=hemisphere,
-            ):
+            )
+            if pa.season != pb.season:
+                # Say which season each crop belongs to (the UI names the one not on screen).
+                for finding in pair_findings:
+                    seasons_by_id = {pa.id: pa.season, pb.id: pb.season}
+                    finding.params["season_a"] = seasons_by_id.get(finding.a)
+                    finding.params["season_b"] = seasons_by_id.get(finding.b)
+            for finding in pair_findings:
                 report.pairs.append(finding)
                 total += finding.score
     report.score = max(0.0, min(100.0, 50.0 + total))

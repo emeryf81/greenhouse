@@ -11,7 +11,8 @@ export interface PlantLike {
   category?: string;
 }
 
-export interface Photo { src: string; page: string; title: string }
+/** A photo plus what its licence requires us to show: creator, licence and the file page. */
+export interface Photo { src: string; page: string; title: string; artist: string; license: string; licenseUrl: string; filePage: string }
 
 const PREF_KEY = "hortulus-photos";
 const CACHE_PREFIX = "hortulus-photo:";
@@ -19,7 +20,10 @@ const CACHE_DAYS = 30;
 const memory = new Map<string, Promise<Photo | null>>();
 
 /** Viewer preference (per browser): show photos from Wikipedia. On by default. */
+let prefFallback: boolean | null = null; // when browser storage is blocked
+
 export function photosEnabled(): boolean {
+  if (prefFallback !== null) return prefFallback;
   try {
     return localStorage.getItem(PREF_KEY) !== "off";
   } catch {
@@ -30,11 +34,23 @@ export function photosEnabled(): boolean {
 export function setPhotosEnabled(on: boolean): void {
   try {
     localStorage.setItem(PREF_KEY, on ? "on" : "off");
+    prefFallback = null;
   } catch {
-    /* private mode: the default (on) stays */
+    prefFallback = on; // private mode: keep the choice for this page
   }
-  window.dispatchEvent(new CustomEvent("hortulus-photos-changed"));
+  globalThis.dispatchEvent?.(new CustomEvent("hortulus-photos-changed"));
 }
+
+/** Licences whose terms a credit line (creator, licence, link) satisfies. */
+export function freeLicense(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return /^(cc[ -]?by(-sa)?([ -][\d.]+)?|cc0|public domain|pd\b|attribution)/.test(n) && !/\b(nc|nd)\b/.test(n);
+}
+
+const stripHtml = (html: string): string => html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+
+/** HTTP answers worth retrying later (rate limit, server trouble) - never cached as "no photo". */
+class TransientError extends Error {}
 
 /** Names to try on Wikipedia: the full scientific name, then genus + species. */
 export function photoQueries(scientific: string | undefined): string[] {
@@ -66,15 +82,49 @@ function writeCache(key: string, photo: Photo | null): void {
   }
 }
 
-async function summary(lang: string, title: string): Promise<Photo | null> {
-  const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}`;
+async function getJson<T>(url: string): Promise<T | null> {
   const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (res.status === 429 || res.status >= 500) throw new TransientError(String(res.status));
   if (!res.ok) return null;
-  const data = (await res.json()) as {
-    type?: string; title?: string; thumbnail?: { source: string }; content_urls?: { desktop?: { page?: string } };
+  return (await res.json()) as T;
+}
+
+/** Creator and licence of a file (Commons metadata, served by every Wikipedia). */
+async function fileInfo(lang: string, file: string): Promise<Pick<Photo, "artist" | "license" | "licenseUrl" | "filePage"> | null> {
+  const url = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=imageinfo&iiprop=extmetadata%7Curl`
+    + `&titles=${encodeURIComponent(`File:${file}`)}`;
+  type Meta = Record<string, { value?: string } | undefined>;
+  const data = await getJson<{ query?: { pages?: Record<string, { imageinfo?: { extmetadata?: Meta; descriptionurl?: string }[] }> } }>(url);
+  const info = Object.values(data?.query?.pages ?? {})[0]?.imageinfo?.[0];
+  const meta = info?.extmetadata ?? {};
+  const license = stripHtml(meta.LicenseShortName?.value ?? "");
+  if (!license || !freeLicense(license)) return null;
+  return {
+    artist: stripHtml(meta.Artist?.value ?? "") || stripHtml(meta.Credit?.value ?? "") || "Wikimedia Commons",
+    license,
+    licenseUrl: meta.LicenseUrl?.value ?? "",
+    filePage: info?.descriptionurl ?? "",
   };
-  if (data.type === "disambiguation" || !data.thumbnail?.source) return null;
-  return { src: data.thumbnail.source, page: data.content_urls?.desktop?.page ?? "", title: data.title ?? title };
+}
+
+/** File name from an upload.wikimedia.org URL (thumbnail or original). */
+export function fileFromUrl(url: string): string {
+  const parts = url.split("/");
+  const thumb = parts.indexOf("thumb");
+  const name = thumb >= 0 ? parts[thumb + 3] : parts[parts.length - 1];
+  return decodeURIComponent(name ?? "");
+}
+
+async function summary(lang: string, title: string): Promise<Photo | null> {
+  const data = await getJson<{
+    type?: string; title?: string; thumbnail?: { source: string }; originalimage?: { source: string };
+    content_urls?: { desktop?: { page?: string } };
+  }>(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}`);
+  if (!data || data.type === "disambiguation" || !data.thumbnail?.source) return null;
+  // Only show a photo when we can credit it as its licence requires.
+  const credit = await fileInfo(lang, fileFromUrl(data.originalimage?.source ?? data.thumbnail.source));
+  if (!credit) return null;
+  return { src: data.thumbnail.source, page: data.content_urls?.desktop?.page ?? "", title: data.title ?? title, ...credit };
 }
 
 /** Wikipedia photo for a plant (cached per browser); ``null`` when there is none. */

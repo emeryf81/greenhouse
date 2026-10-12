@@ -983,6 +983,7 @@ def ws_syslog_list(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/syslog/entry", vol.Required("entry_id"): str})
+@websocket_api.require_admin
 @callback
 def ws_syslog_entry(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """One entry including the before/after of every changed item."""
