@@ -17,8 +17,10 @@ Home Assistant requires actions to use the integration's domain. The integration
 folder and domain is `garden_manager`; the product is called Hortulus.
 
 **Is anything sent to the internet?**
-No. The plant database ships with the integration; photos go through Home Assistant's
-own `image_upload` and stay in your config directory.
+Not by default. The plant database and the handbook ship with the integration; photos go
+through Home Assistant's own `image_upload` and stay in your config directory. Only if
+you switch on **Open‑Meteo** (Settings → Weather) does Hortulus fetch a forecast from
+api.open‑meteo.com, sending the garden's coordinates rounded to two decimals (~1 km).
 
 **Southern hemisphere?**
 Fully supported: pick a southern preset, a USDA zone with *southern* hemisphere, or your
@@ -69,6 +71,47 @@ Settings → Entities; unique ids are stable.
 **Frost sensor shows `unknown`.**
 The weather entity is unavailable or provides no forecast. Check
 Settings → Devices & services → Hortulus → *Download diagnostics* → `weather.error`.
+
+## Print, handbook, autofill
+
+**How do I get a plan onto my reMarkable Paper Pro?**
+Print tab → paper *reMarkable Paper Pro*, colours *E‑ink* → *Download PDF*, then drag
+the file into the reMarkable app (or use *Send to reMarkable* by email). The page is
+exactly the size of the screen; the dot‑grid notes area and the light tints leave room
+to draw. For a weekly checklist, automate `garden_manager.export_pdf` with
+`document: tasks` and pick the file up from `/local/hortulus/`.
+
+**Why do the beds have patterns on the printout?**
+In e‑ink and grayscale mode every plant family also gets a hatch pattern, so the map
+stays readable without colour and on a monochrome printer.
+
+**Autofill put my tomatoes outside although I have a greenhouse.**
+Tomatoes grew in that greenhouse bed last season, so the bed is excluded for nightshades
+by the rotation rule. Add another greenhouse bed, or move them anyway – the planner will
+show the rotation warning.
+
+**Autofill skipped crops.**
+Reasons are listed under *Not placed*: no suitable bed (rotation, frost season too short
+outdoors, not suited under glass), no space, or the weekly time/water budget was used
+up. Raise the budget, select more beds or tick *replace*.
+
+**Why did the expected harvest date move?**
+With a temperature sensor (or the weather entity) Hortulus logs daily minimum and
+maximum temperatures and sums degree days since planting; a warm spell brings the
+harvest forward, a cold one delays it (at most three weeks either way).
+
+## Irrigation safety
+
+**Can automatic watering flood my garden?**
+Every valve has a maximum runtime, only one valve runs at a time, and the pump only runs
+while a valve is open. When a run ends, fails or is stopped (button, service, Home
+Assistant restart), all valves that were opened and the pump are switched off.
+
+**Why didn't it water this morning?**
+Look at `binary_sensor.hortulus_irrigation_frost_lockout` and run
+`garden_manager.run_irrigation_plan` with `dry_run: true`: the response lists every
+skipped bed with its reason (frost lockout, rain expected, no valve, no flow rate, not
+needed, mode not *auto*).
 
 ## Troubleshooting
 

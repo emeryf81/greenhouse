@@ -29,7 +29,7 @@
 | Requirement | Where it lives |
 |---|---|
 | Drag‑and‑drop planner (beds, greenhouse zones, containers, rows; single/block/row; succession; companion overlay; import/export; undo/redo, snap, tooltips, shortcuts) | `frontend/src/views/planner-view.ts`, `frontend/src/planner/*` |
-| Plant database (20 crops, EN/NL, user overrides & custom plants) | `custom_components/garden_manager/data/plants.json`, `engine/plantdb.py` |
+| Plant database (140 crops, EN/NL, user overrides & custom plants) | `custom_components/garden_manager/data/plants.json`, `engine/plantdb.py` |
 | Companion scoring, rotation, greenhouse suitability | `engine/compatibility.py`, `engine/schedule.py`, `engine/weather.py` |
 | Task engine (generation, recurrence, completion, postpone cascade, priorities, durations, notes, photos) | `engine/tasks.py`, `operations.py` |
 | Sensors + forecast (frost, heat, irrigation, GDD) | `engine/weather.py`, `engine/watering.py`, `coordinator.py` |
@@ -80,8 +80,13 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   ├── panel.py             static path + sidebar panel registration (content‑hashed URL)
 │   ├── entity.py            base entities, per‑bed/zone devices, dynamic entity creation
 │   ├── sensor.py · binary_sensor.py · calendar.py · todo.py · button.py · diagnostics.py
+│   ├── number.py · select.py · switch.py   irrigation limits/mode, shading mode, auto irrigation
+│   ├── controllers.py      irrigation (pump interlock, max runtime, safe shut-off) + greenhouse climate
+│   ├── printing.py          authenticated PDF view + export to /config/www/hortulus
+│   ├── api.py               optional Open-Meteo client (opt-in)
 │   ├── strings.json · translations/{en,nl}.json · icons.json
-│   ├── data/plants.json     starter plant database (20 crops, EN/NL)
+│   ├── data/plants.json     plant database (140 crops, EN/NL; built by scripts/build_plantdb.py)
+│   ├── data/handbook/{en,nl}/NN-<id>.md · glossary.json   gardening handbook + tooltip glossary
 │   ├── frontend/hortulus-panel.js   built panel bundle (committed)
 │   └── engine/              ← pure Python, no HA imports
 │       ├── models.py        dataclasses (Plant, Zone, GardenBed, Planting, Task, snapshots …)
@@ -96,18 +101,28 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │       ├── tasks.py         generation, merge, recurrence, postpone cascade
 │       ├── analysis.py      orchestrates everything into GardenAnalysis
 │       ├── succession.py · planio.py · migrations.py · i18n.py
+│       ├── phenology.py     growth stage, stage Kc, degree-day harvest estimate
+│       ├── waterbalance.py  daily root-zone bucket per bed
+│       ├── fertilizer.py    compost/fertiliser per bed, feed doses, nutrient balance index
+│       ├── maintenance.py   seasonal garden & greenhouse work, bed turnover, perennial care
+│       ├── irrigation.py    pure irrigation plan with the safety rules
+│       ├── autoplan.py      autofill from area + resources
+│       ├── handbook.py      chapters, glossary, search
+│       ├── pdf.py           PDF writer + SVG surface (same drawing API)
+│       └── printout.py      printable documents and page formats (incl. reMarkable)
 ├── frontend/                ← Lit + TypeScript sources (esbuild)
 │   ├── src/hortulus-panel.ts            root element, routing, subscription, toasts
 │   ├── src/api.ts · src/types.ts        typed websocket client mirroring engine/models.py
-│   ├── src/views/{dashboard,planner,library,calendar,settings}-view.ts
+│   ├── src/views/{dashboard,planner,library,calendar,handbook,print,settings}-view.ts
 │   ├── src/planner/{garden-canvas,geometry,history}.ts
-│   ├── src/components/task-ui.ts        task row + task dialog (complete/postpone/notes/photos)
+│   ├── src/components/task-ui.ts        task row (swipe actions) + task dialog (live context)
+│   ├── src/components/{info,markdown}.ts glossary tooltips, safe Markdown renderer
 │   ├── src/styles/tokens.ts             design tokens (light/dark) + shared component styles
 │   ├── src/i18n/{en,nl,index}.ts        catalogs (keys shared with the backend)
 │   └── test/*.test.ts                   node:test unit tests
 ├── tests/                   ← pytest (+ pytest-homeassistant-custom-component)
-│   ├── engine/test_{tasks,frost,compatibility,region_watering_data}.py
-│   ├── test_config_flow.py · test_init.py
+│   ├── engine/test_{tasks,frost,compatibility,region_watering_data,agronomy,planning,print_handbook}.py
+│   ├── test_config_flow.py · test_init.py · test_phase2.py
 │   └── fixtures/{forecast_hourly_dst_frost,forecast_hourly_rain,forecast_daily,sensors}.json
 ├── examples/{automations,dashboard}.yaml
 └── docs/  BLUEPRINT.md · DESIGN_SYSTEM.md · en/{CONFIGURATION,ENTITY_REFERENCE,FAQ}.md · nl/{CONFIGURATIE,ENTITEITEN,FAQ}.md · images/
@@ -166,31 +181,20 @@ class SensorMapping:
     air_humidity: str | None = None
     light: str | None = None
     rain: str | None = None
+    # Advanced probes (all optional)
+    par: str | None = None  # PAR/PPFD in µmol/m²/s
+    ec: str | None = None  # electrical conductivity in mS/cm
+    npk_n: str | None = None  # mg/kg
+    npk_p: str | None = None
+    npk_k: str | None = None
+    leaf_wetness: str | None = None  # binary or %
 
     def merged_with(self, fallback: SensorMapping) -> SensorMapping:
         """Bed sensors fall back to the sensors of their zone."""
-        return SensorMapping(
-            soil_moisture=self.soil_moisture or fallback.soil_moisture,
-            soil_temperature=self.soil_temperature or fallback.soil_temperature,
-            air_temperature=self.air_temperature or fallback.air_temperature,
-            air_humidity=self.air_humidity or fallback.air_humidity,
-            light=self.light or fallback.light,
-            rain=self.rain or fallback.rain,
-        )
+        return SensorMapping(**{k: getattr(self, k) or getattr(fallback, k) for k in SENSOR_KEYS})
 
     def entity_ids(self) -> list[str]:
-        return [
-            e
-            for e in (
-                self.soil_moisture,
-                self.soil_temperature,
-                self.air_temperature,
-                self.air_humidity,
-                self.light,
-                self.rain,
-            )
-            if e
-        ]
+        return [e for e in (getattr(self, k) for k in SENSOR_KEYS) if e]
 
 
 @dataclass(slots=True)
@@ -198,6 +202,10 @@ class Microclimate:
     shade_pct: int = 0
     wind: WindExposure = WindExposure.MODERATE
     heated: bool = False
+    # Against a sun-facing wall (re-radiates heat at night).
+    wall_heat: bool = False
+    # Water barrels / stone floor in an enclosure buffer night temperatures.
+    thermal_mass: bool = False
     min_heating_temp_c: float | None = None
     # Night-time buffering of an enclosure versus outside (°C).  ``None`` means
     # "use the default for the zone type" (greenhouse +3, cold frame +2).
@@ -218,6 +226,11 @@ class Zone:
     microclimate: Microclimate = field(default_factory=Microclimate)
     sensors: SensorMapping = field(default_factory=SensorMapping)
     vent_entity: str | None = None
+    shade_entity: str | None = None
+    # off = ignore, advise = tasks only, auto = drive vent/shade entities
+    climate_control: Literal["off", "advise", "auto"] = "advise"
+    # Shade screen override for enclosed zones: auto follows the advice.
+    shading_mode: Literal["auto", "on", "off"] = "auto"
 
     @property
     def is_enclosed(self) -> bool:
@@ -342,6 +355,20 @@ class Plant:
     gdd_base_c: float = 10.0
     gdd_to_maturity: int | None = None
     tags: list[str] = field(default_factory=list)
+    category: PlantCategory = PlantCategory.VEGETABLE
+    # FAO-56 crop coefficients: initial, mid-season, late season.
+    kc: list[float] = field(default_factory=lambda: [0.5, 1.0, 0.8])
+    # Relative nitrogen / phosphorus / potassium demand (0 = none ... 3 = high).
+    npk: list[float] = field(default_factory=lambda: [1.0, 1.0, 1.0])
+    height_cm: int = 50
+    root_depth_cm: int = 30
+    plants_per_person: float = 2.0
+    yield_kg_m2: float = 2.0
+    # Pests this plant deters (scent, root exudates) or lures away (trap crop).
+    deters: list[str] = field(default_factory=list)
+    trap_for: list[str] = field(default_factory=list)
+    allelopathic: bool = False
+    shade_tolerant: bool = False
     source: Literal["builtin", "custom", "override"] = "builtin"
 
     def name(self, lang: str = "en") -> str:
@@ -351,33 +378,33 @@ class Plant:
 A database entry (excerpt of `data/plants.json`):
 
 ```json
-    {
-      "id": "tomato",
-      "names": {"en": "Tomato", "nl": "Tomaat"},
-      "scientific_name": "Solanum lycopersicum",
-      "variety": "Indeterminate (cordon)",
-      "family": "Solanaceae",
-      "habit": "vine",
-      "spacing_cm": 50, "row_spacing_cm": 75, "sowing_depth_cm": 0.5,
-      "germination_days": [6, 10], "min_soil_temp_c": 15, "optimal_soil_temp_c": 25,
-      "days_to_maturity": [60, 85], "maturity_from": "transplant",
-      "harvest_duration_days": 70, "continuous_harvest": true, "harvest_interval_days": 3,
-      "transplant_age_days": [42, 56],
-      "sowing": {
-        "indoor_sow": [{"start_week": -8, "end_week": -6}],
-        "transplant": [{"start_week": 3, "end_week": 6}]
-      },
-      "greenhouse": {"suitability": "yes", "min_night_c": 10, "max_day_c": 32, "season_extension_weeks": 4,
-        "notes": {"en": "Ideal under glass. Above 32 °C pollen becomes sterile and flowers drop - ventilate and shade.",
-                  "nl": "Ideaal onder glas. Boven 32 °C wordt stuifmeel steriel en vallen bloemen af - ventileer en schaduw."}},
-      "frost_tolerance": "tender", "min_temp_c": 5, "max_temp_c": 32,
-      "companions": [
-        {"plant": "basil", "relation": "friend", "strength": 2, "reason": {"en": "Basil deters thrips and whitefly.", "nl": "Basilicum weert trips en witte vlieg."}},
-        {"plant": "marigold", "relation": "friend", "strength": 3, "reason": {"en": "Tagetes suppresses root-knot nematodes and lures whitefly away.", "nl": "Tagetes onderdrukt wortelknobbelaaltjes en lokt witte vlieg weg."}},
-        {"plant": "parsley", "relation": "friend", "strength": 1, "reason": {"en": "Parsley flowers attract hoverflies that eat aphids.", "nl": "Peterseliebloemen trekken zweefvliegen aan die bladluis eten."}},
-        {"plant": "garlic", "relation": "friend", "strength": 1, "reason": {"en": "Garlic may deter red spider mite.", "nl": "Knoflook kan spint weren."}},
-        {"plant": "kale", "relation": "enemy", "strength": 2, "reason": {"en": "Brassicas compete heavily for nutrients and stunt tomatoes.", "nl": "Koolsoorten concurreren sterk om voeding en remmen tomaten."}},
-        {"plant": "cabbage", "relation": "enemy", "strength": 2, "reason": {"en": "Brassicas compete heavily for nutrients and stunt tomatoes.", "nl": "Koolsoorten concurreren sterk om voeding en remmen tomaten."}}
+  {
+   "habit": "bush",
+   "category": "herb",
+   "perennial": true,
+   "spacing_cm": 90,
+   "row_spacing_cm": 40,
+   "sowing_depth_cm": 0.5,
+   "germination_days": [
+    10,
+    21
+   ],
+   "min_soil_temp_c": 12,
+   "optimal_soil_temp_c": 20,
+   "days_to_maturity": [
+    90,
+    120
+   ],
+   "maturity_from": "sow",
+   "harvest_duration_days": 150,
+   "continuous_harvest": true,
+   "harvest_interval_days": 14,
+   "transplant_age_days": [
+    56,
+    84
+   ],
+   "sowing": {
+    "indoor_sow": [
     …
 ```
 
@@ -470,6 +497,9 @@ class ForecastPoint:
     wind_speed: float | None = None  # km/h, HA default for metric
     cloud_coverage: float | None = None
     condition: str | None = None
+    dew_point: float | None = None
+    # Daily sums from Open-Meteo (optional): MJ/m²/day
+    shortwave_radiation: float | None = None
 
 
 @dataclass(slots=True)
@@ -506,6 +536,12 @@ class SensorSnapshot:
     air_humidity: SensorReading | None = None
     light: SensorReading | None = None
     rain: SensorReading | None = None
+    par: SensorReading | None = None
+    ec: SensorReading | None = None
+    npk_n: SensorReading | None = None
+    npk_p: SensorReading | None = None
+    npk_k: SensorReading | None = None
+    leaf_wetness: SensorReading | None = None
 
     @staticmethod
     def value(reading: SensorReading | None) -> float | None:
@@ -531,6 +567,9 @@ class GardenData:
     climate_log: list[ClimateDay] = field(default_factory=list)
     # Dedupe keys of notifications already sent -> ISO date sent.
     notified: dict[str, str] = field(default_factory=dict)
+    features: list[Feature] = field(default_factory=list)
+    water_balance: dict[str, WaterBalance] = field(default_factory=dict)
+    irrigation_log: list[IrrigationEvent] = field(default_factory=list)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:
@@ -633,8 +672,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
 
     coordinator = GardenCoordinator(hass, entry, repo)
     notifier = GardenNotifier(hass, repo)
-    entry.runtime_data = GardenRuntime(repo, coordinator, notifier)
+    irrigation = IrrigationController(hass, coordinator)
+    climate = ClimateController(hass, coordinator)
+    entry.runtime_data = GardenRuntime(repo, coordinator, notifier, irrigation, climate)
     entry.async_on_unload(coordinator.async_add_post_compute_hook(notifier.async_process))
+    entry.async_on_unload(coordinator.async_add_listener(climate.async_apply))
+    entry.async_on_unload(irrigation.async_stop_on_unload)
 
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -647,6 +690,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
 
     entry.async_on_unload(async_track_time_change(hass, _midnight, hour=0, minute=5, second=0))
     _schedule_digest(hass, entry)
+    _schedule_irrigation(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 ```
@@ -671,41 +715,9 @@ async def _async_update_data(self) -> GardenAnalysis:
 
 
 async def async_fetch_forecast(self) -> None:
-    entity_id = self.repo.data.settings.weather_entity
-    self._forecast_fetched_at = dt_util.utcnow()
-    if not entity_id:
-        self.weather = WeatherSnapshot(available=False, error="not_configured")
-        return
-    state = self.hass.states.get(entity_id)
-    if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-        self.weather = WeatherSnapshot(available=False, error="entity_unavailable")
-        return
-    features = int(state.attributes.get(ATTR_SUPPORTED_FEATURES, 0))
-    attrs = dict(state.attributes)
-    hourly: list[dict[str, Any]] = []
-    daily: list[dict[str, Any]] = []
-    try:
-        if features & WeatherEntityFeature.FORECAST_HOURLY:
-            hourly = await self._get_forecast(entity_id, "hourly")
-        if features & WeatherEntityFeature.FORECAST_DAILY:
-            daily = await self._get_forecast(entity_id, "daily")
-        elif features & WeatherEntityFeature.FORECAST_TWICE_DAILY:
-            daily = await self._get_forecast(entity_id, "twice_daily")
-    except (HomeAssistantError, KeyError, TypeError) as err:
-        _LOGGER.warning("Could not fetch forecast from %s: %s", entity_id, err)
-        self.weather = WeatherSnapshot(available=False, error=str(err))
-        return
-    temperature = _to_celsius(attrs.get("temperature"), attrs.get("temperature_unit"))
-    self.weather = WeatherSnapshot(
-        available=bool(hourly or daily),
-        fetched_at=dt_util.utcnow(),
-        temperature=temperature,
-        humidity=_float(attrs.get("humidity")),
-        condition=state.state,
-        hourly=parse_forecast(_normalize_units(hourly, attrs)),
-        daily=parse_forecast(_normalize_units(daily, attrs)),
-        error=None if (hourly or daily) else "no_forecast_support",
-    )
+    await self._async_fetch_entity_forecast()
+    if self.repo.data.settings.open_meteo:
+        await self._async_enrich_open_meteo()
 
 
 def _compute(self) -> GardenAnalysis:
@@ -730,10 +742,21 @@ def _compute(self) -> GardenAnalysis:
     if temp is None:
         temp = self.weather.temperature
     rain = readings.get(outdoor.rain).usable if outdoor.rain in readings else None  # type: ignore[union-attr]
-    if outdoor.rain and rain is not None and not outdoor.rain.startswith("binary_sensor."):
-        changed |= record_climate(data.climate_log, analysis.today, temp, rain)
-    else:
-        changed |= record_climate(data.climate_log, analysis.today, temp)
+    if not (outdoor.rain and rain is not None and not outdoor.rain.startswith("binary_sensor.")):
+        # No rain gauge: book the forecast for today (never lowering it as
+        # the day passes and fewer hours remain in the forecast).
+        logged = next((d.rain_mm for d in data.climate_log if d.day == analysis.today), None)
+        forecast = analysis.outlook[0].rain_mm if analysis.outlook else None
+        rain = max(v for v in (logged, forecast, 0.0) if v is not None) if forecast is not None else None
+    changed |= record_climate(data.climate_log, analysis.today, temp, rain)
+    changed |= advance_water_balance(
+        data,
+        repo.db,
+        analysis.timelines,
+        analysis.today,
+        latitude=data.settings.region.latitude or self.hass.config.latitude,
+        tz=dt_util.get_default_time_zone(),
+    )
 
     merge = merge_tasks(
         data.tasks,
@@ -889,6 +912,7 @@ def evaluate_pair(
     *,
     radius_cm: float,
     lang: str = "en",
+    hemisphere: Hemisphere = Hemisphere.NORTH,
 ) -> list[PairFinding]:
     findings: list[PairFinding] = []
     gap = ra.gap(rb)
@@ -956,6 +980,8 @@ def evaluate_pair(
                     {"a": name_a, "b": name_b},
                 )
             )
+        if rel.relation is Relation.NEUTRAL or rel.source == "family":
+            findings.extend(_secondary_factors(pa, ra, plant_a, pb, rb, plant_b, influence, gap, lang, hemisphere, rel))
     return findings
 
 
@@ -1227,6 +1253,7 @@ def ws_plan_check(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         timelines={k: v.occupancy for k, v in timelines.items()},
         radius_cm=data.settings.companion_radius_cm,
         lang=lang,
+        hemisphere=resolve_profile(data.settings.region).hemisphere,
     )
     others = [p for p in data.plantings if p.id not in {d.id for d in plantings}]
     history = rotation_history(data.rotation_history, others, db)
@@ -1269,18 +1296,36 @@ Lit 3 + TypeScript, bundled by esbuild into one ES module served from
 private async connect(): Promise<void> {
   try {
     await this.loadPlants();
+    void this.loadGlossary();
     this.unsubscribe = await this.api!.subscribe((snap) => {
       this.snapshot = snap;
       const lang = normalizeLang(snap.lang);
       if (lang !== this.uiLang) {
         this.uiLang = lang;
         this.t = makeTranslator(lang);
+        void this.loadGlossary();
       }
       if (this.openTask) this.openTask = snap.tasks.find((t) => t.id === this.openTask!.id) ?? null;
     });
   } catch (err) {
     this.error = (err as { code?: string }).code === "not_loaded" ? this.t("common.not_loaded") : String((err as Error).message ?? err);
   }
+}
+
+private async loadGlossary(): Promise<void> {
+  try {
+    setGlossary((await this.api!.handbookIndex(this.uiLang)).glossary);
+  } catch {
+    /* older backend - tooltips stay empty */
+  }
+}
+
+private openHandbook(chapter = ""): void {
+  this.chapter = chapter;
+  const base = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/handbook${chapter ? `/${chapter}` : ""}`;
+  history.pushState(null, "", base);
+  window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+  this.tab = "handbook";
 }
 ```
 
@@ -1493,7 +1538,7 @@ private onKeyDown(ev: KeyboardEvent): void {
   switch (key) {
     case "Delete":
     case "Backspace": this.removeSelected(); return handled();
-    case "Escape": this.selection = null; this.paletteDrag = null; this.dialog = null; return handled();
+    case "Escape": this.selection = null; this.multi = []; this.paletteDrag = null; this.dialog = null; return handled();
     case "g": this.snapOn = !this.snapOn; return handled();
     case "c": this.showCompanions = !this.showCompanions; return handled();
     case "m": this.showMoisture = !this.showMoisture; return handled();
@@ -1930,7 +1975,16 @@ def recommend_irrigation(
     *,
     root_zone_depth_mm: float = 200.0,
     max_irrigation_mm: float = 20.0,
+    kc: float | None = None,
+    depletion: tuple[float, float] | None = None,
 ) -> IrrigationRecommendation:
+    """Irrigation advice for one bed.
+
+    ``kc`` is the growth-stage crop coefficient of the thirstiest active crop
+    (falls back to a coefficient per water-need class).  ``depletion`` is the
+    ``(depletion_mm, taw_mm)`` water-balance bucket used when no moisture sensor
+    is mapped.
+    """
     need = dominant_need(active_needs)
     band = band_for(need or Level.MEDIUM, bed.soil)
     rec = IrrigationRecommendation(
@@ -1942,6 +1996,7 @@ def recommend_irrigation(
     )
     enclosed = bool(zone and zone.is_enclosed)
     shade = bed.shade_pct if bed.shade_pct is not None else (zone.microclimate.shade_pct if zone else 0)
+    crop_kc = kc if kc is not None and kc > 0 else CROP_KC[need or Level.MEDIUM]
 
     today = outlook[0] if outlook else None
     tomorrow = outlook[1] if len(outlook) > 1 else None
@@ -1949,7 +2004,7 @@ def recommend_irrigation(
         rec.rain_24h_mm = round(today.rain_mm if today else 0.0, 1)
         rec.rain_48h_mm = round(rec.rain_24h_mm + (tomorrow.rain_mm if tomorrow else 0.0), 1)
     if today and today.et0_mm is not None:
-        factor = CROP_KC[need or Level.MEDIUM] * (ENCLOSED_ET_FACTOR if enclosed else 1.0)
+        factor = crop_kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0)
         factor *= 1 - shade / 200  # 50 % shade -> 25 % less demand
         rec.etc_24h_mm = round(today.et0_mm * factor, 1)
 
@@ -1957,10 +2012,38 @@ def recommend_irrigation(
         rec.reasons.append("no_active_crops")
         return rec
 
+    if moisture is None and depletion is not None:
+        # Water-balance bucket: water when depletion exceeds the readily
+        # available water (p x TAW); refill to field capacity.
+        depleted, taw = depletion
+        rec.confidence = "medium"
+        raw = ALLOWED_DEPLETION * taw
+        credited = 0.0 if enclosed else RAIN_EFFICIENCY * rec.rain_24h_mm
+        rec.status = (
+            MoistureStatus.DRY
+            if depleted >= raw
+            else MoistureStatus.SLIGHTLY_DRY
+            if depleted >= 0.7 * raw
+            else MoistureStatus.OPTIMAL
+        )
+        if depleted >= raw:
+            if credited >= 0.8 * depleted:
+                rec.action = IrrigationAction.SKIP_RAIN_EXPECTED
+                rec.reasons.append("rain_expected")
+                return rec
+            rec.action = IrrigationAction.WATER
+            rec.amount_mm = round(min(max(depleted - credited, 2.0), max_irrigation_mm), 1)
+            rec.priority = TaskPriority.HIGH if depleted >= 0.9 * taw else TaskPriority.NORMAL
+            rec.reasons.append("water_balance_depleted")
+            _finish(rec, bed)
+        else:
+            rec.reasons.append("water_balance_ok")
+        return rec
+
     if moisture is None:
-        # No sensor: forecast water balance only, ask the gardener to check.
+        # No sensor, no bucket yet: forecast water balance only.
         rec.confidence = "low"
-        demand = sum((o.et0_mm or 0.0) * CROP_KC[need] * (ENCLOSED_ET_FACTOR if enclosed else 1.0) for o in outlook[:2])
+        demand = sum((o.et0_mm or 0.0) * crop_kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0) for o in outlook[:2])
         rain = 0.0 if enclosed else RAIN_EFFICIENCY * rec.rain_48h_mm
         if demand - rain > 6.0 or (enclosed and demand > 4.0):
             rec.action = IrrigationAction.CHECK_MANUALLY
@@ -2380,3 +2463,516 @@ options flow.
 | [`docs/DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | EN | UX principles, personas, IA, tokens, components & states, brand, accessibility, decision log |
 | [`docs/BLUEPRINT.md`](BLUEPRINT.md) | EN | this document |
 | [`CHANGELOG.md`](../CHANGELOG.md) · [`CONTRIBUTING.md`](../CONTRIBUTING.md) | EN | history, how to contribute (plant data in both languages) |
+
+---
+
+## 11. Version 1.1 additions
+
+### 11.1 Agronomy
+
+FAO‑56 Penman‑Monteith (eq. 6) with radiation from cloud cover via Angström; verified
+against FAO example 18 (Brussels, 6 July → 3.9 mm/day). Hargreaves‑Samani is the
+fallback when humidity or wind are missing.
+
+```python
+def et0_penman_monteith(
+    tmin: float,
+    tmax: float,
+    latitude_deg: float,
+    day: date,
+    *,
+    rh_min: float | None = None,
+    rh_max: float | None = None,
+    rh_mean: float | None = None,
+    u2: float | None = None,
+    wind_kmh_10m: float | None = None,
+    rs: float | None = None,
+    sunshine_fraction: float | None = None,
+    elevation_m: float = 0.0,
+) -> float | None:
+    """FAO-56 Penman-Monteith reference ET (mm/day), eq. 6.
+
+    Needs humidity and wind; solar radiation comes from ``rs`` (MJ/m²/day, e.g.
+    Open-Meteo) or is estimated with the Angström formula from the sunshine
+    fraction n/N - which an HA forecast gives us via cloud cover (n/N ≈ 1 -
+    clouds).  Returns ``None`` when inputs are insufficient; callers then fall
+    back to Hargreaves-Samani.
+    """
+    if tmax < tmin:
+        tmin, tmax = tmax, tmin
+    if u2 is None and wind_kmh_10m is not None:
+        u2 = wind_kmh_10m / 3.6 * 4.87 / math.log(67.8 * 10 - 5.42)  # eq. 47, measured at 10 m
+    if u2 is None or (rh_min is None and rh_mean is None):
+        return None
+    ra, _daylight = _solar(latitude_deg, day)
+    if rs is None:
+        if sunshine_fraction is None:
+            return None
+        rs = (0.25 + 0.50 * max(0.0, min(1.0, sunshine_fraction))) * ra  # eq. 35
+    tmean = (tmax + tmin) / 2
+    delta = 4098 * _svp(tmean) / (tmean + 237.3) ** 2  # eq. 13
+    pressure = 101.3 * ((293 - 0.0065 * elevation_m) / 293) ** 5.26  # eq. 7
+    gamma = 0.000665 * pressure  # eq. 8
+    es = (_svp(tmax) + _svp(tmin)) / 2  # eq. 12
+    if rh_min is not None and rh_max is not None:
+        ea = (_svp(tmin) * rh_max / 100 + _svp(tmax) * rh_min / 100) / 2  # eq. 17
+    else:
+        rh = rh_mean if rh_mean is not None else rh_min
+        ea = (rh or 70.0) / 100 * es  # eq. 19
+    rso = (0.75 + 2e-5 * elevation_m) * ra  # eq. 37
+    rns = 0.77 * rs  # eq. 38 (albedo 0.23)
+    rel_shortwave = min(rs / rso, 1.0) if rso > 0 else 0.0
+    rnl = (
+        4.903e-9
+        * (((tmax + 273.16) ** 4 + (tmin + 273.16) ** 4) / 2)
+        * (0.34 - 0.14 * math.sqrt(max(ea, 0.0)))
+        * (1.35 * rel_shortwave - 0.35)
+    )  # eq. 39
+    rn = rns - rnl
+    num = 0.408 * delta * rn + gamma * 900 / (tmean + 273) * u2 * (es - ea)
+    return max(round(num / (delta + gamma * (1 + 0.34 * u2)), 2), 0.0)
+```
+
+Crop coefficient by growth stage (FAO‑56 stage lengths 15/25/40/20 %):
+
+```python
+def stage_kc(plant: Plant, tl: PlantingTimeline, today: date) -> float:
+    """Interpolated FAO-56 Kc for ``today`` (perennials: mid-season value)."""
+    kc_ini, kc_mid, kc_end = (plant.kc + [0.5, 1.0, 0.8])[:3]
+    if plant.perennial:
+        return kc_mid
+    total = max((tl.harvest_end - tl.in_ground).days, 1)
+    elapsed = (today - tl.in_ground).days
+    if elapsed < 0:
+        return 0.0
+    f = elapsed / total
+    ini, dev, mid, _late = STAGE_FRACTIONS
+    if f <= ini:
+        return kc_ini
+    if f <= ini + dev:
+        return kc_ini + (kc_mid - kc_ini) * (f - ini) / dev
+    if f <= ini + dev + mid:
+        return kc_mid
+    if f <= 1.0:
+        return kc_mid + (kc_end - kc_mid) * (f - ini - dev - mid) / (1 - ini - dev - mid)
+    return kc_end
+```
+
+Root‑zone bucket (FAO‑56 eq. 85, no capillary rise); TAW = available water per metre of
+soil × rooting depth; water when depletion ≥ 0.5 × TAW:
+
+```python
+def update_water_balance(
+    depletion_mm: float,
+    *,
+    et0_mm: float,
+    kc: float,
+    rain_mm: float,
+    irrigation_mm: float,
+    taw_mm: float,
+    enclosed: bool = False,
+) -> float:
+    """One day of the root-zone bucket (FAO-56 eq. 85, no capillary rise).
+
+    Depletion grows with crop ET and shrinks with effective rain and
+    irrigation; it never drops below 0 (field capacity - excess drains) nor
+    rises above TAW (wilting point).
+    """
+    effective_rain = 0.0 if enclosed else RAIN_EFFICIENCY * rain_mm
+    depletion = depletion_mm + et0_mm * kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0)
+    depletion -= effective_rain + irrigation_mm
+    return round(max(0.0, min(taw_mm, depletion)), 1)
+```
+
+Disease pressure (Hutton criteria, wet hours, greenhouse humidity, leaf wetness):
+
+```python
+def assess_disease(
+    weather: WeatherSnapshot,
+    now: datetime,
+    tz: tzinfo,
+    *,
+    humidity_now: float | None = None,
+    leaf_wetness_now: float | None = None,
+    enclosed: bool = False,
+    horizon_hours: int = 48,
+) -> DiseaseAssessment:
+    """Fungal disease pressure from humidity, temperature and leaf wetness.
+
+    * **Hutton period** (late blight): two consecutive days with a minimum of
+      at least 10 °C and at least 6 hours of RH >= 90 %.
+    * **Wet hours**: RH >= 90 % at 10-25 °C - when spores of downy mildew,
+      botrytis and blight germinate.
+    * A wet leaf right now (sensor) or stagnant greenhouse air (RH >= 85 %)
+      raises the level.
+    """
+    out = DiseaseAssessment(humidity_now=humidity_now)
+    if leaf_wetness_now is not None:
+        out.leaf_wet_now = leaf_wetness_now >= 50 or leaf_wetness_now == 1.0
+    horizon = now + timedelta(hours=horizon_hours)
+    pts = [p for p in weather.hourly if now - timedelta(hours=1) <= p.at <= horizon and p.temperature is not None]
+    has_forecast = weather.available and any(p.humidity is not None for p in pts)
+    if has_forecast and not enclosed:
+        per_day: dict[date, list[float]] = {}  # day -> [tmin, humid hours]
+        for idx, p in enumerate(pts):
+            nxt = pts[idx + 1].at if idx + 1 < len(pts) else p.at + timedelta(hours=1)
+            hours = min((nxt - p.at).total_seconds() / 3600, 3.0)
+            temp = float(p.temperature)  # type: ignore[arg-type]
+            day = per_day.setdefault(p.at.astimezone(tz).date(), [99.0, 0.0])
+            day[0] = min(day[0], temp)
+            if p.humidity is not None and p.humidity >= 90:
+                day[1] += hours
+                if 10 <= temp <= 25:
+                    out.wet_hours += hours
+        days = sorted(per_day)
+        for a, b in itertools.pairwise(days):
+            if min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
+                out.hutton_period = True
+        out.wet_hours = round(out.wet_hours, 1)
+    elif not has_forecast and humidity_now is None and out.leaf_wet_now is None:
+        return out  # unknown
+
+    order = ["none", "low", "moderate", "high"]
+    level = 0
+    if out.hutton_period:
+        level = 3
+        out.reasons.append("hutton_period")
+    elif out.wet_hours >= 10:
+        level = 2
+        out.reasons.append("long_wet_period")
+    elif out.wet_hours >= 4:
+        level = 1
+        out.reasons.append("wet_hours")
+    if enclosed and humidity_now is not None and humidity_now >= 85:
+        level = max(level, 1) + (1 if humidity_now >= 92 else 0)
+        out.reasons.append("humid_greenhouse_air")
+    if out.leaf_wet_now:
+        level += 1
+        out.reasons.append("leaf_wet_now")
+    out.level = order[min(level, 3)]
+    return out
+```
+
+### 11.2 Companion factors beyond the relation table
+
+```python
+def _secondary_factors(
+    pa: Planting,
+    ra: Rect,
+    plant_a: Plant,
+    pb: Planting,
+    rb: Rect,
+    plant_b: Plant,
+    influence: float,
+    gap: float,
+    lang: str,
+    hemisphere: Hemisphere,
+    rel: Any,
+) -> list[PairFinding]:
+    """Factors derived from plant traits rather than explicit relations."""
+    out: list[PairFinding] = []
+    name_a, name_b = plant_a.name(lang), plant_b.name(lang)
+
+    # -- pest deterrence / trap crops ------------------------------------ #
+    for helper, helper_p, target, target_p in ((plant_a, pa, plant_b, pb), (plant_b, pb, plant_a, pa)):
+        deterred = sorted(set(helper.deters) & set(target.pests))
+        trapped = sorted(set(helper.trap_for) & set(target.pests))
+        if deterred or trapped:
+            pests = ", ".join(pest_label(p, lang) for p in (deterred or trapped))
+            out.append(
+                PairFinding(
+                    helper_p.id, target_p.id, "pest_synergy", "info", 6 * influence, gap,
+                    "compat.deters" if deterred else "compat.trap",
+                    {"a": helper.name(lang), "b": target.name(lang), "pests": pests},
+                )
+            )  # fmt: skip
+
+    if rel.relation is Relation.FRIEND:
+        return out
+
+    # -- allelopathy ------------------------------------------------------ #
+    for culprit, culprit_p, victim, victim_p in ((plant_a, pa, plant_b, pb), (plant_b, pb, plant_a, pa)):
+        if culprit.allelopathic and not victim.allelopathic:
+            out.append(
+                PairFinding(
+                    culprit_p.id, victim_p.id, "allelopathy", "warning", -10 * influence, gap,
+                    "compat.allelopathy", {"a": culprit.name(lang), "b": victim.name(lang)},
+                )
+            )  # fmt: skip
+            break
+
+    # -- nutrient competition -------------------------------------------- #
+    if plant_a.nutrient_needs is Level.HIGH and plant_b.nutrient_needs is Level.HIGH and influence > 0.5:
+        out.append(
+            PairFinding(
+                pa.id, pb.id, "competition", "info", -4 * influence, gap,
+                "compat.competition", {"a": name_a, "b": name_b},
+            )
+        )  # fmt: skip
+
+    # -- shading (canvas y grows to the south; sun from the equator side) -- #
+    tall, short = (plant_a, plant_b) if plant_a.height_cm >= plant_b.height_cm else (plant_b, plant_a)
+    tall_r, short_r = (ra, rb) if tall is plant_a else (rb, ra)
+    tall_p, short_p = (pa, pb) if tall is plant_a else (pb, pa)
+    if tall.height_cm >= 80 and tall.height_cm >= 1.6 * short.height_cm:
+        sun_side = (
+            tall_r.center[1] > short_r.center[1]
+            if hemisphere is Hemisphere.NORTH
+            else tall_r.center[1] < short_r.center[1]
+        )
+        x_overlap = min(tall_r.x2, short_r.x2) - max(tall_r.x, short_r.x)
+        dy = abs(tall_r.center[1] - short_r.center[1])
+        if sun_side and x_overlap > -20 and dy <= tall.height_cm:
+            if short.shade_tolerant:
+                out.append(
+                    PairFinding(
+                        tall_p.id, short_p.id, "shading", "info", 3 * influence, gap,
+                        "compat.shade_benefit", {"a": tall.name(lang), "b": short.name(lang)},
+                    )
+                )  # fmt: skip
+            else:
+                out.append(
+                    PairFinding(
+                        tall_p.id, short_p.id, "shading", "warning", -8 * influence, gap,
+                        "compat.shading", {"a": tall.name(lang), "b": short.name(lang), "height": tall.height_cm},
+                    )
+                )  # fmt: skip
+    return out
+```
+
+### 11.3 Seasonal work and fertiliser
+
+```python
+def bed_fertilizer_plan(area_m2: float, plants: Sequence[Plant], lang: str = "en") -> BedFertilizerPlan:
+    """Base dressing for a bed before the given crops go in."""
+    demand = dominant_demand(plants)
+    only_legumes = bool(plants) and all(is_legume(p) for p in plants)
+    compost = 0.5 if only_legumes else COMPOST_KG_M2[demand]
+    return BedFertilizerPlan(
+        compost_kg=round(compost * area_m2, 1),
+        base_fertilizer_g=round(BASE_FERTILIZER_G_M2[demand] * area_m2),
+        lime_check=any("brassica" in p.tags or p.family == "Brassicaceae" for p in plants),
+        demand=demand,
+        crops=sorted({p.name(lang) for p in plants}),
+    )
+```
+
+Maintenance rules are anchored on frost dates (`GARDEN_RULES`, `GREENHOUSE_RULES`,
+`PERENNIAL_RULES` in `engine/maintenance.py`); bed turnover adds *prepare soil* two
+weeks before the next crop and *green manure* / *cover for winter* when a bed falls empty.
+
+### 11.4 Irrigation safety
+
+```python
+def plan_irrigation(
+    data: GardenData,
+    recommendations: Mapping[str, IrrigationRecommendation],
+    *,
+    now: datetime,
+    frost_by_zone: Mapping[str, FrostAssessment],
+    outdoor_frost: FrostAssessment | None,
+    outdoor_temp: float | None,
+    zone_air: Mapping[str, float | None] | None = None,
+    force: bool = False,
+    bed_ids: set[str] | None = None,
+    override_mm: float | None = None,
+) -> IrrigationPlan:
+    """Build today's run list.
+
+    ``force`` (a manual run) ignores the mode switch and the "no water needed"
+    check - never the safety rules.  ``override_mm`` waters a fixed depth.
+    """
+    cfg = data.settings.irrigation
+    plan = IrrigationPlan()
+    locked, lock_temp = frost_lockout(outdoor_frost, outdoor_temp, cfg.frost_lockout_c, now)
+    plan.lockout, plan.lockout_temp = locked, lock_temp
+    zone_air = zone_air or {}
+
+    for bed in data.beds:
+        if bed_ids is not None and bed.id not in bed_ids:
+            continue
+        rec = recommendations.get(bed.id)
+        zone = data.zone(bed.zone_id)
+        enclosed = bool(zone and zone.is_enclosed)
+        if cfg.mode != "auto" and not force:
+            plan.skipped[bed.id] = ("irrigation.skip.disabled", {})
+            continue
+        if not bed.irrigation_entity:
+            plan.skipped[bed.id] = ("irrigation.skip.no_valve", {})
+            continue
+        if not bed.irrigation_flow_lpm or bed.irrigation_flow_lpm <= 0:
+            plan.skipped[bed.id] = ("irrigation.skip.no_flow", {})
+            continue
+        # -- safety ------------------------------------------------------- #
+        if enclosed:
+            air = zone_air.get(bed.zone_id)
+            if air is not None and air <= cfg.frost_lockout_c:
+                plan.skipped[bed.id] = ("irrigation.skip.frost", {"temp": air, "limit": cfg.frost_lockout_c})
+                continue
+        else:
+            z_locked, z_temp = frost_lockout(frost_by_zone.get(bed.zone_id), outdoor_temp, cfg.frost_lockout_c, now)
+            if locked or z_locked:
+                temp = z_temp if z_locked else lock_temp
+                plan.skipped[bed.id] = ("irrigation.skip.frost", {"temp": temp, "limit": cfg.frost_lockout_c})
+                continue
+            rain = rec.rain_24h_mm if rec else 0.0
+            if rain >= cfg.rain_skip_mm:
+                plan.skipped[bed.id] = ("irrigation.skip.rain", {"mm": rain, "limit": cfg.rain_skip_mm})
+                continue
+        # -- amount ------------------------------------------------------- #
+        if override_mm is not None:
+            mm = override_mm
+        elif rec is not None and rec.action is IrrigationAction.WATER and rec.amount_mm > 0:
+            mm = rec.amount_mm
+        elif force and rec is not None and rec.etc_24h_mm:
+            mm = rec.etc_24h_mm  # manual run without need: replace one day of ET
+        else:
+            plan.skipped[bed.id] = ("irrigation.skip.not_needed", {})
+            continue
+        liters = round(mm * bed.area_m2, 1)
+        minutes = liters / bed.irrigation_flow_lpm
+        capped = minutes > cfg.max_runtime_min
+        minutes = round(min(minutes, cfg.max_runtime_min), 1)
+        if capped:
+            liters = round(minutes * bed.irrigation_flow_lpm, 1)
+            mm = round(liters / bed.area_m2, 1) if bed.area_m2 else mm
+        plan.runs.append(IrrigationRun(bed.id, bed.irrigation_entity, minutes, round(mm, 1), liters, capped))
+    return plan
+```
+
+The controller (`controllers.py`) executes a plan under an `asyncio.Lock`: valve open →
+settle → pump on → sleep → pump off → lead time → valve closed, and a `finally` block
+switches off every touched valve and the pump (errors, cancellation, unload).
+
+### 11.5 Autofill
+
+Greedy and explainable: crop demand from goals and plants per person, scaled to the
+available area; bed score from rotation, glass need, companions, shade and containers;
+shelf packing with tall crops away from the sun; neighbours trimmed by whole rows when a
+crop does not fit; time, water and compost budgets.
+
+```python
+def _bed_score(
+    demand: CropDemand,
+    bed: GardenBed,
+    zone: Zone | None,
+    placed: Sequence[CropDemand],
+    db: PlantDatabase,
+    history: list[Any],
+    season: int,
+) -> float | None:
+    plant = demand.plant
+    enclosed = bool(zone and zone.is_enclosed)
+    score = 0.0
+    if _prefers_glass(plant):
+        score += 40 if enclosed else -10
+    elif enclosed:
+        score -= 25  # keep greenhouse space for crops that need it
+    probe = Planting("probe", plant.id, bed.id, season)
+    for finding in check_rotation(probe, bed, history, db):
+        if finding.severity == "error":
+            return None
+        score -= 20
+    for other in placed:
+        rel = db.relation(plant.id, other.plant.id)
+        if rel.relation is Relation.ENEMY:
+            if rel.strength >= 2:
+                return None
+            score -= 15
+        elif rel.relation is Relation.FRIEND:
+            score += 6 * rel.strength
+        if other.plant.family == plant.family:
+            score -= 2  # monoculture beds spread pests
+    shade = bed.shade_pct if bed.shade_pct is not None else (zone.microclimate.shade_pct if zone else 0)
+    if shade >= 30:
+        score += 5 if plant.shade_tolerant else -15
+    if bed.kind is BedKind.CONTAINER:
+        score += 10 if "container" in plant.tags or plant.category is PlantCategory.HERB else -20
+    if plant.perennial and bed.kind is not BedKind.CONTAINER:
+        score -= 3  # perennials block a bed for years; prefer an edge bed
+    return score
+```
+
+### 11.6 Printouts
+
+`engine/pdf.py` implements one drawing API (`Surface`) twice: `PdfPage` (Helvetica /
+WinAnsi, Flate streams, clipping for hatch patterns, round‑cap dots) and `SvgPage` (panel
+preview). `engine/printout.py` lays out each document once in millimetres.
+
+| Format | Size (mm) | Margins |
+|---|---|---|
+| A4 / A3 / A5 / Letter | ISO / US | 12 mm |
+| reMarkable Paper Pro | 179.6 × 239.5 (4:3, 2160 × 1620 px @ 229 ppi) | left 13 mm (toolbar), others 6–7 mm |
+
+Colour modes: *color* (family tints), *eink* (lighter tints + pattern per family),
+*grayscale* (luminance conversion in the surface, patterns carry meaning).
+
+### 11.7 Tests added in 1.1
+
+ET₀ against FAO example 18 and the Hargreaves fallback, GDD accumulation and degree‑day
+harvest shifts, stage Kc, water balance, fertiliser and nutrient index, Hutton/greenhouse
+disease risk, irrigation frost lockout / rain skip / max runtime / advise mode, seasonal
+and greenhouse tasks, soil prep with compost amount, green manure vs. winter cover,
+perennial care, autofill (bounds, glass for tender crops, tall crops north, rotation,
+budgets, containers), new companion factors, rotation alternatives, PDF validity
+(xref offsets, operators, page sizes incl. reMarkable), e‑ink/grayscale rendering,
+handbook EN/NL parity and glossary links; HA tests for every new service, the pump
+interlock order, the frost lockout entity, shading control, autofill, the PDF view and the
+new websocket commands.
+
+```python
+async def test_irrigation_dry_run_and_run_with_pump_interlock(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, calls = garden
+    repo = entry.runtime_data.repo
+    repo.data.settings.irrigation.pump_entity = "switch.pump"
+    repo.data.settings.irrigation.max_runtime_min = 2
+    sleeps: list[float] = []
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    switched: list[tuple[str, bool]] = []
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        # The switch domain belongs to Hortulus' own platform in this test,
+        # so record at the controller boundary instead of mocking services.
+        switched.append((entity_id, on))
+
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+
+    dry = await hass.services.async_call(
+        DOMAIN, "run_irrigation_plan", {"dry_run": True, "amount_mm": 10}, blocking=True, return_response=True
+    )
+    assert dry["started"] is False and len(dry["runs"]) == 2
+    assert all(run["minutes"] <= 2 for run in dry["runs"]) and any(run["capped"] for run in dry["runs"])
+    assert calls == []
+
+    run = await hass.services.async_call(
+        DOMAIN, "run_irrigation_plan", {"beds": ["Bed 1"], "amount_mm": 1}, blocking=True, return_response=True
+    )
+    assert run["started"] is True
+    await hass.async_block_till_done(wait_background_tasks=True)
+    # valve open -> pump on -> pump off -> valve closed, and nothing left on.
+    assert switched[:4] == [
+        ("switch.valve_bed_1", True),
+        ("switch.pump", True),
+        ("switch.pump", False),
+        ("switch.valve_bed_1", False),
+    ]
+    assert switched[-1] == ("switch.pump", False)  # final safety sweep
+    assert 0.5 * 60 in sleeps  # 1 mm x 2 m² = 2 L at 4 L/min = 0.5 min
+    event = repo.data.irrigation_log[-1]
+    assert event.source == "service" and event.liters == 2.0
+    assert not entry.runtime_data.irrigation.running
+```
+
+### 11.8 New entities, services and storage
+
+See [ENTITY_REFERENCE](en/ENTITY_REFERENCE.md). Storage schema 1.5 adds `features`,
+`water_balance`, `irrigation_log`, `settings.irrigation` and `settings.resources`
+(migration `_v1_4_to_1_5`).

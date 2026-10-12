@@ -40,14 +40,18 @@ Key journeys we designed and tested in the browser harness:
 ```
 Hortulus (sidebar panel, /hortulus)
 ├── Today      – alerts · today's tasks · beds (moisture, soil temp, irrigation) · 48 h weather · greenhouse · coming up
-├── Planner    – toolbar · plant palette · canvas · inspector · dialogs (succession, import, shortcuts)
-├── Plants     – search & filters · plant cards with sowing calendar · detail drawer · editor
-├── Calendar   – month / week / list · task dialog · new task
-└── Settings   – region · weather · zones & beds sensor mapping · notifications · general · import/export
+├── Planner    – toolbar (layers, align) · plant palette · canvas · inspector · dialogs (autofill, succession, import, shortcuts)
+├── Plants     – search & filters (category, family) · plant cards with sowing calendar · detail drawer · editor
+├── Calendar   – month / week / list / timeline · task dialog (live context) · new task
+├── Handbook   – contents · chapter reader · search · glossary          ← also reached from every ⓘ tooltip
+├── Print      – document · paper (incl. reMarkable) · colours · live preview · download / save
+└── Settings   – region · weather · zones & beds sensor mapping · irrigation hardware · resources · notifications · general
 ```
 
 Desktop uses a top tab bar; on narrow screens (HA's `narrow` flag) navigation moves to a
-bottom bar, the planner puts the canvas first and turns the palette into a horizontal strip.
+bottom bar (Print is desktop‑only there – printing is a desk activity), the planner puts the
+canvas first and turns the palette into a horizontal strip, and the handbook folds its
+contents away while reading.
 
 ## 4. Colour
 
@@ -115,15 +119,34 @@ wet `#3A7CA5` – as outline (3 px) + 12 % fill + the value in text.
 | Chip | surface‑2 | border | pressed = leaf | ring | – | `.bad` tomato‑100 |
 | Input/select | border | soil‑300 border | – | ring | 55 % | tomato border + message (`aria-invalid`) |
 | Task row | – | surface‑2 | – | ring | done = strikethrough | overdue chip + priority edge (urgent red, high amber) |
-| Planting (canvas) | family colour 22 % fill + dots + monogram | – | dashed focus outline + resize handle | – | faded 32 % + dashed when not in the ground on *view date* | red/amber “!” badge |
+| Info tooltip (ⓘ) | muted icon | primary | popover with term, text and “read more” | ring | – | – |
+| Task row (touch) | – | – | swipe → leaf‑100 (complete) / ← sun‑100 (postpone) | ring | – | – |
+| Planting (canvas) | family colour 22 % fill + habit glyphs + monogram | – | dashed focus outline + resize handle | – | faded 32 % + dashed when not in the ground on *view date* | red/amber “!” badge |
 
 ## 8. Iconography & illustration
 
 * UI icons: Material Design Icons through `ha-icon` (consistent with HA). Each task type
   has a fixed icon (`mdi:seed`, `mdi:shovel`, `mdi:scissors-cutting`, `mdi:basket-outline`, …).
 * Canvas drawing language: soil beds with a subtle grain pattern, greenhouses with
-  diagonal glass hatching, outdoor zones as dashed lawn outlines, plants as dots at real
-  spacing so density is legible at a glance.
+  diagonal glass hatching, outdoor zones as dashed lawn outlines, plants as symbols at
+  real spacing so density is legible at a glance. The symbol shape follows the growth
+  habit – disc (bush), triangle (climber), diamond (upright), ring (vine), four petals
+  (rosette), ▼ (root crop), drop (bulb) – so the plan reads without colour.
+* Companion lines: solid green friend, dotted green pest deterrence, dashed red enemy,
+  dashed purple allelopathy, short‑dashed amber competition/overlap, dotted grey shade.
+* Garden elements: path (sand, dotted), compost (brown cross‑hatch), water butt (blue
+  circle), shed (grey), tree (green circle), hedge (green grid), trellis (dashed).
+
+### Print language
+
+Print reuses the canvas language on paper. Family colours become **soft tints** (38 % in
+colour, 24 % on e‑ink) with a full‑colour outline; on e‑ink and grayscale every family
+also gets a **hatch pattern** (diagonal, back‑diagonal, horizontal, vertical, cross, dots,
+grid) so beds stay distinguishable on a monochrome screen or printer and pen strokes
+drawn on top remain visible. Every map has a legend, a scale bar with ratio, and a north
+arrow; crops whose names don't fit get numbered circles explained in the legend. Notes
+areas use a 5 mm dot grid – the reMarkable's own rhythm for handwriting. The
+reMarkable Paper Pro format keeps a 13 mm left margin free for the device toolbar.
 
 ## 9. Brand
 
@@ -176,3 +199,9 @@ green. Don't: recolour the seedling, add outlines, stretch, or put the emblem on
 | 8 | Dutch terms | *Uitplanten, afharden, dieven, aanaarden, IJsheiligen* | Use the words Dutch gardeners use, not literal translations. |
 | 9 | Dark theme | Tokens declared once at the panel root | Child shadow roots inherit; no per‑component dark rules. |
 | 10 | Wordmark typeface | Book serif for the logo only | Heritage of herbals vs. a native UI font for everything else. |
+| 11 | Theory in the UI | ⓘ tooltips with one‑paragraph explanations + handbook link | Explain at the moment of doubt; the full chapter is one click away, never forced. |
+| 12 | Autofill: magic or proposal? | A proposal with numbers, warnings and reasons; nothing changes until *Apply* | Gardeners must trust and adjust the plan; an opaque fill would be undone by hand. |
+| 13 | Plant glyph shapes | Shape = growth habit | Colour = family is already taken; shape adds a second, colour‑blind‑safe channel. |
+| 14 | Print colours for e‑ink | Light tints + patterns, no solid fills | E‑ink renders colour muted; pen strokes must stay visible on top. |
+| 15 | Multi‑select gesture | Shift/Ctrl‑click, drag moves the group | Matches every drawing tool; a click without drag narrows back to one item. |
+| 16 | Swipe on tasks | Touch/pen only; right = done, left = +1 day | Mouse users keep normal clicks; the two most common actions become one gesture. |

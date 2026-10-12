@@ -219,3 +219,72 @@
         message: >-
           {{ plan.beds | count }} beds, {{ plan.plantings | count }} plantings
           ({{ plan.plantings | map(attribute='plant_id') | unique | join(', ') }}).
+
+# 8) Monday morning: this week's checklist as a PDF for the reMarkable Paper Pro.
+#    The file lands in /config/www/hortulus/ and is linked in a notification.
+- id: hortulus_weekly_remarkable_checklist
+  alias: "Hortulus · Weekly checklist for the reMarkable"
+  triggers:
+    - trigger: time
+      at: "07:00:00"
+  conditions:
+    - condition: time
+      weekday: mon
+  actions:
+    - action: garden_manager.export_pdf
+      data:
+        document: tasks
+        page: remarkable
+        color_mode: eink
+        days: 7
+      response_variable: pdf
+    - action: persistent_notification.create
+      data:
+        title: "Garden checklist ready"
+        message: "[{{ pdf.filename }}]({{ pdf.url }}) – open it and send it to your reMarkable."
+
+# 9) Water the vegetable beds early in the morning, but only when Hortulus agrees.
+#    (Automatic mode does this by itself; this shows the service with a dry run first.)
+- id: hortulus_morning_watering_check
+  alias: "Hortulus · Morning watering"
+  triggers:
+    - trigger: time
+      at: "05:45:00"
+  actions:
+    - action: garden_manager.run_irrigation_plan
+      data:
+        dry_run: true
+      response_variable: plan
+    - if:
+        - condition: template
+          value_template: "{{ plan.runs | count > 0 and not plan.lockout }}"
+      then:
+        - action: garden_manager.run_irrigation_plan
+          data: {}
+
+# 10) Close the shade screen on hot afternoons when nobody is home, open it in the evening.
+- id: hortulus_shading_evening
+  alias: "Hortulus · Shade screen back to automatic in the evening"
+  triggers:
+    - trigger: sun
+      event: sunset
+  actions:
+    - action: garden_manager.set_shading_mode
+      data:
+        zone: Greenhouse Zone A
+        mode: auto
+
+# 11) Disease warning: blight weather for the tomatoes.
+- id: hortulus_blight_warning
+  alias: "Hortulus · Blight weather"
+  triggers:
+    - trigger: state
+      entity_id: sensor.greenhouse_zone_a_disease_risk
+      to: high
+  actions:
+    - action: notify.mobile_app_phone
+      data:
+        title: "Blight weather"
+        message: >-
+          Humid and warm for two days ({{ state_attr('sensor.greenhouse_zone_a_disease_risk', 'wet_hours_48h') }} wet hours).
+          Ventilate, water at the base and check the tomatoes.

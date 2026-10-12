@@ -107,11 +107,29 @@ def build(lang: str) -> dict:
         elif planting.plant_id == "lettuce" and planting.succession_index == 0:
             planting.status, planting.sown_on = PlantingStatus.SOWN, date(2026, 4, 1)
     data.features = [
-        Feature("ft_path", "Path" if lang == "en" else "Pad", FeatureType.PATH, x_cm=-20, y_cm=-90, width_cm=900, length_cm=60),
-        Feature("ft_butt", "Water butt" if lang == "en" else "Regenton", FeatureType.WATER_BUTT, x_cm=-110, y_cm=0, width_cm=60, length_cm=60),
+        Feature(
+            "ft_path",
+            "Path" if lang == "en" else "Pad",
+            FeatureType.PATH,
+            x_cm=-20,
+            y_cm=-90,
+            width_cm=900,
+            length_cm=60,
+        ),
+        Feature(
+            "ft_butt",
+            "Water butt" if lang == "en" else "Regenton",
+            FeatureType.WATER_BUTT,
+            x_cm=-110,
+            y_cm=0,
+            width_cm=60,
+            length_cm=60,
+        ),
         Feature("ft_compost", "Compost", FeatureType.COMPOST, x_cm=-140, y_cm=120, width_cm=100, length_cm=100),
     ]
-    data.settings.resources = GardenResources(household_size=3, hours_per_week=4, goals=["fresh", "herbs", "storage"], wanted=["tomato"])
+    data.settings.resources = GardenResources(
+        household_size=3, hours_per_week=4, goals=["fresh", "herbs", "storage"], wanted=["tomato"]
+    )
     data.settings.irrigation.pump_entity = "switch.garden_pump"
     bed1 = next(b for b in data.beds if b.name == "Bed 1")
     bed1.irrigation_entity, bed1.irrigation_flow_lpm = "switch.valve_bed_1", 4.0
@@ -167,11 +185,17 @@ def build(lang: str) -> dict:
     extras = {
         "handbook_index": {"chapters": [c.meta() for c in chapters], "glossary": handbook.glossary(lang)},
         "handbook_chapters": {c.id: {**c.meta(), "body": c.body} for c in chapters},
-        "print_pages": render_svg(ctx, PrintOptions(document="garden", page="remarkable", color_mode="eink", lang=lang)),
+        "print_pages": render_svg(
+            ctx, PrintOptions(document="garden", page="remarkable", color_mode="eink", lang=lang)
+        ),
         "autofill": {**proposal.to_dict(), "season": 2027, "revision": data.revision},
         "irrigation_plan": {**irrigation.to_dict(), "reasons": {}, "running": False},
     }
-    return {"snapshot": snapshot, "plants": {"plants": db.as_dicts(), "families": FAMILIES, "overrides": {}}, "extras": extras}
+    return {
+        "snapshot": snapshot,
+        "plants": {"plants": db.as_dicts(), "families": FAMILIES, "overrides": {}},
+        "extras": extras,
+    }
 
 
 if __name__ == "__main__":

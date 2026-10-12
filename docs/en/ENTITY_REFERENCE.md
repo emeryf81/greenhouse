@@ -10,9 +10,9 @@ install `sensor.hortulus_frost_risk_next_48h` becomes
 
 | Device | Created for | Contains |
 |---|---|---|
-| **Hortulus** | the integration | garden‑wide sensors, calendar, to‑do list, buttons |
-| **<Bed name>** | every bed | moisture, irrigation, companion score, needs water |
-| **<Zone name>** | every greenhouse / cold‑frame zone | greenhouse advice, heat stress |
+| **Hortulus** | the integration | garden‑wide sensors, calendar, to‑do list, buttons, irrigation controls |
+| **<Bed name>** | every bed | moisture, irrigation, companion score, needs water, nutrient balance, water deficit |
+| **<Zone name>** | every zone | disease risk, frost risk 48 h, degree days; greenhouses also advice, heat stress, shading |
 
 Beds and zones added in the planner get their devices immediately; deleting a bed or
 zone removes its device and entities.
@@ -79,13 +79,60 @@ Enum: `none` · `ventilate` · `shade` · `close_up` · `heat`. Attributes: `ins
 `forecast_max_c`, `forecast_min_c`, `limit_max_c`, `limit_min_c`, `limiting_plants`,
 `reasons`, `frost_risk`, `air_temperature`.
 
+### `sensor.hortulus_reference_evapotranspiration_today`
+ET₀ for today in mm (FAO‑56 Penman‑Monteith when humidity and wind are known,
+Hargreaves‑Samani otherwise). Attributes: `method`, `tmin`, `tmax`, `rh_min`, `rh_max`,
+`wind_kmh`, `cloud_fraction`, `rain_mm`, `forecast` (3 days of ET₀ and rain).
+
+### `sensor.hortulus_degree_days_today`
+Degree days expected today (base of the season GDD sensor).
+
+### `sensor.<bed>_nutrient_balance`
+0–100: NPK (mg/kg) or EC (mS/cm) readings compared with the N‑P‑K demand of the active
+crops (100 = everything in range). Attributes: `status` (`unknown`, `deficient`,
+`balanced`, `excess`), `deficits`, `excess`, `source` (`npk`/`ec`/`none`).
+Map the probes in Settings → Beds.
+
+### `sensor.<bed>_soil_water_deficit` *(disabled by default)*
+Root‑zone depletion below field capacity in mm from the daily water balance.
+Attributes: `available_water_mm` (TAW for the soil and rooting depth), `crop_coefficient`
+(Kc of the thirstiest active crop). Watering is advised once half of the TAW is used.
+
+### `sensor.<zone>_disease_risk`
+Enum `none` · `low` · `moderate` · `high` · `unknown`. Attributes: `wet_hours_48h`,
+`hutton_period` (late‑blight weather), `humidity`, `leaf_wet`, `reasons`.
+
+### `sensor.<zone>_degree_days_this_season` *(disabled by default)*
+Season degree days for the zone; enclosed zones add their day‑time warmth.
+
 ## Binary sensors
 
 | Entity | Device class | On when |
 |---|---|---|
 | `binary_sensor.hortulus_frost_warning` | cold | frost risk *moderate* or *high*; attribute `plants_at_risk` |
+| `binary_sensor.<zone>_frost_risk_48h` | cold | that zone's plant‑level frost risk is *moderate* or *high* |
 | `binary_sensor.<bed>_needs_water` | problem | irrigation action is `water` |
 | `binary_sensor.<zone>_heat_stress` | heat | greenhouse advice is `ventilate` or `shade` |
+| `binary_sensor.hortulus_irrigation_frost_lockout` | safety | outdoor valves are locked (frost within 12 h or too cold now); attributes `temperature`, `limit` |
+| `binary_sensor.hortulus_irrigation_running` | running | a watering run is in progress; attributes `bed_id`, `ends_at`, `last_error` |
+
+## Irrigation & climate controls
+
+| Entity | Notes |
+|---|---|
+| `switch.hortulus_automatic_irrigation` | on = mode `auto` (valves open at the start time), off = `advise` |
+| `select.hortulus_irrigation_mode` | `off` · `advise` · `auto` |
+| `number.hortulus_irrigation_max_runtime` | minutes per valve (1–180) |
+| `number.hortulus_irrigation_frost_lockout_temperature` | °C; outdoor valves stay shut at or below |
+| `number.hortulus_skip_irrigation_above_rain` | mm forecast in the next 24 h |
+| `button.hortulus_water_now` / `button.hortulus_stop_watering` | manual run (safety rules apply) / stop and close everything |
+| `select.<zone>_shading` | `auto` (follow the advice) · `on` · `off` for the zone's shade screen |
+
+**Safety rules** (also for manual runs): one valve at a time; pump only while a valve is
+open (valve → 1 s → pump on … pump off → *lead* seconds → valve closed); max runtime;
+frost lockout for outdoor valves; rain skip; every valve that was opened and the pump
+are switched off at the end, after an error and on cancellation. Each run is logged and
+feeds the bed's water balance.
 
 ## Calendar, to‑do list, buttons
 
@@ -95,6 +142,14 @@ Enum: `none` · `ventilate` · `shade` · `close_up` · `heat`. Attributes: `ins
 | `todo.hortulus_this_week` | Open tasks due within 7 days (+ overdue), plus tasks completed in the last 2 days. Ticking an item completes the task. |
 | `button.hortulus_generate_tasks` | Re‑generate tasks now. |
 | `button.hortulus_refresh_forecast` | Fetch the forecast now. |
+
+The calendar also contains the **seasonal garden work** (keys `m:…`): plan the season,
+order seed, prepare the sowing station, turn compost, mulch, prepare each bed before
+planting (with compost kg and fertiliser g), green manure or winter cover for empty beds,
+drain hoses before frost, winter rest, soil test every third season, tool care, and per
+greenhouse: spring clean, shading on/off, winter insulation and the autumn clean &
+disinfection. Perennials get cut back, divided (every 3 years) and winter protection by
+their tags. Switch it off in Settings → Resources.
 
 ---
 
@@ -162,6 +217,48 @@ Fields: `include_tasks`, `seasons`. Returns the plan document (see
 ### `garden_manager.import_plan`
 Fields: `plan` (object), `mode` (`merge` | `replace`). Response: counts per collection.
 
+### `garden_manager.add_planting` / `update_planting` / `remove_planting`
+`add_planting`: `plant_id` and `bed` (id or name) are required; optional `season`,
+`layout`, `x_cm`, `y_cm`, `width_cm` (default bed width), `length_cm` (default one row),
+`count`, `method`, `status`, planned and actual dates, `notes`. Tasks follow
+automatically. `update_planting` takes `planting_id` plus any of those fields;
+`remove_planting` takes `planting_id`.
+
+```yaml
+action: garden_manager.add_planting
+data: {plant_id: dill, bed: Bed 1, layout: row}
+response_variable: added
+```
+
+### `garden_manager.autofill_plan`
+Proposes a season plan. Fields: `season`, `beds` (default: all empty beds), `replace`,
+`apply` (store it), and resources `household_size`, `hours_per_week`,
+`water_liters_per_week`, `compost_kg`, `goals` (`fresh`, `storage`, `herbs`,
+`pollinators`, `winter`, `perennials`, `easy`), `wanted`, `excluded`, `max_crops`.
+Response: `plantings`, `placements` (crop, bed, count, m², kg, min/week, L/week,
+sowings), `skipped`, `warnings`, `summary`.
+
+### `garden_manager.run_irrigation_plan`
+Fields: `dry_run`, `beds`, `amount_mm`. Returns the plan (`runs`, `skipped` with
+reasons, `lockout`) and starts it unless `dry_run`. Ignores the irrigation mode, never
+the safety rules. `garden_manager.stop_irrigation` stops a run.
+
+### `garden_manager.set_shading_mode`
+Fields: `zone` (id or name of a greenhouse/cold frame), `mode` (`auto`/`on`/`off`).
+
+### `garden_manager.export_pdf`
+Writes a PDF to `/config/www/hortulus/` (served as `/local/hortulus/…`). Fields:
+`document` (`garden`, `zone`, `beds`, `tasks`, `season`, `blank`, `plants`), `page`
+(`a4`, `a3`, `a5`, `letter`, `remarkable`), `landscape`, `color_mode` (`color`, `eink`,
+`grayscale`), `season`, `zone_id`, `bed_ids`, `days`, `notes`, `grid`, `title`.
+Response: `{path, url, filename, bytes}`.
+
+```yaml
+# Every Monday morning: this week's checklist for the reMarkable
+action: garden_manager.export_pdf
+data: {document: tasks, page: remarkable, color_mode: eink, days: 7}
+```
+
 ---
 
 ## Events
@@ -174,10 +271,20 @@ Fields: `plan` (object), `mode` (`merge` | `replace`). Response: counts per coll
 | `garden_manager_heat_warning` | new greenhouse heat alert (once per zone and day) | `key, severity, zone_id, zone, temp, action` |
 | `garden_manager_irrigation_recommended` | a bed needs water (once per bed and day) | `bed_id` + every attribute of the irrigation recommendation |
 | `garden_manager_plan_updated` | plan, plants, settings or import changed | `reason, revision` |
+| `garden_manager_irrigation_run` | a valve finished (or was stopped) | `bed_id, bed, minutes, liters, mm, source` |
 
 ## Websocket API (used by the panel)
 
 `garden_manager/subscribe` (snapshot push), `plants`, `plants/save`, `plants/delete`,
 `plants/windows`, `plan/save` (with `base_revision`), `plan/check` (draft compatibility),
 `plan/succession`, `plan/export`, `plan/import`, `tasks/add`, `tasks/action`,
-`settings/save`. Writes to the plan, plants and settings require an admin user.
+`settings/save`, `plan/autofill`, `plan/autofill/apply`, `print/render` (SVG preview),
+`handbook/index`, `handbook/chapter`, `handbook/search`, `irrigation/plan`,
+`irrigation/run`, `irrigation/stop`. Writes to the plan, plants and settings require an
+admin user.
+
+## PDF download
+
+`GET /api/garden_manager/print?document=garden&page=remarkable&color_mode=eink`
+(authenticated, same parameters as `export_pdf`, lists comma separated) returns the PDF;
+`&format=svg` returns the SVG pages as JSON.

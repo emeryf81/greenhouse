@@ -17,6 +17,11 @@
 | `binary_sensor.bed_1_needs_water` | `binary_sensor.bed_1_heeft_water_nodig` |
 | `sensor.greenhouse_zone_a_greenhouse_advice` | `sensor.greenhouse_zone_a_kasadvies` |
 | `binary_sensor.greenhouse_zone_a_heat_stress` | `binary_sensor.greenhouse_zone_a_hittestress` |
+| `sensor.hortulus_reference_evapotranspiration_today` | `sensor.hortulus_referentieverdamping_vandaag` |
+| `sensor.bed_1_nutrient_balance` | `sensor.bed_1_voedingsbalans` |
+| `sensor.greenhouse_zone_a_disease_risk` | `sensor.greenhouse_zone_a_ziekterisico` |
+| `switch.hortulus_automatic_irrigation` | `switch.hortulus_automatisch_bewateren` |
+| `select.greenhouse_zone_a_shading` | `select.greenhouse_zone_a_schaduw` |
 
 ## Sensoren
 
@@ -30,6 +35,12 @@
 | `<bed>` Beregeningsadvies | mm | `action`, `liters`, `duration_min`, `rain_24h_mm`, `etc_24h_mm`, `confidence`, `reasons` |
 | `<bed>` Buurplantenscore (standaard uit) | 0–100 (50 = neutraal) | `conflicts`, `rotation_conflicts` |
 | `<zone>` Kasadvies | `none`/`ventilate`/`shade`/`close_up`/`heat` | `inside_now_c`, `forecast_max_c`, `limit_max_c`, `limiting_plants` |
+| Referentieverdamping vandaag | mm ET₀ (Penman‑Monteith, anders Hargreaves) | `method`, `rh_min`, `wind_kmh`, `cloud_fraction`, `forecast` |
+| Graaddagen vandaag | °C·d | – |
+| `<bed>` Voedingsbalans | 0–100 uit NPK‑ of EC‑sensoren t.o.v. de behoefte van de gewassen | `status`, `deficits`, `excess`, `source` |
+| `<bed>` Watertekort bodem (standaard uit) | mm onder veldcapaciteit (dagelijkse waterbalans) | `available_water_mm`, `crop_coefficient` |
+| `<zone>` Ziekterisico | `none`/`low`/`moderate`/`high`/`unknown` | `wet_hours_48h`, `hutton_period`, `humidity`, `leaf_wet`, `reasons` |
+| `<zone>` Graaddagen dit seizoen (standaard uit) | °C·d | – |
 
 Vorstniveaus gaan uit van de temperatuur op planthoogte (bij heldere, windstille nachten tot
 2 °C kouder dan de verwachting): ≤ 0 °C hoog, ≤ 2 °C matig, ≤ 4 °C laag.
@@ -50,7 +61,25 @@ Vochtbanden (leem; zand −6, klei +6, löss +3, veen +8, kalk −2, potgrond +4
 * **Tuintaken** (kalender) – alle taken als hele‑dag‑afspraken; aanmaken, verplaatsen
   (= uitstellen) en verwijderen kan vanuit de HA‑kalender.
 * **Deze week** (takenlijst) – open taken voor de komende 7 dagen; afvinken = afronden.
-* Knoppen **Taken genereren** en **Verwachting verversen**.
+* Knoppen **Taken genereren**, **Verwachting verversen**, **Nu water geven** en **Bewatering stoppen**.
+* **Vorstrisico 48u** (cold) per zone, **Vorstvergrendeling bewatering** (safety) en
+  **Bewatering actief** (running).
+* **Automatisch bewateren** (schakelaar), **Bewateringsmodus** (`off`/`advise`/`auto`),
+  getallen voor **maximale looptijd**, **vorstvergrendeling vanaf** en **overslaan boven
+  regen**, en per serre **Schaduw** (`auto`/`on`/`off`).
+
+**Veiligheidsregels bewatering** (ook bij handmatig starten): één klep tegelijk; de pomp
+draait alleen als er een klep open is (klep → 1 s → pomp aan … pomp uit → wachttijd →
+klep dicht); maximale looptijd; buitenkleppen dicht bij vorst binnen 12 uur of als het nu
+te koud is; overslaan bij voldoende regen; op het einde, na een fout en bij annuleren
+worden alle geopende kleppen en de pomp uitgeschakeld.
+
+De kalender bevat ook het **seizoenswerk**: seizoen plannen, zaden bestellen, compost
+omzetten, mulchen, elk bed klaarmaken vóór het planten (met kg compost), groenbemester of
+afdekken als een bed leeg komt, slangen leeg vóór de vorst, winterrust, bodemanalyse om
+de drie jaar, gereedschap, en per serre: voorjaarspoets, schaduw aan/af, winterklaar
+maken en de **najaarspoets (serre kuisen en ontsmetten)**. Vaste planten krijgen
+terugsnoeien, scheuren en winterbescherming.
 
 ## Diensten
 
@@ -64,6 +93,14 @@ Vochtbanden (leem; zand −6, klei +6, löss +3, veen +8, kalk −2, potgrond +4
 | `garden_manager.recalculate_plan` | – | `frost_risk`, `weather_available`, `alerts`, `season` |
 | `garden_manager.export_plan` | `include_tasks`, `seasons` | het plan |
 | `garden_manager.import_plan` | `plan`, `mode` (`merge`/`replace`) | aantallen |
+| `garden_manager.add_planting` | `plant_id`, `bed`, optioneel `season`, `layout`, `x_cm`, `y_cm`, `width_cm`, `length_cm`, `count`, `method`, `status`, data, `notes` | `planting_id` |
+| `garden_manager.update_planting` | `planting_id` + te wijzigen velden | de teelt |
+| `garden_manager.remove_planting` | `planting_id` | – |
+| `garden_manager.autofill_plan` | `season`, `beds`, `replace`, `apply`, `household_size`, `hours_per_week`, `water_liters_per_week`, `compost_kg`, `goals`, `wanted`, `excluded`, `max_crops` | voorstel + samenvatting |
+| `garden_manager.run_irrigation_plan` | `dry_run`, `beds`, `amount_mm` | plan, overgeslagen bedden met reden |
+| `garden_manager.stop_irrigation` | – | – |
+| `garden_manager.set_shading_mode` | `zone`, `mode` (`auto`/`on`/`off`) | – |
+| `garden_manager.export_pdf` | `document`, `page` (incl. `remarkable`), `landscape`, `color_mode` (`color`/`eink`/`grayscale`), `season`, `zone_id`, `bed_ids`, `days`, `notes`, `grid`, `title` | `path`, `url` |
 
 Een zaai‑, uitplant‑ of eerste oogsttaak afronden werkt de beplanting bij; daarna rekenen
 alle verzorgingstaken vanaf de echte datum. Herhalende taken plannen de volgende keer
@@ -79,6 +116,7 @@ alle verzorgingstaken vanaf de echte datum. Herhalende taken plannen de volgende
 | `garden_manager_heat_warning` | nieuwe hittewaarschuwing kas (1× per dag) | `zone`, `temp`, `action` |
 | `garden_manager_irrigation_recommended` | bed heeft water nodig (1× per bed per dag) | `bed_id` + beregeningsadvies |
 | `garden_manager_plan_updated` | plan/planten/instellingen gewijzigd | `reason`, `revision` |
+| `garden_manager_irrigation_run` | een klep is klaar (of gestopt) | `bed_id`, `minutes`, `liters`, `mm`, `source` |
 
 Zie de [Engelse referentie](../en/ENTITY_REFERENCE.md) voor alle details en
 [voorbeeldautomatiseringen](../../examples/automations.yaml).

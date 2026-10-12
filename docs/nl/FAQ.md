@@ -15,7 +15,33 @@ Home Assistant eist dat diensten het domein van de integratie gebruiken
 (`garden_manager`). De productnaam is Hortulus.
 
 **Gaat er iets naar internet?**
-Nee. Alles draait lokaal; foto's gaan via de eigen `image_upload` van Home Assistant.
+Standaard niet. Plantendatabase en handboek zitten in de integratie; foto's gaan via de
+eigen `image_upload` van Home Assistant. Alleen als je **Open‑Meteo** aanzet
+(Instellingen → Weer) haalt Hortulus een verwachting op bij api.open‑meteo.com, met de
+coördinaten van de tuin afgerond op ~1 km.
+
+**Hoe krijg ik een plan op mijn reMarkable Paper Pro?**
+Tabblad Afdrukken → papier *reMarkable Paper Pro*, kleuren *E‑ink* → *PDF downloaden* en
+sleep het bestand in de reMarkable‑app (of *Send to reMarkable* per e‑mail). De pagina is
+precies zo groot als het scherm; het stippelvlak en de lichte tinten laten ruimte om te
+tekenen. Een wekelijkse takenlijst automatiseer je met `garden_manager.export_pdf`
+(`document: tasks`); het bestand staat dan in `/local/hortulus/`.
+
+**Waarom zette Automatisch invullen mijn tomaten buiten terwijl ik een serre heb?**
+Vorig seizoen stonden er al tomaten in dat serrebed; door de vruchtwisseling valt dat bed
+af voor nachtschadeplanten. Voeg een tweede serrebed toe of verplaats ze toch – de planner
+toont dan de wisselteeltwaarschuwing.
+
+**Waarom verschoof de verwachte oogstdatum?**
+Hortulus telt graaddagen sinds het planten: een warme periode vervroegt de oogst, een
+koude stelt ze uit (maximaal drie weken).
+
+**Kan automatisch bewateren mijn tuin onder water zetten?**
+Nee: elke klep heeft een maximale looptijd, er loopt maar één klep tegelijk en de pomp
+draait alleen als er een klep open is. Bij einde, fout of stoppen gaan alle geopende
+kleppen en de pomp uit. Waarom er niet bewaterd werd, zie je met
+`garden_manager.run_irrigation_plan` en `dry_run: true` (reden per bed: vorst, regen,
+geen klep, geen debiet, niet nodig, modus niet *auto*).
 
 **Waarom is mijn zaaitaak “te laat”?**
 Het zaaivenster is begonnen en er staat een vaste datum in het verleden (bijvoorbeeld uit

@@ -29,7 +29,7 @@
 | Requirement | Where it lives |
 |---|---|
 | Drag‑and‑drop planner (beds, greenhouse zones, containers, rows; single/block/row; succession; companion overlay; import/export; undo/redo, snap, tooltips, shortcuts) | `frontend/src/views/planner-view.ts`, `frontend/src/planner/*` |
-| Plant database (20 crops, EN/NL, user overrides & custom plants) | `custom_components/garden_manager/data/plants.json`, `engine/plantdb.py` |
+| Plant database (140 crops, EN/NL, user overrides & custom plants) | `custom_components/garden_manager/data/plants.json`, `engine/plantdb.py` |
 | Companion scoring, rotation, greenhouse suitability | `engine/compatibility.py`, `engine/schedule.py`, `engine/weather.py` |
 | Task engine (generation, recurrence, completion, postpone cascade, priorities, durations, notes, photos) | `engine/tasks.py`, `operations.py` |
 | Sensors + forecast (frost, heat, irrigation, GDD) | `engine/weather.py`, `engine/watering.py`, `coordinator.py` |
@@ -80,8 +80,13 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   ├── panel.py             static path + sidebar panel registration (content‑hashed URL)
 │   ├── entity.py            base entities, per‑bed/zone devices, dynamic entity creation
 │   ├── sensor.py · binary_sensor.py · calendar.py · todo.py · button.py · diagnostics.py
+│   ├── number.py · select.py · switch.py   irrigation limits/mode, shading mode, auto irrigation
+│   ├── controllers.py      irrigation (pump interlock, max runtime, safe shut-off) + greenhouse climate
+│   ├── printing.py          authenticated PDF view + export to /config/www/hortulus
+│   ├── api.py               optional Open-Meteo client (opt-in)
 │   ├── strings.json · translations/{en,nl}.json · icons.json
-│   ├── data/plants.json     starter plant database (20 crops, EN/NL)
+│   ├── data/plants.json     plant database (140 crops, EN/NL; built by scripts/build_plantdb.py)
+│   ├── data/handbook/{en,nl}/NN-<id>.md · glossary.json   gardening handbook + tooltip glossary
 │   ├── frontend/hortulus-panel.js   built panel bundle (committed)
 │   └── engine/              ← pure Python, no HA imports
 │       ├── models.py        dataclasses (Plant, Zone, GardenBed, Planting, Task, snapshots …)
@@ -96,18 +101,28 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │       ├── tasks.py         generation, merge, recurrence, postpone cascade
 │       ├── analysis.py      orchestrates everything into GardenAnalysis
 │       ├── succession.py · planio.py · migrations.py · i18n.py
+│       ├── phenology.py     growth stage, stage Kc, degree-day harvest estimate
+│       ├── waterbalance.py  daily root-zone bucket per bed
+│       ├── fertilizer.py    compost/fertiliser per bed, feed doses, nutrient balance index
+│       ├── maintenance.py   seasonal garden & greenhouse work, bed turnover, perennial care
+│       ├── irrigation.py    pure irrigation plan with the safety rules
+│       ├── autoplan.py      autofill from area + resources
+│       ├── handbook.py      chapters, glossary, search
+│       ├── pdf.py           PDF writer + SVG surface (same drawing API)
+│       └── printout.py      printable documents and page formats (incl. reMarkable)
 ├── frontend/                ← Lit + TypeScript sources (esbuild)
 │   ├── src/hortulus-panel.ts            root element, routing, subscription, toasts
 │   ├── src/api.ts · src/types.ts        typed websocket client mirroring engine/models.py
-│   ├── src/views/{dashboard,planner,library,calendar,settings}-view.ts
+│   ├── src/views/{dashboard,planner,library,calendar,handbook,print,settings}-view.ts
 │   ├── src/planner/{garden-canvas,geometry,history}.ts
-│   ├── src/components/task-ui.ts        task row + task dialog (complete/postpone/notes/photos)
+│   ├── src/components/task-ui.ts        task row (swipe actions) + task dialog (live context)
+│   ├── src/components/{info,markdown}.ts glossary tooltips, safe Markdown renderer
 │   ├── src/styles/tokens.ts             design tokens (light/dark) + shared component styles
 │   ├── src/i18n/{en,nl,index}.ts        catalogs (keys shared with the backend)
 │   └── test/*.test.ts                   node:test unit tests
 ├── tests/                   ← pytest (+ pytest-homeassistant-custom-component)
-│   ├── engine/test_{tasks,frost,compatibility,region_watering_data}.py
-│   ├── test_config_flow.py · test_init.py
+│   ├── engine/test_{tasks,frost,compatibility,region_watering_data,agronomy,planning,print_handbook}.py
+│   ├── test_config_flow.py · test_init.py · test_phase2.py
 │   └── fixtures/{forecast_hourly_dst_frost,forecast_hourly_rain,forecast_daily,sensors}.json
 ├── examples/{automations,dashboard}.yaml
 └── docs/  BLUEPRINT.md · DESIGN_SYSTEM.md · en/{CONFIGURATION,ENTITY_REFERENCE,FAQ}.md · nl/{CONFIGURATIE,ENTITEITEN,FAQ}.md · images/
@@ -635,3 +650,110 @@ options flow.
 | [`docs/DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | EN | UX principles, personas, IA, tokens, components & states, brand, accessibility, decision log |
 | [`docs/BLUEPRINT.md`](BLUEPRINT.md) | EN | this document |
 | [`CHANGELOG.md`](../CHANGELOG.md) · [`CONTRIBUTING.md`](../CONTRIBUTING.md) | EN | history, how to contribute (plant data in both languages) |
+
+---
+
+## 11. Version 1.1 additions
+
+### 11.1 Agronomy
+
+FAO‑56 Penman‑Monteith (eq. 6) with radiation from cloud cover via Angström; verified
+against FAO example 18 (Brussels, 6 July → 3.9 mm/day). Hargreaves‑Samani is the
+fallback when humidity or wind are missing.
+
+```python
+{{py:custom_components/garden_manager/engine/weather.py::et0_penman_monteith}}
+```
+
+Crop coefficient by growth stage (FAO‑56 stage lengths 15/25/40/20 %):
+
+```python
+{{py:custom_components/garden_manager/engine/phenology.py::stage_kc}}
+```
+
+Root‑zone bucket (FAO‑56 eq. 85, no capillary rise); TAW = available water per metre of
+soil × rooting depth; water when depletion ≥ 0.5 × TAW:
+
+```python
+{{py:custom_components/garden_manager/engine/watering.py::update_water_balance}}
+```
+
+Disease pressure (Hutton criteria, wet hours, greenhouse humidity, leaf wetness):
+
+```python
+{{py:custom_components/garden_manager/engine/weather.py::assess_disease}}
+```
+
+### 11.2 Companion factors beyond the relation table
+
+```python
+{{py:custom_components/garden_manager/engine/compatibility.py::_secondary_factors}}
+```
+
+### 11.3 Seasonal work and fertiliser
+
+```python
+{{py:custom_components/garden_manager/engine/fertilizer.py::bed_fertilizer_plan}}
+```
+
+Maintenance rules are anchored on frost dates (`GARDEN_RULES`, `GREENHOUSE_RULES`,
+`PERENNIAL_RULES` in `engine/maintenance.py`); bed turnover adds *prepare soil* two
+weeks before the next crop and *green manure* / *cover for winter* when a bed falls empty.
+
+### 11.4 Irrigation safety
+
+```python
+{{py:custom_components/garden_manager/engine/irrigation.py::plan_irrigation}}
+```
+
+The controller (`controllers.py`) executes a plan under an `asyncio.Lock`: valve open →
+settle → pump on → sleep → pump off → lead time → valve closed, and a `finally` block
+switches off every touched valve and the pump (errors, cancellation, unload).
+
+### 11.5 Autofill
+
+Greedy and explainable: crop demand from goals and plants per person, scaled to the
+available area; bed score from rotation, glass need, companions, shade and containers;
+shelf packing with tall crops away from the sun; neighbours trimmed by whole rows when a
+crop does not fit; time, water and compost budgets.
+
+```python
+{{py:custom_components/garden_manager/engine/autoplan.py::_bed_score}}
+```
+
+### 11.6 Printouts
+
+`engine/pdf.py` implements one drawing API (`Surface`) twice: `PdfPage` (Helvetica /
+WinAnsi, Flate streams, clipping for hatch patterns, round‑cap dots) and `SvgPage` (panel
+preview). `engine/printout.py` lays out each document once in millimetres.
+
+| Format | Size (mm) | Margins |
+|---|---|---|
+| A4 / A3 / A5 / Letter | ISO / US | 12 mm |
+| reMarkable Paper Pro | 179.6 × 239.5 (4:3, 2160 × 1620 px @ 229 ppi) | left 13 mm (toolbar), others 6–7 mm |
+
+Colour modes: *color* (family tints), *eink* (lighter tints + pattern per family),
+*grayscale* (luminance conversion in the surface, patterns carry meaning).
+
+### 11.7 Tests added in 1.1
+
+ET₀ against FAO example 18 and the Hargreaves fallback, GDD accumulation and degree‑day
+harvest shifts, stage Kc, water balance, fertiliser and nutrient index, Hutton/greenhouse
+disease risk, irrigation frost lockout / rain skip / max runtime / advise mode, seasonal
+and greenhouse tasks, soil prep with compost amount, green manure vs. winter cover,
+perennial care, autofill (bounds, glass for tender crops, tall crops north, rotation,
+budgets, containers), new companion factors, rotation alternatives, PDF validity
+(xref offsets, operators, page sizes incl. reMarkable), e‑ink/grayscale rendering,
+handbook EN/NL parity and glossary links; HA tests for every new service, the pump
+interlock order, the frost lockout entity, shading control, autofill, the PDF view and the
+new websocket commands.
+
+```python
+{{py:tests/test_phase2.py::test_irrigation_dry_run_and_run_with_pump_interlock}}
+```
+
+### 11.8 New entities, services and storage
+
+See [ENTITY_REFERENCE](en/ENTITY_REFERENCE.md). Storage schema 1.5 adds `features`,
+`water_balance`, `irrigation_log`, `settings.irrigation` and `settings.resources`
+(migration `_v1_4_to_1_5`).

@@ -131,8 +131,28 @@ work with tasks; editing the plan, plant database and settings requires an admin
 * **Succession sowing**: split a block into strips sown every *N* days (default from the
   plant, e.g. lettuce 21 days) or stack sowings on the same spot. Sowings outside the
   sowing window are skipped and reported.
-* **Overlays**: companions (green = friends, red dashed = enemies, orange = overlap),
-  moisture (bed outline + %), soil temperature.
+* **Autofill** (toolbar): enter household size, hours per week, water and compost you
+  have, goals (fresh, storage, herbs, pollinators, winter, perennials, low maintenance),
+  must‑have and never crops, and which beds to fill. The proposal shows crops, counts,
+  m², expected harvest, minutes per week, peak‑week water and compost, plus warnings
+  (e.g. "no room for…"). Nothing changes until you press **Apply**. The rules: amounts
+  per person from the database; rotation conflicts exclude a bed; companions,
+  greenhouse need and shade tolerance score the bed; strips are packed with the tallest
+  crops on the side away from the sun; quick crops get three successive sowings.
+* **Multi‑select**: <kbd>Shift</kbd>/<kbd>Ctrl</kbd>‑click beds, crops or elements; drag
+  them together or use **align** (left, centre, right, top, middle, bottom) and
+  **distribute**.
+* **Garden elements**: paths, compost heap, water butt, shed, tree, hedge and trellis
+  ("+ Element"); they appear on the printouts too.
+* **Layers**: show/hide zones, elements and crops.
+* **Overlays**: companions (green = friends, dotted green = pest deterrence, red dashed =
+  enemies, purple = allelopathy, orange = competition or overlap, grey dotted = shading),
+  moisture (bed outline + %), soil temperature. Plant symbols follow the growth habit
+  (disc = bush, triangle = climber, diamond = upright, ring = vine, flower = rosette,
+  ▼ = root crop, drop = bulb), so the plan reads without colour too.
+* **Inspector** extras: growth stage, crop coefficient, degree days and the expected
+  harvest date; **better neighbours** for conflicts; **fits in** buttons that move a
+  crop to a bed without a rotation conflict.
 * **Show garden on**: scrub through the season – plantings not in the ground on that date
   are faded.
 * **Autosave**: changes are saved ~1 s after each edit with an optimistic‑concurrency
@@ -160,14 +180,55 @@ updates of the built‑in data still reach you; *Reset to built‑in* removes th
 *New plant* creates a custom plant (identifier derived from the English name).
 
 ### Calendar
-Month, week and list views; overdue open tasks are shown on today so nothing hides in
-the past. Open a task to complete, skip, postpone (+1/+3/+7 days or a date; dependants
+Month, week, list and **timeline** views (a Gantt per bed with sowing, growing and
+harvest bars, the degree‑day harvest estimate, frost dates and a "garden work" row with
+the seasonal tasks); overdue open tasks are shown on today so nothing hides in
+the past. On touch screens, swipe a task right to complete it or left to postpone it a
+day. The task dialog shows the live context (soil moisture and temperature, water
+balance, nutrients, air temperature, humidity, disease and frost risk, today's weather and
+ET₀) and links to the matching handbook chapter. Open a task to complete, skip, postpone (+1/+3/+7 days or a date; dependants
 follow), change priority, add notes and **photos** (uploaded through Home Assistant's
 `image_upload`, stored locally).
 
+### Handbook
+16 chapters (EN/NL) with search and a glossary: planning, soil & compost, sowing,
+watering (ET₀, Kc, water balance), feeding (NPK, EC), rotation, companion planting, the
+greenhouse, pests, diseases, the garden year & winter rest, harvest & storage, seed
+saving, no‑dig & mulch, herbs, perennials. The ⓘ buttons across the panel open the
+glossary entry for a term and link into the chapter.
+
+### Print
+Pick a document – **garden map**, **greenhouse / zone**, **bed sheets**, **checklist**,
+**season chart**, **planning sheet** (outlines + dot grid to sketch on) or **plant
+cards** – then paper (A4, A3, A5, Letter, **reMarkable Paper Pro**), orientation and
+colours (*full colour*, *e‑ink* with light tints and a hatch pattern per family,
+*grayscale*). The preview shows every page; **Download PDF** fetches it through Home
+Assistant's authenticated API, **Save** writes it to `/config/www/hortulus/`.
+Maps contain a legend (families, zones, elements, symbols, numbered crops where names
+don't fit), a scale bar with ratio and a north arrow; bed sheets add a 10 cm grid, the
+compost and fertiliser for the coming crops and the rotation history.
+
+To put a PDF on the reMarkable: download it and drag it into the reMarkable desktop or
+mobile app, or send it with *Send to reMarkable* by email. The page size matches the
+Paper Pro screen exactly, so nothing is scaled.
+
 ### Settings
-Region, weather, **sensor mapping per zone and bed** (with live values), notifications,
-language, grid size, companion radius and import/export.
+Region, weather (+ outdoor humidity, leaf wetness, **Open‑Meteo** opt‑in, elevation),
+**sensor mapping per zone and bed** with live values – including **EC, N, P, K** probes
+per bed and **PAR** / **leaf wetness** per zone – greenhouse **vent and shade screen**
+entities with *off / advise / auto* control, microclimate (*against a warm wall*,
+*thermal mass*), **irrigation hardware** (mode, pump, start time, max runtime, frost
+lockout, rain skip, pump lead time; valve and flow per bed), **resources** for autofill
+and the seasonal task switch, notifications, language, grid size, companion radius and
+import/export.
+
+#### Irrigation hardware in 5 steps
+1. Settings → Beds: pick the valve (`switch.*` or `valve.*`) and the flow in L/min for
+   each bed (measure it: time how long a 10 L bucket takes).
+2. Settings → Irrigation hardware: optional pump switch and *pump stop before valve*.
+3. Choose the start time and the limits (max runtime, frost lockout, rain skip).
+4. Try `garden_manager.run_irrigation_plan` with `dry_run: true` and check the plan.
+5. Switch on **Automatic irrigation**. With *advise* you only get watering tasks.
 
 ---
 

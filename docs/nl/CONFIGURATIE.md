@@ -90,10 +90,48 @@ niets meldt wordt genegeerd en geeft een waarschuwing.
 * **Planten** – zoeken in elke taal, filteren op familie/kas/snel/eigen, zaaikalender
   voor jóuw vorstdata, *Aanpassen* (alleen gewijzigde velden worden bewaard) of
   *Nieuwe plant*.
-* **Kalender** – maand, week en lijst; taken afronden, overslaan, uitstellen (afhankelijke
-  taken schuiven mee), prioriteit, notities en foto's.
-* **Instellingen** – regio, weer, sensoren per zone en bed (met actuele waarde),
-  meldingen, taal, rastergrootte, import/export.
+  **Automatisch invullen** stelt een seizoen voor op basis van gezinsgrootte, uren per
+  week, water, compost, doelen en gewenste/uitgesloten gewassen: hoeveelheden per persoon,
+  vruchtwisseling, combinaties, serre voor warmteminners, hoge gewassen weg van de zon en
+  opeenvolgende zaaironden voor snelle gewassen. Je ziet eerst het voorstel (gewassen,
+  m², verwachte oogst, minuten per week, water en compost) en past het pas toe als je
+  akkoord bent. Met **Shift/Ctrl‑klik** selecteer je meerdere bedden of gewassen om samen
+  te verplaatsen, **uit te lijnen** of te **verdelen**. Via *+ Element* teken je **paden**,
+  composthoop, regenton, tuinhuis, boom, haag of klimrek; lagen kan je aan‑ en uitzetten.
+  Plantsymbolen volgen de groeivorm. Het detailpaneel toont groeistadium, Kc, graaddagen
+  en verwachte oogst, **betere buren** en knoppen om een gewas naar een bed zonder
+  wisselteeltconflict te verplaatsen.
+* **Kalender** – maand, week, lijst en **tijdlijn** (Gantt per bed met zaaien, groei en
+  oogst, verwachte oogst volgens graaddagen, vorstdata en een rij *tuinwerk* met het
+  seizoenswerk); taken afronden, overslaan, uitstellen (afhankelijke taken schuiven mee),
+  prioriteit, notities en foto's. Op een touchscreen veeg je een taak naar rechts om af
+  te ronden en naar links om een dag uit te stellen. Het taakvenster toont live de
+  bodemvocht, bodemtemperatuur, waterbalans, voeding, luchttemperatuur, vochtigheid,
+  ziekte‑ en vorstrisico en het weer van vandaag, plus een link naar het handboek.
+* **Handboek** – 16 hoofdstukken (NL/EN) met zoekfunctie en woordenlijst. De ⓘ‑knopjes in
+  het hele paneel leggen een begrip meteen uit en verwijzen naar het hoofdstuk.
+* **Afdrukken** – tuinplan, serre/zone, bedfiches, takenlijst, seizoensoverzicht,
+  planningsblad of plantkaarten; papier A4, A3, A5, Letter of **reMarkable Paper Pro**
+  (179,6 × 239,5 mm, extra linkermarge voor de werkbalk); kleur, *e‑ink* (lichte tinten +
+  arcering per familie) of grijstinten; liggend of staand. Met voorbeeld, *PDF
+  downloaden* of *Opslaan* in `/config/www/hortulus/`. Kaarten hebben een legende,
+  schaalbalk en noordpijl, en een stippelvlak voor notities. Zet de PDF op je reMarkable
+  via de desktop‑ of mobiele app of *Send to reMarkable* per e‑mail.
+* **Instellingen** – regio, weer (+ luchtvochtigheid, bladnat, **Open‑Meteo** optioneel,
+  hoogte), sensoren per zone en bed (met actuele waarde) – ook **EC, N, P, K** per bed en
+  **PAR**/**bladnat** per zone –, per serre **luchtraam** en **schaduwscherm** met sturing
+  *uit/advies/automatisch*, microklimaat (*tegen een warme muur*, *thermische massa*),
+  **bewateringshardware** (modus, pomp, starttijd, maximale looptijd, vorstvergrendeling,
+  regen overslaan, pompwachttijd; klep en debiet per bed), **middelen** voor automatisch
+  invullen, seizoenswerk aan/uit, meldingen, taal, rastergrootte, import/export.
+
+### Automatisch bewateren in 5 stappen
+1. Instellingen → Bedden: kies de klep (`switch.*` of `valve.*`) en het debiet in L/min
+   (meet het: hoe lang vult de leiding een emmer van 10 L?).
+2. Instellingen → Bewateringshardware: eventueel de pomp en *pomp stopt vóór klep*.
+3. Kies de starttijd en de grenzen (maximale looptijd, vorstvergrendeling, regen).
+4. Test met `garden_manager.run_irrigation_plan` en `dry_run: true`.
+5. Zet **Automatisch bewateren** aan. In de modus *advies* krijg je enkel taken.
 
 Sneltoetsen in de planner (druk op <kbd>?</kbd>): pijltjes verplaatsen (Shift = 10×),
 Alt + pijltjes vergroten, Ctrl+Z / Ctrl+Y, Delete, Ctrl+D dupliceren, `[` `]` volgend

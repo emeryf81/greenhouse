@@ -26,7 +26,8 @@ companion: draw your beds and greenhouse, drag crops onto them, and Hortulus wor
 **when to sow, plant out, feed, prune and harvest** – then keeps those plans honest with
 your **soil sensors and the weather forecast**.
 
-Everything runs locally. No accounts, no cloud, no external APIs.
+Everything runs locally. No accounts and no cloud – the only optional outside call is
+Open‑Meteo for better evaporation estimates, and it is off until you switch it on.
 
 <p align="center"><img src="docs/images/planner-en.png" alt="Planner" width="88%"></p>
 
@@ -34,23 +35,47 @@ Everything runs locally. No accounts, no cloud, no external APIs.
 
 | | |
 |---|---|
-| 🗺️ **Drag‑and‑drop planner** | Beds, greenhouse zones, containers and rows on a centimetre grid. Drop single plants, blocks or rows; plan **succession sowings**; undo/redo, snap‑to‑grid, keyboard shortcuts, import/export (JSON/YAML). |
-| 🤝 **Companions & rotation** | Live compatibility scoring while you drag, with an explanation for every friend/enemy pair, spacing overlaps and crop‑rotation conflicts per bed and family. |
-| 🌱 **Plant database** | 20 vegetables & herbs built in (EN/NL names), fully editable: spacing, depth, germination, maturity, sowing windows, greenhouse tolerance, frost hardiness, pests & diseases, water & nutrient needs, care rules. Add your own varieties. |
-| 📅 **Task engine** | Sowing, hardening off, planting out, thinning, staking, pruning, feeding, weeding, pest checks, watering and harvest – generated automatically, recurring where it makes sense, with priorities, durations, notes & photos, postpone with dependency cascade. |
-| ❄️ **Sensors + forecast** | Frost risk for the next 48 h (DST‑safe, radiative ground‑frost aware), greenhouse ventilation/shading advice, rain‑aware irrigation in mm/litres/minutes (Hargreaves ET₀), growing degree days. |
-| 🏠 **Real HA citizen** | Sensors, binary sensors, a calendar and a to‑do list, services with responses, bus events for automations, push/TTS/persistent notifications, diagnostics, EN + NL translations. |
+| 🗺️ **Drag‑and‑drop planner** | Beds, greenhouse zones, containers, rows, **paths and garden elements** on a centimetre grid. Single plants, blocks or rows with habit‑shaped plant symbols; **multi‑select, align and distribute**; layers; succession sowings; undo/redo, keyboard shortcuts, import/export (JSON/YAML). |
+| ✨ **Autofill** | Proposes a whole season from your beds, household size, weekly hours, water and compost: right amounts per person, tall crops away from the sun, rotation and companions respected, quick crops in successive sowings, tender crops under glass. Preview first, apply when happy. |
+| 🤝 **Companions & rotation** | Live scoring while you drag: friends/enemies, **pest deterrence and trap crops, allelopathy, nutrient competition and shading** (hemisphere aware) – each with an explanation, better‑neighbour suggestions and alternative beds for rotation conflicts. |
+| 🌱 **Plant database** | **140 crops**: 69 vegetables, 60 herbs, fruit and companion flowers (EN/NL), with Kc per growth stage, N‑P‑K demand, height, root depth, yield, plants per person – fully editable, add your own. |
+| 📅 **Task engine & garden year** | Sowing to harvest per crop, plus the **seasonal calendar**: prepare the soil (with compost kg), clean and disinfect the greenhouse, shading on/off, winter rest and winter covers, green manure, compost, tool care, soil tests, cutting back and dividing perennials. Feed tasks carry doses. |
+| 💧 **Water, feeding, health** | FAO‑56 **Penman‑Monteith ET₀** (Hargreaves fallback), Kc per growth stage, a root‑zone **water balance** per bed, NPK/EC **nutrient balance index**, **disease risk** (Hutton criteria, leaf wetness, greenhouse humidity), degree‑day phenology with dynamic harvest dates. |
+| 🚿 **Safe hardware control** | Valves + pump with **pump interlock, max runtime, frost lockout and rain skip**; greenhouse vents and shade screens in auto mode; everything also as advice only. |
+| 🖨️ **Print & reMarkable** | Garden and greenhouse maps with legend, scale and north arrow, bed sheets with grid, checklists, season charts, blank planning sheets and plant cards – as PDF in A4/A3/A5/Letter or **reMarkable Paper Pro** with e‑ink patterns and dot‑grid note areas to draw on. |
+| 📖 **Handbook** | 16 chapters on soil, sowing, watering, feeding, rotation, companions, the greenhouse, pests, diseases, the garden year and more (EN/NL), plus ⓘ tooltips everywhere that explain the term on the spot. |
+| 🏠 **Real HA citizen** | Sensors, binary sensors, numbers, selects, switches, buttons, a calendar and a to‑do list, services with responses, bus events, push/TTS/persistent notifications, diagnostics, EN + NL translations. |
 
 <table>
   <tr>
     <td><img src="docs/images/dashboard-en.png" alt="Dashboard"></td>
-    <td><img src="docs/images/library-detail-nl.png" alt="Plant library (Dutch)"></td>
+    <td><img src="docs/images/planner-autofill-nl.png" alt="Autofill (Dutch)"></td>
   </tr>
   <tr>
-    <td><img src="docs/images/calendar-en.png" alt="Calendar"></td>
-    <td><img src="docs/images/dashboard-nl-dark.png" alt="Dark theme (Dutch)"></td>
+    <td><img src="docs/images/calendar-timeline-nl.png" alt="Season timeline (Dutch)"></td>
+    <td><img src="docs/images/print-nl.png" alt="Print for reMarkable (Dutch)"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/handbook-chapter-nl.png" alt="Handbook (Dutch)"></td>
+    <td><img src="docs/images/task-dialog-nl.png" alt="Task with live sensor context (Dutch)"></td>
   </tr>
 </table>
+
+### Printouts for paper and the reMarkable Paper Pro
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/images/pdf-remarkable-garden.png" alt="Garden map, reMarkable e-ink"></td>
+    <td width="33%"><img src="docs/images/pdf-remarkable-bed.png" alt="Bed sheet with grid"></td>
+    <td width="33%"><img src="docs/images/pdf-a4-season.png" alt="Season chart, A4 colour"></td>
+  </tr>
+</table>
+
+The **Print** tab previews every page before you download it. The reMarkable format is
+179.6 × 239.5 mm (the Paper Pro's 4:3 screen) with a wider left margin for the toolbar;
+*e‑ink* mode uses light tints plus a hatch pattern per plant family, so beds stay
+distinguishable and your pen strokes stay visible. Automations can produce the same PDFs
+with `garden_manager.export_pdf` (saved to `/config/www/hortulus/`).
 
 ## Installation
 
@@ -91,9 +116,14 @@ Then open **Hortulus** in the sidebar. Details: [CONFIGURATION](docs/en/CONFIGUR
 | `garden.frost_risk_next_48h` | `sensor.hortulus_frost_risk_next_48h` + `binary_sensor.hortulus_frost_warning` |
 | `garden.irrigation_recommendation` | `sensor.<bed>_irrigation_recommendation` (mm; litres & minutes as attributes) + `binary_sensor.<bed>_needs_water` |
 | `garden.growing_degree_days` | `sensor.hortulus_growing_degree_days` |
-| greenhouse advice | `sensor.<zone>_greenhouse_advice`, `binary_sensor.<zone>_heat_stress` |
+| greenhouse advice | `sensor.<zone>_greenhouse_advice`, `binary_sensor.<zone>_heat_stress`, `select.<zone>_shading` |
+| evaporation & degree days | `sensor.hortulus_reference_evapotranspiration_today`, `sensor.hortulus_degree_days_today`, `sensor.<zone>_degree_days_this_season` |
+| soil water & nutrients | `sensor.<bed>_soil_water_deficit`, `sensor.<bed>_nutrient_balance` |
+| disease & frost per zone | `sensor.<zone>_disease_risk`, `binary_sensor.<zone>_frost_risk_48h` |
+| irrigation control | `switch.hortulus_automatic_irrigation`, `select.hortulus_irrigation_mode`, `number.hortulus_irrigation_max_runtime` (+ frost lockout, rain skip), `button.hortulus_water_now`, `binary_sensor.hortulus_irrigation_frost_lockout`, `binary_sensor.hortulus_irrigation_running` |
 | tasks | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week`, `sensor.hortulus_tasks_due_today`, `sensor.hortulus_next_task` |
 | `garden.add_task` … | `garden_manager.add_task`, `.complete_task`, `.postpone_task`, `.delete_task`, `.generate_tasks`, `.recalculate_plan`, `.export_plan`, `.import_plan` |
+| plan & hardware | `garden_manager.add_planting`, `.update_planting`, `.remove_planting`, `.autofill_plan`, `.run_irrigation_plan` (with `dry_run`), `.stop_irrigation`, `.set_shading_mode`, `.export_pdf` |
 
 > Home Assistant requires services to live in the integration's own domain, so the
 > `garden.*` names from the specification are exposed as `garden_manager.*`.
@@ -112,7 +142,22 @@ Full reference: [ENTITY_REFERENCE](docs/en/ENTITY_REFERENCE.md) · Example
   plantings that never share time in the ground (succession!) never conflict.
 * **Rotation:** history per bed and family; the same family back too soon is flagged.
 * **Watering:** moisture bands per crop water need and soil type; refill deficit + ET₀ × Kc
-  minus probability‑weighted rain; greenhouses get no rain credit.
+  minus probability‑weighted rain; greenhouses get no rain credit. ET₀ is FAO‑56
+  Penman‑Monteith from temperature, humidity, wind and cloud cover (Hargreaves when those
+  are missing), Kc follows the growth stage. Beds without a moisture sensor keep a daily
+  **root‑zone bucket** (available water by soil type × rooting depth) and are watered when
+  half of it is used.
+* **Feeding:** compost per m² by the hungriest following crop (5 / 3 / 1.5 kg, legumes
+  0.5), liquid‑feed doses in feed tasks, and a 0–100 nutrient balance index from NPK or EC
+  probes against the crops' N‑P‑K demand.
+* **Disease:** two humid warm days in a row (Hutton criteria) means high late‑blight risk;
+  long leaf‑wet spells, a wet‑leaf sensor or humid greenhouse air raise the level and
+  create inspection tasks for susceptible crops.
+* **Phenology:** degree days since planting move the expected harvest (± 3 weeks around
+  the calendar date); heat stress delays fruiting crops.
+* **Irrigation safety:** one valve at a time, pump only while a valve is open, max runtime,
+  no outdoor watering with frost forecast within 12 h or with enough rain coming; valves
+  and pump are always switched off at the end, also after errors.
 * **Frost:** hourly forecast, plant‑level adjustment for clear calm nights, greenhouse
   buffering, heated‑zone floor; falls back to daily forecast, then to the live sensor.
 

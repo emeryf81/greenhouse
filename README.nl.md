@@ -19,20 +19,52 @@ kas, sleep gewassen erop en Hortulus rekent uit **wanneer je zaait, uitplant, be
 snoeit en oogst** – en houdt die planning eerlijk met je **bodemsensoren en de
 weersverwachting**.
 
-Alles draait lokaal. Geen accounts, geen cloud, geen externe API's.
+Alles draait lokaal. Geen accounts en geen cloud – de enige optionele externe oproep is
+Open‑Meteo voor een betere verdampingsberekening, en die staat uit tot je ze aanzet.
 
-<p align="center"><img src="docs/images/library-detail-nl.png" alt="Plantenbibliotheek" width="88%"></p>
+<p align="center"><img src="docs/images/planner-autofill-nl.png" alt="Automatisch invullen" width="88%"></p>
 
 ## Wat kan het?
 
 | | |
 |---|---|
-| 🗺️ **Planner met slepen & neerzetten** | Bedden, kaszones, bakken en rijen op een centimeterraster. Losse planten, blokken of rijen; **opeenvolgend zaaien**; ongedaan maken/opnieuw, uitlijnen op raster, sneltoetsen, import/export (JSON/YAML). |
-| 🤝 **Buurplanten & wisselteelt** | Live score tijdens het slepen met uitleg per goede/slechte combinatie, te krappe plantafstand en wisselteeltconflicten per bed en familie. |
-| 🌱 **Plantendatabase** | 20 groenten en kruiden ingebouwd (Nederlandse en Engelse namen), volledig aan te passen. Voeg je eigen rassen toe. |
-| 📅 **Takenmotor** | Zaaien, afharden, uitplanten, uitdunnen, ondersteunen, snoeien, bemesten, wieden, plaagcontrole, water geven en oogsten – automatisch, herhalend waar dat zinvol is, met prioriteit, duur, notities en foto's; uitstellen schuift afhankelijke taken mee. |
-| ❄️ **Sensoren + verwachting** | Vorstrisico komende 48 uur (zomertijd‑veilig, rekening houdend met grondvorst bij heldere nachten), kasadvies (luchten/schaduwen), regenbewust beregeningsadvies in mm/liter/minuten, graaddagen. |
-| 🏠 **Volwaardig in HA** | Sensoren, binaire sensoren, kalender en takenlijst, diensten met antwoord, events voor automatiseringen, push/TTS/blijvende meldingen, diagnose, vertaald in NL en EN. |
+| 🗺️ **Planner met slepen & neerzetten** | Bedden, serrezones, bakken, rijen, **paden en tuinelementen** (composthoop, regenton, tuinhuis, boom, haag, klimrek) op een centimeterraster. Plantsymbolen naar groeivorm; **meerdere items selecteren, uitlijnen en verdelen**; lagen; opeenvolgend zaaien; ongedaan maken/opnieuw, sneltoetsen, import/export. |
+| ✨ **Automatisch invullen** | Stelt een volledig seizoen voor op basis van je bedden, gezinsgrootte, uren per week, water en compost: juiste hoeveelheden per persoon, hoge gewassen weg van de zon, vruchtwisseling en combinaties gerespecteerd, snelle gewassen in opeenvolgende zaaironden, warmteminners in de serre. Eerst bekijken, dan toepassen. |
+| 🤝 **Combinatieteelt & vruchtwisseling** | Live score tijdens het slepen: goede en slechte buren, **plaagwering en vangplanten, allelopathie, concurrentie om voeding en beschaduwing** (rekening houdend met het halfrond) – telkens met uitleg, betere buren en alternatieve bedden bij wisselteeltconflicten. |
+| 🌱 **Plantendatabase** | **140 gewassen**: 69 groenten, 60 kruiden, fruit en bloemen voor combinatieteelt (NL/EN), met Kc per groeistadium, N‑P‑K‑behoefte, hoogte, worteldiepte, opbrengst en planten per persoon – volledig aanpasbaar. |
+| 📅 **Taken & tuinjaar** | Van zaaien tot oogst per gewas, plus de **seizoenskalender**: bodem klaarmaken (met kg compost), serre kuisen en ontsmetten, schaduw aan/af, winterrust en afdekken, groenbemester, compost omzetten, gereedschap, bodemanalyse, vaste planten terugsnoeien en scheuren. Bemestingstaken bevatten de dosis. |
+| 💧 **Water, voeding, gezondheid** | FAO‑56 **Penman‑Monteith ET₀** (Hargreaves als terugval), Kc per groeistadium, een **waterbalans** in de wortelzone per bed, **voedingsbalans‑index** uit NPK/EC‑sensoren, **ziekterisico** (Hutton‑criteria, bladnat, luchtvochtigheid in de serre), graaddagen per teelt met dynamische oogstdatum. |
+| 🚿 **Veilige aansturing** | Kleppen + pomp met **pompvergrendeling, maximale looptijd, vorstvergrendeling en regen overslaan**; luchtramen en schaduwschermen van de serre automatisch; alles ook als advies. |
+| 🖨️ **Afdrukken & reMarkable** | Tuin‑ en serreplan met legende, schaal en noordpijl, bedfiches met raster, takenlijsten, seizoensoverzicht, blanco planningsbladen en plantkaarten – als PDF in A4/A3/A5/Letter of **reMarkable Paper Pro** met e‑inkpatronen en stippelvlakken om op te tekenen. |
+| 📖 **Handboek** | 16 hoofdstukken over bodem, zaaien, water, bemesten, vruchtwisseling, combinatieteelt, de serre, plagen, ziekten, het tuinjaar en meer (NL/EN), plus ⓘ‑tooltips overal die het begrip ter plaatse uitleggen. |
+| 🏠 **Volwaardig in HA** | Sensoren, binaire sensoren, getallen, keuzelijsten, schakelaars, knoppen, kalender en takenlijst, diensten met antwoord, events, push/TTS/blijvende meldingen, diagnose, NL en EN. |
+
+<table>
+  <tr>
+    <td><img src="docs/images/calendar-timeline-nl.png" alt="Seizoenstijdlijn"></td>
+    <td><img src="docs/images/print-nl.png" alt="Afdrukken voor reMarkable"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/handbook-chapter-nl.png" alt="Handboek"></td>
+    <td><img src="docs/images/task-dialog-nl.png" alt="Taak met live sensorgegevens"></td>
+  </tr>
+</table>
+
+### Afdrukken op papier en de reMarkable Paper Pro
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/images/pdf-remarkable-garden.png" alt="Tuinplan, reMarkable e-ink"></td>
+    <td width="33%"><img src="docs/images/pdf-remarkable-bed.png" alt="Bedfiche met raster"></td>
+    <td width="33%"><img src="docs/images/pdf-a4-season.png" alt="Seizoensoverzicht, A4 kleur"></td>
+  </tr>
+</table>
+
+Het tabblad **Afdrukken** toont elke pagina vooraf. Het reMarkable‑formaat is
+179,6 × 239,5 mm (het 4:3‑scherm van de Paper Pro) met een bredere linkermarge voor de
+werkbalk; de *e‑ink*‑modus gebruikt lichte tinten plus een arceerpatroon per
+plantenfamilie, zodat bedden herkenbaar blijven en je penlijnen zichtbaar. Automatiseringen
+maken dezelfde PDF's met `garden_manager.export_pdf` (opgeslagen in `/config/www/hortulus/`).
 
 ## Installatie
 
@@ -78,9 +110,13 @@ Open daarna **Hortulus** in de zijbalk. Meer: [CONFIGURATIE](docs/nl/CONFIGURATI
 | vorstrisico 48 uur | `sensor.hortulus_frost_risk_next_48h`, `binary_sensor.hortulus_frost_warning` |
 | beregeningsadvies | `sensor.<bed>_irrigation_recommendation`, `binary_sensor.<bed>_needs_water` |
 | graaddagen | `sensor.hortulus_growing_degree_days` |
-| kasadvies | `sensor.<zone>_greenhouse_advice`, `binary_sensor.<zone>_heat_stress` |
+| serre‑advies | `sensor.<zone>_greenhouse_advice`, `binary_sensor.<zone>_heat_stress`, `select.<zone>_shading` |
+| verdamping & graaddagen | `sensor.hortulus_reference_evapotranspiration_today`, `sensor.hortulus_degree_days_today` |
+| bodemwater & voeding | `sensor.<bed>_soil_water_deficit`, `sensor.<bed>_nutrient_balance` |
+| ziekte & vorst per zone | `sensor.<zone>_disease_risk`, `binary_sensor.<zone>_frost_risk_48h` |
+| bewatering aansturen | `switch.hortulus_automatic_irrigation`, `select.hortulus_irrigation_mode`, `number.hortulus_irrigation_max_runtime`, `button.hortulus_water_now`, `binary_sensor.hortulus_irrigation_frost_lockout` |
 | taken | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week`, `sensor.hortulus_tasks_due_today` |
-| diensten | `garden_manager.add_task`, `complete_task`, `postpone_task`, `delete_task`, `generate_tasks`, `recalculate_plan`, `export_plan`, `import_plan` |
+| diensten | `garden_manager.add_task`, `complete_task`, `postpone_task`, `delete_task`, `generate_tasks`, `recalculate_plan`, `export_plan`, `import_plan`, `add_planting`, `update_planting`, `remove_planting`, `autofill_plan`, `run_irrigation_plan`, `stop_irrigation`, `set_shading_mode`, `export_pdf` |
 
 > Let op: Home Assistant maakt entity‑id's aan op basis van de **systeemtaal** op het
 > moment van installeren. Op een Nederlandstalige installatie heet de vorstsensor dus
