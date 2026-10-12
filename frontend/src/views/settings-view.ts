@@ -62,12 +62,12 @@ export class SettingsView extends LitElement {
     const states = Object.values(this.hass?.states ?? {});
     const filter =
       key === "weather" ? { domains: ["weather"] }
-      : key === "irrigation" ? { domains: ["switch", "valve"] }
+      : key === "irrigation" ? { domains: ["switch", "valve", "input_boolean"] }
       : key === "tts" ? { domains: ["tts"] }
       : key === "media_player" ? { domains: ["media_player"] }
       : key === "vent" ? { domains: ["cover", "switch", "fan"] }
       : key === "shade" ? { domains: ["cover", "switch"] }
-      : key === "pump" ? { domains: ["switch"] }
+      : key === "pump" ? { domains: ["switch", "valve", "input_boolean"] }
       : key === "meter" || key === "butt" ? { domains: ["sensor", "input_number"] }
       : SENSOR_FILTER[key];
     return states

@@ -568,6 +568,8 @@ export interface Snapshot {
   transition_due?: number | null;
   /** Plans set aside with "start a new plan". */
   archived_plans?: ArchivedPlanSummary[];
+  /** Number of problems the garden check finds right now (badge on the Analysis tab). */
+  diagnosis?: { error: number; warning: number; info: number } | null;
   harvest_log?: HarvestEntry[];
   journal?: JournalEntry[];
   seed_stock?: SeedPacket[];
@@ -595,7 +597,18 @@ export interface ArchivedPlanSummary {
 /** A machine-readable reason with parameters, explained in the UI (``reason.<code>``). */
 export interface Reason { code: string; params: Record<string, unknown> }
 
-export interface AnalysisIssue { code: string; severity: "error" | "warning" | "info"; params: Record<string, unknown>; refs: Record<string, string[]> }
+export interface AnalysisIssue { code: string; severity: "error" | "warning" | "info"; params: Record<string, unknown>; refs: Record<string, string[]>; fixable?: boolean }
+
+export interface PlanRef { season?: number | null; plan_id?: string | null }
+
+export interface DiffPart<T = { id: string; name: string }> { added: T[]; removed: T[]; changed: (T & { was?: string; what: string[] })[] }
+
+export interface CropDiff { id: string; plant_id: string; name: string; bed: string; was_bed?: string }
+
+export interface PlanComparison {
+  a: string; b: string; identical: boolean;
+  zones: DiffPart; beds: DiffPart; features: DiffPart; plantings: DiffPart<CropDiff>;
+}
 
 export interface AnalysisResult {
   season: number;

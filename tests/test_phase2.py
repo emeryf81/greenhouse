@@ -617,3 +617,10 @@ async def test_bulk_update_fix_compare_and_still_possible(hass: HomeAssistant, g
     from custom_components.garden_manager.websocket_api import build_snapshot
 
     assert set(build_snapshot(entry.runtime_data)["diagnosis"]) == {"error", "warning", "info"}
+
+
+def test_a_valve_can_drive_the_pump_or_a_bed() -> None:
+    """A tap behind a ``valve`` entity (e.g. valve.tuinkraan_watervalve_one) works as pump or bed valve."""
+    assert controllers._on_service("valve.tuinkraan_watervalve_one", True) == ("valve", "open_valve")
+    assert controllers._on_service("valve.tuinkraan_watervalve_one", False) == ("valve", "close_valve")
+    assert controllers._on_service("input_boolean.pomp", True) == ("input_boolean", "turn_on")

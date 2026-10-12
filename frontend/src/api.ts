@@ -25,7 +25,10 @@ import type {
   Settings,
   Snapshot,
   SyslogPage,
+  AnalysisIssue,
   AnalysisResult,
+  PlanComparison,
+  PlanRef,
   ExplainResult,
   TransitionPreview,
   TransitionResult,
@@ -174,6 +177,22 @@ export class GardenApi {
 
   updatePlanting(plantingId: string, changes: Partial<Planting>): Promise<{ planting: Planting; row: CropRow | null; revision: number }> {
     return this.call("planting/update", { planting_id: plantingId, changes });
+  }
+
+  updatePlantings(plantingIds: string[], changes: Partial<Planting>): Promise<{ updated: number; revision: number }> {
+    return this.call("plantings/update_many", { planting_ids: plantingIds, changes });
+  }
+
+  fixIssue(issue: AnalysisIssue): Promise<Record<string, unknown>> {
+    return this.call("analysis/fix", { code: issue.code, params: issue.params, refs: issue.refs });
+  }
+
+  comparePlans(a: PlanRef, b: PlanRef): Promise<PlanComparison> {
+    return this.call("plan/compare", { a, b });
+  }
+
+  stillPossible(season: number): Promise<{ season: number; plants: { plant_id: string; beds: string[] }[] }> {
+    return this.call("analysis/still_possible", { season });
   }
 
   analysis(): Promise<AnalysisResult> {
