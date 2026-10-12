@@ -949,4 +949,7 @@ export const nl: Record<string, string> = {
   "settings.zone_type.containers": "Bloembakken & potten",
   "zone_hint.garden": "Siertuin: heesters, borders en vaste planten rond gazon en terras.",
   "zone_hint.containers": "Bloembakken & potten: op terras, balkon of vensterbank - teken elke bak of pot en beplant hem.",
+  "settings.display": "Weergave (deze browser)",
+  "settings.photos": "Foto's van planten tonen (Wikipedia)",
+  "settings.photos_hint": "Bovenop de tekening toont Hortulus een foto van Wikipedia, gezocht op de Latijnse naam. Je browser haalt die rechtstreeks op bij Wikipedia (met bronvermelding); zonder internet of als dit uit staat zie je de tekening.",
 };

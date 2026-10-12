@@ -132,3 +132,7 @@ Ja. Selecteer een bed in de planner en voeg een **bodemanalyse** toe (pH, organi
 ## Kan ik zien wat er veranderd is, en dat terugdraaien?
 
 Ja. In **Logboek → Systeemlogboek** staat elke wijziging: wat jij of een huisgenoot in het paneel deed, wat een automatisering of actie aanpaste, en wat Hortulus zelf deed (taken aanmaken of afsluiten, opruimen). Per regel zie je wanneer, door wie en wat (bv. *Verwijderd – Teelt: Tomaat (Kasbed, seizoen 2027)*). Met **Terugdraaien** zet je de toestand van vóór die actie terug. Is een onderdeel sindsdien opnieuw gewijzigd, dan vraagt Hortulus eerst of die latere wijziging mag vervallen; een terugdraaiing die een teelt zonder bed zou achterlaten wordt geweigerd. Het terugdraaien komt zelf ook in het logboek en kan je dus weer ongedaan maken. De laatste 500 regels worden bewaard.
+
+## Waar komen de plantfoto's vandaan?
+
+Elke plant, elk advies en elk handboekhoofdstuk heeft een tekening die Hortulus zelf maakt (werkt ook zonder internet). Daarbovenop toont je browser een foto van Wikipedia, gezocht op de Latijnse naam, met een link naar de bron. Je browser vraagt die rechtstreeks op bij Wikipedia; Home Assistant zelf maakt geen verbinding. Wil je dat niet, zet het dan uit onder **Instellingen → Weergave** (per browser).

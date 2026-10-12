@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
+import { photosEnabled, setPhotosEnabled } from "../components/plant-image";
 import type { Bed, HomeAssistant, PlanDoc, SensorMapping, Settings, Snapshot, Zone } from "../types";
 import { download, formatDate } from "../util/garden";
 import { persons } from "../util/people";
@@ -406,6 +407,12 @@ export class SettingsView extends LitElement {
           ${this.renderResources()} ${this.renderNotifications()} ${this.renderWater()} ${this.renderHousehold()} ${this.renderGeneral()}
         </div>
       </fieldset>
+      <section class="card stack" style="margin-top:var(--hl-s4)" aria-labelledby="s-display">
+        <h2 id="s-display">${this.t("settings.display")}</h2>
+        <label class="field check"><input type="checkbox" .checked=${photosEnabled()}
+          @change=${(e: Event) => setPhotosEnabled((e.target as HTMLInputElement).checked)} />${this.t("settings.photos")}</label>
+        <p class="xs muted">${this.t("settings.photos_hint")}</p>
+      </section>
       ${this.datalists()}
     `;
   }

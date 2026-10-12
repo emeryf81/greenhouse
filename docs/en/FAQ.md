@@ -179,3 +179,7 @@ Yes. Select a bed in the planner and add a **soil analysis** (pH, organic matter
 ## Can I see what changed, and undo it?
 
 Yes. **Journal → System log** lists every change: what you or someone in your household did in the panel, what an automation or action changed, and what Hortulus did itself (creating or closing tasks, clean-up). Each entry shows when, who and what (e.g. *Removed – Crop: Tomato (Greenhouse bed, season 2027)*). **Undo** restores the state from before that action. If an item was changed again since, Hortulus asks before discarding that later change; an undo that would leave a crop without its bed is refused. The undo is logged as well, so it can be reverted too. The last 500 entries are kept.
+
+## Where do the plant photos come from?
+
+Every plant, suggestion and handbook chapter has an illustration drawn by Hortulus itself (works offline). On top of that your browser shows a photo from Wikipedia, looked up by scientific name, with a link to the source. Your browser fetches it directly from Wikipedia; Home Assistant itself makes no connection. To switch it off, use **Settings → Display** (per browser).

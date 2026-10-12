@@ -6,6 +6,7 @@ import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Snapshot, Window } from "../types";
 import { addDays, daysBetween, familyColor, formatDate, plantName, windowDates } from "../util/garden";
 import "../components/info";
+import "../components/plant-image";
 
 type Filter = "" | "greenhouse" | "quick" | "custom";
 
@@ -47,6 +48,8 @@ export class LibraryView extends LitElement {
         overflow: hidden; display: flex; flex-direction: column; color: var(--hl-text); transition: box-shadow var(--hl-dur) var(--hl-ease), transform var(--hl-dur) var(--hl-ease); }
       .pcard:hover { box-shadow: var(--hl-shadow-2); transform: translateY(-1px); }
       .pcard .stripe { height: 6px; }
+      .pcard hl-plant-image { border-radius: 0; }
+      .drawer hl-plant-image { margin-bottom: var(--hl-s3); }
       .pcard .inner { padding: var(--hl-s3) var(--hl-s4); display: flex; flex-direction: column; gap: var(--hl-s2); }
       .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
       .facts b { display: block; color: var(--hl-text); font-size: var(--hl-fs-sm); }
@@ -145,6 +148,7 @@ export class LibraryView extends LitElement {
         ${this.filtered().map((p) => html`
           <button class="pcard" @click=${() => (this.selected = p)} aria-label=${plantName(p, this.lang)}>
             <div class="stripe" style=${`background:${familyColor(this.families, p.family)}`}></div>
+            <hl-plant-image .plant=${p} color=${familyColor(this.families, p.family)} lang=${this.lang} size="card"></hl-plant-image>
             <div class="inner">
               <div class="row"><h3>${plantName(p, this.lang)}</h3><span class="spacer"></span>
                 ${p.source !== "builtin" ? html`<span class="chip warn">${this.t(`lib.source.${p.source}`)}</span>` : nothing}</div>
@@ -182,6 +186,7 @@ export class LibraryView extends LitElement {
           <button class="icon-btn" aria-label=${this.t("common.close")} @click=${() => (this.selected = null)}><ha-icon icon="mdi:close"></ha-icon></button>
         </header>
         <div class="content">
+          <hl-plant-image .plant=${p} color=${familyColor(this.families, p.family)} lang=${this.lang} size="hero" credit></hl-plant-image>
           ${this.renderCalendar(p)}
           <div class="kv">
             <span>${this.t("lib.spacing")}</span><span>${p.spacing_cm} × ${p.row_spacing_cm} cm</span>

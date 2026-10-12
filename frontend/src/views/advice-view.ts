@@ -11,6 +11,8 @@ import { familyColor, plantName, presentIn, uid } from "../util/garden";
 import { defaultFootprint, findFreeSpot } from "../planner/geometry";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { defaultMethod } from "./planner-view";
+import "../components/plant-image";
+import { chapterArt } from "../components/chapter-art";
 import "../components/info";
 
 /** Problems phrased as "I have a problem with ..." (the rest are questions). */
@@ -68,7 +70,12 @@ export class AdviceView extends LitElement {
       .chips { display: flex; flex-wrap: wrap; gap: 6px; }
       .plant-chip { display: inline-flex; gap: 6px; align-items: center; padding: 2px 10px 2px 4px; border-radius: var(--hl-r-pill);
         background: var(--hl-surface-2); border: 1px solid var(--hl-border); font-size: var(--hl-fs-sm); }
-      .sugg { display: grid; grid-template-columns: 32px 1fr; gap: 4px 10px; padding: 10px 12px; border-radius: var(--hl-r-md);
+      .sugg .pic { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; display: block; position: relative; }
+      .sugg .pic .badge { position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+        background: var(--hl-surface); box-shadow: 0 0 0 2px var(--hl-surface); --mdc-icon-size: 14px; }
+      .sugg .pic svg.chapter-art { display: block; }
+      .answer .hero { display: block; margin-bottom: var(--hl-s3); border-radius: var(--hl-r-md); overflow: hidden; }
+      .sugg { display: grid; grid-template-columns: 44px 1fr; gap: 4px 10px; padding: 10px 12px; border-radius: var(--hl-r-md);
         border: 1px solid var(--hl-border); background: var(--hl-surface); }
       .sugg.warning { border-left: 4px solid var(--hl-tomato-500); }
       .sugg.tip { border-left: 4px solid var(--hl-leaf-500); }
@@ -183,6 +190,29 @@ export class AdviceView extends LitElement {
     }
   }
 
+  /** Picture of a suggestion: its first plant, else the handbook chapter it points to, else its kind icon. */
+  private suggestionPicture(s: Suggestion): TemplateResult {
+    const icon = html`<ha-icon icon=${KIND_ICON[s.kind] ?? SEVERITY_ICON[s.severity]}></ha-icon>`;
+    const plant = s.plants.map((id) => this.plants.find((x) => x.id === id)).find(Boolean);
+    const title = this.t(`advice.kind.${s.kind}`);
+    if (plant) {
+      return html`<span class="pic" title=${title}><hl-plant-image .plant=${plant} color=${familyColor(this.families, plant.family)}
+        lang=${this.lang} size="thumb"></hl-plant-image><span class="badge">${icon}</span></span>`;
+    }
+    if (s.handbook) return html`<span class="pic" title=${title}>${chapterArt(s.handbook, 44)}<span class="badge">${icon}</span></span>`;
+    return html`<span class="icon" title=${title}>${icon}</span>`;
+  }
+
+  /** Header picture of an answer: the plant asked about, or the chapter behind the advice. */
+  private answerPicture(a: QaAnswer): TemplateResult | typeof nothing {
+    const plant = a.subject === "plant" ? this.plants.find((x) => x.id === a.target) : undefined;
+    if (plant) {
+      return html`<hl-plant-image class="hero" .plant=${plant} color=${familyColor(this.families, plant.family)} lang=${this.lang}
+        size="hero" credit></hl-plant-image>`;
+    }
+    return a.handbook ? html`<span class="hero">${chapterArt(a.handbook, 120)}</span>` : nothing;
+  }
+
   private plantChip(id: string): TemplateResult {
     const p = this.plants.find((x) => x.id === id);
     if (!p) return html``;
@@ -233,6 +263,7 @@ export class AdviceView extends LitElement {
       ? html`<div class="section ${cls}"><ha-icon icon=${icon}></ha-icon><h4>${title}</h4><ul>${items.map((i) => html`<li>${i}</li>`)}</ul></div>`
       : nothing);
     return html`<section class="card answer" aria-live="polite">
+      ${this.answerPicture(a)}
       <h3><ha-icon icon="mdi:message-reply-text-outline"></ha-icon>${a.title} – ${this.t(`advice.q.${a.problem}`)}</h3>
       ${sec("status", "mdi:pulse", this.t("advice.sec.status"), a.status)}
       ${sec("facts", "mdi:information-outline", this.t("advice.sec.facts"), a.facts)}
@@ -254,7 +285,7 @@ export class AdviceView extends LitElement {
       <h2 id="sugg-h"><ha-icon icon="mdi:lightbulb-group-outline"></ha-icon> ${this.t("advice.suggestions")} <span class="chip">${list.length}</span></h2>
       <p class="small muted">${this.t("advice.suggestions_intro")}</p>
       ${list.length ? list.map((s) => html`<article class="sugg ${s.severity}">
-        <span class="icon" title=${this.t(`advice.kind.${s.kind}`)}><ha-icon icon=${KIND_ICON[s.kind] ?? SEVERITY_ICON[s.severity]}></ha-icon></span>
+        ${this.suggestionPicture(s)}
         <div><b>${s.title}</b><span class="small">${s.text}</span></div>
         ${s.plants.length ? html`<div class="row chips">${s.plants.slice(0, 5).map((p) => this.plantChip(p))}</div>` : nothing}
         <div class="row wrap">

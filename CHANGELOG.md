@@ -20,6 +20,13 @@
 - Planner toolbar button **Site & elements** jumps back to drawing the site from any step
   (the planner opens on *Plant* once there are crops, which hid the drawing tools).
 
+- **Pictures everywhere**: every plant in the library has a picture (card and detail), as do
+  advice suggestions and answers, and every handbook chapter has an illustrated garden scene
+  (overview tiles and chapter header). Pictures are illustrations built from the plant
+  stickers, so they work offline; on top of that the browser shows a **photo from
+  Wikipedia**, looked up by scientific name, with a credit link (Settings → *Display*, per
+  browser, on by default; cached for 30 days).
+
 ### Fixed
 - Beds in orchards, herb, flower and the new garden zones now use the outdoor sensors (only
   greenhouses and cold frames have their own climate).

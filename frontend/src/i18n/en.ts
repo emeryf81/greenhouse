@@ -951,4 +951,7 @@ export const en: Record<string, string> = {
   "settings.zone_type.containers": "Planters & pots",
   "zone_hint.garden": "Ornamental garden: shrubs, borders and perennials around lawn and terrace.",
   "zone_hint.containers": "Planters & pots: on a terrace, balcony or window sill - draw every planter or pot and plant it.",
+  "settings.display": "Display (this browser)",
+  "settings.photos": "Show plant photos (Wikipedia)",
+  "settings.photos_hint": "On top of the illustration Hortulus shows a photo from Wikipedia, looked up by scientific name. Your browser fetches it directly from Wikipedia (with credit); offline or when switched off you see the illustration.",
 };
