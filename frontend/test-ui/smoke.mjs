@@ -5,7 +5,7 @@
 //   npm run test:ui            (PW_CHROMIUM=/path/to/chromium to use a local browser)
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
@@ -15,7 +15,7 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
 
 const server = createServer(async (req, res) => {
   const path = normalize(join(ROOT, decodeURIComponent(new URL(req.url, "http://x").pathname)));
-  if (!path.startsWith(ROOT)) return res.writeHead(403).end();
+  if (path !== ROOT && !path.startsWith(ROOT.endsWith(sep) ? ROOT : ROOT + sep)) return res.writeHead(403).end();
   try {
     const body = await readFile(path);
     res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream" }).end(body);

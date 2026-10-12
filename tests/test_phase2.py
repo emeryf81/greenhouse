@@ -724,3 +724,46 @@ async def test_planning_overview(hass: HomeAssistant, garden, hass_ws_client) ->
     assert res["success"], res
     assert {"seeds", "successions", "harvest"} <= set(res["result"])
     assert all(w["kg"] >= 0 for w in res["result"]["harvest"]["weeks"])
+
+
+async def test_valve_test_never_runs_the_pump_against_a_closed_valve(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    runtime.repo.data.settings.irrigation.pump_entity = "switch.pump"
+    monkeypatch.setattr(controllers, "STATE_TIMEOUT_S", 0.5)
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    order: list[tuple[str, bool]] = []
+
+    async def stuck_closed(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        order.append((entity_id, on))
+        if entity_id == "switch.pump":
+            hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(controllers, "_switch", stuck_closed)
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    hass.states.async_set(valve, "off")
+    result = await runtime.irrigation.async_test(valve, seconds=1)
+    assert not result["ok"] and ("switch.pump", True) not in order and order[-1] == (valve, False)
+
+    # a stuck valve that stops reporting is not taken for closed
+    hass.states.async_set(valve, "open")
+    now = dt_util.now()
+    runtime.irrigation.async_watch(now)
+    runtime.irrigation.async_watch(now + timedelta(minutes=runtime.repo.data.settings.irrigation.max_runtime_min + 11))
+    assert valve in runtime.irrigation.stuck
+    hass.states.async_set(valve, "unavailable")
+    runtime.irrigation.async_watch(now + timedelta(minutes=60))
+    assert valve in runtime.irrigation.stuck
+    hass.states.async_set(valve, "closing")
+    assert await runtime.irrigation.async_close(valve) == "closing" and valve in runtime.irrigation.stuck

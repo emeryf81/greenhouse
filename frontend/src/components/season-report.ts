@@ -57,6 +57,7 @@ export class SeasonReportView extends LitElement {
     if (this.season && this.api && this.season !== this.loadedFor) {
       this.loadedFor = this.season;
       this.report = null;
+      this.error = "";
       this.api.seasonReport(this.season).then((r) => (this.report = r as SeasonReport)).catch((err) => (this.error = (err as Error).message));
     }
   }

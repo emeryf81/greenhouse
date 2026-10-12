@@ -46,7 +46,8 @@ export class CropsPlanning extends LitElement {
   @property({ type: Boolean }) admin = true;
   @state() private result: PlanningResult | null = null;
   @state() private weeksAhead = 8;
-  private loadedFor = "";
+  private loadedFor = 0;
+  @state() private error = "";
 
   static styles = [
     shared,
@@ -77,11 +78,19 @@ export class CropsPlanning extends LitElement {
   ];
 
   protected willUpdate(): void {
-    const key = `${this.season}:${this.view}`;
-    if (this.view !== "weeks" && this.api && key !== this.loadedFor) {
-      this.loadedFor = key;
+    // one request per season serves the seeds, succession and harvest views
+    if (this.view !== "weeks" && this.api && this.season !== this.loadedFor) {
+      const season = this.season;
+      this.loadedFor = season;
       this.result = null;
-      this.api.planning(this.season).then((r) => (this.result = r as PlanningResult)).catch(() => undefined);
+      this.error = "";
+      this.api.planning(season).then((r) => {
+        if (season === this.season) this.result = r as PlanningResult;
+      }).catch((err) => {
+        if (season !== this.season) return;
+        this.loadedFor = 0; // a later update may retry
+        this.error = (err as Error).message ?? String(err);
+      });
     }
   }
 
@@ -94,6 +103,7 @@ export class CropsPlanning extends LitElement {
 
   render(): TemplateResult {
     if (this.view === "weeks") return this.renderWeeks();
+    if (this.error) return html`<p class="small">${this.t("common.error", { message: this.error })}</p>`;
     if (!this.result) return html`<p class="muted">${this.t("common.loading")}</p>`;
     if (this.view === "seeds") return this.renderSeeds(this.result);
     if (this.view === "follow") return this.renderFollow(this.result);

@@ -1522,8 +1522,8 @@ def _season_timelines(runtime: GardenRuntime, season: int) -> dict[str, Any]:
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/planning", vol.Required("season"): int})
-@callback
-def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+@websocket_api.async_response
+async def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Seeds to buy, what can follow a crop, and the expected harvest per week."""
     runtime = _require_runtime(hass, connection, msg)
     if runtime is None:
@@ -1531,23 +1531,26 @@ def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
     data = runtime.repo.data
     db = runtime.repo.db
     season = msg["season"]
-    timelines = _season_timelines(runtime, season)
-    anchors = season_anchors(data.settings.region, season)
     lang = runtime.coordinator.lang
-    connection.send_result(
-        msg["id"],
-        {
+    today = dt_util.now().date()
+
+    def build() -> dict[str, Any]:
+        # successions try every plant on every bed that frees up: keep it off the event loop
+        timelines = _season_timelines(runtime, season)
+        anchors = season_anchors(data.settings.region, season)
+        return {
             "season": season,
             "seeds": [n.to_dict() for n in planning.seed_needs(data, db, season)],
             "successions": [
                 b.to_dict()
                 for b in planning.successions(
-                    data, db, season, timelines, today=dt_util.now().date(), first_frost=anchors.first_frost, lang=lang
+                    data, db, season, timelines, today=today, first_frost=anchors.first_frost, lang=lang
                 )
             ],
             "harvest": planning.harvest_forecast(data, db, season, timelines),
-        },
-    )
+        }
+
+    connection.send_result(msg["id"], await hass.async_add_executor_job(build))
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/report/season", vol.Required("season"): int})

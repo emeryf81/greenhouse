@@ -8,6 +8,11 @@ import type { Translate } from "../i18n";
 import type { Bed, Snapshot } from "../types";
 import { addDays, formatDate } from "../util/garden";
 
+/** ``YYYY-MM-DD`` of a moment in the browser's (garden's) time zone. */
+function localDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 interface Day { day: string; liters: number; mm: number; rain: number | null }
 
 @customElement("hl-water-chart")
@@ -48,13 +53,18 @@ export class WaterChart extends LitElement {
     }
   }
 
+  private generation = 0;
+
   private async load(): Promise<void> {
+    const gen = ++this.generation;
+    const bedId = this.bed.id;
     this.loaded = false;
     const moistureId = this.bed.sensors?.soil_moisture ?? null;
     const rainId = this.rainEntity();
     const start = new Date(`${addDays(this.today, -(this.days - 1))}T00:00:00`);
     try {
       const hist = await this.api.history([moistureId, rainId].filter((x): x is string => !!x), start);
+      if (gen !== this.generation || bedId !== this.bed.id) return; // an answer for an earlier bed or period
       this.moisture = (moistureId ? hist[moistureId] ?? [] : [])
         .map((p) => ({ t: p.lu * 1000, v: Number(p.s) }))
         .filter((p) => Number.isFinite(p.v));
@@ -62,15 +72,16 @@ export class WaterChart extends LitElement {
       for (const p of rainId ? hist[rainId] ?? [] : []) {
         const v = Number(p.s);
         if (!Number.isFinite(v)) continue;
-        const day = new Date(p.lu * 1000).toISOString().slice(0, 10);
+        const day = localDay(new Date(p.lu * 1000)); // same calendar day as the bars, not UTC
         rain[day] = Math.max(rain[day] ?? 0, v);
       }
       this.rainByDay = rain;
     } catch {
+      if (gen !== this.generation) return;
       this.moisture = [];
       this.rainByDay = {};
     } finally {
-      this.loaded = true;
+      if (gen === this.generation) this.loaded = true;
     }
   }
 

@@ -45,12 +45,13 @@ STATE_TIMEOUT_S = 5.0
 STUCK_MARGIN_MIN = 10
 TEST_MAX_S = 60
 
-_OPEN = {"on", "open", "opening"}
-_CLOSED = {"off", "closed", "closing"}
+# Only settled states count; "opening" / "closing" are still on their way.
+_OPEN = {"on", "open"}
+_CLOSED = {"off", "closed"}
 
 
 def _is_open(state: str | None) -> bool | None:
-    """``True``/``False`` for a valve/switch state, ``None`` when unknown or unavailable."""
+    """``True``/``False`` for a settled valve/switch state, ``None`` when moving, unknown or unavailable."""
     if state in _OPEN:
         return True
     if state in _CLOSED:
@@ -239,7 +240,7 @@ class IrrigationController:
 
     async def _verify_closed(self, entity_id: str, bed_id: str | None) -> None:
         state = await self._wait_for(entity_id, False)
-        if _is_open(state):
+        if _is_open(state) is not False:  # still open, stuck closing, or not reporting
             self._problem(entity_id, "valve_not_closed", state, bed_id=bed_id)
 
     def _problem(self, entity_id: str, code: str, state: str | None, *, bed_id: str | None = None) -> None:
@@ -280,15 +281,21 @@ class IrrigationController:
                 await _switch(self.hass, entity_id, True)
                 result["open_state"] = await self._wait_for(entity_id, True)
                 result["opened"] = _is_open(result["open_state"])
-                if pump:
-                    await asyncio.sleep(VALVE_SETTLE_S)
-                    await _switch(self.hass, pump, True)
-                await asyncio.sleep(seconds)
+                if result["opened"]:
+                    # the pump only ever runs against a valve that reported open
+                    if pump:
+                        await asyncio.sleep(VALVE_SETTLE_S)
+                        await _switch(self.hass, pump, True)
+                    await asyncio.sleep(seconds)
+                else:
+                    pump = None
             finally:
-                if pump:
-                    await _switch(self.hass, pump, False)
-                    await asyncio.sleep(self.coordinator.repo.data.settings.irrigation.pump_lead_s)
-                await _switch(self.hass, entity_id, False)
+                try:
+                    if pump:
+                        await _switch(self.hass, pump, False)
+                        await asyncio.sleep(self.coordinator.repo.data.settings.irrigation.pump_lead_s)
+                finally:
+                    await _switch(self.hass, entity_id, False)
             result["closed_state"] = await self._wait_for(entity_id, False)
             result["closed"] = _is_open(result["closed_state"]) is False
             result["pump"] = pump
@@ -304,7 +311,7 @@ class IrrigationController:
         """Close a valve that stayed open (button in the panel)."""
         await _switch(self.hass, entity_id, False)
         state = await self._wait_for(entity_id, False)
-        if not _is_open(state):
+        if _is_open(state) is False:  # only a valve that reports closed is cleared
             self.stuck.pop(entity_id, None)
             self._open_since.pop(entity_id, None)
             self._reported.discard(entity_id)
@@ -318,7 +325,10 @@ class IrrigationController:
         changed = False
         for entity_id in self.valve_entities():
             is_open = _is_open(self._state(entity_id))
-            if not is_open or self.running:
+            if self.running or is_open is None:
+                # watering, moving, or not reporting: keep what we know until it settles
+                continue
+            if is_open is False:
                 if entity_id in self.stuck:
                     changed = True
                 self._open_since.pop(entity_id, None)

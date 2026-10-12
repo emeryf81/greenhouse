@@ -173,7 +173,7 @@ def harvest_forecast(
             continue
         if p.status in (PlantingStatus.FAILED, PlantingStatus.FINISHED) or not tl.bearing:
             continue
-        kg = p.width_cm * p.length_cm / 10_000 * learned.get(p.plant_id, plant.yield_kg_m2)
+        kg = p.width_cm * p.length_cm / 10_000 * (learned.get(p.plant_id) or plant.yield_kg_m2 or 0.0)
         start, end = tl.harvest_start, max(tl.harvest_end, tl.harvest_start)
         days = (end - start).days + 1
         per_day = kg / days
@@ -227,7 +227,7 @@ def season_report(data: GardenData, db: PlantDatabase, season: int, *, today: da
             c["failed"] += 1
             failed.append({"planting_id": p.id, "plant_id": p.plant_id, "bed_id": p.bed_id, "notes": p.notes})
         elif plant.harvestable and not (plant.perennial and p.season + (plant.years_to_bearing or 0) > season):
-            c["expected_kg"] += area * plant.yield_kg_m2  # young fruit trees do not crop yet
+            c["expected_kg"] += area * (plant.yield_kg_m2 or 0.0)  # young fruit trees do not crop yet
     for pid, h in harvests.items():
         c = crops.setdefault(pid, {"plant_id": pid, "plantings": 0, "area_m2": 0.0, "failed": 0, "expected_kg": 0.0})
         c["kg"] = h.kg
