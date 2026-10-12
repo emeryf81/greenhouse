@@ -625,6 +625,17 @@ async def test_bulk_update_fix_compare_and_still_possible(hass: HomeAssistant, g
 
     assert set(build_snapshot(entry.runtime_data)["diagnosis"]) == {"error", "warning", "info"}
 
+    # the cached garden check follows a region change made in place, and is dropped on unload
+    from custom_components.garden_manager import websocket_api as ws
+
+    runtime = entry.runtime_data
+    key = ws._DIAGNOSIS_CACHE[id(runtime)][0]
+    runtime.repo.data.settings.region.last_frost = "05-15"
+    build_snapshot(runtime)
+    assert ws._DIAGNOSIS_CACHE[id(runtime)][0] != key
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert id(runtime) not in ws._DIAGNOSIS_CACHE
+
 
 def test_a_valve_can_drive_the_pump_or_a_bed() -> None:
     """A tap behind a ``valve`` entity (e.g. valve.tuinkraan_watervalve_one) works as pump or bed valve."""

@@ -8,6 +8,7 @@ chores too.
 
 from __future__ import annotations
 
+from dataclasses import astuple
 from datetime import date
 import json
 import logging
@@ -153,16 +154,21 @@ def _require_runtime(
     return runtime
 
 
-# (runtime id) -> ((revision, day, plant database), summary): the check only reruns when
-# the plan, the day or the plant data changed, not on every sensor-driven snapshot push.
+# (runtime id) -> ((revision, day, region, plant database), summary): the check only reruns
+# when the plan, the day, the region or the plant data changed, not on every snapshot push.
 _DIAGNOSIS_CACHE: dict[int, tuple[tuple[Any, ...], dict[str, int] | None]] = {}
+
+
+def clear_diagnosis_cache(runtime: GardenRuntime) -> None:
+    """Forget the cached check of a runtime that is being unloaded."""
+    _DIAGNOSIS_CACHE.pop(id(runtime), None)
 
 
 def _diagnosis_summary(runtime: GardenRuntime) -> dict[str, int] | None:
     """Issue counts for the badge on the Analysis tab (re-checked when the plan changes)."""
     data = runtime.repo.data
     today = dt_util.now().date()
-    key = (data.revision, data.layout_season, today, id(runtime.repo.db))
+    key = (data.revision, data.layout_season, today, astuple(data.settings.region), id(runtime.repo.db))
     cached = _DIAGNOSIS_CACHE.get(id(runtime))
     if cached is not None and cached[0] == key:
         return cached[1]

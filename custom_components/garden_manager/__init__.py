@@ -27,7 +27,7 @@ from .seed import build_initial_data
 from .services import async_setup_services
 from .storage import GardenRepository
 from .voice import async_setup_intents
-from .websocket_api import async_setup_websocket
+from .websocket_api import async_setup_websocket, clear_diagnosis_cache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -218,6 +218,7 @@ async def _async_update_listener(hass: HomeAssistant, entry: GardenConfigEntry) 
 async def async_unload_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        clear_diagnosis_cache(entry.runtime_data)
         await entry.runtime_data.repo.async_flush()
         async_unregister_panel(hass)
     return unloaded
