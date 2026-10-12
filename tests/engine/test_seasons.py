@@ -124,3 +124,15 @@ def test_advisor_reminds_of_a_missing_transition(garden, db):
     assert sugg and sugg[0].action == {"type": "year_transition", "from_season": 2026}
     assert "2027" in sugg[0].title
     assert seasons.pending_transition(garden, 2027) == 2026
+
+
+def test_transition_ignores_crops_not_in_the_source_year_and_closed_years(garden, make_planting):
+    garden.layout_season = 2026
+    old = make_planting("apple", "bed_1", 2023, last_season=2024)  # gone since 2025
+    garden.plantings = [old]
+    res = seasons.apply(garden, 2026, planting_ids=[old.id], activate=False)
+    assert res.skipped == [old.id] and not present_in(old, True, 2027)
+    import pytest
+
+    with pytest.raises(ValueError):
+        seasons.apply(garden, 2025)  # 2026 is the live year already

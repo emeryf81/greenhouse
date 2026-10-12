@@ -221,6 +221,8 @@ def apply(
     live garden and this year's is archived.
     """
     to_season = from_season + 1
+    if data.layout_season is not None and to_season <= data.layout_season:
+        raise ValueError(f"{from_season} is already closed")
     source = layout_for(data, from_season) or GardenLayout()
     if layout == "keep" and str(to_season) in data.layouts:
         target = data.layouts[str(to_season)]
@@ -242,7 +244,7 @@ def apply(
     for p in data.plantings:
         if p.id not in wanted:
             continue
-        if p.bed_id not in beds:
+        if not present_in(p, False, from_season) or p.bed_id not in beds:
             skipped.append(p.id)
             continue
         p.last_season = max(to_season, p.last_season or p.season)

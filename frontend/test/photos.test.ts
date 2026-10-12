@@ -71,6 +71,7 @@ test("licences and file names", () => {
   for (const ok of ["CC BY-SA 3.0", "CC BY 2.5", "CC0", "Public domain", "cc-by-sa-4.0"]) assert.ok(freeLicense(ok), ok);
   for (const no of ["CC BY-NC-SA 2.0", "CC BY-ND 4.0", "GFDL", "All rights reserved", ""]) assert.ok(!freeLicense(no), no);
   assert.equal(fileFromUrl(SUMMARY.thumbnail.source), "Basil.jpg");
+  assert.equal(fileFromUrl("https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Ocimum%208zz.jpg/330px-Ocimum%208zz.jpg?utm_source=en.wikipedia.org&utm_campaign=api"), "Ocimum 8zz.jpg");
   assert.equal(fileFromUrl("https://upload.wikimedia.org/wikipedia/commons/a/ab/Tagetes%20patula.jpg"), "Tagetes patula.jpg");
 });
 

@@ -356,6 +356,12 @@ export class PlannerView extends LitElement {
   private async setSeason(season: number): Promise<void> {
     window.clearTimeout(this.saveTimer);
     if (this.saveState === "dirty") await this.save();
+    if (this.saveState !== "saved") {
+      // Saving failed or conflicted: stay on this season rather than drop the edits.
+      this.toast(this.t("layout.save_first"));
+      this.requestUpdate();
+      return;
+    }
     this.seasonChosen = true;
     this.season = season;
     this.dispatchEvent(new CustomEvent("season-changed", { detail: season, bubbles: true, composed: true }));

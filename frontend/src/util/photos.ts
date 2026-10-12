@@ -109,7 +109,13 @@ async function fileInfo(lang: string, file: string): Promise<Pick<Photo, "artist
 
 /** File name from an upload.wikimedia.org URL (thumbnail or original). */
 export function fileFromUrl(url: string): string {
-  const parts = url.split("/");
+  let path = url;
+  try {
+    path = new URL(url).pathname; // summaries add ?utm_... parameters
+  } catch {
+    path = url.split(/[?#]/)[0];
+  }
+  const parts = path.split("/");
   const thumb = parts.indexOf("thumb");
   const name = thumb >= 0 ? parts[thumb + 3] : parts[parts.length - 1];
   return decodeURIComponent(name ?? "");

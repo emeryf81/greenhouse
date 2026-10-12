@@ -137,7 +137,7 @@ latitude and photos) when opening an issue.
 
 ## My apple tree is in the plan every year - how do I remove it?
 
-Perennials (fruit trees, berries, asparagus, perennial herbs) carry over to every following season. Select the plant in the planner and choose **Remove**. You get two options: **Gone from this season** (earlier years keep it for rotation and history) or **Delete completely**.
+Perennials (fruit trees, berries, asparagus, perennial herbs) move to a following season only when you include them in the **Year-end transition**. To remove one from the current season, select the plant in the planner and choose **Remove**. You get two options: **Gone from this season** (earlier years keep it for rotation and history) or **Delete completely**.
 
 ## Can I get reminders for tasks I forgot?
 

@@ -90,7 +90,7 @@ foto's worden daarin weggelaten).
 
 ## Mijn appelboom staat elk jaar opnieuw in het plan - hoe haal ik hem weg?
 
-Meerjarige planten (fruitbomen, bessen, asperge, vaste kruiden) gaan automatisch mee naar elk volgend seizoen. Selecteer de plant in de planner en kies **Verwijderen**. Je krijgt twee keuzes: **Weg vanaf dit seizoen** (de vorige jaren behouden hem voor wisselteelt en historiek) of **Volledig wissen**.
+Meerjarige planten (fruitbomen, bessen, asperge, vaste kruiden) gaan alleen mee naar een volgend seizoen als je ze aanvinkt in de **Jaarovergang**. Wil je er een uit het huidige seizoen halen, selecteer de plant in de planner en kies **Verwijderen**. Je krijgt twee keuzes: **Weg vanaf dit seizoen** (de vorige jaren behouden hem voor wisselteelt en historiek) of **Volledig wissen**.
 
 ## Kan ik herinneringen krijgen voor taken die ik vergeten ben?
 

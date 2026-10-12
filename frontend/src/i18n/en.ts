@@ -990,4 +990,5 @@ export const en: Record<string, string> = {
   "year.done": "Your garden is now in {season} - {n} crop(s) moved over.",
   "year.prepared": "Garden plan {season} prepared - {n} crop(s) moved over.",
   "year.skipped": "{n} crop(s) not moved: their bed is not in the new garden plan.",
+  "layout.save_first": "Your changes are not saved yet - try again in a moment.",
 };

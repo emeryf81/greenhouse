@@ -988,4 +988,5 @@ export const nl: Record<string, string> = {
   "year.done": "Je tuin staat nu in {season} - {n} gewas(sen) overgezet.",
   "year.prepared": "Tuinplan {season} klaargezet - {n} gewas(sen) overgezet.",
   "year.skipped": "{n} gewas(sen) niet overgezet: hun bed zit niet in het nieuwe tuinplan.",
+  "layout.save_first": "Je wijzigingen zijn nog niet opgeslagen - probeer het zo opnieuw.",
 };

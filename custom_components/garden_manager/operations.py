@@ -351,7 +351,7 @@ def op_year_transition(
 ) -> dict[str, Any]:
     """Explicit year-end transition: carry the chosen plan and crops into next year."""
     data = runtime.repo.data
-    if data.layout_season is not None and from_season < data.layout_season and activate:
+    if data.layout_season is not None and from_season + 1 <= data.layout_season:
         raise _err("invalid_plan", reason=f"{from_season} is already closed")
     before = _live_layout_snapshot(data)
     result = seasons.apply(
