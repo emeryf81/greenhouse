@@ -44,6 +44,13 @@ add_task:
             - soil_test
             - cut_back
             - divide
+            - protect
+            - clean
+            - tie_in
+            - thin_fruit
+            - pollinate
+            - check
+            - make_feed
     description:
       selector:
         text:

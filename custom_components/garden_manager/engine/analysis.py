@@ -31,11 +31,12 @@ from .models import (
     SensorReading,
     SensorSnapshot,
     WeatherSnapshot,
+    present_in,
 )
 from .phenology import PhenologyInfo, phenology, stage_kc
 from .plantdb import PlantDatabase
-from .region import SeasonAnchors, resolve_profile, season_anchors, season_for_date
-from .schedule import PlantingTimeline, TimingAdvice, planting_timeline, timing_advice
+from .region import SeasonAnchors, resolve_profile, season_anchors, season_bounds, season_for_date
+from .schedule import PlantingTimeline, TimingAdvice, season_timeline, timing_advice
 from .serde import to_dict
 from .tasks import TaskContext, is_active
 from .waterbalance import bed_irrigation_mm
@@ -139,6 +140,7 @@ class GardenAnalysis:
             phenology=self.phenology,
             disease={k: z.disease for k, z in self.zones.items()},
             nutrients={k: b.nutrients for k, b in self.beds.items()},
+            outlook=list(self.outlook),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -252,7 +254,9 @@ def analyze(
         if plant is None or bed is None:
             continue
         plants[p.id] = plant
-        timelines[p.id] = planting_timeline(p, plant, anchors(p.season), data.zone(bed.zone_id), today)
+        timelines[p.id] = season_timeline(
+            p, plant, season, anchors, data.zone(bed.zone_id), today, *season_bounds(region, season)
+        )
 
     # -- zones --------------------------------------------------------------- #
     zones: dict[str, ZoneAnalysis] = {}
@@ -339,7 +343,10 @@ def analyze(
             k=SensorSnapshot.value(snap.npk_k),
             ec=SensorSnapshot.value(snap.ec),
         )
-        relevant = [p for p in in_bed if abs(p.season - season) <= 1]
+        relevant = [
+            p for p in in_bed
+            if (present_in(p, True, season) if plants[p.id].perennial else abs(p.season - season) <= 1)
+        ]  # fmt: skip
         report = check_bed(
             bed,
             relevant,
@@ -410,7 +417,7 @@ def analyze(
         )
     pheno: dict[str, PhenologyInfo] = {}
     for p in data.plantings:
-        if p.id in timelines and abs(p.season - season) <= 1:
+        if p.id in timelines and (plants[p.id].perennial or abs(p.season - season) <= 1):
             pheno[p.id] = phenology(p.id, plants[p.id], timelines[p.id], today, data.climate_log, outlook)
 
     # -- alerts -------------------------------------------------------------- #

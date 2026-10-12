@@ -3175,6 +3175,8 @@ ENRICH: dict[str, dict[str, Any]] = {
 
 
 def build() -> dict[str, Any]:
+    import plantdb_extra as extra  # registers its rows on this module
+
     doc = json.loads(TARGET.read_text(encoding="utf-8"))
     generated_ids = {row[0] for row in ROWS}
     curated = [p for p in doc["plants"] if p["id"] not in generated_ids and p["id"] in ENRICH]
@@ -3190,13 +3192,17 @@ def build() -> dict[str, Any]:
         plant.update(copy.deepcopy(kw))
         plant.setdefault("companions", [])
         plants[pid] = plant
-    for a, b, rel, strength, en, nl in REL:
+    for pid, patch in extra.PATCH.items():
+        plants[pid].update(copy.deepcopy(patch))
+    for a, b, rel, strength, en, nl in REL + extra.REL_EXTRA:
         for x in (a, b):
             if x not in plants:
                 raise SystemExit(f"unknown plant in relation: {x}")
         links = plants[a].setdefault("companions", [])
         if not any(link["plant"] == b for link in links):
             links.append({"plant": b, "relation": rel, "strength": strength, "reason": {"en": en, "nl": nl}})
+    for plant in plants.values():
+        extra.decorate(plant)
     for plant in plants.values():  # validate references
         for link in plant.get("companions", []):
             if link["plant"] not in plants:
@@ -3207,7 +3213,12 @@ def build() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    out = build()
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import build_plantdb as module  # the importable copy that plantdb_extra extends
+
+    out = module.build()
     TARGET.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     cats: dict[str, int] = {}
     for p in out["plants"]:

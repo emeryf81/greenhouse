@@ -29,6 +29,9 @@ from custom_components.garden_manager.engine.irrigation import plan_irrigation  
 from custom_components.garden_manager.engine.models import (  # noqa: E402
     Feature,
     FeatureType,
+    GardenBed,
+    Zone,
+    ZoneType,
     GardenResources,
     IrrigationEvent,
     LayoutMode,
@@ -127,6 +130,40 @@ def build(lang: str) -> dict:
         ),
         Feature("ft_compost", "Compost", FeatureType.COMPOST, x_cm=-140, y_cm=120, width_cm=100, length_cm=100),
     ]
+    # Orchard + soft fruit below the vegetable garden: perennials planted in earlier years.
+    bottom = max(z.y_cm + z.length_cm for z in data.zones) + 120
+    orchard = Zone("zone_orchard", "Boomgaard" if lang == "nl" else "Orchard", ZoneType.ORCHARD,
+                   x_cm=-20, y_cm=bottom, width_cm=900, length_cm=600)
+    fruit = Zone("zone_fruit", "Fruithoek" if lang == "nl" else "Fruit corner", ZoneType.FRUIT,
+                 x_cm=920, y_cm=bottom, width_cm=500, length_cm=300)
+    data.zones += [orchard, fruit]
+    obed = GardenBed("bed_orchard", orchard.name, orchard.id, x_cm=orchard.x_cm, y_cm=orchard.y_cm,
+                     width_cm=orchard.width_cm, length_cm=orchard.length_cm)
+    fbed = GardenBed("bed_fruit", fruit.name, fruit.id, x_cm=fruit.x_cm, y_cm=fruit.y_cm,
+                     width_cm=fruit.width_cm, length_cm=fruit.length_cm)
+    data.beds += [obed, fbed]
+    trees = [("apple", 2022, 0, 0), ("pear", 2023, 400, 0), ("sweet_cherry", 2025, 0, 300), ("plum", 2024, 400, 300)]
+    for pid, season, x, y in trees:
+        data.plantings.append(Planting(f"pl_{pid}", pid, obed.id, season, LayoutMode.SINGLE, x_cm=x + 50, y_cm=y,
+                                       width_cm=300, length_cm=300, method=SowMethod.TRANSPLANT,
+                                       status=PlantingStatus.TRANSPLANTED))
+    data.plantings += [
+        Planting("pl_alpine", "alpine_strawberry", obed.id, 2025, LayoutMode.ROW, x_cm=780, y_cm=0, width_cm=60, length_cm=600,
+                 method=SowMethod.TRANSPLANT, status=PlantingStatus.TRANSPLANTED),
+        Planting("pl_rasp", "raspberry_summer", fbed.id, 2024, LayoutMode.ROW, x_cm=0, y_cm=20, width_cm=500, length_cm=60,
+                 method=SowMethod.TRANSPLANT, status=PlantingStatus.TRANSPLANTED),
+        Planting("pl_redcurrant", "redcurrant", fbed.id, 2024, LayoutMode.BLOCK, x_cm=0, y_cm=130, width_cm=300, length_cm=150,
+                 method=SowMethod.TRANSPLANT, status=PlantingStatus.TRANSPLANTED),
+        Planting("pl_blueberry", "blueberry", fbed.id, 2025, LayoutMode.BLOCK, x_cm=320, y_cm=130, width_cm=160, length_cm=150,
+                 method=SowMethod.TRANSPLANT, status=PlantingStatus.TRANSPLANTED),
+    ]  # fmt: skip
+    data.features += [
+        Feature("ft_lawn", "Gazon" if lang == "nl" else "Lawn", FeatureType.LAWN, x_cm=1080, y_cm=-90, width_cm=340, length_cm=420),
+        Feature("ft_terrace", "Terras" if lang == "nl" else "Terrace", FeatureType.TERRACE, x_cm=920, y_cm=bottom + 330,
+                width_cm=500, length_cm=270),
+        Feature("ft_fence", "Omheining" if lang == "nl" else "Fence", FeatureType.FENCE, x_cm=-160, y_cm=bottom + 620,
+                width_cm=1580, length_cm=10),
+    ]  # fmt: skip
     data.settings.resources = GardenResources(
         household_size=3, hours_per_week=4, goals=["fresh", "herbs", "storage"], wanted=["tomato"]
     )

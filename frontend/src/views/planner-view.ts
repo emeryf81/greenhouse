@@ -7,9 +7,10 @@ import type {
   AutofillResult, Bed, BedKind, CompatibilityReport, FamilyInfo, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
   PlantingStatus, Resources, Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
 } from "../types";
-import { addDays, daysBetween, download, familyColor, formatDate, plantName, uid } from "../util/garden";
+import { ZONE_CATEGORIES, addDays, daysBetween, download, familyColor, formatDate, plantName, presentIn, uid } from "../util/garden";
 import "../planner/garden-canvas";
-import type { GardenCanvas, ItemChangeDetail, Selection } from "../planner/garden-canvas";
+import { FEATURE_STYLE, ZONE_STYLE, type DrawTool, type GardenCanvas, type ItemChangeDetail, type Selection } from "../planner/garden-canvas";
+import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { alignRects, bedAt, clampInto, defaultFootprint, extents, findFreeSpot, plantCount, snap, type AlignMode, type Rect } from "../planner/geometry";
 import "../components/info";
 import { History } from "../planner/history";
@@ -25,10 +26,23 @@ interface PaletteDrag {
 
 const clone = <T,>(v: T): T => structuredClone(v);
 const emptySensors = () => ({ soil_moisture: null, soil_temperature: null, air_temperature: null, air_humidity: null, light: null, rain: null });
-const FEATURE_TYPES: FeatureType[] = ["path", "compost", "water_butt", "shed", "tree", "hedge", "trellis", "other"];
+const FEATURE_TYPES: FeatureType[] = [
+  "house", "driveway", "street", "parking", "terrace", "path", "lawn", "flowerbed", "hedge", "fence", "tree", "pond",
+  "shed", "compost", "water_butt", "trellis", "play", "beehive", "other",
+];
 const FEATURE_SIZE: Record<FeatureType, [number, number]> = {
-  path: [300, 50], compost: [100, 100], water_butt: [60, 60], shed: [200, 150], tree: [150, 150], hedge: [300, 60], trellis: [200, 20], other: [80, 80],
+  path: [300, 60], terrace: [400, 300], lawn: [500, 400], flowerbed: [200, 100], compost: [100, 100], water_butt: [60, 60],
+  shed: [200, 150], tree: [400, 400], house: [1000, 800], driveway: [300, 800], street: [1500, 600], parking: [500, 500],
+  play: [300, 300], beehive: [60, 60], hedge: [400, 80], fence: [500, 10], trellis: [200, 20], pond: [200, 150], other: [80, 80],
 };
+const ZONE_TYPES: ZoneType[] = ["outdoor", "greenhouse", "cold_frame", "orchard", "fruit", "herbs", "flowers"];
+/** Zones whose plants live in one big "bed" (trees, bushes, herb & flower borders). */
+const OPEN_ZONES: ZoneType[] = ["orchard", "fruit", "herbs", "flowers"];
+const ZONE_SIZE: Record<ZoneType, [number, number]> = {
+  outdoor: [600, 400], greenhouse: [300, 200], cold_frame: [150, 80], orchard: [1000, 800], fruit: [600, 300], herbs: [300, 200], flowers: [400, 150],
+};
+type Step = "site" | "zones" | "plant";
+type Tool = { kind: "zone"; type: ZoneType } | { kind: "feature"; type: FeatureType } | { kind: "bed" };
 const GOALS = ["fresh", "storage", "herbs", "pollinators", "winter", "perennials", "easy"];
 const CATEGORIES = ["vegetable", "herb", "fruit", "flower"] as const;
 
@@ -80,6 +94,10 @@ export class PlannerView extends LitElement {
   @state() private dialog: "shortcuts" | "succession" | "import" | "autofill" | null = null;
   @state() private announcement = "";
   @state() private paletteOpen = true;
+  @state() private step: Step = "plant";
+  @state() private tool: Tool | null = null;
+  @state() private focusZone = "";
+  @state() private removing: Planting | null = null;
 
   @query("hl-garden-canvas") private canvas!: GardenCanvas;
 
@@ -119,7 +137,8 @@ export class PlannerView extends LitElement {
         border: 1px solid transparent; background: var(--hl-surface-2); cursor: grab; touch-action: none; user-select: none; text-align: left; width: 100%; color: var(--hl-text); }
       .plant-card:hover { border-color: var(--hl-border); background: var(--hl-surface-3); }
       .plant-card:active { cursor: grabbing; }
-      .plant-card .swatch { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; flex: none; }
+      .plant-card .swatch { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none;
+        background: var(--hl-surface); border: 2px solid; }
       .plant-card .meta { display: flex; flex-direction: column; min-width: 0; }
       .plant-card .meta span:first-child { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .segmented { display: inline-flex; background: var(--hl-surface-2); border-radius: var(--hl-r-pill); padding: 2px; }
@@ -138,6 +157,51 @@ export class PlannerView extends LitElement {
       .legend { display: flex; flex-wrap: wrap; gap: var(--hl-s2); font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
       .legend span { display: inline-flex; align-items: center; gap: 4px; }
       .score { font-size: var(--hl-fs-2xl); font-weight: 700; }
+      .more { position: relative; }
+      .more > summary { list-style: none; cursor: pointer; }
+      .more > summary::-webkit-details-marker { display: none; }
+      .more .menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; min-width: 220px; display: flex; flex-direction: column;
+        background: var(--hl-surface); border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); box-shadow: var(--hl-shadow-2); padding: 4px; }
+      .more .menu button { display: flex; gap: 8px; align-items: center; border: 0; background: none; padding: 8px 10px; border-radius: var(--hl-r-sm);
+        cursor: pointer; color: var(--hl-text); font: inherit; text-align: left; }
+      .more .menu button:hover { background: var(--hl-surface-2); }
+      .stepper { display: flex; align-items: center; gap: var(--hl-s1); flex-wrap: wrap; margin-bottom: var(--hl-s2); }
+      .step { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: var(--hl-r-pill);
+        border: 1px solid var(--hl-border); background: var(--hl-surface); color: var(--hl-text); cursor: pointer; text-align: left; font: inherit; }
+      .step .num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--hl-surface-3);
+        font-weight: 700; font-size: var(--hl-fs-xs); }
+      .step .txt { display: flex; flex-direction: column; line-height: 1.15; }
+      .step.active { border-color: var(--hl-leaf-500); background: var(--hl-leaf-100); }
+      .step.active .num { background: var(--hl-leaf-600); color: #fff; }
+      .step-sep { color: var(--hl-text-muted); }
+      .crumbs { display: inline-flex; gap: 6px; align-items: center; }
+      .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 6px; }
+      .tool { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: var(--hl-r-md);
+        border: 1px solid var(--hl-border); background: var(--hl-surface-2); cursor: pointer; color: var(--hl-text); font: inherit; }
+      .tool:hover { background: var(--hl-surface-3); }
+      .tool.active { border-color: var(--hl-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hl-focus) 30%, transparent); background: var(--hl-surface); }
+      .tool-icon { font-size: 22px; line-height: 1; }
+      .tool-label { font-size: 11px; text-align: center; line-height: 1.15; }
+      .zone-row { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: var(--hl-r-md); background: var(--hl-surface-2);
+        border: 0; width: 100%; text-align: left; color: var(--hl-text); font: inherit; }
+      .zone-row.as-btn { cursor: pointer; }
+      .zone-card { display: flex; gap: 10px; align-items: center; padding: 10px; border-radius: var(--hl-r-md); border: 1px solid var(--hl-border);
+        border-left-width: 5px; background: var(--hl-surface); cursor: pointer; text-align: left; color: var(--hl-text); font: inherit; width: 100%; }
+      .zone-card:hover { background: var(--hl-surface-2); }
+      .zone-card .big { font-size: 26px; }
+      .grow { flex: 1; min-width: 0; }
+      .draw-hint { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+        background: var(--hl-surface); border: 1px solid var(--hl-border); border-radius: var(--hl-r-pill); padding: 4px 6px 4px 12px;
+        box-shadow: var(--hl-shadow-2); font-size: var(--hl-fs-sm); z-index: 2; max-width: calc(100% - 24px); }
+      .zone-filter { background: var(--hl-leaf-100); border-radius: var(--hl-r-sm); padding: 4px 8px; margin: 0; }
+      .perennial-tag { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--hl-leaf-700);
+        color: #fff; font-size: 11px; vertical-align: 1px; }
+      .badge-demo { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: #fff; font-size: 10px; font-weight: 700; }
+      .row-demo { display: inline-block; width: 22px; height: 0; border-top: 4px dashed #5f9a3a; }
+      .tips summary { cursor: pointer; font-weight: 600; }
+      .tips ul { margin: 6px 0 0; padding-left: 18px; font-size: var(--hl-fs-sm); }
+      .tips li { margin-bottom: 4px; }
+      .plant-glyph { display: block; }
       .readonly-note { font-size: var(--hl-fs-xs); color: var(--hl-warning); }
       dialog { border: none; border-radius: var(--hl-r-lg); padding: var(--hl-s5); max-width: 520px; width: calc(100% - 32px); background: var(--hl-surface); color: var(--hl-text); box-shadow: var(--hl-shadow-3); }
       dialog::backdrop { background: rgba(20, 24, 18, 0.45); }
@@ -161,6 +225,7 @@ export class PlannerView extends LitElement {
     if (!this.history) {
       this.season = snap.analysis?.season ?? new Date().getFullYear();
       this.viewDate = snap.analysis?.today ?? "";
+      this.step = !snap.zones.length ? "site" : snap.plantings.length ? "plant" : "zones";
     }
     const unchangedLocally = this.saveState === "saved";
     if (!this.history || (unchangedLocally && snap.revision !== this.baseRevision)) {
@@ -177,8 +242,9 @@ export class PlannerView extends LitElement {
     return { ...(this.snapshot.analysis?.timelines ?? {}), ...this.extraTimelines };
   }
 
+  /** Plantings in the ground this season: annuals of this season plus perennials carried over. */
   private get seasonPlantings(): Planting[] {
-    return this.draft.plantings.filter((p) => p.season === this.season);
+    return this.draft.plantings.filter((p) => presentIn(p, !!this.plantMap.get(p.plant_id)?.perennial, this.season));
   }
 
   private commit(next: PlanDoc, message?: string, touchedBeds: string[] = []): void {
@@ -243,7 +309,8 @@ export class PlannerView extends LitElement {
   }
 
   private bedPlantings(bedId: string, doc = this.draft): Planting[] {
-    return doc.plantings.filter((p) => p.bed_id === bedId && Math.abs(p.season - this.season) <= 1);
+    return doc.plantings.filter((p) => p.bed_id === bedId && (this.plantMap.get(p.plant_id)?.perennial
+      ? presentIn(p, true, this.season) : Math.abs(p.season - this.season) <= 1));
   }
 
   private async runCheck(bedId: string): Promise<void> {
@@ -422,6 +489,11 @@ export class PlannerView extends LitElement {
     }
     if (sel.kind === "planting") {
       const p = doc.plantings.find((i) => i.id === sel.id);
+      if (p && this.plantMap.get(p.plant_id)?.perennial && p.season < this.season) {
+        // A tree planted in an earlier year: ask whether it is gone from now on or never existed.
+        this.removing = p;
+        return;
+      }
       name = plantName(this.plantMap.get(p?.plant_id ?? ""), this.lang);
       doc.plantings = doc.plantings.filter((i) => i.id !== sel.id);
       this.commit(doc, this.t("planner.removed", { name }), p ? [p.bed_id] : []);
@@ -445,18 +517,89 @@ export class PlannerView extends LitElement {
     this.multi = [];
   }
 
-  private addFeature(type: FeatureType): void {
-    if (!this.admin) return;
+  /** Perennial removal: "from this season" keeps history (rotation, harvest log); "delete" erases it. */
+  private removePerennial(mode: "season" | "delete"): void {
+    const p = this.removing;
+    this.removing = null;
+    if (!p) return;
     const doc = clone(this.draft);
-    const ext = extents(doc.zones, doc.beds);
-    const [w, h] = FEATURE_SIZE[type];
-    const feature: Feature = {
-      id: uid("ft"), name: this.t(`feature.${type}`), type, x_cm: Math.round(ext.x), y_cm: Math.round(ext.y + ext.h + 40), width_cm: w, length_cm: h, notes: "",
+    const name = plantName(this.plantMap.get(p.plant_id), this.lang);
+    if (mode === "delete") doc.plantings = doc.plantings.filter((i) => i.id !== p.id);
+    else Object.assign(doc.plantings.find((i) => i.id === p.id)!, { removed_season: this.season });
+    this.selection = null;
+    this.multi = [];
+    this.commit(doc, this.t(mode === "delete" ? "planner.removed" : "planner.removed_from", { name, season: this.season }), [p.bed_id]);
+  }
+
+  // -- drawing zones / beds / elements ------------------------------------- //
+  private toolInfo(tool: Tool): DrawTool {
+    if (tool.kind === "zone") return { label: this.t(`settings.zone_type.${tool.type}`), color: ZONE_STYLE[tool.type].stroke.startsWith("var") ? "#6f9a45" : ZONE_STYLE[tool.type].stroke };
+    if (tool.kind === "feature") return { label: this.t(`feature.${tool.type}`), color: FEATURE_STYLE[tool.type]?.stroke ?? "#888" };
+    return { label: this.t("planner.bed_name"), color: "#8a6a45" };
+  }
+
+  private onDrawRect(ev: CustomEvent<Rect>): void {
+    const tool = this.tool;
+    if (!tool || !this.admin) return;
+    let r = ev.detail;
+    const doc = clone(this.draft);
+    const at = (w: number, h: number): Rect => ({ x: snap(r.x - w / 2, 10), y: snap(r.y - h / 2, 10), w, h });
+    if (tool.kind === "zone") {
+      if (!r.w) r = at(...ZONE_SIZE[tool.type]);
+      const n = doc.zones.filter((z) => z.type === tool.type).length + 1;
+      const zone: Zone = {
+        id: uid("zone"), name: `${this.t(`settings.zone_type.${tool.type}`)}${n > 1 ? ` ${n}` : ""}`, type: tool.type,
+        x_cm: r.x, y_cm: r.y, width_cm: r.w, length_cm: r.h,
+        microclimate: { shade_pct: 0, wind: "moderate", heated: false, min_heating_temp_c: null, night_offset_c: null, solar_gain_c: null },
+        sensors: emptySensors(), vent_entity: null,
+      };
+      doc.zones.push(zone);
+      if (OPEN_ZONES.includes(tool.type)) doc.beds.push(this.makeBed(zone, { x: zone.x_cm, y: zone.y_cm, w: zone.width_cm, h: zone.length_cm }, zone.name, "in_ground"));
+      this.selection = { kind: "zone", id: zone.id };
+      this.commit(doc, this.t("planner.placed", { plant: zone.name, bed: "" }));
+    } else if (tool.kind === "feature") {
+      if (!r.w) r = at(...FEATURE_SIZE[tool.type]);
+      const feature: Feature = { id: uid("ft"), name: this.t(`feature.${tool.type}`), type: tool.type, x_cm: r.x, y_cm: r.y, width_cm: r.w, length_cm: r.h, notes: "" };
+      doc.features.push(feature);
+      this.selection = { kind: "feature", id: feature.id };
+      this.commit(doc, this.t("planner.placed", { plant: feature.name, bed: "" }));
+    } else {
+      if (!r.w) r = at(120, 80);
+      const cx = r.x + r.w / 2;
+      const cy = r.y + r.h / 2;
+      const zone = doc.zones.find((z) => z.id === this.focusZone) ??
+        [...doc.zones].reverse().find((z) => cx >= z.x_cm && cx <= z.x_cm + z.width_cm && cy >= z.y_cm && cy <= z.y_cm + z.length_cm);
+      if (!zone) {
+        this.toast(this.t("planner.bed_needs_zone"));
+        return;
+      }
+      const bed = this.makeBed(zone, clampInto(r, { x: zone.x_cm, y: zone.y_cm, w: zone.width_cm, h: zone.length_cm }),
+        `${this.t("planner.new_bed")} ${doc.beds.length + 1}`, zone.type === "outdoor" ? "raised" : "in_ground");
+      doc.beds.push(bed);
+      this.selection = { kind: "bed", id: bed.id };
+      this.commit(doc, this.t("planner.placed", { plant: bed.name, bed: zone.name }), [bed.id]);
+    }
+    this.multi = this.selection ? [this.selection] : [];
+  }
+
+  private makeBed(zone: Zone, r: Rect, name: string, kind: BedKind): Bed {
+    return {
+      id: uid("bed"), name, zone_id: zone.id, kind, x_cm: r.x, y_cm: r.y, width_cm: r.w, length_cm: r.h, orientation_deg: 0,
+      soil: "loam", shade_pct: null, sensors: emptySensors(), irrigation_entity: null, irrigation_flow_lpm: null, notes: "",
     };
-    doc.features.push(feature);
-    this.selection = { kind: "feature", id: feature.id };
-    this.multi = [this.selection];
-    this.commit(doc, this.t("planner.placed", { plant: feature.name, bed: "" }));
+  }
+
+  private openZone(zoneId: string): void {
+    this.focusZone = zoneId;
+    if (this.step === "site") this.step = "zones";
+    const z = this.draft.zones.find((i) => i.id === zoneId);
+    this.selection = z ? { kind: "zone", id: z.id } : null;
+    this.multi = this.selection ? [this.selection] : [];
+    requestAnimationFrame(() => (z ? this.canvas?.fitRect({ x: z.x_cm, y: z.y_cm, w: z.width_cm, h: z.length_cm }) : this.canvas?.fit()));
+  }
+
+  private closeZone(): void {
+    this.focusZone = "";
     requestAnimationFrame(() => this.canvas?.fit());
   }
 
@@ -475,11 +618,11 @@ export class PlannerView extends LitElement {
   }
 
   // -- autofill ------------------------------------------------------------ //
-  private openAutofill(): void {
+  private openAutofill(beds: string[] = []): void {
     const r = this.snapshot.settings.resources;
     this.autofillResources = r ? clone(r) : { household_size: 2, hours_per_week: 3, water_liters_per_week: null, compost_kg: null, irrigation: false, goals: ["fresh", "herbs"], wanted: [], excluded: [] };
     this.autofill = null;
-    this.autofillBeds = [];
+    this.autofillBeds = beds;
     this.dialog = "autofill";
   }
 
@@ -804,9 +947,12 @@ export class PlannerView extends LitElement {
       ? { rect: drag.rect, valid: !!drag.bedId, color: familyColor(this.families, drag.plant.family), label: this.ghostLabel() }
       : null;
     return html`
+      ${this.renderStepper()}
       ${this.renderToolbar()}
       <div class="layout ${this.narrow ? "narrow" : ""} ${this.paletteOpen || this.narrow ? "" : "palette-closed"}" @keydown=${this.onKeyDown}>
-        ${this.paletteOpen || this.narrow ? this.renderPalette() : html`<div></div>`}
+        ${this.paletteOpen || this.narrow
+          ? this.step === "site" ? this.renderSitePane() : this.step === "zones" ? this.renderZonesPane() : this.renderPalette()
+          : html`<div></div>`}
         <div class="center">
           <hl-garden-canvas
             .zones=${this.draft.zones}
@@ -833,9 +979,16 @@ export class PlannerView extends LitElement {
             .showTemperature=${this.showTemperature}
             .viewDate=${this.viewDate}
             .readonly=${!this.admin}
+            .focusZone=${this.focusZone}
+            .drawTool=${this.tool ? this.toolInfo(this.tool) : null}
             @select=${(e: CustomEvent<Selection | null>) => this.onSelect(e.detail)}
             @item-change=${this.onItemChange}
+            @draw-rect=${this.onDrawRect}
+            @zone-open=${(e: CustomEvent<string>) => this.openZone(e.detail)}
           ></hl-garden-canvas>
+          ${this.tool ? html`<div class="draw-hint" role="status"><ha-icon icon="mdi:vector-rectangle"></ha-icon>
+            ${this.t("planner.draw_hint", { what: this.toolInfo(this.tool).label })}
+            <button class="btn small ghost" @click=${() => (this.tool = null)}>${this.t("common.done")}</button></div>` : nothing}
           ${drag ? html`<div class="drag-ghost-hint" role="status">${ghost ? ghost.label : plantName(drag.plant, this.lang)}</div>` : nothing}
         </div>
         ${this.renderInspector()}
@@ -895,25 +1048,142 @@ export class PlannerView extends LitElement {
         </span>
         ${this.admin ? html`
           <button class="btn small primary" @click=${() => this.openAutofill()}><ha-icon icon="mdi:auto-fix"></ha-icon>${this.t("autofill.title")}</button>
-          <button class="btn small" @click=${() => this.addBed()}><ha-icon icon="mdi:plus"></ha-icon>${this.t("planner.add_bed")}</button>
-          <button class="btn small ghost" @click=${() => this.addZone()}>${this.t("planner.add_zone")}</button>
-          <label class="row small"><span class="visually-hidden">${this.t("planner.add_feature")}</span>
-            <select aria-label=${this.t("planner.add_feature")} @change=${(e: Event) => { const el = e.target as HTMLSelectElement; if (el.value) this.addFeature(el.value as FeatureType); el.value = ""; }}>
-              <option value="">+ ${this.t("planner.add_feature")}</option>
-              ${FEATURE_TYPES.map((f) => html`<option value=${f}>${this.t(`feature.${f}`)}</option>`)}
-            </select></label>` : nothing}
-        ${btn("mdi:file-export-outline", this.t("planner.export_json"), () => this.exportPlan("json"))}
-        ${btn("mdi:code-braces", this.t("planner.export_yaml"), () => this.exportPlan("yaml"))}
-        ${this.admin ? btn("mdi:file-import-outline", this.t("planner.import"), () => (this.dialog = "import")) : nothing}
-        ${btn("mdi:keyboard-outline", `${this.t("planner.shortcuts")} (?)`, () => (this.dialog = "shortcuts"))}
+          <button class="btn small" @click=${() => this.addBed()}><ha-icon icon="mdi:plus"></ha-icon>${this.t("planner.add_bed")}</button>` : nothing}
+        <details class="more">
+          <summary class="icon-btn" title=${this.t("planner.more")} aria-label=${this.t("planner.more")}><ha-icon icon="mdi:dots-vertical"></ha-icon></summary>
+          <div class="menu" role="menu">
+            <button role="menuitem" @click=${() => this.exportPlan("json")}><ha-icon icon="mdi:file-export-outline"></ha-icon>${this.t("planner.export_json")}</button>
+            <button role="menuitem" @click=${() => this.exportPlan("yaml")}><ha-icon icon="mdi:code-braces"></ha-icon>${this.t("planner.export_yaml")}</button>
+            ${this.admin ? html`<button role="menuitem" @click=${() => (this.dialog = "import")}><ha-icon icon="mdi:file-import-outline"></ha-icon>${this.t("planner.import")}</button>` : nothing}
+            <button role="menuitem" @click=${() => (this.dialog = "shortcuts")}><ha-icon icon="mdi:keyboard-outline"></ha-icon>${this.t("planner.shortcuts")} (?)</button>
+          </div>
+        </details>
       </div>
       ${this.admin ? nothing : html`<p class="readonly-note">${this.t("common.admin_only")}</p>`}
     `;
   }
 
+  private renderStepper(): TemplateResult {
+    const steps: [Step, string, string][] = [
+      ["site", "mdi:vector-square", "planner.step.site"],
+      ["zones", "mdi:texture-box", "planner.step.zones"],
+      ["plant", "mdi:sprout", "planner.step.plant"],
+    ];
+    const zone = this.draft.zones.find((z) => z.id === this.focusZone);
+    return html`<nav class="stepper" aria-label=${this.t("planner.steps")}>
+      ${steps.map(([id, icon, key], i) => html`
+        <button class="step ${this.step === id ? "active" : ""}" aria-current=${this.step === id ? "step" : nothing}
+          @click=${() => { this.step = id; this.tool = null; }}>
+          <span class="num">${i + 1}</span><ha-icon icon=${icon}></ha-icon>
+          <span class="txt"><b>${this.t(key)}</b><span class="xs muted">${this.t(`${key}.hint`)}</span></span>
+        </button>${i < steps.length - 1 ? html`<span class="step-sep" aria-hidden="true">›</span>` : nothing}`)}
+      <span class="spacer"></span>
+      <span class="crumbs" aria-label=${this.t("planner.zone_map")}>
+        <button class="chip ${zone ? "" : "ok"}" @click=${() => this.closeZone()}><ha-icon icon="mdi:home-outline"></ha-icon>${this.t("planner.whole_garden")}</button>
+        ${zone ? html`<span aria-hidden="true">›</span><span class="chip ok">${ZONE_STYLE[zone.type]?.icon ?? ""} ${zone.name}</span>` : nothing}
+      </span>
+    </nav>`;
+  }
+
+  private renderToolButton(tool: Tool, icon: TemplateResult | string, label: string, hint = ""): TemplateResult {
+    const active = this.tool && this.tool.kind === tool.kind && ("type" in tool ? (this.tool as { type?: string }).type === tool.type : true);
+    return html`<button class="tool ${active ? "active" : ""}" aria-pressed=${String(!!active)} title=${hint || label} ?disabled=${!this.admin}
+      @click=${() => (this.tool = active ? null : tool)}>
+      <span class="tool-icon">${icon}</span><span class="tool-label">${label}</span></button>`;
+  }
+
+  /** Step 1: draw the site - zones and garden elements on the 10 cm grid. */
+  private renderSitePane(): TemplateResult {
+    return html`<aside class="pane" aria-label=${this.t("planner.step.site")}>
+      <header><h3>${this.t("planner.step.site")}</h3><hl-info term="zones" .t=${this.t}></hl-info></header>
+      <div class="pane-body stack">
+        <p class="small muted">${this.t("planner.site_intro")}</p>
+        <h4>${this.t("planner.zones")}</h4>
+        <div class="tool-grid">
+          ${ZONE_TYPES.map((z) => this.renderToolButton({ kind: "zone", type: z }, ZONE_STYLE[z].icon, this.t(`settings.zone_type.${z}`), this.t(`zone_hint.${z}`)))}
+        </div>
+        <h4>${this.t("planner.elements")}</h4>
+        <div class="tool-grid">
+          ${FEATURE_TYPES.map((f) => this.renderToolButton({ kind: "feature", type: f }, FEATURE_STYLE[f]?.icon || "▭", this.t(`feature.${f}`)))}
+        </div>
+        <div class="divider"></div>
+        <h4>${this.t("planner.your_zones")} (${this.draft.zones.length})</h4>
+        ${this.draft.zones.length ? html`<div class="stack" style="gap:6px">${this.draft.zones.map((z) => html`
+          <div class="zone-row"><span>${ZONE_STYLE[z.type]?.icon}</span>
+            <span class="grow"><b>${z.name}</b><br /><span class="xs muted">${this.t(`settings.zone_type.${z.type}`)} · ${(z.width_cm / 100).toFixed(1)} × ${(z.length_cm / 100).toFixed(1)} m</span></span>
+            <button class="btn small ghost" @click=${() => this.openZone(z.id)}>${this.t("planner.open_zone")}</button></div>`)}</div>`
+          : html`<p class="xs muted">${this.t("planner.no_zones")}</p>`}
+        ${this.draft.zones.length ? html`<button class="btn primary" @click=${() => { this.step = "zones"; this.tool = null; }}>${this.t("planner.next")}: ${this.t("planner.step.zones")} ›</button>` : nothing}
+      </div>
+    </aside>`;
+  }
+
+  /** Step 2: name each zone and lay out its beds on its own map. */
+  private renderZonesPane(): TemplateResult {
+    const zone = this.draft.zones.find((z) => z.id === this.focusZone);
+    if (!zone) {
+      return html`<aside class="pane" aria-label=${this.t("planner.step.zones")}>
+        <header><h3>${this.t("planner.step.zones")}</h3></header>
+        <div class="pane-body stack">
+          <p class="small muted">${this.t("planner.zones_intro")}</p>
+          ${this.draft.zones.map((z) => {
+            const beds = this.draft.beds.filter((b) => b.zone_id === z.id);
+            const n = this.seasonPlantings.filter((p) => beds.some((b) => b.id === p.bed_id)).length;
+            return html`<button class="zone-card" style=${`border-left-color:${ZONE_STYLE[z.type]?.stroke}`} @click=${() => this.openZone(z.id)}>
+              <span class="big">${ZONE_STYLE[z.type]?.icon}</span>
+              <span class="grow"><b>${z.name}</b><br /><span class="xs muted">${this.t(`settings.zone_type.${z.type}`)} ·
+                ${this.t("planner.n_beds", { n: beds.length })} · ${this.t("planner.count", { n })}</span></span>
+              <ha-icon icon="mdi:chevron-right"></ha-icon></button>`;
+          })}
+          ${!this.draft.zones.length ? html`<button class="btn" @click=${() => (this.step = "site")}>‹ ${this.t("planner.step.site")}</button>` : nothing}
+        </div>
+      </aside>`;
+    }
+    const beds = this.draft.beds.filter((b) => b.zone_id === zone.id);
+    const ro = !this.admin;
+    return html`<aside class="pane" aria-label=${zone.name}>
+      <header><button class="icon-btn" aria-label=${this.t("planner.whole_garden")} @click=${() => this.closeZone()}><ha-icon icon="mdi:arrow-left"></ha-icon></button>
+        <h3>${ZONE_STYLE[zone.type]?.icon} ${zone.name}</h3></header>
+      <div class="pane-body stack">
+        <label class="field">${this.t("planner.zone_name")}<input .value=${zone.name} ?disabled=${ro}
+          @change=${(e: Event) => this.updateZone(zone.id, { name: (e.target as HTMLInputElement).value })} /></label>
+        <label class="field">${this.t("planner.kind")}
+          <select ?disabled=${ro} @change=${(e: Event) => this.updateZone(zone.id, { type: (e.target as HTMLSelectElement).value as ZoneType })}>
+            ${ZONE_TYPES.map((k) => html`<option value=${k} ?selected=${zone.type === k}>${this.t(`settings.zone_type.${k}`)}</option>`)}
+          </select></label>
+        <p class="xs muted">${this.t(`zone_hint.${zone.type}`)}</p>
+        <h4>${this.t("planner.beds_in_zone")} (${beds.length})</h4>
+        <div class="tool-grid">
+          ${this.renderToolButton({ kind: "bed" }, "▭", this.t("planner.draw_bed"))}
+          ${FEATURE_TYPES.filter((f) => ["path", "tree", "trellis", "water_butt", "compost", "flowerbed"].includes(f))
+            .map((f) => this.renderToolButton({ kind: "feature", type: f }, FEATURE_STYLE[f]?.icon || "▭", this.t(`feature.${f}`)))}
+        </div>
+        <div class="stack" style="gap:4px">${beds.map((b) => html`<button class="zone-row as-btn" @click=${() => this.onSelect({ kind: "bed", id: b.id })}>
+          <span>▭</span><span class="grow"><b>${b.name}</b> <span class="xs muted">${(b.width_cm / 100).toFixed(1)} × ${(b.length_cm / 100).toFixed(1)} m · ${this.t(`kind.${b.kind}`)}</span></span></button>`)}</div>
+        <div class="divider"></div>
+        <div class="row wrap">
+          <button class="btn primary" @click=${() => { this.step = "plant"; this.tool = null; }}><ha-icon icon="mdi:sprout"></ha-icon>${this.t("planner.fill_by_hand")}</button>
+          ${ro ? nothing : html`<button class="btn" @click=${() => { this.autofillBeds = beds.map((b) => b.id); this.openAutofill(beds.map((b) => b.id)); }}>
+            <ha-icon icon="mdi:auto-fix"></ha-icon>${this.t("planner.fill_by_system")}</button>`}
+        </div>
+      </div>
+    </aside>`;
+  }
+
+  private updateZone(id: string, patch: Partial<Zone>): void {
+    const doc = clone(this.draft);
+    const z = doc.zones.find((i) => i.id === id);
+    if (!z) return;
+    Object.assign(z, patch);
+    this.commit(doc);
+  }
+
   private renderPalette(): TemplateResult {
     const q = this.search.trim().toLowerCase();
+    const focus = this.draft.zones.find((z) => z.id === this.focusZone);
+    const allowed = focus ? ZONE_CATEGORIES[focus.type] : null;
     const list = this.plants.filter((p) => {
+      if (allowed && !this.categoryFilter && !allowed.includes(p.category ?? "vegetable")) return false;
       if (this.familyFilter && p.family !== this.familyFilter) return false;
       if (this.categoryFilter && (p.category ?? "vegetable") !== this.categoryFilter) return false;
       if (!q) return true;
@@ -942,6 +1212,7 @@ export class PlannerView extends LitElement {
               <option value="" ?selected=${!this.familyFilter}>${this.t("lib.family")}: ${this.t("common.all")}</option>
               ${families.map((f) => html`<option value=${f} ?selected=${this.familyFilter === f}>${this.families[f]?.[this.lang as "en" | "nl"] ?? f}</option>`)}
             </select></label>
+          ${focus ? html`<p class="xs zone-filter">${ZONE_STYLE[focus.type]?.icon} ${this.t("planner.palette_for_zone", { zone: focus.name })}</p>` : nothing}
           <p class="xs muted">${this.t("planner.palette_hint")}</p>
           <div class="palette-list" role="list">
             ${list.map((p) => {
@@ -953,14 +1224,22 @@ export class PlannerView extends LitElement {
                   @pointerup=${this.onPalettePointerUp}
                   @pointercancel=${() => (this.paletteDrag = null)}
                   @keydown=${(e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.addToSelectedBed(p); } }}>
-                  <span class="swatch" style=${`background:${familyColor(this.families, p.family)}`}>${name.slice(0, 2)}</span>
-                  <span class="meta"><span>${name}</span><span class="xs muted">${p.spacing_cm} cm · ${p.days_to_maturity[0]}–${p.days_to_maturity[1]} d</span></span>
+                  <span class="swatch" style=${`border-color:${familyColor(this.families, p.family)}`}>${glyphIcon(glyphFor(p), p.color || familyColor(this.families, p.family), 26)}</span>
+                  <span class="meta"><span>${name}${p.perennial ? html` <span class="perennial-tag" title=${this.t("planner.perennial")}>∞</span>` : nothing}</span>
+                    <span class="xs muted">${p.spacing_cm} cm · ${p.perennial && p.years_to_bearing ? this.t("planner.bears_after", { n: p.years_to_bearing }) : `${p.days_to_maturity[0]}–${p.days_to_maturity[1]} d`}</span></span>
                 </button>`;
             })}
           </div>
           <div class="legend-block stack" style="gap:8px">
           <div class="divider"></div>
           <h4>${this.t("planner.legend")}</h4>
+          <div class="legend">
+            <span><span class="badge-demo" style="background:var(--hl-leaf-700)">∞</span>${this.t("planner.legend.perennial")}</span>
+            <span><span class="badge-demo" style="background:var(--hl-tomato-500)">!</span>${this.t("planner.legend.warning")}</span>
+            <span><span class="badge-demo" style="background:var(--hl-soil-700)">2</span>${this.t("planner.legend.succession")}</span>
+            <span><span class="row-demo"></span>${this.t("planner.legend.rows")}</span>
+          </div>
+          <p class="xs muted">${this.t("planner.legend.border")}</p>
           <div class="legend">
             ${families.map((f) => html`<span><span class="family-dot" style=${`background:${familyColor(this.families, f)}`}></span>${this.families[f]?.[this.lang as "en" | "nl"] ?? f}</span>`)}
           </div>
@@ -1150,6 +1429,9 @@ export class PlannerView extends LitElement {
           <h3>${plantName(plant, this.lang)}</h3>
         </div>
         <p class="xs muted">${plant?.scientific_name} · ${this.families[plant?.family ?? ""]?.[this.lang as "en" | "nl"] ?? plant?.family} · ${bed?.name}</p>
+        ${plant?.perennial ? html`<div class="finding info"><ha-icon icon="mdi:all-inclusive"></ha-icon><span>${this.t("planner.perennial_since", { season: p.season })}
+          ${plant.years_to_bearing ? html`<br />${this.t("planner.bearing_from", { season: p.season + plant.years_to_bearing })}` : nothing}</span></div>` : nothing}
+        ${plant?.pollination && plant.pollination !== "self" ? html`<p class="xs"><ha-icon icon="mdi:bee"></ha-icon> ${this.t(`pollination.${plant.pollination}`)}</p>` : nothing}
         <div class="form-grid">
           <label class="field">${this.t("planner.layout")}
             <select ?disabled=${ro} @change=${(e: Event) => this.updateSelected({ layout: (e.target as HTMLSelectElement).value })}>
@@ -1178,6 +1460,8 @@ export class PlannerView extends LitElement {
         ${this.renderTimeline(this.timelines[p.id])}
         <h4>${this.t("planner.warnings")}</h4>
         ${this.renderFindings(p.bed_id, p.id)}
+        ${plant?.tips?.[this.lang]?.length || plant?.tips?.en?.length ? html`<details class="tips" open><summary>${this.t("planner.eco_tips")}</summary>
+          <ul>${(plant.tips[this.lang] ?? plant.tips.en).map((tip) => html`<li>${tip}</li>`)}</ul></details>` : nothing}
         ${ro ? nothing : html`
           <div class="row wrap">
             <button class="btn small" @click=${() => (this.dialog = "succession")}><ha-icon icon="mdi:calendar-multiple"></ha-icon>${this.t("planner.succession")}</button>
@@ -1234,7 +1518,7 @@ export class PlannerView extends LitElement {
             @change=${(e: Event) => this.updateSelected({ name: (e.target as HTMLInputElement).value })} /></label>
           <label class="field">${this.t("planner.kind")}
             <select ?disabled=${ro} @change=${(e: Event) => this.updateSelected({ type: (e.target as HTMLSelectElement).value as ZoneType })}>
-              ${(["outdoor", "greenhouse", "cold_frame"] as ZoneType[]).map((k) => html`<option value=${k} ?selected=${z.type === k}>${this.t(`settings.zone_type.${k}`)}</option>`)}
+              ${ZONE_TYPES.map((k) => html`<option value=${k} ?selected=${z.type === k}>${this.t(`settings.zone_type.${k}`)}</option>`)}
             </select></label>
           <label class="field">${this.t("planner.wind")}
             <select ?disabled=${ro} @change=${(e: Event) => this.updateSelected({ wind: (e.target as HTMLSelectElement).value as Wind }, "microclimate")}>
@@ -1251,10 +1535,13 @@ export class PlannerView extends LitElement {
           <label class="field row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${Boolean(z.microclimate.wall_heat)} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ wall_heat: (e.target as HTMLInputElement).checked }, "microclimate")} />${this.t("settings.wall_heat")}
             <hl-info term="microclimate" .t=${this.t}></hl-info></label>
-          ${z.type !== "outdoor" ? html`<label class="field row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${Boolean(z.microclimate.thermal_mass)} ?disabled=${ro}
+          ${z.type === "greenhouse" || z.type === "cold_frame" ? html`<label class="field row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${Boolean(z.microclimate.thermal_mass)} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ thermal_mass: (e.target as HTMLInputElement).checked }, "microclimate")} />${this.t("settings.thermal_mass")}</label>` : nothing}
         </div>
-        ${ro ? nothing : html`<div class="row"><button class="btn small danger" @click=${() => this.removeSelected()}>${this.t("planner.remove")}</button></div>`}
+        <div class="row wrap">
+          <button class="btn small" @click=${() => this.openZone(z.id)}><ha-icon icon="mdi:map-search-outline"></ha-icon>${this.t("planner.open_zone")}</button>
+          ${ro ? nothing : html`<button class="btn small danger" @click=${() => this.removeSelected()}>${this.t("planner.remove")}</button>`}
+        </div>
       `;
     }
     return html`<aside class="pane" aria-label=${this.t("planner.inspector")}>
@@ -1264,6 +1551,20 @@ export class PlannerView extends LitElement {
   }
 
   private renderDialog(): TemplateResult | typeof nothing {
+    if (this.removing) {
+      const p = this.removing;
+      const name = plantName(this.plantMap.get(p.plant_id), this.lang);
+      return html`<dialog @close=${() => (this.removing = null)}>
+        <div class="stack">
+          <h2><ha-icon icon="mdi:tree-outline"></ha-icon> ${this.t("planner.remove_perennial", { name })}</h2>
+          <p class="small">${this.t("planner.remove_perennial_intro", { name, season: p.season })}</p>
+          <button class="btn primary" @click=${() => this.removePerennial("season")}>${this.t("planner.remove_from_season", { season: this.season })}</button>
+          <p class="xs muted">${this.t("planner.remove_from_season_hint")}</p>
+          <button class="btn danger" @click=${() => this.removePerennial("delete")}>${this.t("planner.remove_everywhere")}</button>
+          <p class="xs muted">${this.t("planner.remove_everywhere_hint")}</p>
+          <div class="row" style="justify-content:flex-end"><button class="btn ghost" @click=${() => (this.removing = null)}>${this.t("common.cancel")}</button></div>
+        </div></dialog>`;
+    }
     if (!this.dialog) return nothing;
     const close = () => (this.dialog = null);
     let content: TemplateResult;

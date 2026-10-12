@@ -88,6 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
 
     entry.async_on_unload(async_track_time_change(hass, _midnight, hour=0, minute=5, second=0))
     _schedule_digest(hass, entry)
+    _schedule_reminders(hass, entry)
     _schedule_irrigation(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -129,6 +130,33 @@ def _schedule_digest(hass: HomeAssistant, entry: GardenConfigEntry) -> None:
     _reschedule()
     entry.async_on_unload(runtime.repo.async_add_listener(_reschedule))
     entry.async_on_unload(_cancel)
+
+
+def _schedule_reminders(hass: HomeAssistant, entry: GardenConfigEntry) -> None:
+    """Overdue reminder and weekly look-ahead; checked every quarter of an hour.
+
+    Times come from the settings (editable in the panel), de-duplication from
+    the notifier's day keys, so a restart never sends them twice.
+    """
+    runtime = entry.runtime_data
+
+    async def _tick(now: datetime) -> None:
+        analysis = runtime.coordinator.data
+        if analysis is None:
+            return
+        cfg = runtime.repo.data.settings.notifications
+        hhmm = now.strftime("%H:%M")
+        if _passed(hhmm, cfg.overdue_time):
+            await runtime.notifier.async_send_overdue(analysis)
+        if now.weekday() == cfg.weekly_plan_weekday and _passed(hhmm, cfg.weekly_plan_time):
+            await runtime.notifier.async_send_weekly(analysis)
+
+    entry.async_on_unload(async_track_time_change(hass, _tick, minute=[0, 15, 30, 45], second=0))
+
+
+def _passed(now_hhmm: str, wanted: str) -> bool:
+    """True from the configured time until midnight (the day key prevents repeats)."""
+    return len(wanted) >= 4 and now_hhmm >= wanted.zfill(5)
 
 
 def _schedule_irrigation(hass: HomeAssistant, entry: GardenConfigEntry) -> None:

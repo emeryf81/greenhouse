@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 
 from .fertilizer import bed_fertilizer_plan
 from .i18n import t
-from .models import PlantingStatus, TaskPriority, TaskSource, TaskType
+from .models import PlantingStatus, TaskPriority, TaskSource, TaskType, present_in
 from .region import season_anchors, season_for_date
 
 if TYPE_CHECKING:
@@ -41,6 +41,7 @@ class Rule:
     priority: TaskPriority = TaskPriority.NORMAL
     every_n_seasons: int = 1
     handbook: str = "seasons"
+    needs: str = ""  # only when the plan has this garden element (e.g. "hedge")
 
 
 GARDEN_RULES: tuple[Rule, ...] = (
@@ -57,6 +58,43 @@ GARDEN_RULES: tuple[Rule, ...] = (
     Rule("winter_rest", TaskType.WINTER_PREP, "first_frost", 3, 90, "garden", TaskPriority.NORMAL, handbook="seasons"),
     Rule("soil_test", TaskType.SOIL_TEST, "first_frost", 2, 30, "garden", TaskPriority.LOW, 3, handbook="soil"),
     Rule("tool_care", TaskType.TOOL_CARE, "first_frost", 8, 60, "garden", TaskPriority.LOW, handbook="seasons"),
+    # -- phase 3: the rest of the gardener's year ---------------------------
+    Rule("clean_pots", TaskType.CLEAN, "last_frost", -10, 45, "garden", TaskPriority.LOW, handbook="tools"),
+    Rule("water_butts", TaskType.CHECK, "last_frost", -4, 30, "garden", TaskPriority.LOW, handbook="watering"),
+    Rule(
+        "irrigation_service", TaskType.TOOL_CARE, "last_frost", -2, 40, "garden", TaskPriority.LOW, handbook="watering"
+    ),
+    Rule("green_manure_dig", TaskType.SOIL_PREP, "last_frost", -5, 60, "garden", TaskPriority.NORMAL, handbook="soil"),
+    Rule("slug_patrol", TaskType.PEST_CHECK, "last_frost", -1, 20, "garden", TaskPriority.NORMAL, handbook="pests"),
+    Rule("nettle_feed", TaskType.MAKE_FEED, "last_frost", 3, 20, "garden", TaskPriority.LOW, handbook="fertilizing"),
+    Rule("comfrey_feed", TaskType.MAKE_FEED, "last_frost", 7, 20, "garden", TaskPriority.LOW, handbook="fertilizing"),
+    Rule(
+        "sow_winter_crops",
+        TaskType.PLAN_SEASON,
+        "first_frost",
+        -16,
+        20,
+        "garden",
+        TaskPriority.NORMAL,
+        handbook="planning",
+    ),
+    Rule(
+        "hedge_trim",
+        TaskType.PRUNE,
+        "last_frost",
+        17,
+        90,
+        "garden",
+        TaskPriority.LOW,
+        handbook="seasons",
+        needs="hedge",
+    ),
+    Rule("seed_saving", TaskType.CHECK, "first_frost", -7, 30, "garden", TaskPriority.LOW, handbook="sowing"),
+    Rule("fleece_ready", TaskType.CHECK, "first_frost", -3, 20, "garden", TaskPriority.NORMAL, handbook="seasons"),
+    Rule("leaf_mould", TaskType.COMPOST, "first_frost", 3, 45, "garden", TaskPriority.LOW, handbook="soil"),
+    Rule("gutters", TaskType.CLEAN, "first_frost", 4, 30, "garden", TaskPriority.LOW, handbook="watering"),
+    Rule("nest_boxes", TaskType.CLEAN, "first_frost", 6, 30, "garden", TaskPriority.LOW, handbook="pests"),
+    Rule("storage_check", TaskType.CHECK, "first_frost", 9, 20, "garden", TaskPriority.LOW, handbook="harvest"),
 )
 GREENHOUSE_RULES: tuple[Rule, ...] = (
     Rule("gh_spring_clean", TaskType.CLEAN_GREENHOUSE, "last_frost", -12, 120, "greenhouse", handbook="greenhouse"),
@@ -68,6 +106,53 @@ GREENHOUSE_RULES: tuple[Rule, ...] = (
         "gh_winter", TaskType.WINTER_PREP, "first_frost", 0, 60, "greenhouse", TaskPriority.HIGH, handbook="greenhouse"
     ),
     Rule("gh_autumn_clean", TaskType.CLEAN_GREENHOUSE, "first_frost", 2, 180, "greenhouse", handbook="greenhouse"),
+    Rule("gh_windows", TaskType.CLEAN, "last_frost", -9, 60, "greenhouse", TaskPriority.NORMAL, handbook="greenhouse"),
+    Rule(
+        "gh_vents_check", TaskType.CHECK, "last_frost", -4, 20, "greenhouse", TaskPriority.NORMAL, handbook="greenhouse"
+    ),
+    Rule(
+        "gh_biocontrol", TaskType.PEST_CHECK, "last_frost", 2, 15, "greenhouse", TaskPriority.NORMAL, handbook="pests"
+    ),
+    Rule(
+        "gh_windows_autumn",
+        TaskType.CLEAN,
+        "first_frost",
+        -5,
+        60,
+        "greenhouse",
+        TaskPriority.LOW,
+        handbook="greenhouse",
+    ),
+    Rule(
+        "gh_winter_crops",
+        TaskType.PLAN_SEASON,
+        "first_frost",
+        -9,
+        20,
+        "greenhouse",
+        TaskPriority.NORMAL,
+        handbook="greenhouse",
+    ),
+)
+# Orchard / fruit zones: whole-zone care that is not tied to one tree.
+ORCHARD_RULES: tuple[Rule, ...] = (
+    Rule(
+        "orchard_winter_wash", TaskType.PEST_CHECK, "last_frost", -12, 45, "orchard", TaskPriority.LOW, handbook="fruit"
+    ),
+    Rule("orchard_mow", TaskType.CHECK, "last_frost", 4, 45, "orchard", TaskPriority.LOW, handbook="fruit"),
+    Rule(
+        "orchard_grease_bands",
+        TaskType.PROTECT,
+        "first_frost",
+        -2,
+        20,
+        "orchard",
+        TaskPriority.NORMAL,
+        handbook="fruit",
+    ),
+    Rule(
+        "orchard_pollinators", TaskType.POLLINATE, "last_frost", -3, 15, "orchard", TaskPriority.LOW, handbook="fruit"
+    ),
 )
 # Perennial care keyed by plant tag: (task type, anchor, week, minutes, rule id)
 PERENNIAL_RULES: tuple[tuple[str, TaskType, str, int, int, str], ...] = (
@@ -76,6 +161,11 @@ PERENNIAL_RULES: tuple[tuple[str, TaskType, str, int, int, str], ...] = (
     ("protect_winter", TaskType.WINTER_PREP, "first_frost", -2, 15, "protect_winter"),
     ("divide", TaskType.DIVIDE, "last_frost", -4, 30, "divide"),
 )
+
+
+def _zone_has_plants(data, zone_id: str) -> bool:
+    beds = {b.id for b in data.beds if b.zone_id == zone_id}
+    return any(p.bed_id in beds for p in data.plantings)
 
 
 def _window(due: date) -> tuple[date, date]:
@@ -98,6 +188,8 @@ def maintenance_specs(ctx: TaskContext) -> list[TaskSpec]:
         if anchors.frost_free and rule.type is TaskType.WINTER_PREP:
             return
         if season % rule.every_n_seasons:
+            return
+        if rule.needs and not any(f.type.value == rule.needs for f in data.features):
             return
         due = anchors.anchor(rule.anchor) + timedelta(weeks=rule.week)
         start, end = _window(due)
@@ -128,6 +220,9 @@ def maintenance_specs(ctx: TaskContext) -> list[TaskSpec]:
             if zone.is_enclosed:
                 for rule in GREENHOUSE_RULES:
                     add_rule(rule, season, zone.id, {"zone": zone.name}, zone.id)
+            elif zone.type.value in ("orchard", "fruit") and _zone_has_plants(data, zone.id):
+                for rule in ORCHARD_RULES:
+                    add_rule(rule, season, zone.id, {"zone": zone.name}, zone.id)
 
     # -- perennials -------------------------------------------------------- #
     seen: set[str] = set()
@@ -142,6 +237,8 @@ def maintenance_specs(ctx: TaskContext) -> list[TaskSpec]:
             if tag not in plant.tags:
                 continue
             for season in seasons:
+                if not present_in(planting, True, season):
+                    continue  # not planted yet, or explicitly removed
                 if season <= planting.season and tag == "divide":
                     continue
                 if tag == "divide" and (season - planting.season) % 3:

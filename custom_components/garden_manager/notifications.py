@@ -26,7 +26,7 @@ from .const import (
 from .engine.analysis import Alert, GardenAnalysis
 from .engine.i18n import t
 from .engine.models import IrrigationAction, Task
-from .engine.tasks import MergeResult, tasks_due
+from .engine.tasks import MergeResult, overdue_report, tasks_due, week_ahead
 from .storage import GardenRepository
 
 _LOGGER = logging.getLogger(__name__)
@@ -154,6 +154,61 @@ class GardenNotifier:
             notification_id=f"{DOMAIN}_digest",
             tts=False,
             data={"tag": f"{DOMAIN}_digest", "url": "/hortulus"},
+        )
+
+    async def async_send_overdue(self, analysis: GardenAnalysis) -> None:
+        """Evening reminder for tasks left undone, with a verdict per task."""
+        cfg = self.settings
+        if not cfg.overdue_reminders:
+            return
+        key = f"overdue:{analysis.today.isoformat()}"
+        if self._seen(key):
+            return
+        items = overdue_report(self.repo.data.tasks, analysis.today, cfg.overdue_after_days)
+        self._mark(key, analysis.today)
+        if not items:
+            return
+        lang = analysis.lang
+        lines = []
+        for item in items[:12]:
+            if item.verdict == "still_ok" and item.task.window_end:
+                note = t("overdue.still_ok", lang, date=item.task.window_end.strftime("%d/%m"))
+            elif item.verdict == "window_closed":
+                note = t("overdue.window_closed", lang)
+            else:
+                note = t("overdue.do_now", lang, days=item.days_late)
+            lines.append(f"- {item.task.title} ({note})")
+        if len(items) > 12:
+            lines.append(f"- … +{len(items) - 12}")
+        lines.append(t("overdue.footer", lang))
+        await self.async_send(
+            t("overdue.title", lang, count=len(items)),
+            "\n".join(lines),
+            notification_id=f"{DOMAIN}_overdue",
+            data={"tag": f"{DOMAIN}_overdue", "url": "/hortulus"},
+        )
+
+    async def async_send_weekly(self, analysis: GardenAnalysis) -> None:
+        """Weekly look-ahead: tasks and minutes per day for the coming seven days."""
+        if not self.settings.weekly_plan:
+            return
+        key = f"weekly:{analysis.today.isoformat()}"
+        if self._seen(key):
+            return
+        self._mark(key, analysis.today)
+        lang = analysis.lang
+        plan = week_ahead(self.repo.data.tasks, analysis.today)
+        lines = [
+            t("weekly.day", lang, day=day.strftime("%a %d/%m"), count=len(tasks),
+              minutes=sum(task.estimated_minutes for task in tasks))
+            for day, tasks in plan.items()
+            if tasks
+        ]  # fmt: skip
+        await self.async_send(
+            t("weekly.title", lang),
+            "\n".join(lines) or t("weekly.empty", lang),
+            notification_id=f"{DOMAIN}_weekly",
+            data={"tag": f"{DOMAIN}_weekly", "url": "/hortulus"},
         )
 
     async def async_send(

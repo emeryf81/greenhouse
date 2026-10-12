@@ -261,7 +261,14 @@
         "tool_care": "Gereedschap onderhouden",
         "soil_test": "Bodemanalyse",
         "cut_back": "Terugsnoeien",
-        "divide": "Scheuren"
+        "divide": "Scheuren",
+        "protect": "Beschermen",
+        "clean": "Opruimen",
+        "tie_in": "Aanbinden",
+        "thin_fruit": "Vruchten dunnen",
+        "pollinate": "Bestuiven",
+        "check": "Controleren",
+        "make_feed": "Plantengier maken"
       }
     },
     "priority": {

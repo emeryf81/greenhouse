@@ -208,6 +208,6 @@ def test_overrides_and_search(db):
     tomato = custom_db.get("tomato")
     assert tomato.spacing_cm == 60 and tomato.names == {"en": "Tomato", "nl": "Trostomaat"}
     assert tomato.source == "override"
-    assert {p.id for p in db.search("tomaat")} == {"tomato", "cherry_tomato"}
+    assert {p.id for p in db.search("tomaat")} == {"tomato", "cherry_tomato", "beefsteak_tomato"}
     assert {"pea", "bush_bean", "broad_bean", "runner_bean"} <= {p.id for p in db.search(family="Fabaceae")}
     assert [p.id for p in db.search("bieslook")] == ["chives", "garlic_chives"]

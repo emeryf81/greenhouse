@@ -33,6 +33,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "task.shade": "Shade {zone}",
         "task.frost_protect": "Protect {plants} from frost",
         "task.close_up": "Close {zone} before night",
+        "task.mulch": "Mulch {plant} in {bed}",
+        "task.cut_back": "Cut back {plant} in {bed}",
+        "task.protect": "Protect {plant} in {bed}",
+        "task.clean": "Clean up around {plant} in {bed}",
+        "task.tie_in": "Tie in {plant} in {bed}",
+        "task.thin_fruit": "Thin the fruit of {plant} in {bed}",
+        "task.pollinate": "Help pollinate {plant} in {bed}",
+        "task.check": "Check {plant} in {bed}",
+        "task.make_feed": "Make plant feed",
+        "task.care.water": "Water {plant} in {bed}",
+        "task.care.pest_check": "Check {plant} in {bed} for pests",
         # descriptions
         "desc.sow_indoor": "Sow {depth} cm deep at {soil_temp} °C or warmer. Germination takes {germ_min}-{germ_max} days.",
         "desc.sow_direct": "Sow {depth} cm deep, rows {row_spacing} cm apart. Soil should be at least {soil_temp} °C.",
@@ -103,6 +114,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "task.shade": "{zone} schaduwen",
         "task.frost_protect": "{plants} beschermen tegen vorst",
         "task.close_up": "{zone} sluiten voor de nacht",
+        "task.mulch": "{plant} mulchen in {bed}",
+        "task.cut_back": "{plant} terugsnoeien in {bed}",
+        "task.protect": "{plant} beschermen in {bed}",
+        "task.clean": "Opruimen rond {plant} in {bed}",
+        "task.tie_in": "{plant} aanbinden in {bed}",
+        "task.thin_fruit": "Vruchten van {plant} uitdunnen in {bed}",
+        "task.pollinate": "{plant} helpen bestuiven in {bed}",
+        "task.check": "{plant} controleren in {bed}",
+        "task.make_feed": "Plantengier maken",
+        "task.care.water": "{plant} water geven in {bed}",
+        "task.care.pest_check": "{plant} in {bed} controleren op plagen",
         "desc.sow_indoor": "Zaai {depth} cm diep bij minimaal {soil_temp} °C. Kieming duurt {germ_min}-{germ_max} dagen.",
         "desc.sow_direct": "Zaai {depth} cm diep, rijafstand {row_spacing} cm. De grond moet minstens {soil_temp} °C zijn.",
         "desc.harden_off": "Zet zaailingen enkele uren per dag buiten en bouw dit op over 7-10 dagen.",
@@ -345,3 +367,7 @@ def t(key: str, lang: str | None = "en", **params: Any) -> str:
     # 30.0 cm -> 30 cm, 0.5 stays 0.5
     clean = {k: int(v) if isinstance(v, float) and v.is_integer() else v for k, v in params.items()}
     return template.format_map(_SafeDict(clean))
+
+
+# Phase 3 texts (maintenance rules, weather episodes) - registered on import.
+from . import texts_garden  # noqa: E402,F401

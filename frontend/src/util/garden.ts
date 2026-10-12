@@ -49,6 +49,13 @@ export const TASK_ICONS: Record<TaskType, string> = {
   soil_test: "mdi:test-tube",
   cut_back: "mdi:content-cut",
   divide: "mdi:call-split",
+  protect: "mdi:shield-sun-outline",
+  clean: "mdi:broom",
+  tie_in: "mdi:link-variant",
+  thin_fruit: "mdi:fruit-cherries",
+  pollinate: "mdi:bee-flower",
+  check: "mdi:clipboard-check-outline",
+  make_feed: "mdi:flask-outline",
   custom: "mdi:checkbox-marked-circle-outline",
 };
 
@@ -70,6 +77,12 @@ export const TASK_COLORS: Partial<Record<TaskType, string>> = {
   clean_greenhouse: "var(--hl-frost-500)",
   winter_prep: "var(--hl-frost-500)",
   plan_season: "var(--hl-leaf-700)",
+  protect: "var(--hl-sun-500)",
+  clean: "var(--hl-soil-500)",
+  tie_in: "var(--hl-leaf-600)",
+  thin_fruit: "var(--hl-tomato-500)",
+  pollinate: "var(--hl-sun-500)",
+  make_feed: "var(--hl-soil-700)",
 };
 
 // -- dates (all local, ISO yyyy-mm-dd) --------------------------------------
@@ -128,3 +141,21 @@ export function download(filename: string, content: string, mime: string): void 
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Perennials stay in the ground from their planting season until removed explicitly. */
+export function presentIn(p: Planting, perennial: boolean, season: number): boolean {
+  if (!perennial) return p.season === season;
+  if (p.season > season) return false;
+  return p.removed_season == null || season < p.removed_season;
+}
+
+/** Which plant categories belong in a zone type (palette filter, autofill). */
+export const ZONE_CATEGORIES: Record<string, string[]> = {
+  outdoor: ["vegetable", "herb", "flower"],
+  greenhouse: ["vegetable", "herb", "fruit"],
+  cold_frame: ["vegetable", "herb"],
+  orchard: ["fruit"],
+  fruit: ["fruit"],
+  herbs: ["herb", "flower"],
+  flowers: ["flower", "herb"],
+};

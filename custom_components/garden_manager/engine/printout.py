@@ -37,6 +37,7 @@ from .models import (
     Task,
     Zone,
     ZoneType,
+    present_in,
 )
 from .pdf import PdfDocument, Surface, SvgPage, ellipsize, hex_rgb, text_width
 from .plantdb import FAMILIES, PlantDatabase
@@ -79,6 +80,10 @@ LABELS: dict[str, dict[str, str]] = {
         "add_tasks": "Extra tasks", "scale": "Scale", "empty": "Nothing planned yet.",
         "path": "Path", "compost_heap": "Compost", "water_butt": "Water butt", "shed": "Shed", "tree": "Tree",
         "hedge": "Hedge", "trellis": "Trellis", "other": "Other", "draw_here": "Sketch your plan here",
+        "house": "House", "driveway": "Driveway", "street": "Street", "parking": "Parking",
+        "play": "Play area", "beehive": "Beehive",
+        "terrace": "Terrace", "lawn": "Lawn", "flowerbed": "Flower bed", "fence": "Fence", "pond": "Pond",
+        "orchard": "Orchard", "fruit": "Soft fruit", "herbs": "Herb garden", "flowers": "Flower garden",
         "before": "before", "after": "after",
         "days_to_harvest": "Days to harvest", "family": "Family",
     },
@@ -100,6 +105,10 @@ LABELS: dict[str, dict[str, str]] = {
         "add_tasks": "Extra taken", "scale": "Schaal", "empty": "Nog niets gepland.",
         "path": "Pad", "compost_heap": "Compost", "water_butt": "Regenton", "shed": "Tuinhuis", "tree": "Boom",
         "hedge": "Haag", "trellis": "Klimrek", "other": "Overig", "draw_here": "Schets hier je plan",
+        "house": "Huis", "driveway": "Oprit", "street": "Straat", "parking": "Parking",
+        "play": "Speelhoek", "beehive": "Bijenkast",
+        "terrace": "Terras", "lawn": "Gazon", "flowerbed": "Bloemperk", "fence": "Omheining", "pond": "Vijver",
+        "orchard": "Boomgaard", "fruit": "Kleinfruit", "herbs": "Kruidentuin", "flowers": "Bloementuin",
         "before": "voor", "after": "na",
         "days_to_harvest": "Dagen tot oogst", "family": "Familie",
     },
@@ -206,14 +215,24 @@ class Theme:
         return PATTERNS[self.families.index(family) % len(PATTERNS)]
 
     def zone_fill(self, zone: Zone) -> str:
-        base = {"outdoor": "#7FB069", "greenhouse": "#5DA9C9", "cold_frame": "#8FB8C9"}[zone.type.value]
+        base = ZONE_COLORS.get(zone.type.value, ZONE_COLORS["outdoor"])[0]
         return _mix(self.col(base), 0.10 if self.mode == "color" else 0.06)
 
     def zone_stroke(self, zone: Zone) -> str:
-        base = {"outdoor": "#4E7D3A", "greenhouse": "#2D7898", "cold_frame": "#4F8399"}[zone.type.value]
+        base = ZONE_COLORS.get(zone.type.value, ZONE_COLORS["outdoor"])[1]
         return self.col(base)
 
 
+# zone type: (fill, stroke)
+ZONE_COLORS: dict[str, tuple[str, str]] = {
+    "outdoor": ("#7FB069", "#4E7D3A"),
+    "greenhouse": ("#5DA9C9", "#2D7898"),
+    "cold_frame": ("#8FB8C9", "#4F8399"),
+    "orchard": ("#9CC46A", "#5F8F45"),
+    "fruit": ("#D27A8E", "#A8506A"),
+    "herbs": ("#8FA3D6", "#4F6FB0"),
+    "flowers": ("#E39AC0", "#B25A8A"),
+}
 FEATURE_STYLE: dict[FeatureType, tuple[str, str]] = {
     FeatureType.PATH: ("#D8CBB3", "dots"),
     FeatureType.COMPOST: ("#8A6A45", "cross"),
@@ -222,12 +241,26 @@ FEATURE_STYLE: dict[FeatureType, tuple[str, str]] = {
     FeatureType.TREE: ("#4E7D3A", "none"),
     FeatureType.HEDGE: ("#5F8F45", "grid"),
     FeatureType.TRELLIS: ("#7A5C3E", "vert"),
+    FeatureType.TERRACE: ("#CFC6B8", "grid"),
+    FeatureType.LAWN: ("#9CC46A", "dots"),
+    FeatureType.FLOWERBED: ("#E39AC0", "dots"),
+    FeatureType.FENCE: ("#8A6A45", "vert"),
+    FeatureType.POND: ("#7FB6D9", "none"),
+    FeatureType.HOUSE: ("#B9A79A", "back"),
+    FeatureType.DRIVEWAY: ("#C9C3BA", "grid"),
+    FeatureType.STREET: ("#9A9A9A", "none"),
+    FeatureType.PARKING: ("#C9C3BA", "grid"),
+    FeatureType.PLAY: ("#E8D58A", "dots"),
+    FeatureType.BEEHIVE: ("#E0A526", "none"),
     FeatureType.OTHER: ("#B4B4B4", "diag"),
 }
 FEATURE_LABEL = {
     FeatureType.PATH: "path", FeatureType.COMPOST: "compost_heap", FeatureType.WATER_BUTT: "water_butt",
     FeatureType.SHED: "shed", FeatureType.TREE: "tree", FeatureType.HEDGE: "hedge", FeatureType.TRELLIS: "trellis",
-    FeatureType.OTHER: "other",
+    FeatureType.TERRACE: "terrace", FeatureType.LAWN: "lawn", FeatureType.FLOWERBED: "flowerbed",
+    FeatureType.FENCE: "fence", FeatureType.POND: "pond", FeatureType.HOUSE: "house",
+    FeatureType.DRIVEWAY: "driveway", FeatureType.STREET: "street", FeatureType.PARKING: "parking",
+    FeatureType.PLAY: "play", FeatureType.BEEHIVE: "beehive", FeatureType.OTHER: "other",
 }  # fmt: skip
 
 
@@ -346,10 +379,13 @@ def _season_plantings(ctx: PrintContext, season: int, bed_ids: set[str]) -> list
     return [
         p
         for p in ctx.data.plantings
-        if p.bed_id in bed_ids
-        and p.status is not PlantingStatus.FAILED
-        and (p.season == season or ((plant := ctx.db.get(p.plant_id)) is not None and plant.perennial))
+        if p.bed_id in bed_ids and p.status is not PlantingStatus.FAILED and _present(ctx, p, season)
     ]
+
+
+def _present(ctx: PrintContext, p: Planting, season: int) -> bool:
+    plant = ctx.db.get(p.plant_id)
+    return present_in(p, bool(plant and plant.perennial), season)
 
 
 def draw_map(
@@ -946,7 +982,7 @@ class Renderer:
         start, end = season_bounds(region, self.season)
         anchors = season_anchors(region, self.season)
         plantings = sorted(
-            (p for p in data.plantings if p.season == self.season and p.id in self.ctx.timelines),
+            (p for p in data.plantings if _present(self.ctx, p, self.season) and p.id in self.ctx.timelines),
             key=lambda p: ((data.bed(p.bed_id).name if data.bed(p.bed_id) else ""), self.ctx.timelines[p.id].in_ground),
         )
         first = True
@@ -1059,7 +1095,7 @@ class Renderer:
         else:
             ids = []
             for p in self.ctx.data.plantings:
-                if p.season == self.season and p.plant_id not in ids:
+                if _present(self.ctx, p, self.season) and p.plant_id not in ids:
                     ids.append(p.plant_id)
             plants = [p for p in (db.get(i) for i in ids) if p]
         per_page = 6 if self.size[1] > 250 else 4

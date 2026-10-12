@@ -49,12 +49,13 @@ from .models import (
     TaskStatus,
     TaskType,
     Zone,
+    present_in,
 )
 from .plantdb import PlantDatabase
-from .region import season_anchors, season_for_date
+from .region import SeasonAnchors, season_anchors, season_for_date
 from .schedule import PlantingTimeline, TimingAdvice
 from .watering import IrrigationRecommendation
-from .weather import DiseaseAssessment, FrostAssessment, GreenhouseAdvice
+from .weather import DailyOutlook, DiseaseAssessment, FrostAssessment, GreenhouseAdvice
 
 if TYPE_CHECKING:
     from .fertilizer import NutrientBalance
@@ -98,6 +99,13 @@ BASE_MINUTES: dict[TaskType, int] = {
     TaskType.SOIL_TEST: 30,
     TaskType.CUT_BACK: 15,
     TaskType.DIVIDE: 30,
+    TaskType.PROTECT: 15,
+    TaskType.CLEAN: 30,
+    TaskType.TIE_IN: 10,
+    TaskType.THIN_FRUIT: 20,
+    TaskType.POLLINATE: 5,
+    TaskType.CHECK: 10,
+    TaskType.MAKE_FEED: 20,
     TaskType.CUSTOM: 15,
 }
 # Crops that are inspected when the zone's fungal disease risk is raised.
@@ -145,6 +153,7 @@ class TaskContext:
     phenology: dict[str, PhenologyInfo] = field(default_factory=dict)
     disease: dict[str, DiseaseAssessment] = field(default_factory=dict)
     nutrients: dict[str, NutrientBalance] = field(default_factory=dict)
+    outlook: list[DailyOutlook] = field(default_factory=list)
     horizon_days: int = GENERATION_HORIZON_DAYS
 
 
@@ -173,7 +182,14 @@ def is_active(planting: Planting, timeline: PlantingTimeline | None, today: date
     return timeline.in_ground <= today <= timeline.harvest_end
 
 
-def _care_anchor(rule: CareRule, tl: PlantingTimeline) -> date:
+def _care_anchor(rule: CareRule, tl: PlantingTimeline, anchors: SeasonAnchors | None = None) -> date:
+    if anchors is not None:
+        if rule.anchor == "last_frost":
+            return anchors.last_frost
+        if rule.anchor == "first_frost":
+            return anchors.first_frost
+        if tl.established and rule.anchor in ("planting", "sow", "transplant"):
+            return anchors.last_frost  # a perennial "starts" each spring
     if rule.anchor == "sow":
         return tl.sow_date or tl.in_ground
     if rule.anchor == "transplant":
@@ -197,6 +213,11 @@ def planting_specs(
     base = {"plant": pname, "bed": bname}
     count = plant_count(planting, plant)
     pid = planting.id
+    region = ctx.data.settings.region
+    season = season_for_date(region, tl.in_ground) if tl.established else planting.season
+    anchors = season_anchors(region, season)
+    # Established perennials get a fresh series every year (keys carry the season).
+    kp = f"p:{pid}:y{season}" if tl.established else f"p:{pid}"
     specs: list[TaskSpec] = []
     sown = planting.sown_on is not None or planting.status is not PlantingStatus.PLANNED
     planted = planting.transplanted_on is not None or planting.status in (
@@ -212,7 +233,7 @@ def planting_specs(
 
     def common(key: str, ttype: TaskType, due: date, **kw: Any) -> TaskSpec:
         return TaskSpec(
-            key=f"p:{pid}:{key}",
+            key=f"{kp}:{key}",
             type=ttype,
             due=due,
             title_key=kw.pop("title_key", f"task.{ttype.value}"),
@@ -319,14 +340,22 @@ def planting_specs(
     if plant.feeding_interval_days and not has_feed_rule:
         rules.append(CareRule(task=TaskType.FEED, start_day=21, interval_days=plant.feeding_interval_days, minutes=10))
     area_m2 = planting.width_cm * planting.length_cm / 10_000
+    care_end = tl.care_until if plant.perennial else tl.harvest_end
     for idx, rule in enumerate(rules):
-        first = _care_anchor(rule, tl) + timedelta(days=rule.start_day)
-        until = _care_anchor(rule, tl) + timedelta(days=rule.end_day) if rule.end_day is not None else tl.harvest_end
-        until = min(until, tl.harvest_end)
+        anchor_day = _care_anchor(rule, tl, anchors)
+        first = anchor_day + timedelta(days=rule.start_day)
+        until = anchor_day + timedelta(days=rule.end_day) if rule.end_day is not None else care_end
+        until = min(until, care_end)
         if first > until:
             continue
+        if rule.anchor == "harvest_start" and not (tl.bearing and plant.harvestable):
+            continue  # no netting etc. while a young fruit tree bears nothing
+        if not tl.established and rule.anchor in ("last_frost", "first_frost") and first < tl.in_ground:
+            continue  # e.g. winter pruning before the plant even arrived
         deps = []
-        if rule.anchor in ("transplant", "planting") and tl.method is not SowMethod.DIRECT_SOW:
+        if tl.established or rule.anchor in ("last_frost", "first_frost"):
+            pass
+        elif rule.anchor in ("transplant", "planting") and tl.method is not SowMethod.DIRECT_SOW:
             deps.append(f"p:{pid}:transplant")
         elif tl.method is SowMethod.DIRECT_SOW:
             deps.append(f"p:{pid}:sow_direct")
@@ -335,6 +364,9 @@ def planting_specs(
                 f"care:{idx}:{rule.task.value}",
                 rule.task,
                 first,
+                title_key=f"task.care.{rule.task.value}"
+                if rule.task in (TaskType.WATER, TaskType.PEST_CHECK)
+                else f"task.{rule.task.value}",
                 window_start=first,
                 window_end=until if rule.interval_days else first + timedelta(days=7),
                 description=_care_description(rule, plant, count, area_m2, lang),
@@ -352,8 +384,10 @@ def planting_specs(
         harvest_start = min(max(pheno.harvest_estimate, ctx.today), tl.harvest_end)
     desc = t("desc.harvest", lang, start=harvest_start.isoformat(), end=tl.harvest_end.isoformat())
     harvest_deps = [f"p:{pid}:transplant" if tl.method is not SowMethod.DIRECT_SOW else f"p:{pid}:sow_direct"]
-    if not plant.harvestable:
-        pass  # companion flowers etc.
+    if tl.established:
+        harvest_deps = []
+    if not plant.harvestable or not tl.bearing:
+        pass  # companion flowers, young fruit trees etc.
     elif plant.continuous_harvest and plant.harvest_interval_days:
         specs.append(
             common(
@@ -402,7 +436,10 @@ def bed_specs(ctx: TaskContext, bed: GardenBed, plantings: Sequence[tuple[Planti
     region = data.settings.region
     anchors = season_anchors(region, season_for_date(region, ctx.today))
     spans = [
-        ctx.timelines[p.id].occupancy for p, _ in plantings if p.id in ctx.timelines and p.status in ACTIVE_STATUSES
+        ctx.timelines[p.id].occupancy
+        for p, plant in plantings
+        # Trees get their own (yearly) care - no weekly weeding of an orchard.
+        if p.id in ctx.timelines and p.status in ACTIVE_STATUSES and "fruit_tree" not in plant.tags
     ]
     spans = [s for s in spans if s.end >= ctx.today]
     if not spans:
@@ -608,6 +645,9 @@ def live_specs(ctx: TaskContext) -> list[TaskSpec]:
                 zone_id=zone.id,
             )
         )
+    from .weather_tasks import weather_specs  # weather_tasks imports this module
+
+    specs.extend(weather_specs(ctx))
     return specs
 
 
@@ -619,15 +659,16 @@ def generate_specs(ctx: TaskContext) -> list[TaskSpec]:
     specs: list[TaskSpec] = []
     per_bed: dict[str, list[tuple[Planting, Plant]]] = {}
     for planting in data.plantings:
-        if planting.season not in (current - 1, current, current + 1):
-            continue
         plant = db.get(planting.plant_id)
         bed = data.bed(planting.bed_id)
         if plant is None or bed is None:
             continue
+        established = plant.perennial and planting.season < current and present_in(planting, True, current)
+        if not established and planting.season not in (current - 1, current, current + 1):
+            continue
         per_bed.setdefault(bed.id, []).append((planting, plant))
         tl = ctx.timelines.get(planting.id)
-        if planting.season == current - 1 and (tl is None or tl.harvest_end < ctx.today):
+        if not established and planting.season == current - 1 and (tl is None or tl.harvest_end < ctx.today):
             continue  # last season's crops that are over
         specs.extend(planting_specs(ctx, planting, plant, bed, data.zone(bed.zone_id)))
     for bed in data.beds:
@@ -637,6 +678,9 @@ def generate_specs(ctx: TaskContext) -> list[TaskSpec]:
 
     specs.extend(maintenance_specs(ctx))
     specs = [s for s in specs if s.due <= horizon]
+    from .weather_tasks import weather_adjust
+
+    weather_adjust(specs, ctx)
     specs.extend(live_specs(ctx))
     for spec in specs:
         spec.priority = escalate(spec.priority, spec.due, spec.window_end, ctx.today)
@@ -1014,3 +1058,48 @@ def tasks_due(tasks: Iterable[Task], day: date) -> list[Task]:
     """Open tasks due on or before ``day``, most important first."""
     due = [t_ for t_ in tasks if t_.is_open and t_.due <= day]
     return sorted(due, key=lambda t_: (-t_.priority.rank, t_.due, t_.title))
+
+
+# --------------------------------------------------------------------------- #
+# Overdue reminders and the weekly look-ahead
+# --------------------------------------------------------------------------- #
+@dataclass(slots=True)
+class OverdueItem:
+    task: Task
+    days_late: int
+    # "still_ok": the window is still open; "window_closed": too late for this
+    # sowing / planting - skip it or pick an alternative; "do_now": no window.
+    verdict: str
+
+
+def overdue_report(tasks: Iterable[Task], today: date, after_days: int = 1) -> list[OverdueItem]:
+    """Open tasks more than ``after_days`` late, most urgent first."""
+    out: list[OverdueItem] = []
+    for task in tasks:
+        if not task.is_open or task.due > today - timedelta(days=after_days):
+            continue
+        late = (today - task.due).days
+        if task.window_end is None:
+            verdict = "do_now"
+        elif task.window_end < today:
+            verdict = "window_closed"
+        else:
+            verdict = "still_ok"
+        out.append(OverdueItem(task, late, verdict))
+    rank = {"window_closed": 0, "do_now": 1, "still_ok": 2}
+    return sorted(out, key=lambda o: (rank[o.verdict], -o.task.priority.rank, -o.days_late))
+
+
+def week_ahead(tasks: Iterable[Task], today: date, days: int = 7) -> dict[date, list[Task]]:
+    """Open tasks per day for the coming week (overdue ones land on today)."""
+    plan: dict[date, list[Task]] = {today + timedelta(days=i): [] for i in range(days)}
+    for task in tasks:
+        if not task.is_open:
+            continue
+        day = max(task.due, today)
+        if day in plan:
+            plan[day].append(task)
+    for day_tasks in plan.values():
+        day_tasks.sort(key=lambda t_: (-t_.priority.rank, t_.title))
+    return plan
+

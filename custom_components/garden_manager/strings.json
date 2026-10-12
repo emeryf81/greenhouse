@@ -261,7 +261,14 @@
         "tool_care": "Tool care",
         "soil_test": "Soil test",
         "cut_back": "Cut back",
-        "divide": "Divide"
+        "divide": "Divide",
+        "protect": "Protect",
+        "clean": "Clean up",
+        "tie_in": "Tie in",
+        "thin_fruit": "Thin fruit",
+        "pollinate": "Pollinate",
+        "check": "Check",
+        "make_feed": "Make plant feed"
       }
     },
     "priority": {

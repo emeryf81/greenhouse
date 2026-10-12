@@ -32,9 +32,25 @@ class Hemisphere(StrEnum):
 
 
 class ZoneType(StrEnum):
-    OUTDOOR = "outdoor"
+    OUTDOOR = "outdoor"  # vegetable garden (moestuin)
     GREENHOUSE = "greenhouse"
     COLD_FRAME = "cold_frame"
+    ORCHARD = "orchard"  # fruit trees
+    FRUIT = "fruit"  # soft fruit: berries, currants, canes, grapes
+    HERBS = "herbs"  # herb garden
+    FLOWERS = "flowers"  # flower / pollinator border
+
+
+# What each zone type is meant to hold (used by the planner palette and autofill).
+ZONE_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "outdoor": ("vegetable", "herb", "flower"),
+    "greenhouse": ("vegetable", "herb", "fruit"),
+    "cold_frame": ("vegetable", "herb"),
+    "orchard": ("fruit",),
+    "fruit": ("fruit",),
+    "herbs": ("herb", "flower"),
+    "flowers": ("flower", "herb"),
+}
 
 
 class BedKind(StrEnum):
@@ -146,6 +162,13 @@ class TaskType(StrEnum):
     SOIL_TEST = "soil_test"
     CUT_BACK = "cut_back"
     DIVIDE = "divide"
+    PROTECT = "protect"  # fleece, mesh, nets, shade cloth, storm fixing
+    CLEAN = "clean"  # windows, pots, trays, water butts, gutters
+    TIE_IN = "tie_in"  # climbers, canes, espaliers
+    THIN_FRUIT = "thin_fruit"
+    POLLINATE = "pollinate"
+    CHECK = "check"  # inspections: stores, vents, irrigation, stakes
+    MAKE_FEED = "make_feed"  # nettle / comfrey tea, compost tea, bokashi
     CUSTOM = "custom"
 
 
@@ -227,6 +250,17 @@ class FeatureType(StrEnum):
     TREE = "tree"
     HEDGE = "hedge"
     TRELLIS = "trellis"
+    TERRACE = "terrace"
+    LAWN = "lawn"
+    FLOWERBED = "flowerbed"
+    FENCE = "fence"
+    POND = "pond"
+    HOUSE = "house"
+    DRIVEWAY = "driveway"
+    STREET = "street"
+    PARKING = "parking"
+    PLAY = "play"
+    BEEHIVE = "beehive"
     OTHER = "other"
 
 
@@ -239,7 +273,9 @@ class GreenhouseAction(StrEnum):
 
 
 WindowAnchor = Literal["last_frost", "first_frost"]
-CareAnchor = Literal["planting", "sow", "transplant", "harvest_start"]
+# "last_frost"/"first_frost" anchor yearly care of established perennials
+# (prune in winter, net before ripening ...) to the season, not the planting.
+CareAnchor = Literal["planting", "sow", "transplant", "harvest_start", "last_frost", "first_frost"]
 
 
 # --------------------------------------------------------------------------- #
@@ -354,6 +390,15 @@ class Plant:
     trap_for: list[str] = field(default_factory=list)
     allelopathic: bool = False
     shade_tolerant: bool = False
+    # Perennials: harvest each year in these windows once bearing.
+    harvest_windows: list[Window] = field(default_factory=list)
+    years_to_bearing: int = 0
+    emoji: str = ""
+    icon: str = ""  # vector glyph drawn on the planner map (see frontend plant-glyphs)
+    color: str = ""  # glyph colour (the crop's own colour, not the family colour)
+    # Short ecological growing tips and home remedies (per language).
+    tips: dict[str, list[str]] = field(default_factory=dict)
+    pollination: Literal["self", "insects", "wind", "partner", "none"] = "self"
     source: Literal["builtin", "custom", "override"] = "builtin"
 
     def name(self, lang: str = "en") -> str:
@@ -494,6 +539,24 @@ class Planting:
     succession_group: str | None = None
     succession_index: int = 0
     notes: str = ""
+    # Perennials stay in the plan year after year until removed explicitly:
+    # the first season they are no longer there (None = still growing).
+    removed_season: int | None = None
+
+
+def present_in(planting: Planting, perennial: bool, season: int) -> bool:
+    """Is this planting part of ``season``?
+
+    Annuals belong to their own season.  Perennials (fruit trees, berries,
+    asparagus, perennial herbs ...) carry over into every later season until
+    they are removed explicitly - an apple tree in year 1 is still an apple
+    tree in year 2.
+    """
+    if not perennial:
+        return planting.season == season
+    if planting.season > season:
+        return False
+    return planting.removed_season is None or season < planting.removed_season
 
 
 @dataclass(slots=True)
@@ -588,6 +651,13 @@ class NotificationSettings:
     frost_alerts: bool = True
     heat_alerts: bool = True
     tts_frost_announcement: bool = False
+    # Reminders for tasks left undone (evening nudge) and a weekly look-ahead.
+    overdue_reminders: bool = True
+    overdue_time: str = "18:30"
+    overdue_after_days: int = 1
+    weekly_plan: bool = True
+    weekly_plan_weekday: int = 6  # 0 = Monday ... 6 = Sunday
+    weekly_plan_time: str = "19:00"
 
 
 @dataclass(slots=True)
@@ -639,6 +709,8 @@ class GardenSettings:
     elevation_m: float | None = None
     # Seasonal maintenance tasks (soil prep, greenhouse cleaning, winter rest ...)
     maintenance_tasks: bool = True
+    # Move weather-sensitive jobs (sowing, planting out, spraying ...) off rainy, frosty or hot days.
+    weather_aware_scheduling: bool = True
 
 
 @dataclass(slots=True)

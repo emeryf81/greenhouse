@@ -25,6 +25,7 @@ from .models import (
     Window,
     Zone,
     ZoneType,
+    present_in,
 )
 from .region import SeasonAnchors
 from .weather import FrostAssessment
@@ -72,11 +73,21 @@ class PlantingTimeline:
     harvest_start: date
     harvest_end: date
     late: bool = False
+    # Perennials: False while the plant is too young to crop (fruit trees, asparagus).
+    bearing: bool = True
+    established: bool = False  # a perennial in a later year (no sowing / planting)
+    # Perennials stay in the ground after the harvest: until the season ends.
+    occupied_until: date | None = None
 
     @property
     def occupancy(self) -> DateWindow:
         """When the planting physically occupies its bed space."""
-        return DateWindow(self.in_ground, self.harvest_end)
+        return DateWindow(self.in_ground, max(self.harvest_end, self.occupied_until or self.harvest_end))
+
+    @property
+    def care_until(self) -> date:
+        """Last day care tasks make sense (season end for perennials)."""
+        return self.occupancy.end
 
     def to_dict(self) -> dict[str, Any]:
         def iso(d: date | None) -> str | None:
@@ -93,6 +104,9 @@ class PlantingTimeline:
             "harvest_start": iso(self.harvest_start),
             "harvest_end": iso(self.harvest_end),
             "late": self.late,
+            "bearing": self.bearing,
+            "established": self.established,
+            "occupied_until": iso(self.occupied_until),
         }
 
 
@@ -259,6 +273,13 @@ def planting_timeline(
         frost_limit = anchors.first_frost + timedelta(weeks=windows.extension_weeks)
         if harvest_start < frost_limit < harvest_end:
             harvest_end = frost_limit
+    bearing = True
+    if plant.perennial and plant.harvest_windows:
+        # Perennials crop in fixed seasonal windows, not "days after planting".
+        bearing = plant.years_to_bearing <= 0
+        win = _perennial_harvest(plant, anchors, in_ground)
+        if win:
+            harvest_start, harvest_end = win
     if planting.finished_on:
         harvest_end = planting.finished_on
 
@@ -277,7 +298,64 @@ def planting_timeline(
         harvest_start=harvest_start,
         harvest_end=harvest_end,
         late=late,
+        bearing=bearing,
     )
+
+
+def _perennial_harvest(plant: Plant, anchors: SeasonAnchors, not_before: date) -> tuple[date, date] | None:
+    spans = [anchors.window_dates(w) for w in plant.harvest_windows]
+    spans = [s for s in spans if s[1] >= not_before] or spans
+    if not spans:
+        return None
+    start = min(s[0] for s in spans)
+    end = max(s[1] for s in spans)
+    return max(start, not_before), end
+
+
+def established_timeline(
+    planting: Planting, plant: Plant, anchors: SeasonAnchors, season_start: date, season_end: date | None = None
+) -> PlantingTimeline:
+    """Timeline of a perennial in a later year: it is simply there all season."""
+    age = anchors.season - planting.season
+    win = _perennial_harvest(plant, anchors, season_start)
+    if win is None:  # perennial herbs & flowers: pick from spring to autumn
+        win = (anchors.last_frost + timedelta(weeks=2), anchors.first_frost)
+    harvest_end = (
+        planting.finished_on if planting.finished_on and planting.finished_on.year >= anchors.season else win[1]
+    )
+    return PlantingTimeline(
+        method=SowMethod.TRANSPLANT,
+        sow_window=None,
+        sow_date=None,
+        transplant_window=None,
+        transplant_date=None,
+        harden_off_date=None,
+        in_ground=season_start,
+        harvest_start=win[0],
+        harvest_end=harvest_end,
+        bearing=age >= plant.years_to_bearing,
+        established=True,
+        occupied_until=season_end,
+    )
+
+
+def season_timeline(
+    planting: Planting,
+    plant: Plant,
+    season: int,
+    anchors_for: Any,
+    zone: Zone | None,
+    today: date | None,
+    season_start: date,
+    season_end: date | None = None,
+) -> PlantingTimeline:
+    """The timeline that matters for ``season`` (established perennials re-anchor yearly)."""
+    if plant.perennial and planting.season < season and present_in(planting, True, season):
+        return established_timeline(planting, plant, anchors_for(season), season_start, season_end)
+    tl = planting_timeline(planting, plant, anchors_for(planting.season), zone, today)
+    if plant.perennial and planting.season == season and season_end and not planting.finished_on:
+        tl.occupied_until = season_end
+    return tl
 
 
 def zone_is_enclosed(zone: Zone | None) -> bool:

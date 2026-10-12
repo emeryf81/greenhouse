@@ -292,6 +292,21 @@ export class SettingsView extends LitElement {
         <label class="field check"><input type="checkbox" .checked=${n.heat_alerts} @change=${(e: Event) => set({ heat_alerts: (e.target as HTMLInputElement).checked })} />${this.t("settings.heat_alerts")}</label>
         <label class="field check full"><input type="checkbox" .checked=${n.tts_frost_announcement} @change=${(e: Event) => set({ tts_frost_announcement: (e.target as HTMLInputElement).checked })} />${this.t("settings.tts_frost")}</label>
       </div>
+      <h3>${this.t("settings.reminders")}</h3>
+      <div class="form-grid">
+        <label class="field check"><input type="checkbox" .checked=${n.overdue_reminders ?? true} @change=${(e: Event) => set({ overdue_reminders: (e.target as HTMLInputElement).checked })} />${this.t("settings.overdue_reminders")}</label>
+        <label class="field">${this.t("settings.overdue_time")}<input type="time" .value=${n.overdue_time ?? "18:30"} @change=${(e: Event) => set({ overdue_time: (e.target as HTMLInputElement).value })} /></label>
+        <label class="field">${this.t("settings.overdue_after")}<input type="number" min="0" max="14" .value=${String(n.overdue_after_days ?? 1)} @change=${(e: Event) => set({ overdue_after_days: Number((e.target as HTMLInputElement).value) })} /></label>
+        <span></span>
+        <label class="field check"><input type="checkbox" .checked=${n.weekly_plan ?? true} @change=${(e: Event) => set({ weekly_plan: (e.target as HTMLInputElement).checked })} />${this.t("settings.weekly_plan")}</label>
+        <label class="field">${this.t("settings.weekly_day")}<select @change=${(e: Event) => set({ weekly_plan_weekday: Number((e.target as HTMLSelectElement).value) })}>
+          ${[0, 1, 2, 3, 4, 5, 6].map((d) => html`<option value=${d} ?selected=${(n.weekly_plan_weekday ?? 6) === d}>${new Date(2024, 0, 1 + d).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { weekday: "long" })}</option>`)}
+        </select></label>
+        <label class="field">${this.t("settings.weekly_time")}<input type="time" .value=${n.weekly_plan_time ?? "19:00"} @change=${(e: Event) => set({ weekly_plan_time: (e.target as HTMLInputElement).value })} /></label>
+      </div>
+      <label class="field check"><input type="checkbox" .checked=${this.snapshot.settings.weather_aware_scheduling ?? true}
+        @change=${(e: Event) => this.saveSettings({ weather_aware_scheduling: (e.target as HTMLInputElement).checked })} />${this.t("settings.weather_aware")}</label>
+      <p class="xs muted">${this.t("settings.weather_aware_hint")}</p>
     </section>`;
   }
 

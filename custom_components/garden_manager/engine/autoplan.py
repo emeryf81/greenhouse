@@ -48,6 +48,7 @@ from .models import (
     Suitability,
     TaskType,
     Zone,
+    present_in,
 )
 from .plantdb import PlantDatabase
 from .region import resolve_profile, season_anchors
@@ -472,7 +473,11 @@ def autoplan(
     hemisphere = resolve_profile(data.settings.region).hemisphere
     result = AutoplanResult()
 
-    occupied = {p.bed_id for p in data.plantings if p.season == season or (db.get(p.plant_id) or _NoPlant).perennial}
+    occupied = {
+        p.bed_id
+        for p in data.plantings
+        if p.season == season or ((db.get(p.plant_id) or _NoPlant).perennial and present_in(p, True, season))
+    }
     if options.bed_ids is not None:
         beds = [b for b in data.beds if b.id in options.bed_ids]
         if not options.replace:

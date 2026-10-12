@@ -4,7 +4,7 @@
 export type ISODate = string; // "2026-04-20"
 export type ISODateTime = string;
 
-export type ZoneType = "outdoor" | "greenhouse" | "cold_frame";
+export type ZoneType = "outdoor" | "greenhouse" | "cold_frame" | "orchard" | "fruit" | "herbs" | "flowers";
 export type BedKind = "in_ground" | "raised" | "container";
 export type SoilType = "sandy" | "loam" | "clay" | "silt" | "peat" | "chalk" | "potting_mix";
 export type Wind = "sheltered" | "moderate" | "exposed";
@@ -16,7 +16,8 @@ export type TaskType =
   | "sow_indoor" | "sow_direct" | "harden_off" | "transplant" | "thin" | "stake" | "prune" | "pinch"
   | "earth_up" | "feed" | "water" | "weed" | "pest_check" | "harvest" | "ventilate" | "shade"
   | "frost_protect" | "soil_prep" | "compost" | "green_manure" | "mulch" | "clean_greenhouse"
-  | "winter_prep" | "plan_season" | "tool_care" | "soil_test" | "cut_back" | "divide" | "custom";
+  | "winter_prep" | "plan_season" | "tool_care" | "soil_test" | "cut_back" | "divide"
+  | "protect" | "clean" | "tie_in" | "thin_fruit" | "pollinate" | "check" | "make_feed" | "custom";
 export type TaskStatus = "open" | "done" | "skipped";
 export type Priority = "low" | "normal" | "high" | "urgent";
 export type RiskLevel = "none" | "low" | "moderate" | "high" | "unknown";
@@ -65,7 +66,10 @@ export interface Zone {
   shading_mode?: "auto" | "on" | "off";
 }
 
-export type FeatureType = "path" | "compost" | "water_butt" | "shed" | "tree" | "hedge" | "trellis" | "other";
+export type FeatureType =
+  | "path" | "compost" | "water_butt" | "shed" | "tree" | "hedge" | "trellis"
+  | "terrace" | "lawn" | "flowerbed" | "fence" | "pond"
+  | "house" | "driveway" | "street" | "parking" | "play" | "beehive" | "other";
 
 export interface Feature {
   id: string;
@@ -118,6 +122,8 @@ export interface Planting {
   succession_group: string | null;
   succession_index: number;
   notes: string;
+  /** Perennials: first season it is no longer in the ground (explicit removal). */
+  removed_season?: number | null;
 }
 
 export interface TaskNote { at: ISODateTime; text: string; author: string | null }
@@ -227,6 +233,13 @@ export interface Plant {
   trap_for?: string[];
   allelopathic?: boolean;
   shade_tolerant?: boolean;
+  harvest_windows?: Window[];
+  years_to_bearing?: number;
+  emoji?: string;
+  icon?: string;
+  color?: string;
+  tips?: Record<string, string[]>;
+  pollination?: "self" | "insects" | "wind" | "partner" | "none";
   source: "builtin" | "custom" | "override";
 }
 
@@ -488,7 +501,14 @@ export interface Settings {
     frost_alerts: boolean;
     heat_alerts: boolean;
     tts_frost_announcement: boolean;
+    overdue_reminders?: boolean;
+    overdue_time?: string;
+    overdue_after_days?: number;
+    weekly_plan?: boolean;
+    weekly_plan_weekday?: number;
+    weekly_plan_time?: string;
   };
+  weather_aware_scheduling?: boolean;
   sensor_stale_minutes: number;
   companion_radius_cm: number;
   root_zone_depth_mm: number;

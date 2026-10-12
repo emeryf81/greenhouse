@@ -217,7 +217,7 @@ def zone_night_offset(zone: Zone | None) -> float:
         return zone.microclimate.night_offset_c
     offset = DEFAULT_NIGHT_OFFSET.get(zone.type, 0.0)
     # Exposed sites lose heat faster, sheltered spots keep it.
-    if zone.type is ZoneType.OUTDOOR:
+    if not zone.is_enclosed:
         offset += {"sheltered": 0.5, "moderate": 0.0, "exposed": -0.5}[zone.microclimate.wind.value]
     # A sun-facing wall re-radiates the day's heat; water barrels or a stone
     # floor buffer an enclosure.
