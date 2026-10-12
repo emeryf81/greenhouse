@@ -17,6 +17,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, EVENT_TASK_COMPLETED, SIGNAL_LAYOUT_CHANGED
+from .engine import seasons
 from .engine.models import (
     Feature,
     GardenBed,
@@ -232,8 +233,13 @@ def op_delete_task(runtime: GardenRuntime, task_id: str) -> None:
 # Plan
 # --------------------------------------------------------------------------- #
 def validate_layout(
-    zones: list[Zone], beds: list[GardenBed], plantings: list[Planting], known_plants: set[str]
+    zones: list[Zone],
+    beds: list[GardenBed],
+    plantings: list[Planting],
+    known_plants: set[str],
+    other_beds: set[str] = frozenset(),  # type: ignore[assignment]
 ) -> None:
+    """Check one season's plan; plantings may also sit on beds of other seasons' plans."""
     zone_ids = {z.id for z in zones}
     bed_ids = set()
     for bed in beds:
@@ -243,12 +249,29 @@ def validate_layout(
             raise _err("invalid_plan", reason=f"bed {bed.name} has no size")
         bed_ids.add(bed.id)
     for planting in plantings:
-        if planting.bed_id not in bed_ids:
+        if planting.bed_id not in bed_ids and planting.bed_id not in other_beds:
             raise _err("invalid_plan", reason=f"planting {planting.id} has unknown bed")
         if planting.plant_id not in known_plants:
             raise _err("invalid_plan", reason=f"unknown plant {planting.plant_id}")
     if len({z.id for z in zones}) != len(zones) or len(bed_ids) != len(beds):
         raise _err("invalid_plan", reason="duplicate ids")
+
+
+def _live_layout_snapshot(data: Any) -> tuple[list[tuple[str, str, str]], list[tuple[str, str]]]:
+    return [(z.id, z.name, z.type) for z in data.zones], [(b.id, b.name) for b in data.beds]
+
+
+def _sync_devices(hass: HomeAssistant, runtime: GardenRuntime, before: tuple[list, list]) -> None:
+    """After the live garden changed: drop devices of removed zones/beds, rebuild entities."""
+    data = runtime.repo.data
+    old_zones, old_beds = before
+    removed = ({z[0] for z in old_zones} - {z.id for z in data.zones}) | (
+        {b[0] for b in old_beds} - {b.id for b in data.beds}
+    )
+    if removed:
+        _remove_devices(hass, runtime, removed)
+    if (old_zones, old_beds) != _live_layout_snapshot(data):
+        async_dispatcher_send(hass, SIGNAL_LAYOUT_CHANGED)
 
 
 @callback
@@ -261,10 +284,13 @@ def op_save_plan(
     beds: list[dict[str, Any]],
     plantings: list[dict[str, Any]],
     features: list[dict[str, Any]] | None = None,
+    season: int | None = None,
 ) -> int:
+    """Save the garden plan of ``season`` (default: the live garden) and all plantings."""
     repo = runtime.repo
-    if base_revision is not None and base_revision != repo.data.revision:
-        raise RevisionConflict(f"revision {base_revision} != {repo.data.revision}")
+    data = repo.data
+    if base_revision is not None and base_revision != data.revision:
+        raise RevisionConflict(f"revision {base_revision} != {data.revision}")
     try:
         new_zones = [from_dict(Zone, z) for z in zones]
         new_beds = [from_dict(GardenBed, b) for b in beds]
@@ -272,32 +298,82 @@ def op_save_plan(
         new_features = [from_dict(Feature, f) for f in features] if features is not None else None
     except (TypeError, ValueError, KeyError) as err:
         raise _err("invalid_plan", reason=str(err)) from err
-    validate_layout(new_zones, new_beds, new_plantings, {p.id for p in repo.db.all()})
+    if season is None:
+        season = data.layout_season if data.layout_season is not None else 0
+    current = seasons.layout_for(data, season)
+    other_beds = seasons.all_bed_ids(data) - {b.id for b in (current.beds if current else [])}
+    validate_layout(new_zones, new_beds, new_plantings, {p.id for p in repo.db.all()}, other_beds)
 
-    removed_devices = ({z.id for z in repo.data.zones} - {z.id for z in new_zones}) | (
-        {b.id for b in repo.data.beds} - {b.id for b in new_beds}
-    )
-    layout_changed = (
-        [z.id for z in repo.data.zones] != [z.id for z in new_zones]
-        or [b.id for b in repo.data.beds] != [b.id for b in new_beds]
-        or [(z.name, z.type) for z in repo.data.zones] != [(z.name, z.type) for z in new_zones]
-        or [b.name for b in repo.data.beds] != [b.name for b in new_beds]
-    )
     # Soil tests are edited through their own commands; a planner draft that
     # was opened earlier must not drop the ones added since.
-    old_tests = {b.id: b.soil_tests for b in repo.data.beds}
+    old_tests = {b.id: b.soil_tests for b in (current.beds if current else [])}
     for bed in new_beds:
         if bed.id in old_tests:
             bed.soil_tests = old_tests[bed.id]
-    repo.data.zones, repo.data.beds, repo.data.plantings = new_zones, new_beds, new_plantings
-    if new_features is not None:
-        repo.data.features = new_features
+    before = _live_layout_snapshot(data)
+    features_now = new_features if new_features is not None else (current.features if current else [])
+    live = seasons.store_layout(data, season, new_zones, new_beds, features_now, now=dt_util.now())
+    data.plantings = new_plantings
     repo.async_changed("plan")
-    if removed_devices:
-        _remove_devices(hass, runtime, removed_devices)
-    if layout_changed:
-        async_dispatcher_send(hass, SIGNAL_LAYOUT_CHANGED)
-    return repo.data.revision
+    if live:
+        _sync_devices(hass, runtime, before)
+    return data.revision
+
+
+@callback
+def op_delete_layout(runtime: GardenRuntime, season: int) -> None:
+    """Remove a stored plan of another season (the live garden stays)."""
+    data = runtime.repo.data
+    if season == data.layout_season:
+        raise _err("invalid_plan", reason="the current garden plan cannot be deleted")
+    in_use = {b.id for b in (seasons.layout_for(data, season) or seasons.GardenLayout()).beds}
+    live_beds = seasons.all_bed_ids(data) - in_use
+    if any(
+        p.bed_id in in_use and p.bed_id not in live_beds and seasons.present_in(p, False, season)
+        for p in data.plantings
+    ):
+        raise _err("invalid_plan", reason="plantings still use this plan")
+    if seasons.delete_layout(data, season):
+        runtime.repo.async_changed("plan")
+
+
+@callback
+def op_year_transition(
+    hass: HomeAssistant,
+    runtime: GardenRuntime,
+    from_season: int,
+    *,
+    layout: str = "copy",
+    zone_ids: list[str] | None = None,
+    feature_ids: list[str] | None = None,
+    planting_ids: list[str] = (),  # type: ignore[assignment]
+    activate: bool = True,
+) -> dict[str, Any]:
+    """Explicit year-end transition: carry the chosen plan and crops into next year."""
+    data = runtime.repo.data
+    if data.layout_season is not None and from_season < data.layout_season and activate:
+        raise _err("invalid_plan", reason=f"{from_season} is already closed")
+    before = _live_layout_snapshot(data)
+    result = seasons.apply(
+        data,
+        from_season,
+        layout="keep" if layout == "keep" else "copy",
+        zone_ids=zone_ids,
+        feature_ids=feature_ids,
+        planting_ids=planting_ids,
+        activate=activate,
+        now=dt_util.now(),
+    )
+    runtime.repo.async_changed("plan")
+    if result.activated:
+        _sync_devices(hass, runtime, before)
+    return {
+        "season": result.to_season,
+        "carried": result.carried,
+        "skipped": result.skipped,
+        "activated": result.activated,
+        "revision": data.revision,
+    }
 
 
 def _remove_devices(hass: HomeAssistant, runtime: GardenRuntime, ids: set[str]) -> None:

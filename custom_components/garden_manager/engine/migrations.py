@@ -16,6 +16,10 @@ History
 1.4  ``climate_log`` + ``notified`` (GDD and notification dedupe)
 1.5  ``features`` (paths, compost ...), ``water_balance``, ``irrigation_log``,
      ``settings.irrigation`` / ``settings.resources``
+1.6  garden plans per season (``layout_season``, ``layouts``) and explicit
+     carry-over (``plantings[].last_season``); the season-dependent part
+     (which year the plan is, which perennials stay this year) needs today's
+     date and is done by :func:`.seasons.adopt` after loading
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ import copy
 from typing import Any
 
 STORAGE_VERSION = 1
-STORAGE_MINOR_VERSION = 5
+STORAGE_MINOR_VERSION = 6
 
 Doc = dict[str, Any]
 
@@ -76,11 +80,20 @@ def _v1_4_to_1_5(doc: Doc) -> Doc:
     return doc
 
 
+def _v1_5_to_1_6(doc: Doc) -> Doc:
+    doc.setdefault("layout_season", None)
+    doc.setdefault("layouts", {})
+    for planting in doc.get("plantings", []):
+        planting.setdefault("last_season", None)
+    return doc
+
+
 MIGRATIONS: dict[int, Callable[[Doc], Doc]] = {
     1: _v1_1_to_1_2,
     2: _v1_2_to_1_3,
     3: _v1_3_to_1_4,
     4: _v1_4_to_1_5,
+    5: _v1_5_to_1_6,
 }
 
 

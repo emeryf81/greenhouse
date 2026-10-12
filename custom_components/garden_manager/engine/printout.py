@@ -16,6 +16,7 @@ with a wider left margin for the toolbar.  Colour modes:
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+import dataclasses
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 import math
@@ -43,6 +44,7 @@ from .pdf import PdfDocument, Surface, SvgPage, ellipsize, hex_rgb, text_width
 from .plantdb import FAMILIES, PlantDatabase
 from .region import season_anchors, season_bounds
 from .schedule import PlantingTimeline
+from .seasons import layout_for
 
 PAGE_SIZES: dict[str, tuple[float, float]] = {
     "a4": (210.0, 297.0),
@@ -758,6 +760,11 @@ class Renderer:
         w, h = PAGE_SIZES[opts.page]
         self.size = (h, w) if opts.landscape else (w, h)
         self.season = opts.season or _current_season(ctx)
+        # Print the garden plan of the chosen season (a copy of the data with that plan).
+        layout = layout_for(ctx.data, self.season)
+        if layout is not None and layout.zones is not ctx.data.zones:
+            data = dataclasses.replace(ctx.data, zones=layout.zones, beds=layout.beds, features=layout.features)
+            self.ctx = dataclasses.replace(ctx, data=data)
 
     def page(self, title: str, subtitle: str = "") -> Page:
         surface = self.new_surface(*self.size)

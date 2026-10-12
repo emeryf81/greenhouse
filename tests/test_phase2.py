@@ -462,3 +462,38 @@ async def test_system_log_records_and_undoes_actions(hass: HomeAssistant, garden
 
     await client.send_json_auto_id({"type": f"{DOMAIN}/syslog/undo", "entry_id": "log_nope"})
     assert not (await _result(client))["success"]
+
+
+async def test_garden_plan_per_season_and_year_transition(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    data = repo.data
+    assert data.layout_season == 2026  # adopted on first load
+    client = await hass_ws_client(hass)
+
+    # Design next year's plan without touching the live garden.
+    zones = [to_dict(z) for z in data.zones]
+    beds = [to_dict(b) for b in data.beds]
+    beds[0]["name"] = "Moestuin 2027"
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plan/save", "season": 2027, "base_revision": data.revision, "zones": zones, "beds": beds,
+         "plantings": [to_dict(p) for p in data.plantings], "features": []}
+    )  # fmt: skip
+    assert (await _result(client))["success"]
+    assert data.beds[0].name != "Moestuin 2027" and data.layouts["2027"].beds[0].name == "Moestuin 2027"
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/year/preview", "from_season": 2026})
+    pre = (await _result(client))["result"]
+    assert pre["to_season"] == 2027 and pre["target_exists"] and pre["is_live"]
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/year/apply", "from_season": 2026, "layout": "keep", "planting_ids": []}
+    )
+    res = (await _result(client))["result"]
+    assert res["activated"] and res["season"] == 2027
+    assert repo.data.layout_season == 2027 and repo.data.beds[0].name == "Moestuin 2027"
+    assert "2026" in repo.data.layouts
+
+    # The archived plan of a closed year cannot be deleted while plantings use it; the live one never.
+    await client.send_json_auto_id({"type": f"{DOMAIN}/layout/delete", "season": 2027})
+    assert not (await _result(client))["success"]

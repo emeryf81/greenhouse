@@ -79,7 +79,7 @@ def test_green_manure_when_bed_falls_empty(garden, db, make_planting):
 
 
 def test_perennial_herb_care_from_tags(garden, db, make_planting):
-    garden.plantings = [make_planting("chives", "bed_1", 2024, status=PlantingStatus.TRANSPLANTED)]
+    garden.plantings = [make_planting("chives", "bed_1", 2024, status=PlantingStatus.TRANSPLANTED, last_season=2027)]
     keys = specs_at(garden, db, date(2027, 2, 15)).keys()
     assert any(k.startswith("m:divide:") for k in keys)  # every third year: 2027
 

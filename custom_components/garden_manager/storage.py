@@ -14,7 +14,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import SAVE_DELAY_SECONDS, STORAGE_KEY
-from .engine import syslog
+from .engine import seasons, syslog
 from .engine.migrations import STORAGE_MINOR_VERSION, STORAGE_VERSION, migrate
 from .engine.models import GardenData
 from .engine.plantdb import PlantDatabase
@@ -30,7 +30,7 @@ SYSLOG_SAVE_DELAY_SECONDS = 10
 # panel actions); read when the change is written to the system log.
 current_user: ContextVar[str | None] = ContextVar("hortulus_user", default=None)
 
-PLAN_COLLECTIONS = frozenset({"zones", "beds", "plantings", "features", "rotation_history"})
+PLAN_COLLECTIONS = frozenset({"zones", "beds", "plantings", "features", "rotation_history", "layouts", "meta"})
 RECORD_COLLECTIONS = frozenset({"harvest_log", "journal", "seed_stock", "irrigation_log"})
 
 
@@ -184,6 +184,14 @@ class GardenRepository:
         self._baseline = current
         self.syslog_store.async_delay_save(lambda: {"entries": self.syslog}, SYSLOG_SAVE_DELAY_SECONDS)
         return entry
+
+    @callback
+    def adopt_seasons(self) -> None:
+        """First run on the per-season model: the garden becomes this season's plan."""
+        from .engine.region import season_for_date
+
+        if seasons.adopt(self.data, season_for_date(self.data.settings.region, dt_util.now().date()), self.db):
+            self.async_schedule_save()
 
     def syslog_entry(self, entry_id: str) -> dict[str, Any] | None:
         return next((e for e in self.syslog if e["id"] == entry_id), None)

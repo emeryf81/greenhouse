@@ -21,7 +21,14 @@ NOW = datetime(2026, 5, 20, 9, tzinfo=TZ)
 def planted(garden, make_planting):
     garden.plantings = [
         make_planting(
-            "apple", "bed_1", 2024, id="apple", status=PlantingStatus.TRANSPLANTED, width_cm=100, length_cm=100
+            "apple",
+            "bed_1",
+            2024,
+            id="apple",
+            status=PlantingStatus.TRANSPLANTED,
+            width_cm=100,
+            length_cm=100,
+            last_season=2026,
         ),
         make_planting("potato", "bed_1", 2026, id="pot", x_cm=100, width_cm=100, length_cm=50),
         make_planting("tomato", "bed_1", 2026, id="tom", x_cm=100, y_cm=50, width_cm=100, length_cm=50),

@@ -1,4 +1,4 @@
-"""Perennials persist across seasons until they are removed explicitly."""
+"""Perennials stay in the plan for every season they were explicitly carried into."""
 
 from __future__ import annotations
 
@@ -22,16 +22,28 @@ def test_present_in_rules():
 
     tree = Planting(id="a", plant_id="apple", bed_id="b", season=2025)
     assert not present_in(tree, True, 2024)
-    assert present_in(tree, True, 2025) and present_in(tree, True, 2030)
+    assert present_in(tree, True, 2025) and not present_in(tree, True, 2026)  # not carried yet
+    tree.last_season = 2030  # carried over at each year-end transition
+    assert present_in(tree, True, 2026) and present_in(tree, True, 2030) and not present_in(tree, True, 2031)
     tree.removed_season = 2028
     assert present_in(tree, True, 2027) and not present_in(tree, True, 2028)
-    assert not present_in(tree, False, 2026)  # annuals live one season
+    lettuce = Planting(id="s", plant_id="lettuce", bed_id="b", season=2025)
+    assert not present_in(lettuce, False, 2026)  # annuals live one season ...
+    lettuce.last_season = 2026
+    assert present_in(lettuce, False, 2026)  # ... unless carried over (overwintering)
 
 
 def test_apple_tree_carries_over_with_yearly_care(garden, db, make_planting):
     garden.plantings = [
         make_planting(
-            "apple", "bed_1", 2025, id="apple1", status=PlantingStatus.TRANSPLANTED, width_cm=100, length_cm=100
+            "apple",
+            "bed_1",
+            2025,
+            id="apple1",
+            status=PlantingStatus.TRANSPLANTED,
+            width_cm=100,
+            length_cm=100,
+            last_season=2028,
         )
     ]
     analysis, specs = specs_at(garden, db, datetime(2027, 1, 20, 9, 0, tzinfo=TZ))
@@ -51,7 +63,7 @@ def test_apple_tree_carries_over_with_yearly_care(garden, db, make_planting):
 
 
 def test_removed_perennial_stops_generating_tasks(garden, db, make_planting):
-    tree = make_planting("apple", "bed_1", 2025, id="apple1", status=PlantingStatus.TRANSPLANTED)
+    tree = make_planting("apple", "bed_1", 2025, id="apple1", status=PlantingStatus.TRANSPLANTED, last_season=2030)
     tree.removed_season = 2027
     garden.plantings = [tree]
     _, specs = specs_at(garden, db, datetime(2027, 3, 1, 9, 0, tzinfo=TZ))
@@ -62,3 +74,10 @@ def test_annual_does_not_carry_over(garden, db, make_planting):
     garden.plantings = [make_planting("lettuce", "bed_1", 2025, id="sla")]
     _, specs = specs_at(garden, db, datetime(2027, 5, 1, 9, 0, tzinfo=TZ))
     assert not [s for s in specs if s.planting_id == "sla"]
+
+
+def test_perennial_not_carried_over_gets_no_tasks(garden, db, make_planting):
+    """Nothing moves into a new year by itself: without the transition the tree is not in 2027."""
+    garden.plantings = [make_planting("apple", "bed_1", 2025, id="apple1", status=PlantingStatus.TRANSPLANTED)]
+    _, specs = specs_at(garden, db, datetime(2027, 3, 1, 9, 0, tzinfo=TZ))
+    assert not [s for s in specs if s.planting_id == "apple1"]

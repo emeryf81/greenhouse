@@ -574,24 +574,29 @@ class Planting:
     succession_group: str | None = None
     succession_index: int = 0
     notes: str = ""
-    # Perennials stay in the plan year after year until removed explicitly:
-    # the first season they are no longer there (None = still growing).
+    # Nothing carries into the next year by itself: the year-end transition
+    # extends ``last_season`` explicitly for perennials and overwintering crops
+    # (None = only its own season).
+    last_season: int | None = None
+    # Removed from the plan "from this season on" (history kept).
     removed_season: int | None = None
 
 
 def present_in(planting: Planting, perennial: bool, season: int) -> bool:
     """Is this planting part of ``season``?
 
-    Annuals belong to their own season.  Perennials (fruit trees, berries,
-    asparagus, perennial herbs ...) carry over into every later season until
-    they are removed explicitly - an apple tree in year 1 is still an apple
-    tree in year 2.
+    A planting belongs to its own season and to every later season it was
+    explicitly carried over into at a year-end transition (``last_season``) -
+    perennials included: an apple tree stays in the plan because the gardener
+    moved it into the new year, not by itself.  ``perennial`` is kept for
+    callers that still pass it.
     """
-    if not perennial:
-        return planting.season == season
-    if planting.season > season:
+    del perennial
+    if season < planting.season:
         return False
-    return planting.removed_season is None or season < planting.removed_season
+    if planting.removed_season is not None and season >= planting.removed_season:
+        return False
+    return season <= (planting.last_season if planting.last_season is not None else planting.season)
 
 
 @dataclass(slots=True)
@@ -606,6 +611,16 @@ class Feature:
     width_cm: float = 60
     length_cm: float = 200
     notes: str = ""
+
+
+@dataclass(slots=True)
+class GardenLayout:
+    """The garden plan of one season: zones, beds and elements - no plants."""
+
+    zones: list[Zone] = field(default_factory=list)
+    beds: list[GardenBed] = field(default_factory=list)
+    features: list[Feature] = field(default_factory=list)
+    saved_at: datetime | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -884,6 +899,13 @@ class GardenData:
     journal: list[JournalEntry] = field(default_factory=list)
     seed_stock: list[SeedPacket] = field(default_factory=list)
     water_log: list[WaterReading] = field(default_factory=list)
+    # Garden plans per season.  ``zones``/``beds``/``features`` above are the
+    # plan of ``layout_season`` - the garden as it is now; ``layouts`` holds the
+    # plans of other seasons (archived years, next year's draft).  A new year
+    # only gets a plan through the explicit year-end transition (or by
+    # designing it); None = not yet adopted (set on first load).
+    layout_season: int | None = None
+    layouts: dict[str, GardenLayout] = field(default_factory=dict)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:

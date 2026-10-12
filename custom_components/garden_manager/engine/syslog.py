@@ -39,8 +39,11 @@ ID_LISTS = (
 # list collections without an id: an item is identified by its full content
 CONTENT_LISTS = ("rotation_history", "irrigation_log")
 # dict collections keyed by their own keys
-MAPS = ("plant_overrides",)
+MAPS = ("plant_overrides", "layouts")
 SETTINGS = "settings"
+# top-level scalars, tracked together as one pseudo collection
+META = "meta"
+META_KEYS = ("layout_season",)
 
 MAX_ENTRIES = 500
 # Upper bound for the stored before/after payload of all entries together.
@@ -65,13 +68,14 @@ def snapshot(doc: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     for col in MAPS:
         snap[col] = copy.deepcopy(dict(doc.get(col) or {}))
     snap[SETTINGS] = copy.deepcopy(dict(doc.get(SETTINGS) or {}))
+    snap[META] = {k: doc.get(k) for k in META_KEYS if k in doc}
     return snap
 
 
 def diff(before: Mapping[str, Mapping[str, Any]], after: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Item-level changes between two snapshots, in document order."""
     changes: list[dict[str, Any]] = []
-    for col in (*ID_LISTS, *CONTENT_LISTS, *MAPS, SETTINGS):
+    for col in (*ID_LISTS, *CONTENT_LISTS, *MAPS, SETTINGS, META):
         old, new = before.get(col, {}), after.get(col, {})
         old_keys = list(old)
         for key in [*old_keys, *(k for k in new if k not in old)]:
@@ -125,6 +129,8 @@ def _current(doc: Doc, change: Mapping[str, Any]) -> tuple[bool, Any]:
     if col == SETTINGS:
         settings = doc.get(SETTINGS) or {}
         return key in settings, settings.get(key)
+    if col == META:
+        return key in doc, doc.get(key)
     if col in MAPS:
         mapping = doc.get(col) or {}
         return key in mapping, mapping.get(key)
@@ -147,6 +153,9 @@ def _write(doc: Doc, change: Mapping[str, Any]) -> None:
     value = copy.deepcopy(change["before"])
     if col == SETTINGS:
         doc.setdefault(SETTINGS, {})[key] = value
+        return
+    if col == META:
+        doc[key] = value
         return
     if col in MAPS:
         mapping = doc.setdefault(col, {})
@@ -226,8 +235,10 @@ def describe(change: Mapping[str, Any], ref: Callable[[str, str, Any], dict[str,
 
 def reference(col: str, key: str, item: Any, *, bed_names: Mapping[str, str]) -> dict[str, Any]:
     """What a change is about, in a few language-neutral fields the UI can render."""
-    if col == SETTINGS:
+    if col in (SETTINGS, META):
         return {"key": key}
+    if col == "layouts":
+        return {"season": int(key) if str(key).isdigit() else key}
     if col in MAPS:
         return {"plant_id": key}
     if not isinstance(item, dict):
