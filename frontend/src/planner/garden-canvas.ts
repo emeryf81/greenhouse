@@ -150,6 +150,8 @@ export class GardenCanvas extends LitElement {
   @property({ type: Boolean }) showTemperature = false;
   @property() viewDate = "";
   @property({ type: Boolean }) readonly = false;
+  /** Planting mode: zones, beds and elements can be selected but not moved or resized. */
+  @property({ type: Boolean }) lockLayout = false;
   /** Zone being edited in "zone map" mode (others are dimmed and locked). */
   @property() focusZone = "";
   /** While set, dragging on the canvas draws a new rectangle (zone, bed, element). */
@@ -302,7 +304,7 @@ export class GardenCanvas extends LitElement {
       }
       if (additive) return;
       const origin = this.rectOf(kind, id);
-      if (!origin || this.readonly) {
+      if (!origin || this.readonly || (this.lockLayout && kind !== "planting")) {
         this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
           startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false };
         return;
@@ -800,7 +802,7 @@ export class GardenCanvas extends LitElement {
     const pad = 3 / this.k;
     return svg`
       <rect class="selected-outline" x=${r.x - pad} y=${r.y - pad} width=${r.w + pad * 2} height=${r.h + pad * 2}></rect>
-      ${this.readonly ? nothing : svg`<rect class="handle" x=${r.x + r.w - hs / 2} y=${r.y + r.h - hs / 2} width=${hs} height=${hs} rx=${2 / this.k}
+      ${this.readonly || (this.lockLayout && sel.kind !== "planting") ? nothing : svg`<rect class="handle" x=${r.x + r.w - hs / 2} y=${r.y + r.h - hs / 2} width=${hs} height=${hs} rx=${2 / this.k}
         @pointerdown=${(e: PointerEvent) => this.onPointerDown(e, sel.kind, sel.id, true)}></rect>`}`;
   }
 

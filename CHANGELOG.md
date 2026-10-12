@@ -3,6 +3,19 @@
 ## Unreleased
 
 ### Added
+- **Garden plan per year** (new tab *Garden plan*): shape the garden without plants – zones
+  (open ground, greenhouse, cold frame, planters & pots, orchard …), beds and elements
+  (driveway, house, water butt, hedge, lawn, shed, paths – also inside the greenhouse). The
+  plan is saved for one season; the *Planner* now only plants, on that season's plan (zones,
+  beds and elements are locked there). A season without a plan offers to copy another year's
+  or start empty.
+- **Year-end transition** (button in Garden plan and Planner, and an advice card once the new
+  year has started): **nothing carries into a new year by itself** – not the plan, not
+  perennials. Choose which zones and elements go along (or keep the plan already designed for
+  next year), which perennials and which overwintering crops (garlic, winter leeks …) move
+  over, and whether the new year becomes the active garden right away. The old year's plan is
+  archived; everything is in the system log and can be undone. Websocket `year/preview`,
+  `year/apply`, `layout/delete`; `plan/save` takes a `season`.
 - **System log** (Journal tab → *System log*): every change to the garden – from the panel,
   actions/automations, and what Hortulus adjusts itself (generated tasks, clean-up) – with
   time, who and what. **Every entry can be undone**; an item that was changed again since is
@@ -26,6 +39,12 @@
   stickers, so they work offline; on top of that the browser shows a **photo from
   Wikipedia**, looked up by scientific name, with a credit link (Settings → *Display*, per
   browser, on by default; cached for 30 days).
+
+### Changed
+- **Perennials no longer stay in the plan automatically**: a planting belongs to its own season
+  and to the seasons it was moved into at a year-end transition (`last_season`). On upgrade,
+  perennials growing now are kept for the current season once. Storage version 1.6.
+- Printouts use the garden plan of the chosen season.
 
 ### Fixed
 - Beds in orchards, herb, flower and the new garden zones now use the outdoor sensors (only

@@ -185,8 +185,10 @@ export class AdviceView extends LitElement {
       } catch (err) {
         this.toast((err as Error).message ?? String(err));
       }
+    } else if (a.type === "year_transition") {
+      this.dispatchEvent(new CustomEvent("year-transition", { detail: a.from_season, bubbles: true, composed: true }));
     } else {
-      this.dispatchEvent(new CustomEvent("navigate", { detail: "planner", bubbles: true, composed: true }));
+      this.dispatchEvent(new CustomEvent("navigate", { detail: a.type === "draw" ? "layout" : "planner", bubbles: true, composed: true }));
     }
   }
 
@@ -290,7 +292,7 @@ export class AdviceView extends LitElement {
         ${s.plants.length ? html`<div class="row chips">${s.plants.slice(0, 5).map((p) => this.plantChip(p))}</div>` : nothing}
         <div class="row wrap">
           ${s.action && this.admin ? html`<button class="btn small primary" @click=${() => this.apply(s)}>
-            ${this.t(s.action.type === "add_planting" ? "advice.apply_add" : "advice.apply_open")}</button>` : nothing}
+            ${this.t(s.action.type === "add_planting" ? "advice.apply_add" : s.action.type === "year_transition" ? "advice.apply_transition" : "advice.apply_open")}</button>` : nothing}
           ${s.handbook ? html`<button class="btn small ghost" @click=${() => this.openChapter(s.handbook!)}>${this.t("advice.read_more")}</button>` : nothing}
           <button class="btn small ghost" @click=${() => (this.dismissed = new Set([...this.dismissed, s.id]))}>${this.t("advice.dismiss")}</button>
         </div></article>`)

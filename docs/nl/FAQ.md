@@ -136,3 +136,9 @@ Ja. In **Logboek → Systeemlogboek** staat elke wijziging: wat jij of een huisg
 ## Waar komen de plantfoto's vandaan?
 
 Elke plant, elk advies en elk handboekhoofdstuk heeft een tekening die Hortulus zelf maakt (werkt ook zonder internet). Daarbovenop toont je browser een foto van Wikipedia, gezocht op de Latijnse naam, met een link naar de bron. Je browser vraagt die rechtstreeks op bij Wikipedia; Home Assistant zelf maakt geen verbinding. Wil je dat niet, zet het dan uit onder **Instellingen → Weergave** (per browser).
+
+## Hoe werkt het tuinplan per jaar en de jaarovergang?
+
+In **Tuinplan** geef je de tuin vorm, zonder planten: zones (volle grond, serre, koude bak, bloembakken & potten, boomgaard …), bedden en elementen zoals oprit, huis, watervat, haag, gras, tuinhuis of een pad in de serre. Dat plan geldt voor één seizoen. In de **Planner** beplant je dat seizoen op zijn tuinplan; zones en bedden liggen daar vast.
+
+Niets gaat vanzelf naar een nieuw jaar, ook vaste planten niet. Op het einde van het jaar open je de **Jaarovergang** (knop in Tuinplan en Planner; in januari herinnert Advies je eraan). Daar kies je welke zones en elementen meegaan (of je gebruikt het plan dat je al voor volgend jaar tekende), welke vaste planten en welke overwinterende gewassen (knoflook, winterprei …) je overzet, en of het nieuwe jaar meteen je actieve tuin wordt. Het oude plan wordt gearchiveerd; alles staat in het systeemlogboek en kan je terugdraaien.

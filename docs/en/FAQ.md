@@ -183,3 +183,9 @@ Yes. **Journal → System log** lists every change: what you or someone in your 
 ## Where do the plant photos come from?
 
 Every plant, suggestion and handbook chapter has an illustration drawn by Hortulus itself (works offline). On top of that your browser shows a photo from Wikipedia, looked up by scientific name, with a link to the source. Your browser fetches it directly from Wikipedia; Home Assistant itself makes no connection. To switch it off, use **Settings → Display** (per browser).
+
+## How do the garden plan per year and the year-end transition work?
+
+In **Garden plan** you shape the garden without plants: zones (open ground, greenhouse, cold frame, planters & pots, orchard …), beds and elements such as driveway, house, water butt, hedge, lawn, shed or a path in the greenhouse. That plan holds for one season. In the **Planner** you plant that season on its plan; zones and beds are fixed there.
+
+Nothing moves into a new year by itself, perennials included. At the end of the year open the **Year-end transition** (button in Garden plan and Planner; in January Advice reminds you). Choose which zones and elements go along (or use the plan you already drew for next year), which perennials and overwintering crops (garlic, winter leeks …) move over, and whether the new year becomes your active garden right away. The old plan is archived; everything is in the system log and can be undone.

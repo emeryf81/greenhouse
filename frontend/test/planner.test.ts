@@ -44,13 +44,27 @@ test("markdown helpers", () => {
   assert.equal(parts.length, 6);
 });
 
-import { presentIn, ZONE_CATEGORIES } from "../src/util/garden";
+import { layoutOf, presentIn, ZONE_CATEGORIES } from "../src/util/garden";
 
-test("perennials carry over until removed, annuals stay in their season", () => {
-  const p = { season: 2024, removed_season: null } as unknown as Parameters<typeof presentIn>[0];
+test("nothing carries over by itself: only seasons a planting was moved into", () => {
+  const p = { season: 2024, removed_season: null, last_season: null } as unknown as Parameters<typeof presentIn>[0];
   assert.equal(presentIn(p, true, 2023), false);
-  assert.equal(presentIn(p, true, 2027), true);
-  assert.equal(presentIn({ ...p, removed_season: 2026 }, true, 2026), false);
+  assert.equal(presentIn(p, true, 2024), true);
+  assert.equal(presentIn(p, true, 2025), false); // perennial not moved over yet
+  const carried = { ...p, last_season: 2027 };
+  assert.equal(presentIn(carried, true, 2027), true);
+  assert.equal(presentIn(carried, true, 2028), false);
+  assert.equal(presentIn({ ...carried, removed_season: 2026 }, true, 2026), false);
   assert.equal(presentIn(p, false, 2025), false);
   assert.deepEqual(ZONE_CATEGORIES.orchard, ["fruit"]);
+});
+
+test("garden plan of a season: live, stored or none", () => {
+  const snap = {
+    zones: [{ id: "z" }], beds: [], features: [], layout_season: 2026,
+    layouts: { "2027": { zones: [{ id: "z27" }], beds: [], features: [] } },
+  } as unknown as Parameters<typeof layoutOf>[0];
+  assert.equal(layoutOf(snap, 2026)?.zones[0].id, "z");
+  assert.equal(layoutOf(snap, 2027)?.zones[0].id, "z27");
+  assert.equal(layoutOf(snap, 2028), null);
 });

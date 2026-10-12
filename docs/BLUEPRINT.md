@@ -450,8 +450,11 @@ class Planting:
     succession_group: str | None = None
     succession_index: int = 0
     notes: str = ""
-    # Perennials stay in the plan year after year until removed explicitly:
-    # the first season they are no longer there (None = still growing).
+    # Nothing carries into the next year by itself: the year-end transition
+    # extends ``last_season`` explicitly for perennials and overwintering crops
+    # (None = only its own season).
+    last_season: int | None = None
+    # Removed from the plan "from this season on" (history kept).
     removed_season: int | None = None
 ```
 
@@ -593,6 +596,13 @@ class GardenData:
     journal: list[JournalEntry] = field(default_factory=list)
     seed_stock: list[SeedPacket] = field(default_factory=list)
     water_log: list[WaterReading] = field(default_factory=list)
+    # Garden plans per season.  ``zones``/``beds``/``features`` above are the
+    # plan of ``layout_season`` - the garden as it is now; ``layouts`` holds the
+    # plans of other seasons (archived years, next year's draft).  A new year
+    # only gets a plan through the explicit year-end transition (or by
+    # designing it); None = not yet adopted (set on first load).
+    layout_season: int | None = None
+    layouts: dict[str, GardenLayout] = field(default_factory=dict)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:
@@ -693,6 +703,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
         )
         await repo.async_flush()
 
+    repo.adopt_seasons()
     coordinator = GardenCoordinator(hass, entry, repo)
     notifier = GardenNotifier(hass, repo)
     irrigation = IrrigationController(hass, coordinator)
@@ -1552,7 +1563,7 @@ private async save(): Promise<void> {
   const doc = this.draft;
   this.saveState = "saving";
   try {
-    const res = await this.api.savePlan(doc, this.baseRevision);
+    const res = await this.api.savePlan(doc, this.baseRevision, this.season);
     this.baseRevision = res.revision;
     this.saveState = this.draft === doc ? "saved" : "dirty";
     if (this.saveState === "dirty") this.scheduleSave();
@@ -1568,6 +1579,30 @@ private async save(): Promise<void> {
       this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
     }
   }
+}
+
+/** Switch the season shown: finish saving first, then load that season's garden plan. */
+private async setSeason(season: number): Promise<void> {
+  window.clearTimeout(this.saveTimer);
+  if (this.saveState === "dirty") await this.save();
+  this.seasonChosen = true;
+  this.season = season;
+  this.dispatchEvent(new CustomEvent("season-changed", { detail: season, bubbles: true, composed: true }));
+  this.selection = null;
+  this.multi = [];
+  this.focusZone = "";
+  this.syncFromSnapshot(true);
+  if (this.mode === "layout") this.step = this.draft.zones.length ? this.step : "site";
+  requestAnimationFrame(() => this.canvas?.fit());
+}
+
+/** Start this season's garden plan as a copy of another season's (or empty). */
+private startLayout(from: number | null): void {
+  const src = from == null ? null : layoutOf(this.snapshot, from);
+  const doc: PlanDoc = { ...clone(this.draft), zones: clone(src?.zones ?? []), beds: clone(src?.beds ?? []), features: clone(src?.features ?? []) };
+  this.commit(doc, this.t("layout.started", { season: this.season }));
+  this.step = doc.zones.length ? "zones" : "site";
+  requestAnimationFrame(() => this.canvas?.fit());
 }
 ```
 

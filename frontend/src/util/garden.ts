@@ -1,5 +1,5 @@
 // Small pure helpers shared by the views (no Lit imports - unit testable).
-import type { FamilyInfo, Plant, Planting, Task, TaskType, Window } from "../types";
+import type { FamilyInfo, GardenLayout, Plant, Planting, Snapshot, Task, TaskType, Window } from "../types";
 
 export const FAMILY_FALLBACK = "#7d7d7d";
 
@@ -143,10 +143,23 @@ export function download(filename: string, content: string, mime: string): void 
 }
 
 /** Perennials stay in the ground from their planting season until removed explicitly. */
-export function presentIn(p: Planting, perennial: boolean, season: number): boolean {
-  if (!perennial) return p.season === season;
-  if (p.season > season) return false;
-  return p.removed_season == null || season < p.removed_season;
+/**
+ * Is a planting part of ``season``?  Its own season plus every later season it was
+ * explicitly carried into at a year-end transition (``last_season``) - perennials
+ * included; nothing carries over by itself.  ``perennial`` is kept for callers.
+ */
+export function presentIn(p: Planting, _perennial: boolean, season: number): boolean {
+  if (season < p.season) return false;
+  if (p.removed_season != null && season >= p.removed_season) return false;
+  return season <= (p.last_season ?? p.season);
+}
+
+/** The garden plan of a season: the live one, a stored one, or null when that year has none yet. */
+export function layoutOf(snap: Snapshot, season: number): GardenLayout | null {
+  if (snap.layout_season == null || season === snap.layout_season) {
+    return { zones: snap.zones, beds: snap.beds, features: snap.features ?? [] };
+  }
+  return snap.layouts?.[String(season)] ?? null;
 }
 
 /** Which plant categories belong in a zone type (palette filter, autofill). */

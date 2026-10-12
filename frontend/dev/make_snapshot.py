@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from custom_components.garden_manager.engine import handbook  # noqa: E402
+from custom_components.garden_manager.engine import handbook, seasons  # noqa: E402
 from custom_components.garden_manager.engine.advisor import advise, harvest_coverage  # noqa: E402
 from custom_components.garden_manager.engine.analysis import analyze  # noqa: E402
 from custom_components.garden_manager.engine.autoplan import AutoplanOptions, autoplan  # noqa: E402
@@ -272,6 +272,7 @@ def build(lang: str) -> dict:
         "sensor.soil_temp_bed_1": SensorReading("sensor.soil_temp_bed_1", 13.4, NOW),
         "sensor.greenhouse_temp": SensorReading("sensor.greenhouse_temp", 29.5, NOW),
     }
+    seasons.adopt(data, NOW.year, db)
     analysis = analyze(data, db, weather, readings, now=NOW, tz=TZ, latitude=52.1, lang=lang)
     data.tasks = merge_tasks(
         [], generate_specs(analysis.task_context(data, db)), today=analysis.today, now=NOW, lang=lang
@@ -288,6 +289,9 @@ def build(lang: str) -> dict:
         "tasks": [to_dict(t) for t in data.tasks],
         "rotation_history": [],
         "features": [to_dict(f) for f in data.features],
+        "layout_season": data.layout_season,
+        "layouts": {k: to_dict(v) for k, v in data.layouts.items()},
+        "transition_due": None,
         "irrigation_log": [to_dict(e) for e in data.irrigation_log],
         "harvest_log": [to_dict(e) for e in data.harvest_log],
         "journal": [to_dict(e) for e in data.journal],
@@ -313,6 +317,7 @@ def build(lang: str) -> dict:
         frost_by_zone={k: z.frost for k, z in analysis.zones.items()}, outdoor_frost=analysis.frost, outdoor_temp=14.0, force=True,
     )  # fmt: skip
     extras = {
+        "year_preview": seasons.preview(data, db, NOW.year, season_end=date(NOW.year, 12, 31)).to_dict(),
         "handbook_index": {"chapters": [c.meta() for c in chapters], "glossary": handbook.glossary(lang)},
         "handbook_chapters": {c.id: {**c.meta(), "body": c.body} for c in chapters},
         "print_pages": render_svg(

@@ -126,6 +126,8 @@ export interface Planting {
   succession_index: number;
   notes: string;
   /** Perennials: first season it is no longer in the ground (explicit removal). */
+  /** Last season this planting is in the plan (carried over at the year-end transition); null = only its own season. */
+  last_season?: number | null;
   removed_season?: number | null;
 }
 
@@ -556,6 +558,12 @@ export interface Snapshot {
   plantings: Planting[];
   tasks: Task[];
   features?: Feature[];
+  /** Season of the live garden plan (zones/beds/features above). */
+  layout_season?: number | null;
+  /** Garden plans of other seasons (archived years, next year's draft). */
+  layouts?: Record<string, GardenLayout>;
+  /** Season still waiting for its year-end transition, if the calendar moved on. */
+  transition_due?: number | null;
   harvest_log?: HarvestEntry[];
   journal?: JournalEntry[];
   seed_stock?: SeedPacket[];
@@ -574,6 +582,23 @@ export interface Snapshot {
 }
 
 export interface PlanDoc { zones: Zone[]; beds: Bed[]; plantings: Planting[]; features: Feature[] }
+
+export interface GardenLayout { zones: Zone[]; beds: Bed[]; features: Feature[]; saved_at?: ISODateTime | null }
+
+export interface CarryCandidate { planting_id: string; plant_id: string; bed_id: string; reason: "perennial" | "overwinter"; selected: boolean }
+
+export interface TransitionPreview {
+  from_season: number;
+  to_season: number;
+  zones: Zone[];
+  features: Feature[];
+  beds: Bed[];
+  target_exists: boolean;
+  is_live: boolean;
+  candidates: CarryCandidate[];
+}
+
+export interface TransitionResult { season: number; carried: string[]; skipped: string[]; activated: boolean; revision: number }
 
 // Minimal subset of the Home Assistant frontend `hass` object we use.
 export interface HassEntity {
@@ -608,7 +633,7 @@ export interface Suggestion {
   zone_id: string | null;
   bed_id: string | null;
   planting_id: string | null;
-  action: { type: string; plant_id?: string; bed_id?: string; planting_id?: string; feature?: string } | null;
+  action: { type: string; plant_id?: string; bed_id?: string; planting_id?: string; feature?: string; from_season?: number } | null;
   handbook: string | null;
 }
 export interface AdviceResult { suggestions: Suggestion[]; coverage: { months: string[][]; gaps: number[] } }
