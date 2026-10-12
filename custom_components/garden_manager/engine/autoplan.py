@@ -480,6 +480,8 @@ def autoplan(
                 if bed.id in occupied:
                     result.warnings.append({"key": "autoplan.bed_not_empty", "params": {"bed": bed.name}})
             beds = [b for b in beds if b.id not in occupied]
+    elif options.replace:
+        beds = list(data.beds)
     else:
         beds = [b for b in data.beds if b.id not in occupied]
     result.beds = [b.id for b in beds]

@@ -19,17 +19,22 @@ from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
 from .const import DOMAIN
+from .engine import handbook
+from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
-from .engine.models import GardenBed, Planting
+from .engine.i18n import t
+from .engine.models import GardenBed, GardenResources, Planting
 from .engine.planio import PlanImportError, export_plan, import_plan
 from .engine.plantdb import FAMILIES
-from .engine.region import season_anchors, season_for_date
+from .engine.printout import PrintOptions
+from .engine.region import resolve_profile, season_anchors, season_for_date
 from .engine.schedule import plant_windows, planting_timeline
 from .engine.serde import from_dict, to_dict
 from .engine.succession import expand_succession
 from .operations import (
     RevisionConflict,
     op_add_task,
+    op_apply_autoplan,
     op_complete_task,
     op_delete_plant,
     op_delete_task,
@@ -39,6 +44,7 @@ from .operations import (
     op_save_settings,
     op_update_task,
 )
+from .printing import async_render_svg
 
 if TYPE_CHECKING:
     from . import GardenRuntime
@@ -62,6 +68,15 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_task_add,
         ws_task_action,
         ws_settings_save,
+        ws_autofill,
+        ws_autofill_apply,
+        ws_print_render,
+        ws_handbook_index,
+        ws_handbook_chapter,
+        ws_handbook_search,
+        ws_irrigation_plan,
+        ws_irrigation_run,
+        ws_irrigation_stop,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -96,6 +111,14 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
         "plantings": [to_dict(p) for p in data.plantings],
         "tasks": [to_dict(t) for t in tasks],
         "rotation_history": [to_dict(r) for r in data.rotation_history],
+        "features": [to_dict(f) for f in data.features],
+        "irrigation_log": [to_dict(e) for e in data.irrigation_log[-50:]],
+        "irrigation_status": {
+            "running": runtime.irrigation.running,
+            "bed_id": runtime.irrigation.status.bed_id,
+            "ends_at": runtime.irrigation.status.ends_at.isoformat() if runtime.irrigation.status.ends_at else None,
+            "last_error": runtime.irrigation.status.last_error,
+        },
         "analysis": coordinator.data.to_dict() if coordinator.data else None,
         "weather": {
             "available": weather.available,
@@ -223,6 +246,7 @@ def ws_plant_windows(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         vol.Required("zones"): list,
         vol.Required("beds"): list,
         vol.Required("plantings"): list,
+        vol.Optional("features"): list,
     }
 )
 @websocket_api.require_admin
@@ -239,6 +263,7 @@ def ws_plan_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection
             zones=msg["zones"],
             beds=msg["beds"],
             plantings=msg["plantings"],
+            features=msg.get("features"),
         )
     except RevisionConflict as err:
         connection.send_error(msg["id"], "revision_conflict", str(err))
@@ -285,6 +310,7 @@ def ws_plan_check(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         timelines={k: v.occupancy for k, v in timelines.items()},
         radius_cm=data.settings.companion_radius_cm,
         lang=lang,
+        hemisphere=resolve_profile(data.settings.region).hemisphere,
     )
     others = [p for p in data.plantings if p.id not in {d.id for d in plantings}]
     history = rotation_history(data.rotation_history, others, db)
@@ -498,3 +524,193 @@ def ws_settings_save(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         connection.send_error(msg["id"], "invalid_settings", str(err))
         return
     connection.send_result(msg["id"], {"settings": to_dict(settings)})
+
+
+# --------------------------------------------------------------------------- #
+# Autofill
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/autofill",
+        vol.Optional("season"): int,
+        vol.Optional("bed_ids"): [str],
+        vol.Optional("replace", default=False): bool,
+        vol.Optional("resources"): dict,
+        vol.Optional("max_crops", default=16): vol.All(int, vol.Range(min=1, max=60)),
+        vol.Optional("remember", default=True): bool,
+    }
+)
+@websocket_api.async_response
+async def ws_autofill(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Propose a plan; nothing is stored except (optionally) the resources."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    resources = data.settings.resources
+    if msg.get("resources"):
+        try:
+            resources = from_dict(GardenResources, {**to_dict(resources), **msg["resources"]})
+        except (TypeError, ValueError, KeyError) as err:
+            connection.send_error(msg["id"], "invalid_format", str(err))
+            return
+        if msg["remember"] and connection.user.is_admin:
+            op_save_settings(runtime, {"resources": to_dict(resources)})
+    today = dt_util.now().date()
+    season = msg.get("season") or season_for_date(data.settings.region, today)
+    opts = AutoplanOptions(
+        season=season,
+        bed_ids=msg.get("bed_ids"),
+        replace=msg["replace"],
+        max_crops=msg["max_crops"],
+        lang=runtime.coordinator.lang,
+    )
+    result = await hass.async_add_executor_job(
+        lambda: autoplan(data, runtime.repo.db, opts, today=today, resources=resources)
+    )
+    connection.send_result(msg["id"], {**result.to_dict(), "season": season, "revision": data.revision})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/autofill/apply",
+        vol.Optional("base_revision"): vol.Any(int, None),
+        vol.Required("plantings"): list,
+        vol.Optional("replace_beds", default=[]): [str],
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_autofill_apply(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    try:
+        revision = op_apply_autoplan(
+            runtime,
+            base_revision=msg.get("base_revision"),
+            plantings=msg["plantings"],
+            replace_beds=msg["replace_beds"],
+        )
+    except RevisionConflict as err:
+        connection.send_error(msg["id"], "revision_conflict", str(err))
+        return
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "invalid_plan", str(err))
+        return
+    connection.send_result(msg["id"], {"revision": revision})
+
+
+# --------------------------------------------------------------------------- #
+# Print preview (the PDF itself comes from the authenticated HTTP view)
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/print/render", vol.Required("options"): dict})
+@websocket_api.async_response
+async def ws_print_render(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    try:
+        opts = PrintOptions.from_dict({"lang": runtime.coordinator.lang, **msg["options"]})
+    except (ValueError, TypeError) as err:
+        connection.send_error(msg["id"], "invalid_format", str(err))
+        return
+    pages = await async_render_svg(hass, runtime, opts)
+    connection.send_result(msg["id"], {"pages": pages})
+
+
+# --------------------------------------------------------------------------- #
+# Handbook
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/handbook/index", vol.Optional("lang"): str})
+@websocket_api.async_response
+async def ws_handbook_index(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    runtime = _runtime(hass)
+    lang = msg.get("lang") or (runtime.coordinator.lang if runtime else "en")
+    chapters = await hass.async_add_executor_job(handbook.chapters, lang)
+    glossary = await hass.async_add_executor_job(handbook.glossary, lang)
+    connection.send_result(msg["id"], {"chapters": [c.meta() for c in chapters], "glossary": glossary})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/handbook/chapter", vol.Required("chapter_id"): str, vol.Optional("lang"): str}
+)
+@websocket_api.async_response
+async def ws_handbook_chapter(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    runtime = _runtime(hass)
+    lang = msg.get("lang") or (runtime.coordinator.lang if runtime else "en")
+    chapter = await hass.async_add_executor_job(handbook.chapter, msg["chapter_id"], lang)
+    if chapter is None:
+        connection.send_error(msg["id"], "not_found", f"no chapter {msg['chapter_id']}")
+        return
+    connection.send_result(msg["id"], {**chapter.meta(), "body": chapter.body})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/handbook/search", vol.Required("query"): str, vol.Optional("lang"): str}
+)
+@websocket_api.async_response
+async def ws_handbook_search(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    runtime = _runtime(hass)
+    lang = msg.get("lang") or (runtime.coordinator.lang if runtime else "en")
+    hits = await hass.async_add_executor_job(handbook.search, msg["query"], lang)
+    connection.send_result(msg["id"], {"results": hits})
+
+
+# --------------------------------------------------------------------------- #
+# Irrigation
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/plan"})
+@callback
+def ws_irrigation_plan(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    plan = runtime.irrigation.build_plan(force=True)
+    lang = runtime.coordinator.lang
+    connection.send_result(
+        msg["id"],
+        {
+            **plan.to_dict(),
+            "reasons": {k: t(key, lang, **params) for k, (key, params) in plan.skipped.items()},
+            "running": runtime.irrigation.running,
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/irrigation/run",
+        vol.Optional("bed_ids"): [str],
+        vol.Optional("amount_mm"): vol.Coerce(float),
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_irrigation_run(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    bed_ids = set(msg["bed_ids"]) if msg.get("bed_ids") else None
+    plan = runtime.irrigation.build_plan(force=True, bed_ids=bed_ids, override_mm=msg.get("amount_mm"))
+    started = runtime.irrigation.async_start(plan, source="manual")
+    connection.send_result(msg["id"], {"started": started, **plan.to_dict()})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/stop"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_irrigation_stop(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    await runtime.irrigation.async_stop()
+    connection.send_result(msg["id"])

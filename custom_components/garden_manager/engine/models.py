@@ -437,6 +437,8 @@ class Zone:
     shade_entity: str | None = None
     # off = ignore, advise = tasks only, auto = drive vent/shade entities
     climate_control: Literal["off", "advise", "auto"] = "advise"
+    # Shade screen override for enclosed zones: auto follows the advice.
+    shading_mode: Literal["auto", "on", "off"] = "auto"
 
     @property
     def is_enclosed(self) -> bool:

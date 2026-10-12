@@ -15,7 +15,10 @@ PLATFORMS: Final = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.CALENDAR,
+    Platform.NUMBER,
+    Platform.SELECT,
     Platform.SENSOR,
+    Platform.SWITCH,
     Platform.TODO,
 ]
 
@@ -78,6 +81,8 @@ EVENT_FROST_WARNING: Final = f"{DOMAIN}_frost_warning"
 EVENT_HEAT_WARNING: Final = f"{DOMAIN}_heat_warning"
 EVENT_PLAN_UPDATED: Final = f"{DOMAIN}_plan_updated"
 EVENT_IRRIGATION_RECOMMENDED: Final = f"{DOMAIN}_irrigation_recommended"
+EVENT_IRRIGATION_RUN: Final = f"{DOMAIN}_irrigation_run"
+EVENT_DISEASE_WARNING: Final = f"{DOMAIN}_disease_warning"
 
 # Dispatcher signal: beds/zones added or removed -> platforms add entities
 SIGNAL_LAYOUT_CHANGED: Final = f"{DOMAIN}_layout_changed"
@@ -91,3 +96,15 @@ SERVICE_GENERATE_TASKS: Final = "generate_tasks"
 SERVICE_RECALCULATE_PLAN: Final = "recalculate_plan"
 SERVICE_EXPORT_PLAN: Final = "export_plan"
 SERVICE_IMPORT_PLAN: Final = "import_plan"
+SERVICE_ADD_PLANTING: Final = "add_planting"
+SERVICE_UPDATE_PLANTING: Final = "update_planting"
+SERVICE_REMOVE_PLANTING: Final = "remove_planting"
+SERVICE_RUN_IRRIGATION: Final = "run_irrigation_plan"
+SERVICE_STOP_IRRIGATION: Final = "stop_irrigation"
+SERVICE_SET_SHADING: Final = "set_shading_mode"
+SERVICE_AUTOFILL: Final = "autofill_plan"
+SERVICE_EXPORT_PDF: Final = "export_pdf"
+
+# Printouts written by ``export_pdf`` (served via /local/hortulus/...)
+PRINT_DIR: Final = "www/hortulus"
+PRINT_URL: Final = f"/api/{DOMAIN}/print"

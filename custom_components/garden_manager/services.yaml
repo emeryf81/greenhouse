@@ -33,6 +33,17 @@ add_task:
             - ventilate
             - shade
             - frost_protect
+            - soil_prep
+            - compost
+            - green_manure
+            - mulch
+            - clean_greenhouse
+            - winter_prep
+            - plan_season
+            - tool_care
+            - soil_test
+            - cut_back
+            - divide
     description:
       selector:
         text:
@@ -147,3 +158,260 @@ import_plan:
           options:
             - merge
             - replace
+
+add_planting:
+  fields:
+    plant_id:
+      required: true
+      example: tomato
+      selector:
+        text:
+    bed:
+      required: true
+      example: "Bed 1"
+      selector:
+        text:
+    season:
+      example: 2026
+      selector:
+        number:
+          min: 2000
+          max: 2200
+          mode: box
+    layout:
+      selector:
+        select:
+          options: [single, row, block]
+    x_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    y_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    width_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    length_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    count:
+      selector:
+        number: {min: 1, max: 10000, mode: box}
+    method:
+      selector:
+        select:
+          options: [indoor_sow, direct_sow, transplant]
+    status:
+      selector:
+        select:
+          options: [planned, sown_indoors, sown, transplanted, harvesting, finished, failed]
+    sow_date:
+      selector:
+        date:
+    transplant_date:
+      selector:
+        date:
+    sown_on:
+      selector:
+        date:
+    transplanted_on:
+      selector:
+        date:
+    notes:
+      selector:
+        text:
+          multiline: true
+
+update_planting:
+  fields:
+    planting_id:
+      required: true
+      selector:
+        text:
+    plant_id:
+      selector:
+        text:
+    bed:
+      selector:
+        text:
+    season:
+      example: 2026
+      selector:
+        number:
+          min: 2000
+          max: 2200
+          mode: box
+    layout:
+      selector:
+        select:
+          options: [single, row, block]
+    x_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    y_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    width_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    length_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    count:
+      selector:
+        number: {min: 1, max: 10000, mode: box}
+    method:
+      selector:
+        select:
+          options: [indoor_sow, direct_sow, transplant]
+    status:
+      selector:
+        select:
+          options: [planned, sown_indoors, sown, transplanted, harvesting, finished, failed]
+    sow_date:
+      selector:
+        date:
+    transplant_date:
+      selector:
+        date:
+    sown_on:
+      selector:
+        date:
+    transplanted_on:
+      selector:
+        date:
+    notes:
+      selector:
+        text:
+          multiline: true
+
+remove_planting:
+  fields:
+    planting_id:
+      required: true
+      selector:
+        text:
+
+run_irrigation_plan:
+  fields:
+    dry_run:
+      default: false
+      selector:
+        boolean:
+    beds:
+      example: "Bed 1"
+      selector:
+        text:
+          multiple: true
+    amount_mm:
+      selector:
+        number: {min: 0.5, max: 50, step: 0.5, unit_of_measurement: mm}
+
+stop_irrigation:
+
+set_shading_mode:
+  fields:
+    zone:
+      required: true
+      example: "Greenhouse"
+      selector:
+        text:
+    mode:
+      required: true
+      selector:
+        select:
+          options: [auto, "on", "off"]
+
+autofill_plan:
+  fields:
+    season:
+      selector:
+        number: {min: 2000, max: 2200, mode: box}
+    beds:
+      selector:
+        text:
+          multiple: true
+    replace:
+      default: false
+      selector:
+        boolean:
+    apply:
+      default: false
+      selector:
+        boolean:
+    household_size:
+      selector:
+        number: {min: 1, max: 20, mode: box}
+    hours_per_week:
+      selector:
+        number: {min: 0, max: 80, step: 0.5, unit_of_measurement: h}
+    water_liters_per_week:
+      selector:
+        number: {min: 0, max: 100000, mode: box, unit_of_measurement: L}
+    compost_kg:
+      selector:
+        number: {min: 0, max: 100000, mode: box, unit_of_measurement: kg}
+    goals:
+      selector:
+        select:
+          multiple: true
+          options: [fresh, storage, herbs, pollinators, winter, perennials, easy]
+    wanted:
+      selector:
+        text:
+          multiple: true
+    excluded:
+      selector:
+        text:
+          multiple: true
+    max_crops:
+      default: 16
+      selector:
+        number: {min: 1, max: 60, mode: box}
+
+export_pdf:
+  fields:
+    document:
+      default: garden
+      selector:
+        select:
+          options: [garden, zone, beds, tasks, season, blank, plants]
+    page:
+      default: a4
+      selector:
+        select:
+          options: [a4, a3, a5, letter, remarkable]
+    landscape:
+      default: false
+      selector:
+        boolean:
+    color_mode:
+      default: color
+      selector:
+        select:
+          options: [color, eink, grayscale]
+    season:
+      selector:
+        number: {min: 2000, max: 2200, mode: box}
+    zone_id:
+      selector:
+        text:
+    bed_ids:
+      selector:
+        text:
+          multiple: true
+    days:
+      default: 28
+      selector:
+        number: {min: 1, max: 120}
+    notes:
+      default: true
+      selector:
+        boolean:
+    grid:
+      default: true
+      selector:
+        boolean:
+    title:
+      selector:
+        text:

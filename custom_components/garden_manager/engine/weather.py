@@ -59,6 +59,8 @@ def parse_forecast(raw: Iterable[Mapping[str, Any]]) -> list[ForecastPoint]:
                 wind_speed=_f(item.get("wind_speed")),
                 cloud_coverage=_f(item.get("cloud_coverage")),
                 condition=item.get("condition"),
+                dew_point=_f(item.get("dew_point")),
+                shortwave_radiation=_f(item.get("shortwave_radiation")),
             )
         )
     points.sort(key=lambda p: p.at)
@@ -677,3 +679,22 @@ def record_climate(
     if rain_mm is not None and rain_mm != entry.rain_mm:
         entry.rain_mm, changed = rain_mm, True
     return changed
+
+
+def merge_forecasts(primary: list[ForecastPoint], extra: list[ForecastPoint]) -> list[ForecastPoint]:
+    """Fill gaps in ``primary`` from ``extra`` (matched to the nearest hour).
+
+    Used to enrich a weather entity without humidity / wind / radiation with
+    Open-Meteo data.  When ``primary`` is empty, ``extra`` is used as is.
+    """
+    if not primary:
+        return list(extra)
+    by_hour = {p.at.replace(minute=0, second=0, microsecond=0).timestamp(): p for p in extra}
+    for point in primary:
+        other = by_hour.get(point.at.replace(minute=0, second=0, microsecond=0).timestamp())
+        if other is None:
+            continue
+        for attr in ("humidity", "wind_speed", "cloud_coverage", "dew_point", "shortwave_radiation", "precipitation"):
+            if getattr(point, attr) is None and getattr(other, attr) is not None:
+                setattr(point, attr, getattr(other, attr))
+    return primary

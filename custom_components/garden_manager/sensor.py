@@ -39,6 +39,8 @@ async def async_setup_entry(
             GrowingDegreeDaysSensor(coordinator),
             TasksDueTodaySensor(coordinator),
             NextTaskSensor(coordinator),
+            Et0TodaySensor(coordinator),
+            GddTodaySensor(coordinator),
         ]
     )
     async_setup_dynamic(
@@ -48,15 +50,18 @@ async def async_setup_entry(
             MoistureStatusSensor(c, bed),
             IrrigationRecommendationSensor(c, bed),
             CompanionScoreSensor(c, bed),
+            NutrientBalanceSensor(c, bed),
+            SoilWaterDepletionSensor(c, bed),
         ],
         zone_factory=_zone_sensors,
     )
 
 
 def _zone_sensors(coordinator: GardenCoordinator, zone: Zone) -> list[SensorEntity]:
-    if not zone.is_enclosed:
-        return []
-    return [GreenhouseAdviceSensor(coordinator, zone)]
+    sensors: list[SensorEntity] = [DiseaseRiskSensor(coordinator, zone), ZoneGddSensor(coordinator, zone)]
+    if zone.is_enclosed:
+        sensors.append(GreenhouseAdviceSensor(coordinator, zone))
+    return sensors
 
 
 # --------------------------------------------------------------------------- #
@@ -286,3 +291,157 @@ class GreenhouseAdviceSensor(ZoneEntity, SensorEntity):
         attrs["air_temperature"] = za.air_temperature
         attrs["temperature_unit"] = UnitOfTemperature.CELSIUS
         return attrs
+
+
+# --------------------------------------------------------------------------- #
+# Agronomy (phase 2)
+# --------------------------------------------------------------------------- #
+class Et0TodaySensor(GardenEntity, SensorEntity):
+    """Reference evapotranspiration for today (FAO-56 PM, Hargreaves fallback)."""
+
+    _attr_native_unit_of_measurement = UnitOfLength.MILLIMETERS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:weather-sunny-alert"
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator: GardenCoordinator) -> None:
+        super().__init__(coordinator, "et0_today")
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.data.et0_today if self.coordinator.data else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        if not data or not data.outlook:
+            return {}
+        today = data.outlook[0]
+        return {
+            "method": data.et0_method,
+            "tmin": today.tmin,
+            "tmax": today.tmax,
+            "rh_min": today.rh_min,
+            "rh_max": today.rh_max,
+            "wind_kmh": today.wind_kmh,
+            "cloud_fraction": today.cloud_fraction,
+            "rain_mm": today.rain_mm,
+            "forecast": [{"day": o.day.isoformat(), "et0": o.et0_mm, "rain": o.rain_mm} for o in data.outlook],
+        }
+
+
+class GddTodaySensor(GardenEntity, SensorEntity):
+    _attr_native_unit_of_measurement = "°C·d"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:thermometer-chevron-up"
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator: GardenCoordinator) -> None:
+        super().__init__(coordinator, "gdd_today")
+
+    @property
+    def native_value(self) -> float | None:
+        return self.coordinator.data.gdd_today if self.coordinator.data else None
+
+
+class NutrientBalanceSensor(BedEntity, SensorEntity):
+    """0-100 index from NPK / EC probes against the crops' needs."""
+
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:flask-outline"
+
+    def __init__(self, coordinator: GardenCoordinator, bed: GardenBed) -> None:
+        super().__init__(coordinator, bed, "nutrient_balance")
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        if not data or self.bed_id not in data.beds:
+            return None
+        return data.beds[self.bed_id].nutrients.index
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        if not data or self.bed_id not in data.beds:
+            return {}
+        return data.beds[self.bed_id].nutrients.to_dict()
+
+
+class SoilWaterDepletionSensor(BedEntity, SensorEntity):
+    """Root-zone water deficit from the daily water balance (mm below field capacity)."""
+
+    _attr_native_unit_of_measurement = UnitOfLength.MILLIMETERS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:water-minus"
+    _attr_suggested_display_precision = 1
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator: GardenCoordinator, bed: GardenBed) -> None:
+        super().__init__(coordinator, bed, "water_deficit")
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        if not data or self.bed_id not in data.beds:
+            return None
+        return data.beds[self.bed_id].depletion_mm
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        if not data or self.bed_id not in data.beds:
+            return {}
+        ba = data.beds[self.bed_id]
+        return {"available_water_mm": ba.taw_mm, "crop_coefficient": round(ba.kc, 2)}
+
+
+class DiseaseRiskSensor(ZoneEntity, SensorEntity):
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["none", "low", "moderate", "high", "unknown"]
+    _attr_icon = "mdi:mushroom-outline"
+
+    def __init__(self, coordinator: GardenCoordinator, zone: Zone) -> None:
+        super().__init__(coordinator, zone, "disease_risk")
+
+    @property
+    def native_value(self) -> str | None:
+        data = self.coordinator.data
+        if not data or self.zone_id not in data.zones:
+            return None
+        return data.zones[self.zone_id].disease.level
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        if not data or self.zone_id not in data.zones:
+            return {}
+        d = data.zones[self.zone_id].disease
+        return {
+            "wet_hours_48h": d.wet_hours,
+            "hutton_period": d.hutton_period,
+            "humidity": d.humidity_now,
+            "leaf_wet": d.leaf_wet_now,
+            "reasons": d.reasons,
+        }
+
+
+class ZoneGddSensor(ZoneEntity, SensorEntity):
+    """Season degree days for the zone (greenhouses run warmer)."""
+
+    _attr_native_unit_of_measurement = "°C·d"
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_icon = "mdi:thermometer-plus"
+    _attr_suggested_display_precision = 0
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator: GardenCoordinator, zone: Zone) -> None:
+        super().__init__(coordinator, zone, "gdd_season")
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        if not data or self.zone_id not in data.zones:
+            return None
+        return data.zones[self.zone_id].gdd_season

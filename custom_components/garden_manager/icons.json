@@ -3,40 +3,200 @@
     "sensor": {
       "frost_risk_next_48h": {
         "default": "mdi:snowflake-check",
-        "state": { "low": "mdi:snowflake-thermometer", "moderate": "mdi:snowflake-alert", "high": "mdi:snowflake-alert", "unknown": "mdi:snowflake-off" }
+        "state": {
+          "low": "mdi:snowflake-thermometer",
+          "moderate": "mdi:snowflake-alert",
+          "high": "mdi:snowflake-alert",
+          "unknown": "mdi:snowflake-off"
+        }
       },
-      "growing_degree_days": { "default": "mdi:thermometer-plus" },
-      "tasks_due_today": { "default": "mdi:clipboard-check-outline" },
-      "next_task": { "default": "mdi:shovel" },
+      "growing_degree_days": {
+        "default": "mdi:thermometer-plus"
+      },
+      "tasks_due_today": {
+        "default": "mdi:clipboard-check-outline"
+      },
+      "next_task": {
+        "default": "mdi:shovel"
+      },
       "moisture_status": {
         "default": "mdi:water-percent",
-        "state": { "dry": "mdi:water-off", "slightly_dry": "mdi:water-minus", "optimal": "mdi:water-check", "wet": "mdi:water-plus", "unknown": "mdi:water-alert-outline" }
+        "state": {
+          "dry": "mdi:water-off",
+          "slightly_dry": "mdi:water-minus",
+          "optimal": "mdi:water-check",
+          "wet": "mdi:water-plus",
+          "unknown": "mdi:water-alert-outline"
+        }
       },
-      "irrigation_recommendation": { "default": "mdi:watering-can" },
-      "companion_score": { "default": "mdi:handshake-outline" },
+      "irrigation_recommendation": {
+        "default": "mdi:watering-can"
+      },
+      "companion_score": {
+        "default": "mdi:handshake-outline"
+      },
       "greenhouse_advice": {
         "default": "mdi:greenhouse",
-        "state": { "ventilate": "mdi:window-open-variant", "shade": "mdi:sun-angle", "close_up": "mdi:window-closed-variant", "heat": "mdi:radiator" }
+        "state": {
+          "ventilate": "mdi:window-open-variant",
+          "shade": "mdi:sun-angle",
+          "close_up": "mdi:window-closed-variant",
+          "heat": "mdi:radiator"
+        }
+      },
+      "et0_today": {
+        "default": "mdi:weather-sunny-alert"
+      },
+      "gdd_today": {
+        "default": "mdi:thermometer-chevron-up"
+      },
+      "nutrient_balance": {
+        "default": "mdi:flask-outline"
+      },
+      "water_deficit": {
+        "default": "mdi:water-minus"
+      },
+      "disease_risk": {
+        "default": "mdi:mushroom-outline",
+        "state": {
+          "moderate": "mdi:alert-outline",
+          "high": "mdi:alert"
+        }
+      },
+      "gdd_season": {
+        "default": "mdi:thermometer-plus"
       }
     },
     "binary_sensor": {
-      "needs_water": { "default": "mdi:water-check", "state": { "on": "mdi:water-alert" } }
+      "needs_water": {
+        "default": "mdi:water-check",
+        "state": {
+          "on": "mdi:water-alert"
+        }
+      },
+      "frost_risk_48h": {
+        "default": "mdi:snowflake-check",
+        "state": {
+          "on": "mdi:snowflake-alert"
+        }
+      },
+      "irrigation_lockout": {
+        "default": "mdi:lock-open-variant-outline",
+        "state": {
+          "on": "mdi:snowflake-off"
+        }
+      },
+      "irrigation_running": {
+        "default": "mdi:sprinkler-variant",
+        "state": {
+          "on": "mdi:sprinkler"
+        }
+      }
     },
     "button": {
-      "generate_tasks": { "default": "mdi:auto-fix" },
-      "refresh_forecast": { "default": "mdi:weather-cloudy-clock" }
+      "generate_tasks": {
+        "default": "mdi:auto-fix"
+      },
+      "refresh_forecast": {
+        "default": "mdi:weather-cloudy-clock"
+      },
+      "run_irrigation": {
+        "default": "mdi:sprinkler"
+      },
+      "stop_irrigation": {
+        "default": "mdi:stop-circle-outline"
+      }
     },
-    "calendar": { "tasks": { "default": "mdi:calendar-check" } },
-    "todo": { "this_week": { "default": "mdi:sprout" } }
+    "calendar": {
+      "tasks": {
+        "default": "mdi:calendar-check"
+      }
+    },
+    "todo": {
+      "this_week": {
+        "default": "mdi:sprout"
+      }
+    },
+    "number": {
+      "irrigation_max_runtime": {
+        "default": "mdi:timer-sand"
+      },
+      "irrigation_frost_lockout": {
+        "default": "mdi:snowflake-thermometer"
+      },
+      "irrigation_rain_skip": {
+        "default": "mdi:weather-pouring"
+      }
+    },
+    "select": {
+      "irrigation_mode": {
+        "default": "mdi:sprinkler-variant"
+      },
+      "shading_mode": {
+        "default": "mdi:blinds-horizontal",
+        "state": {
+          "on": "mdi:blinds-horizontal-closed",
+          "off": "mdi:blinds-open"
+        }
+      }
+    },
+    "switch": {
+      "auto_irrigation": {
+        "default": "mdi:sprinkler",
+        "state": {
+          "off": "mdi:sprinkler-variant"
+        }
+      }
+    }
   },
   "services": {
-    "add_task": { "service": "mdi:clipboard-plus-outline" },
-    "complete_task": { "service": "mdi:check-circle-outline" },
-    "postpone_task": { "service": "mdi:calendar-arrow-right" },
-    "delete_task": { "service": "mdi:delete-outline" },
-    "generate_tasks": { "service": "mdi:auto-fix" },
-    "recalculate_plan": { "service": "mdi:calculator-variant-outline" },
-    "export_plan": { "service": "mdi:file-export-outline" },
-    "import_plan": { "service": "mdi:file-import-outline" }
+    "add_task": {
+      "service": "mdi:clipboard-plus-outline"
+    },
+    "complete_task": {
+      "service": "mdi:check-circle-outline"
+    },
+    "postpone_task": {
+      "service": "mdi:calendar-arrow-right"
+    },
+    "delete_task": {
+      "service": "mdi:delete-outline"
+    },
+    "generate_tasks": {
+      "service": "mdi:auto-fix"
+    },
+    "recalculate_plan": {
+      "service": "mdi:calculator-variant-outline"
+    },
+    "export_plan": {
+      "service": "mdi:file-export-outline"
+    },
+    "import_plan": {
+      "service": "mdi:file-import-outline"
+    },
+    "add_planting": {
+      "service": "mdi:sprout"
+    },
+    "update_planting": {
+      "service": "mdi:pencil-outline"
+    },
+    "remove_planting": {
+      "service": "mdi:delete-outline"
+    },
+    "run_irrigation_plan": {
+      "service": "mdi:sprinkler"
+    },
+    "stop_irrigation": {
+      "service": "mdi:stop-circle-outline"
+    },
+    "set_shading_mode": {
+      "service": "mdi:blinds-horizontal"
+    },
+    "autofill_plan": {
+      "service": "mdi:auto-fix"
+    },
+    "export_pdf": {
+      "service": "mdi:file-pdf-box"
+    }
   }
 }

@@ -15,12 +15,14 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, PLATFORMS, STORAGE_KEY
+from .controllers import ClimateController, IrrigationController
 from .coordinator import GardenCoordinator
 from .engine.i18n import normalize_lang
 from .engine.plantdb import PlantDatabase, load_builtin_json
 from .notifications import GardenNotifier
 from .options import apply_options
 from .panel import async_register_panel, async_unregister_panel
+from .printing import async_register_print_view
 from .seed import build_initial_data
 from .services import async_setup_services
 from .storage import GardenRepository
@@ -36,6 +38,8 @@ class GardenRuntime:
     repo: GardenRepository
     coordinator: GardenCoordinator
     notifier: GardenNotifier
+    irrigation: IrrigationController
+    climate: ClimateController
 
 
 type GardenConfigEntry = ConfigEntry[GardenRuntime]
@@ -45,6 +49,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register services and websocket commands once (HA best practice)."""
     async_setup_services(hass)
     async_setup_websocket(hass)
+    async_register_print_view(hass)
     return True
 
 
@@ -65,8 +70,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
 
     coordinator = GardenCoordinator(hass, entry, repo)
     notifier = GardenNotifier(hass, repo)
-    entry.runtime_data = GardenRuntime(repo, coordinator, notifier)
+    irrigation = IrrigationController(hass, coordinator)
+    climate = ClimateController(hass, coordinator)
+    entry.runtime_data = GardenRuntime(repo, coordinator, notifier, irrigation, climate)
     entry.async_on_unload(coordinator.async_add_post_compute_hook(notifier.async_process))
+    entry.async_on_unload(coordinator.async_add_listener(climate.async_apply))
+    entry.async_on_unload(irrigation.async_stop_on_unload)
 
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -79,6 +88,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
 
     entry.async_on_unload(async_track_time_change(hass, _midnight, hour=0, minute=5, second=0))
     _schedule_digest(hass, entry)
+    _schedule_irrigation(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
@@ -109,6 +119,50 @@ def _schedule_digest(hass: HomeAssistant, entry: GardenConfigEntry) -> None:
         except ValueError:
             hour, minute = 7, 30
         unsub = async_track_time_change(hass, _digest, hour=hour, minute=minute, second=0)
+        scheduled_for = wanted
+
+    @callback
+    def _cancel() -> None:
+        if unsub:
+            unsub()
+
+    _reschedule()
+    entry.async_on_unload(runtime.repo.async_add_listener(_reschedule))
+    entry.async_on_unload(_cancel)
+
+
+def _schedule_irrigation(hass: HomeAssistant, entry: GardenConfigEntry) -> None:
+    """Automatic watering at the configured start time (mode ``auto`` only)."""
+    runtime = entry.runtime_data
+    unsub: CALLBACK_TYPE | None = None
+    scheduled_for: str | None = None
+
+    async def _run(now: datetime) -> None:
+        if runtime.repo.data.settings.irrigation.mode != "auto":
+            return
+        await runtime.coordinator.async_recompute()
+        plan = runtime.irrigation.build_plan()
+        if plan.runs:
+            runtime.irrigation.async_start(plan, source="auto")
+        else:
+            _LOGGER.debug("Automatic irrigation: nothing to do (%s)", plan.skipped)
+
+    @callback
+    def _reschedule(reason: str = "settings") -> None:
+        nonlocal unsub, scheduled_for
+        if reason != "settings":
+            return
+        wanted = runtime.repo.data.settings.irrigation.start_time
+        if wanted == scheduled_for:
+            return
+        if unsub:
+            unsub()
+        hh, _, mm = wanted.partition(":")
+        try:
+            hour, minute = int(hh), int(mm or 0)
+        except ValueError:
+            hour, minute = 6, 0
+        unsub = async_track_time_change(hass, _run, hour=hour, minute=minute, second=0)
         scheduled_for = wanted
 
     @callback

@@ -18,8 +18,10 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, EVENT_TASK_COMPLETED, SIGNAL_LAYOUT_CHANGED
 from .engine.models import (
+    Feature,
     GardenBed,
     GardenSettings,
+    IrrigationEvent,
     Plant,
     Planting,
     TaskNote,
@@ -132,6 +134,15 @@ def op_complete_task(
         )
     except KeyError as err:
         raise _err("unknown_task", task=task_id) from err
+    task = result.task
+    bed = data.bed(task.bed_id) if task.bed_id else None
+    if task.type is TaskType.WATER and not skipped and bed is not None and bed.area_m2 > 0:
+        # A ticked-off watering task feeds the bed's water balance.
+        liters = float(task.title_params.get("liters") or 0)
+        if liters > 0:
+            data.irrigation_log.append(
+                IrrigationEvent(bed.id, dt_util.now(), round(liters / bed.area_m2, 1), liters, source="task")
+            )
     runtime.repo.async_changed("plan" if result.planting_changed else "tasks")
     hass.bus.async_fire(
         EVENT_TASK_COMPLETED,
@@ -241,6 +252,7 @@ def op_save_plan(
     zones: list[dict[str, Any]],
     beds: list[dict[str, Any]],
     plantings: list[dict[str, Any]],
+    features: list[dict[str, Any]] | None = None,
 ) -> int:
     repo = runtime.repo
     if base_revision is not None and base_revision != repo.data.revision:
@@ -249,6 +261,7 @@ def op_save_plan(
         new_zones = [from_dict(Zone, z) for z in zones]
         new_beds = [from_dict(GardenBed, b) for b in beds]
         new_plantings = [from_dict(Planting, p) for p in plantings]
+        new_features = [from_dict(Feature, f) for f in features] if features is not None else None
     except (TypeError, ValueError, KeyError) as err:
         raise _err("invalid_plan", reason=str(err)) from err
     validate_layout(new_zones, new_beds, new_plantings, {p.id for p in repo.db.all()})
@@ -263,6 +276,8 @@ def op_save_plan(
         or [b.name for b in repo.data.beds] != [b.name for b in new_beds]
     )
     repo.data.zones, repo.data.beds, repo.data.plantings = new_zones, new_beds, new_plantings
+    if new_features is not None:
+        repo.data.features = new_features
     repo.async_changed("plan")
     if removed_devices:
         _remove_devices(hass, runtime, removed_devices)
@@ -341,3 +356,123 @@ def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> Garden
         raise _err("invalid_settings", reason=str(err)) from err
     repo.async_changed("settings")
     return repo.data.settings
+
+
+# --------------------------------------------------------------------------- #
+# Plantings (services: add / update / remove) and autofill
+# --------------------------------------------------------------------------- #
+PLANTING_FIELDS = {
+    "plant_id", "bed_id", "season", "layout", "x_cm", "y_cm", "width_cm", "length_cm", "count", "method",
+    "status", "sow_date", "transplant_date", "sown_on", "transplanted_on", "harvest_started_on", "finished_on",
+    "notes",
+}  # fmt: skip
+
+
+def _check_planting(runtime: GardenRuntime, planting: Planting) -> None:
+    repo = runtime.repo
+    bed = repo.data.bed(planting.bed_id)
+    if bed is None:
+        raise _err("unknown_bed", bed=planting.bed_id)
+    if repo.db.get(planting.plant_id) is None:
+        raise _err("unknown_plant", plant=planting.plant_id)
+    if planting.width_cm <= 0 or planting.length_cm <= 0:
+        raise _err("invalid_plan", reason="planting has no size")
+
+
+@callback
+def op_add_planting(runtime: GardenRuntime, raw: Mapping[str, Any]) -> Planting:
+    from .engine.tasks import new_id
+
+    repo = runtime.repo
+    bed = resolve_bed(runtime, str(raw.get("bed_id") or raw.get("bed") or ""))
+    if bed is None:
+        raise _err("unknown_bed", bed=raw.get("bed_id") or raw.get("bed"))
+    plant = repo.db.get(str(raw.get("plant_id", "")))
+    if plant is None:
+        raise _err("unknown_plant", plant=raw.get("plant_id"))
+    fields = {k: v for k, v in raw.items() if k in PLANTING_FIELDS}
+    fields["bed_id"] = bed.id
+    fields.setdefault("season", dt_util.now().year)
+    # Default footprint: one row across the bed at the crop's row spacing.
+    fields.setdefault("width_cm", bed.width_cm)
+    fields.setdefault("length_cm", max(plant.row_spacing_cm, plant.spacing_cm))
+    fields.setdefault("layout", "row")
+    try:
+        planting = from_dict(Planting, {"id": new_id(), **_jsonable(fields)})
+    except (TypeError, ValueError, KeyError) as err:
+        raise _err("invalid_plan", reason=str(err)) from err
+    _check_planting(runtime, planting)
+    repo.data.plantings.append(planting)
+    repo.async_changed("plan")
+    return planting
+
+
+@callback
+def op_update_planting(runtime: GardenRuntime, planting_id: str, changes: Mapping[str, Any]) -> Planting:
+    repo = runtime.repo
+    current = repo.data.planting(planting_id)
+    if current is None:
+        raise _err("unknown_planting", planting=planting_id)
+    patch = {k: v for k, v in changes.items() if k in PLANTING_FIELDS}
+    if "bed" in changes and "bed_id" not in patch:
+        bed = resolve_bed(runtime, str(changes["bed"]))
+        if bed is None:
+            raise _err("unknown_bed", bed=changes["bed"])
+        patch["bed_id"] = bed.id
+    try:
+        updated = from_dict(Planting, {**to_dict(current), **_jsonable(patch)})
+    except (TypeError, ValueError, KeyError) as err:
+        raise _err("invalid_plan", reason=str(err)) from err
+    _check_planting(runtime, updated)
+    repo.data.plantings = [updated if p.id == planting_id else p for p in repo.data.plantings]
+    repo.async_changed("plan")
+    return updated
+
+
+@callback
+def op_remove_planting(runtime: GardenRuntime, planting_id: str) -> None:
+    repo = runtime.repo
+    if repo.data.planting(planting_id) is None:
+        raise _err("unknown_planting", planting=planting_id)
+    repo.data.plantings = [p for p in repo.data.plantings if p.id != planting_id]
+    repo.async_changed("plan")
+
+
+@callback
+def op_apply_autoplan(
+    runtime: GardenRuntime, *, base_revision: int | None, plantings: list[dict[str, Any]], replace_beds: list[str]
+) -> int:
+    """Store an autofill proposal; ``replace_beds`` drops that season's crops first."""
+    repo = runtime.repo
+    if base_revision is not None and base_revision != repo.data.revision:
+        raise RevisionConflict(f"revision {base_revision} != {repo.data.revision}")
+    try:
+        new = [from_dict(Planting, p) for p in plantings]
+    except (TypeError, ValueError, KeyError) as err:
+        raise _err("invalid_plan", reason=str(err)) from err
+    for planting in new:
+        _check_planting(runtime, planting)
+    seasons = {p.season for p in new}
+    keep = [p for p in repo.data.plantings if not (p.bed_id in replace_beds and p.season in seasons)]
+    repo.data.plantings = keep + new
+    repo.async_changed("plan")
+    return repo.data.revision
+
+
+@callback
+def op_set_shading_mode(runtime: GardenRuntime, zone_ref: str, mode: str) -> Zone:
+    repo = runtime.repo
+    zone = repo.data.zone(zone_ref) or next(
+        (z for z in repo.data.zones if z.name.casefold() == zone_ref.casefold()), None
+    )
+    if zone is None:
+        raise _err("unknown_zone", zone=zone_ref)
+    if not zone.is_enclosed:
+        raise _err("not_enclosed", zone=zone.name)
+    zone.shading_mode = mode  # type: ignore[assignment]
+    repo.async_changed("settings", bump_revision=False)
+    return zone
+
+
+def _jsonable(fields: Mapping[str, Any]) -> dict[str, Any]:
+    return {k: v.isoformat() if isinstance(v, date) else v for k, v in fields.items()}

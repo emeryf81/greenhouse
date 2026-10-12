@@ -42,6 +42,7 @@ from homeassistant.util.unit_conversion import (
     TemperatureConverter,
 )
 
+from .api import OpenMeteoError, async_fetch_open_meteo
 from .const import (
     DOMAIN,
     EVENT_PLAN_UPDATED,
@@ -53,7 +54,8 @@ from .engine.analysis import GardenAnalysis, analyze
 from .engine.i18n import normalize_lang
 from .engine.models import SensorReading, WeatherSnapshot
 from .engine.tasks import MergeResult, generate_specs, merge_tasks
-from .engine.weather import parse_forecast, record_climate
+from .engine.waterbalance import advance_water_balance
+from .engine.weather import merge_forecasts, parse_forecast, record_climate
 from .storage import GardenRepository
 
 if TYPE_CHECKING:
@@ -177,6 +179,36 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
         return dt_util.utcnow() - self._forecast_fetched_at >= FORECAST_MIN_INTERVAL
 
     async def async_fetch_forecast(self) -> None:
+        await self._async_fetch_entity_forecast()
+        if self.repo.data.settings.open_meteo:
+            await self._async_enrich_open_meteo()
+
+    async def _async_enrich_open_meteo(self) -> None:
+        """Opt-in: fill humidity/wind/radiation gaps (or the whole forecast)."""
+        settings = self.repo.data.settings
+        lat = settings.region.latitude or self.hass.config.latitude
+        lon = self.hass.config.longitude
+        try:
+            raw = await async_fetch_open_meteo(self.hass, lat, lon)
+        except OpenMeteoError as err:
+            _LOGGER.warning("Open-Meteo unavailable: %s", err)
+            return
+        extra = parse_forecast(raw)
+        if not extra:
+            return
+        if self.weather.available:
+            self.weather.hourly = merge_forecasts(self.weather.hourly, extra)
+        else:
+            self.weather = WeatherSnapshot(
+                available=True,
+                fetched_at=dt_util.utcnow(),
+                temperature=extra[0].temperature,
+                humidity=extra[0].humidity,
+                hourly=extra,
+                error=None,
+            )
+
+    async def _async_fetch_entity_forecast(self) -> None:
         entity_id = self.repo.data.settings.weather_entity
         self._forecast_fetched_at = dt_util.utcnow()
         if not entity_id:
@@ -268,10 +300,21 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
         if temp is None:
             temp = self.weather.temperature
         rain = readings.get(outdoor.rain).usable if outdoor.rain in readings else None  # type: ignore[union-attr]
-        if outdoor.rain and rain is not None and not outdoor.rain.startswith("binary_sensor."):
-            changed |= record_climate(data.climate_log, analysis.today, temp, rain)
-        else:
-            changed |= record_climate(data.climate_log, analysis.today, temp)
+        if not (outdoor.rain and rain is not None and not outdoor.rain.startswith("binary_sensor.")):
+            # No rain gauge: book the forecast for today (never lowering it as
+            # the day passes and fewer hours remain in the forecast).
+            logged = next((d.rain_mm for d in data.climate_log if d.day == analysis.today), None)
+            forecast = analysis.outlook[0].rain_mm if analysis.outlook else None
+            rain = max(v for v in (logged, forecast, 0.0) if v is not None) if forecast is not None else None
+        changed |= record_climate(data.climate_log, analysis.today, temp, rain)
+        changed |= advance_water_balance(
+            data,
+            repo.db,
+            analysis.timelines,
+            analysis.today,
+            latitude=data.settings.region.latitude or self.hass.config.latitude,
+            tz=dt_util.get_default_time_zone(),
+        )
 
         merge = merge_tasks(
             data.tasks,

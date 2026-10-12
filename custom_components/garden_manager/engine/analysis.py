@@ -38,6 +38,7 @@ from .region import SeasonAnchors, resolve_profile, season_anchors, season_for_d
 from .schedule import PlantingTimeline, TimingAdvice, planting_timeline, timing_advice
 from .serde import to_dict
 from .tasks import TaskContext, is_active
+from .waterbalance import bed_irrigation_mm
 from .watering import IrrigationRecommendation, recommend_irrigation, total_available_water
 from .weather import (
     DailyOutlook,
@@ -313,7 +314,13 @@ def analyze(
         root_mm = max((plants[p.id].root_depth_cm * 10 for p in active), default=data.settings.root_zone_depth_mm)
         taw = total_available_water(bed.soil, min(root_mm, 600.0)) if active else None
         bucket = data.water_balance.get(bed.id)
-        depletion = (bucket.depletion_mm, taw) if bucket is not None and bucket.day is not None and taw else None
+        # Water given today (logged runs, completed water tasks) counts at once.
+        given_today = bed_irrigation_mm(data, bed.id, today, tz) if bucket is not None else 0.0
+        depletion = (
+            (max(0.0, bucket.depletion_mm - given_today), taw)
+            if bucket is not None and bucket.day is not None and taw
+            else None
+        )
         irrigation = recommend_irrigation(
             bed,
             zone,
@@ -370,7 +377,7 @@ def analyze(
             kc=kc,
             nutrients=nutrients,
             taw_mm=round(taw, 1) if taw else None,
-            depletion_mm=bucket.depletion_mm if depletion else None,
+            depletion_mm=depletion[0] if depletion else None,
         )
 
         zone_frost = zones[bed.zone_id].frost if bed.zone_id in zones else outdoor_frost
