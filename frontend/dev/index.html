@@ -65,6 +65,7 @@
         if (type === "analysis") return (data.extras || {}).analysis;
         if (type === "analysis/fix") return { revision: data.snapshot.revision };
         if (type === "analysis/still_possible") return (data.extras || {}).still_possible;
+        if (type === "planning") return (data.extras || {}).planning;
         if (type === "plan/compare") return (data.extras || {}).compare;
         if (type === "plantings/update_many") return { updated: msg.planting_ids.length, revision: data.snapshot.revision };
         if (type === "irrigation/test") return { entity_id: msg.entity_id, seconds: msg.seconds, before: "off", ok: true, opened: true, open_state: "open", closed: true, closed_state: "closed", pump: null };

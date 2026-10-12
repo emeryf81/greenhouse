@@ -192,6 +192,11 @@ export class GardenApi {
     return this.call("plan/compare", { a, b });
   }
 
+  /** Seeds to buy, what can follow a crop, expected harvest per week. */
+  planning(season: number): Promise<unknown> {
+    return this.call("planning", { season });
+  }
+
   stillPossible(season: number): Promise<{ season: number; plants: { plant_id: string; beds: string[] }[] }> {
     return this.call("analysis/still_possible", { season });
   }

@@ -706,3 +706,14 @@ async def test_a_valve_that_does_not_respond_or_stays_open_is_reported(
     res = await _result(client)
     assert res["success"] and res["result"]["state"] == "off"
     assert not runtime.irrigation.stuck
+
+
+async def test_planning_overview(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    client = await hass_ws_client(hass)
+    season = entry.runtime_data.repo.data.layout_season
+    await client.send_json_auto_id({"type": f"{DOMAIN}/planning", "season": season})
+    res = await _result(client)
+    assert res["success"], res
+    assert {"seeds", "successions", "harvest"} <= set(res["result"])
+    assert all(w["kg"] >= 0 for w in res["result"]["harvest"]["weeks"])

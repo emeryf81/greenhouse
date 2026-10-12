@@ -10,6 +10,8 @@ import { familyColor, formatDate, plantName } from "../util/garden";
 import "../components/plant-image";
 import "../components/modal";
 import "../components/date-input";
+import "./crops-planning";
+import type { PlanningView } from "./crops-planning";
 
 export interface CropRow { planting: Planting; bed: string | null; zone: string | null; timeline: Timeline | null }
 
@@ -37,6 +39,10 @@ export class CropsView extends LitElement {
   @state() private bulkField: DateField | "" = "";
   @state() private bulkDate: string | null = null;
   @state() private highlight = "";
+  @state() private view: "list" | PlanningView = "list";
+  @state() private compact = false;
+  private media?: MediaQueryList;
+  private onMedia = () => (this.compact = !!this.media?.matches);
 
   @state() private season = 0;
   @state() private rows: CropRow[] = [];
@@ -76,18 +82,28 @@ export class CropsView extends LitElement {
       .bulk { display: flex; flex-wrap: wrap; gap: var(--hl-s2) var(--hl-s3); align-items: center; padding: var(--hl-s2) var(--hl-s3); margin-bottom: var(--hl-s2);
         position: sticky; top: 0; z-index: 2; border: 1px solid var(--hl-primary); }
       .bulk label { display: inline-flex; gap: 6px; align-items: center; }
+      .views { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--hl-s3); }
+      .cards { display: flex; flex-direction: column; gap: var(--hl-s2); }
+      .crop-card { background: var(--hl-surface); border: 1px solid var(--hl-border); border-radius: var(--hl-r-lg); padding: var(--hl-s2) var(--hl-s3); display: flex; flex-direction: column; gap: 6px; }
+      .crop-card.hl { background: var(--hl-sun-100); }
+      .crop-card .name { all: unset; cursor: pointer; font-weight: 600; }
+      .crop-card hl-date-input { max-width: none; }
       .bulk select { width: auto; min-height: 30px; }
     `,
   ];
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.media = window.matchMedia("(max-width: 760px)");
+    this.media.addEventListener("change", this.onMedia);
+    this.onMedia();
     if (!this.season) this.season = this.initialSeason ?? this.snapshot?.layout_season ?? this.snapshot?.analysis?.season ?? new Date().getFullYear();
     void this.load();
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.media?.removeEventListener("change", this.onMedia);
     window.clearTimeout(this.reloadTimer);
   }
 
@@ -230,6 +246,49 @@ export class CropsView extends LitElement {
   }
 
   render(): TemplateResult {
+    const views: ["list" | PlanningView, string][] = [["list", "mdi:table"], ["weeks", "mdi:calendar-week"], ["seeds", "mdi:seed-outline"],
+      ["follow", "mdi:swap-horizontal"], ["harvest", "mdi:basket-outline"]];
+    return html`
+      <div class="views" role="tablist">${views.map(([id, icon]) => html`<button class="chip" role="tab" aria-selected=${String(this.view === id)}
+        aria-pressed=${String(this.view === id)} @click=${() => (this.view = id)}><ha-icon icon=${icon}></ha-icon>${this.t(`crops.view.${id}`)}</button>`)}</div>
+      ${this.view === "list" ? this.renderList() : html`${this.renderSeasonPick()}
+        <hl-crops-planning .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} .plants=${this.plantMap} .families=${this.families}
+          .rows=${this.rows} season=${this.season} view=${this.view} ?admin=${this.admin} @crops-changed=${() => this.load()}></hl-crops-planning>`}
+      ${this.open ? this.renderDetail(this.open) : nothing}`;
+  }
+
+  private renderSeasonPick(): TemplateResult {
+    const seasons = [this.season - 1, this.season, this.season + 1];
+    return html`<select style="width:auto;margin-bottom:var(--hl-s2)" aria-label=${this.t("planner.season")} @change=${(e: Event) => { this.season = Number((e.target as HTMLSelectElement).value); void this.load();
+      this.dispatchEvent(new CustomEvent("season-changed", { detail: this.season, bubbles: true, composed: true })); }}>
+      ${seasons.map((s) => html`<option value=${s} ?selected=${s === this.season}>${this.t("common.season", { year: s })}</option>`)}
+    </select>`;
+  }
+
+  /** On a phone: one card per crop instead of the wide table. */
+  private renderCards(rows: CropRow[]): TemplateResult {
+    return html`<div class="cards">${rows.map((r) => {
+      const p = r.planting;
+      const tl = r.timeline;
+      // the next real date to fill in, from the status as well as the dates already known
+      const rank = ({ planned: 0, sown_indoors: 1, sown: 2, transplanted: 3, harvesting: 4 } as Record<string, number>)[p.status] ?? 5;
+      const next = !p.sown_on && rank < 1 && p.method !== "transplant" ? ["sown_on"] : !p.transplanted_on && rank < 3 && p.method !== "direct_sow"
+        ? ["transplanted_on"] : !p.harvest_started_on && rank < 4 ? ["harvest_started_on"] : ["finished_on"];
+      return html`<article class="crop-card ${this.highlight === p.id ? "hl" : ""}" data-id=${p.id}>
+        <div class="row" style="gap:8px">${this.icon(r)}
+          <button class="name" @click=${() => (this.open = r)}>${plantName(this.plantMap.get(p.plant_id), this.lang) || p.plant_id}</button>
+          <span class="spacer"></span><span class="chip">${this.t(`status.${p.status}`)}</span></div>
+        <div class="xs muted">${r.zone ?? ""} · ${r.bed ?? this.t("crops.no_bed")}${tl?.late ? ` · ⚠ ${this.t("crops.late")}` : ""}</div>
+        <label class="field">${this.t(`crops.field.${next[0]}`)}${this.dateInput(r, next[0] as DateField)}</label>
+        <div class="row wrap" style="gap:6px">
+          <button class="btn small ghost" @click=${() => (this.open = r)}>${this.t("crops.all_dates")}</button>
+          ${r.bed ? html`<button class="btn small ghost" @click=${() => this.emit("focus-planting", { planting_id: p.id, season: this.season })}>🗺 ${this.t("crops.show_on_map")}</button>` : nothing}
+        </div>
+      </article>`;
+    })}</div>`;
+  }
+
+  private renderList(): TemplateResult {
     const seasons = [this.season - 1, this.season, this.season + 1];
     const rows = this.visibleRows();
     let lastGroup = "";
@@ -246,7 +305,7 @@ export class CropsView extends LitElement {
       </div>
       <p class="small muted">${this.t("crops.intro")}</p>
       ${this.renderBulk()}
-      ${rows.length ? html`<div class="card wrap"><table>
+      ${rows.length && this.compact ? this.renderCards(rows) : rows.length ? html`<div class="card wrap"><table>
         <thead><tr>${this.admin ? html`<th><input type="checkbox" aria-label=${this.t("crops.pick_all")} .checked=${rows.length > 0 && rows.every((r) => this.picked.has(r.planting.id))}
           @change=${(e: Event) => (this.picked = (e.target as HTMLInputElement).checked ? new Set(rows.map((r) => r.planting.id)) : new Set())} /></th>` : nothing}<th>${this.t("lib.plant")}</th><th>${this.t("task.bed")}</th><th>${this.t("crops.method")}</th><th>${this.t("crops.status")}</th>
           ${DATE_FIELDS.map((f) => html`<th>${this.t(`crops.field.${f}`)}</th>`)}<th>#</th></tr></thead>
@@ -271,8 +330,7 @@ export class CropsView extends LitElement {
             <td><input type="number" min="0" .value=${p.count == null ? "" : String(p.count)} placeholder="auto" ?disabled=${!this.admin}
               @change=${(e: Event) => this.saveRow(r, { count: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value) })} /></td>
           </tr>`;
-        })}</tbody></table></div>` : html`<p class="muted">${this.t("crops.none", { season: this.season })}</p>`}
-      ${this.open ? this.renderDetail(this.open) : nothing}`;
+        })}</tbody></table></div>` : html`<p class="muted">${this.t("crops.none", { season: this.season })}</p>`}`;
   }
 
   /** Popup with everything about one crop. */

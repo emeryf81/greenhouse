@@ -20,7 +20,7 @@ from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
 from .const import DOMAIN
-from .engine import diagnose, handbook, seasons, syslog
+from .engine import diagnose, handbook, planning, seasons, syslog
 from .engine.advisor import advise, harvest_coverage
 from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
@@ -32,7 +32,7 @@ from .engine.printout import PrintOptions
 from .engine.qa import answer as qa_answer, options as qa_options
 from .engine.records import harvest_summary, learned_yields, seed_report, water_stats, year_overview
 from .engine.region import resolve_profile, season_anchors, season_bounds, season_for_date
-from .engine.schedule import plant_windows, planting_timeline
+from .engine.schedule import plant_windows, planting_timeline, season_timeline
 from .engine.serde import from_dict, to_dict
 from .engine.succession import expand_succession
 from .engine.supplies import catalog as supplies_catalog, shopping_list
@@ -131,6 +131,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_still_possible,
         ws_irrigation_test,
         ws_irrigation_close,
+        ws_planning,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -1288,6 +1289,13 @@ def ws_analysis_explain(hass: HomeAssistant, connection: websocket_api.ActiveCon
 # --------------------------------------------------------------------------- #
 # Crops of a season (list view with all dates, no dragging)
 # --------------------------------------------------------------------------- #
+def _crop_timeline(data: Any, p: Planting, plant: Any, season: int, zone: Any, today: Any) -> Any:
+    """A crop's timeline as it matters for ``season`` (perennials carried over re-anchor on that year)."""
+    region = data.settings.region
+    start, end = season_bounds(region, season)
+    return season_timeline(p, plant, season, lambda s: season_anchors(region, s), zone, today, start, end)
+
+
 def _season_rows(runtime: GardenRuntime, season: int) -> list[dict[str, Any]]:
     data = runtime.repo.data
     db = runtime.repo.db
@@ -1308,9 +1316,7 @@ def _season_rows(runtime: GardenRuntime, season: int) -> list[dict[str, Any]]:
         timeline = None
         if plant is not None:
             zone = zones.get(bed.zone_id) if bed else None
-            timeline = planting_timeline(
-                p, plant, season_anchors(data.settings.region, p.season), zone, today
-            ).to_dict()
+            timeline = _crop_timeline(data, p, plant, season, zone, today).to_dict()
         rows.append(
             {
                 "planting": to_dict(p),
@@ -1482,3 +1488,51 @@ async def ws_irrigation_close(
         return
     runtime.coordinator.async_update_listeners()
     connection.send_result(msg["id"], {"state": state})
+
+
+def _season_timelines(runtime: GardenRuntime, season: int) -> dict[str, Any]:
+    """Timeline of every crop present in ``season`` (zone of that season's plan)."""
+    data = runtime.repo.data
+    db = runtime.repo.db
+    layout = seasons.layout_for(data, season)
+    beds = {b.id: b for b in data.beds} | ({b.id: b for b in layout.beds} if layout else {})
+    zones = {z.id: z for z in data.zones} | ({z.id: z for z in layout.zones} if layout else {})
+    today = dt_util.now().date()
+    out = {}
+    for p in data.plantings:
+        plant = db.get(p.plant_id)
+        if plant is None or not seasons.present_in(p, False, season):
+            continue
+        bed = beds.get(p.bed_id)
+        zone = zones.get(bed.zone_id) if bed else None
+        out[p.id] = _crop_timeline(data, p, plant, season, zone, today)
+    return out
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/planning", vol.Required("season"): int})
+@callback
+def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Seeds to buy, what can follow a crop, and the expected harvest per week."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    db = runtime.repo.db
+    season = msg["season"]
+    timelines = _season_timelines(runtime, season)
+    anchors = season_anchors(data.settings.region, season)
+    lang = runtime.coordinator.lang
+    connection.send_result(
+        msg["id"],
+        {
+            "season": season,
+            "seeds": [n.to_dict() for n in planning.seed_needs(data, db, season)],
+            "successions": [
+                b.to_dict()
+                for b in planning.successions(
+                    data, db, season, timelines, today=dt_util.now().date(), first_frost=anchors.first_frost, lang=lang
+                )
+            ],
+            "harvest": planning.harvest_forecast(data, db, season, timelines),
+        },
+    )
