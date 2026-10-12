@@ -21,7 +21,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import Level, Plant
+from .models import Level, Plant, SoilTest
 
 COMPOST_KG_M2 = {Level.HIGH: 5.0, Level.MEDIUM: 3.0, Level.LOW: 1.5}
 BASE_FERTILIZER_G_M2 = {Level.HIGH: 80.0, Level.MEDIUM: 40.0, Level.LOW: 0.0}
@@ -41,6 +41,9 @@ class BedFertilizerPlan:
     lime_check: bool  # brassicas: pH >= 6.5 against clubroot
     demand: Level
     crops: list[str] = field(default_factory=list)
+    lime_g: float = 0.0  # garden lime to reach the target pH (from a soil test)
+    # Short keys explaining adjustments made from the soil test (i18n "soil.adj.*").
+    adjustments: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +52,8 @@ class BedFertilizerPlan:
             "lime_check": self.lime_check,
             "demand": self.demand.value,
             "crops": self.crops,
+            "lime_g": self.lime_g,
+            "adjustments": self.adjustments,
         }
 
 
@@ -60,17 +65,58 @@ def dominant_demand(plants: Sequence[Plant]) -> Level:
     return max((p.nutrient_needs for p in non_legumes), key=order.__getitem__)
 
 
-def bed_fertilizer_plan(area_m2: float, plants: Sequence[Plant], lang: str = "en") -> BedFertilizerPlan:
-    """Base dressing for a bed before the given crops go in."""
+# Soil test thresholds (mg per 100 g dry soil, common Benelux lab classes).
+P_LOW, P_HIGH = 15.0, 45.0
+K_LOW, K_HIGH = 10.0, 30.0
+LIME_G_PER_PH_M2 = 250.0  # garden lime (CaCO3) to raise loam about 0.1 pH ≈ 25 g/m²
+
+
+def bed_fertilizer_plan(
+    area_m2: float, plants: Sequence[Plant], lang: str = "en", soil: SoilTest | None = None
+) -> BedFertilizerPlan:
+    """Base dressing for a bed before the given crops go in.
+
+    With a soil test the rates are adjusted: little organic matter means more
+    compost, high P/K means less fertiliser, a low pH gives a lime dose.
+    """
     demand = dominant_demand(plants)
     only_legumes = bool(plants) and all(is_legume(p) for p in plants)
     compost = 0.5 if only_legumes else COMPOST_KG_M2[demand]
+    fert = BASE_FERTILIZER_G_M2[demand]
+    brassicas = any("brassica" in p.tags or p.family == "Brassicaceae" for p in plants)
+    lime = 0.0
+    adjustments: list[str] = []
+    if soil is not None:
+        if soil.organic_matter_pct is not None:
+            if soil.organic_matter_pct < 2.0:
+                compost *= 1.5
+                adjustments.append("om_low")
+            elif soil.organic_matter_pct > 6.0:
+                compost *= 0.6
+                adjustments.append("om_high")
+        high_p = soil.p_mg is not None and soil.p_mg > P_HIGH
+        high_k = soil.k_mg is not None and soil.k_mg > K_HIGH
+        if high_p and high_k:
+            fert *= 0.5
+            adjustments.append("pk_high")
+        elif (soil.p_mg is not None and soil.p_mg < P_LOW) or (soil.k_mg is not None and soil.k_mg < K_LOW):
+            fert = max(fert, 30.0) * 1.3
+            adjustments.append("pk_low")
+        if soil.ph is not None:
+            target = 7.0 if brassicas else 6.5
+            if soil.ph < target - 0.2:
+                lime = (target - soil.ph) * LIME_G_PER_PH_M2 * area_m2
+                adjustments.append("lime")
+            elif soil.ph > 7.5:
+                adjustments.append("ph_high")
     return BedFertilizerPlan(
         compost_kg=round(compost * area_m2, 1),
-        base_fertilizer_g=round(BASE_FERTILIZER_G_M2[demand] * area_m2),
-        lime_check=any("brassica" in p.tags or p.family == "Brassicaceae" for p in plants),
+        base_fertilizer_g=round(fert * area_m2),
+        lime_check=brassicas and (soil is None or soil.ph is None),
         demand=demand,
         crops=sorted({p.name(lang) for p in plants}),
+        lime_g=round(lime),
+        adjustments=adjustments,
     )
 
 

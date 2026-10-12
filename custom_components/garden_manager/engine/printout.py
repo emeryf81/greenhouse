@@ -51,7 +51,7 @@ PAGE_SIZES: dict[str, tuple[float, float]] = {
     "letter": (215.9, 279.4),
     "remarkable": (179.6, 239.5),  # reMarkable Paper Pro, 2160 x 1620 px @ 229 ppi
 }
-DOCUMENTS = ("garden", "zone", "beds", "tasks", "season", "blank", "plants")
+DOCUMENTS = ("garden", "zone", "beds", "tasks", "season", "year", "blank", "plants")
 COLOR_MODES = ("color", "eink", "grayscale")
 PATTERNS = ("diag", "back", "horiz", "vert", "cross", "dots", "grid")
 
@@ -65,6 +65,7 @@ LABELS: dict[str, dict[str, str]] = {
     "en": {
         "garden": "Garden plan", "zone": "Zone plan", "beds": "Bed sheet", "tasks": "Task checklist",
         "season": "Season overview", "blank": "Planning sheet", "plants": "Plant cards",
+        "year": "Year plan", "sow_indoor": "Sow indoors", "grow": "Growing", "tasks_month": "Tasks",
         "season_n": "Season {season}", "printed": "Printed {date}", "page": "Page {n}/{total}",
         "legend": "Legend", "notes": "Notes", "north": "N", "families": "Plant families", "zones": "Zones",
         "features": "Garden elements", "crops": "Crops", "crop": "Crop", "bed": "Bed", "count": "Plants",
@@ -90,6 +91,7 @@ LABELS: dict[str, dict[str, str]] = {
     "nl": {
         "garden": "Tuinplan", "zone": "Zoneplan", "beds": "Bedfiche", "tasks": "Takenlijst",
         "season": "Seizoensoverzicht", "blank": "Planningsblad", "plants": "Plantkaarten",
+        "year": "Jaarplan", "sow_indoor": "Binnen zaaien", "grow": "Groeit", "tasks_month": "Taken",
         "season_n": "Seizoen {season}", "printed": "Afgedrukt {date}", "page": "Pagina {n}/{total}",
         "legend": "Legende", "notes": "Notities", "north": "N", "families": "Plantenfamilies", "zones": "Zones",
         "features": "Tuinelementen", "crops": "Gewassen", "crop": "Gewas", "bed": "Bed", "count": "Planten",
@@ -844,7 +846,7 @@ class Renderer:
                 f"{self.lbl('soil')}: {bed.soil.value}",
             ]
             if plants:
-                fert = bed_fertilizer_plan(bed.area_m2, plants, lang)
+                fert = bed_fertilizer_plan(bed.area_m2, plants, lang, bed.latest_soil_test)
                 info.append(self.lbl("compost", kg=fert.compost_kg))
                 if fert.base_fertilizer_g:
                     info.append(self.lbl("fertilizer", g=fert.base_fertilizer_g))
@@ -1087,6 +1089,70 @@ class Renderer:
         s.rect(kx, ky - 2.9, 5, 2.4, fill=MUTED)
         s.text(kx + 6, ky - 1, self.lbl("harvest"), size=5.5, color=MUTED)
         return drawn
+
+    def _doc_year(self) -> None:
+        """Month matrix: per crop when to sow, plant out, let grow and harvest."""
+        from .records import year_matrix
+
+        matrix = year_matrix(self.ctx.data, self.ctx.db, self.ctx.timelines, self.season)
+        rows = matrix["rows"]
+        lang = normalize_lang(self.opts.lang)
+        colors = {
+            "sow_indoor": "#CFE3C0",
+            "sow": "#9CC46A",
+            "plant": "#4E7D3A",
+            "grow": "#EEF3EA",
+            "harvest": "#E0A526",
+        }
+        order = ("harvest", "plant", "sow", "sow_indoor", "grow")
+        first = True
+        while rows or first:
+            first = False
+            page = self.page(self.opts.title or self.lbl("year"), self.lbl("season_n", season=self.season))
+            s, box = page.s, page.body
+            label_w = min(46.0, box.w * 0.3)
+            col_w = (box.w - label_w) / 12
+            for m in range(12):
+                x = box.x + label_w + m * col_w
+                if m % 2 == 0:
+                    s.rect(x, box.y, col_w, box.h - 8, fill="#F6F8F6")
+                s.text(x + col_w / 2, box.y + 4, MONTHS[lang][m], size=7, bold=True, color=MUTED, anchor="middle")
+            row_h = 6.0
+            y = box.y + 7
+            drawn = 0
+            for row in rows:
+                if y + row_h > box.y2 - 16:
+                    break
+                plant = self.ctx.db.get(row["plant_id"])
+                name = plant.name(lang) if plant else row["plant_id"]
+                s.text(box.x, y + 4, ellipsize(name, label_w - 2, 7), size=7, color=INK)
+                for m in range(12):
+                    acts = row["months"][str(m + 1)]
+                    act = next((a for a in order if a in acts), None)
+                    if act is None:
+                        continue
+                    x = box.x + label_w + m * col_w
+                    s.rect(x + 0.4, y + 1, col_w - 0.8, row_h - 2, fill=colors[act], stroke=MUTED, width=0.1)
+                    if len(acts) > 1 and act != "grow":
+                        s.text(x + col_w - 1.2, y + 4, "+", size=5.5, color=INK, anchor="end")
+                s.line(box.x, y + row_h, box.x2, y + row_h, stroke="#EEF1EE", width=0.12)
+                y += row_h
+                drawn += 1
+            rows = rows[drawn:]
+            # tasks per month + key
+            ty = box.y2 - 12
+            s.text(box.x, ty + 4, self.lbl("tasks_month"), size=7, bold=True, color=INK)
+            for m in range(12):
+                x = box.x + label_w + m * col_w
+                s.text(x + col_w / 2, ty + 4, str(matrix["tasks"][m]), size=7, color=MUTED, anchor="middle")
+            kx, ky = box.x, box.y2 - 2
+            for act in ("sow_indoor", "sow", "plant", "grow", "harvest"):
+                key = {"sow": "sow", "plant": "plant_out", "harvest": "harvest"}.get(act, act)
+                s.rect(kx, ky - 2.6, 5, 2.4, fill=colors[act], stroke=MUTED, width=0.12)
+                s.text(kx + 6, ky - 0.8, self.lbl(key), size=5.5, color=MUTED)
+                kx += 6 + text_width(self.lbl(key), 5.5) + 5
+            if not drawn:
+                break
 
     def _doc_plants(self) -> None:
         db = self.ctx.db

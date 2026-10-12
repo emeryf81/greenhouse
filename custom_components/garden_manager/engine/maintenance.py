@@ -276,7 +276,7 @@ def maintenance_specs(ctx: TaskContext) -> list[TaskSpec]:
             if first <= today + timedelta(days=60):
                 group = [p for p in upcoming if tls[p.id].in_ground <= first + timedelta(days=21)]
                 plants = [pl for pl in (db.get(p.plant_id) for p in group) if pl is not None]
-                plan = bed_fertilizer_plan(bed.area_m2, plants, lang)
+                plan = bed_fertilizer_plan(bed.area_m2, plants, lang, bed.latest_soil_test)
                 due = max(first - timedelta(days=14), today)
                 params = {
                     "bed": bed.name,
@@ -288,6 +288,11 @@ def maintenance_specs(ctx: TaskContext) -> list[TaskSpec]:
                 description = t("maint.soil_prep.desc", lang, **params)
                 if plan.lime_check:
                     description += " " + t("maint.soil_prep.lime", lang)
+                if plan.lime_g:
+                    description += " " + t("soil.adj.lime_dose", lang, grams=plan.lime_g)
+                for adj in plan.adjustments:
+                    if adj != "lime":
+                        description += " " + t(f"soil.adj.{adj}", lang)
                 specs.append(
                     TaskSpec(
                         key=f"m:soil_prep:{bed.id}:{first.isoformat()}", type=TaskType.SOIL_PREP, due=due,

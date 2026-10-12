@@ -52,6 +52,7 @@ from .models import (
     present_in,
 )
 from .plantdb import PlantDatabase
+from .records import learned_yields
 from .region import resolve_profile, season_anchors
 from .schedule import default_method, planting_timeline
 from .succession import expand_succession
@@ -523,6 +524,7 @@ def autoplan(
         return result
 
     history = list(rotation_history(data.rotation_history, data.plantings, db))
+    learned = learned_yields(data)  # your own kg/m² beat the database average
     demands = crop_demand(db, resources, options.max_crops)
     scale_to_capacity(demands, beds)
     assigned: dict[str, list[_Item]] = {b.id: [] for b in beds}
@@ -593,7 +595,7 @@ def autoplan(
         zone = data.zone(bed.zone_id)
         enclosed = bool(zone and zone.is_enclosed)
         plants_here = [i.demand.plant for i in items]
-        fert = bed_fertilizer_plan(bed.area_m2, plants_here, options.lang)
+        fert = bed_fertilizer_plan(bed.area_m2, plants_here, options.lang, bed.latest_soil_test)
         result.compost_kg += fert.compost_kg
         result.fertilizer_g += fert.base_fertilizer_g
         for item in items:
@@ -635,7 +637,7 @@ def autoplan(
             result.placements.append(
                 Placement(
                     planting=base, plant_id=plant.id, bed_id=bed.id, count=demand.count, area_m2=area_m2,
-                    reason=demand.reason, yield_kg=plant.yield_kg_m2 * area_m2 if plant.harvestable else 0.0,
+                    reason=demand.reason, yield_kg=learned.get(plant.id, plant.yield_kg_m2) * area_m2 if plant.harvestable else 0.0,
                     minutes_week=weekly_minutes(plant, area_m2, demand.count, hand), water_l_week=water,
                     sowings=sowings,
                 )

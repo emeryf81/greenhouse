@@ -17,6 +17,7 @@ const DOCS: { id: PrintOptions["document"]; icon: string }[] = [
   { id: "beds", icon: "mdi:sprout-outline" },
   { id: "tasks", icon: "mdi:format-list-checks" },
   { id: "season", icon: "mdi:chart-gantt" },
+  { id: "year", icon: "mdi:calendar-month" },
   { id: "blank", icon: "mdi:draw" },
   { id: "plants", icon: "mdi:card-text-outline" },
 ];

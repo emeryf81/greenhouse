@@ -45,11 +45,15 @@ from .operations import (
     op_add_planting,
     op_add_task,
     op_apply_autoplan,
+    op_assign_task,
     op_complete_task,
     op_delete_task,
     op_import_plan,
+    op_log_harvest,
     op_postpone_task,
     op_remove_planting,
+    op_save_journal,
+    op_save_soil_test,
     op_set_shading_mode,
     op_update_planting,
 )
@@ -142,6 +146,39 @@ RUN_IRRIGATION_SCHEMA = vol.Schema(
         vol.Optional("amount_mm"): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=50)),
     }
 )
+LOG_HARVEST_SCHEMA = vol.Schema(
+    {
+        vol.Optional("planting_id"): cv.string,
+        vol.Optional("plant_id"): cv.string,
+        vol.Optional("kg", default=0): vol.All(vol.Coerce(float), vol.Range(min=0, max=500)),
+        vol.Optional("count"): vol.All(vol.Coerce(int), vol.Range(min=0, max=10000)),
+        vol.Optional("quality"): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
+        vol.Optional("day"): cv.date,
+        vol.Optional("note"): cv.string,
+    }
+)
+JOURNAL_SCHEMA = vol.Schema(
+    {
+        vol.Required("text"): cv.string,
+        vol.Optional("kind", default="note"): vol.In(["note", "observation", "problem", "milestone"]),
+        vol.Optional("planting_id"): cv.string,
+        vol.Optional("bed"): cv.string,
+        vol.Optional("photos"): vol.All(cv.ensure_list, [cv.string]),
+    }
+)
+ASSIGN_SCHEMA = vol.Schema({vol.Required("task_id"): cv.string, vol.Optional("assignee"): vol.Any(None, cv.entity_id)})
+SOIL_TEST_SCHEMA = vol.Schema(
+    {
+        vol.Required("bed"): cv.string,
+        vol.Required("date"): cv.date,
+        vol.Optional("ph"): vol.All(vol.Coerce(float), vol.Range(min=3, max=10)),
+        vol.Optional("organic_matter_pct"): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+        vol.Optional("p_mg"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("k_mg"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        vol.Optional("notes"): cv.string,
+    }
+)
+INSTALL_SENTENCES_SCHEMA = vol.Schema({vol.Optional("overwrite", default=False): cv.boolean})
 SET_SHADING_SCHEMA = vol.Schema({vol.Required("zone"): cv.string, vol.Required("mode"): vol.In(["auto", "on", "off"])})
 AUTOFILL_SCHEMA = vol.Schema(
     {
@@ -375,6 +412,40 @@ def async_setup_services(hass: HomeAssistant) -> None:
             response["applied"] = True
         return response
 
+    async def log_harvest(call: ServiceCall) -> ServiceResponse:
+        entry = op_log_harvest(_runtime(hass), dict(call.data))
+        return {"harvest": to_dict(entry)}
+
+    async def add_journal(call: ServiceCall) -> ServiceResponse:
+        runtime = _runtime(hass)
+        raw = dict(call.data)
+        if raw.get("bed"):
+            from .operations import resolve_bed
+
+            bed = resolve_bed(runtime, raw.pop("bed"))
+            if bed is None:
+                raise ServiceValidationError(translation_domain=DOMAIN, translation_key="unknown_bed",
+                                             translation_placeholders={"bed": str(call.data["bed"])})  # fmt: skip
+            raw["bed_id"] = bed.id
+        if call.context.user_id:
+            user = await hass.auth.async_get_user(call.context.user_id)
+            raw["author"] = user.name if user else None
+        entry = op_save_journal(runtime, raw)
+        return {"entry": to_dict(entry)}
+
+    async def assign_task(call: ServiceCall) -> None:
+        op_assign_task(_runtime(hass), call.data["task_id"], call.data.get("assignee"))
+
+    async def save_soil_test(call: ServiceCall) -> ServiceResponse:
+        raw = {k: v for k, v in call.data.items() if k != "bed"}
+        test = op_save_soil_test(_runtime(hass), call.data["bed"], raw)
+        return {"soil_test": to_dict(test)}
+
+    async def install_sentences(call: ServiceCall) -> ServiceResponse:
+        from .voice import async_install_sentences
+
+        return await async_install_sentences(hass, overwrite=call.data["overwrite"])
+
     async def export_pdf(call: ServiceCall) -> ServiceResponse:
         runtime = _runtime(hass)
         try:
@@ -404,6 +475,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_SET_SHADING, set_shading, SET_SHADING_SCHEMA, SupportsResponse.OPTIONAL),
         (SERVICE_AUTOFILL, autofill, AUTOFILL_SCHEMA, SupportsResponse.OPTIONAL),
         (SERVICE_EXPORT_PDF, export_pdf, EXPORT_PDF_SCHEMA, SupportsResponse.OPTIONAL),
+        ("log_harvest", log_harvest, LOG_HARVEST_SCHEMA, SupportsResponse.OPTIONAL),
+        ("add_journal_entry", add_journal, JOURNAL_SCHEMA, SupportsResponse.OPTIONAL),
+        ("assign_task", assign_task, ASSIGN_SCHEMA, SupportsResponse.NONE),
+        ("save_soil_test", save_soil_test, SOIL_TEST_SCHEMA, SupportsResponse.OPTIONAL),
+        ("install_voice_sentences", install_sentences, INSTALL_SENTENCES_SCHEMA, SupportsResponse.OPTIONAL),
     ]
     for name, handler, schema, supports in reg:
         hass.services.async_register(DOMAIN, name, handler, schema=schema, supports_response=supports)

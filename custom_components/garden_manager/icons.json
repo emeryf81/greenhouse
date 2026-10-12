@@ -65,6 +65,15 @@
       },
       "gdd_season": {
         "default": "mdi:thermometer-plus"
+      },
+      "harvest_season": {
+        "default": "mdi:basket-outline"
+      },
+      "water_week": {
+        "default": "mdi:water-pump"
+      },
+      "rain_water": {
+        "default": "mdi:barrel-outline"
       }
     },
     "binary_sensor": {
@@ -197,6 +206,21 @@
     },
     "export_pdf": {
       "service": "mdi:file-pdf-box"
+    },
+    "log_harvest": {
+      "service": "mdi:basket-plus-outline"
+    },
+    "add_journal_entry": {
+      "service": "mdi:notebook-edit-outline"
+    },
+    "assign_task": {
+      "service": "mdi:account-arrow-right-outline"
+    },
+    "save_soil_test": {
+      "service": "mdi:test-tube"
+    },
+    "install_voice_sentences": {
+      "service": "mdi:microphone-message"
     }
   }
 }

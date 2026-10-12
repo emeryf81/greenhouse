@@ -344,3 +344,65 @@ async def test_overdue_reminder_and_weekly_plan(hass: HomeAssistant, garden) -> 
     assert f"{DOMAIN}_overdue" in ids and f"{DOMAIN}_weekly" in ids
     # Once per day only
     assert f"overdue:{analysis.today.isoformat()}" in runtime.repo.data.notified
+
+
+async def test_records_services_and_websocket(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    planting = repo.data.plantings[0]
+    res = await hass.services.async_call(
+        DOMAIN,
+        "log_harvest",
+        {"planting_id": planting.id, "kg": 1.25, "quality": 4},
+        blocking=True,
+        return_response=True,
+    )
+    assert res["harvest"]["kg"] == 1.25 and repo.data.harvest_log[0].plant_id == planting.plant_id
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "log_harvest", {"plant_id": "tomato"}, blocking=True)
+    await hass.services.async_call(
+        DOMAIN, "add_journal_entry", {"text": "First flowers", "bed": "Bed 1"}, blocking=True
+    )
+    assert repo.data.journal[0].bed_id == repo.data.beds[0].id
+    await hass.services.async_call(
+        DOMAIN, "save_soil_test", {"bed": "Bed 1", "date": "2026-03-01", "ph": 6.1, "organic_matter_pct": 2.5},
+        blocking=True,
+    )  # fmt: skip
+    assert repo.data.beds[0].latest_soil_test.ph == 6.1
+    task = repo.data.tasks[0]
+    await hass.services.async_call(
+        DOMAIN, "assign_task", {"task_id": task.id, "assignee": "person.emery"}, blocking=True
+    )
+    assert repo.data.task(task.id).assignee == "person.emery"
+
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/records/seeds/save", "packet": {"plant_id": "carrot", "year": 2025}}
+    )
+    packet = (await _result(client))["result"]["packet"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/records/overview"})
+    overview = (await _result(client))["result"]
+    assert overview["harvest_all"][planting.plant_id]["kg"] == 1.25
+    assert overview["seeds"]["packets"][0]["plant_id"] == "carrot", overview["seeds"]
+    assert len(overview["year"]["tasks"]) == 12  # the example plan is for next season, rows may be empty
+    await client.send_json_auto_id({"type": f"{DOMAIN}/records/delete", "kind": "seed", "record_id": packet["id"]})
+    assert (await _result(client))["success"] and not repo.data.seed_stock
+    await client.send_json_auto_id({"type": f"{DOMAIN}/records/journal/save", "entry": {"text": ""}})
+    assert not (await _result(client))["success"]
+    state = hass.states.get("sensor.hortulus_harvest_this_season")
+    assert state is None or float(state.state) >= 0
+
+
+async def test_voice_answers_and_sentence_install(hass: HomeAssistant, garden, tmp_path: Path) -> None:
+    from custom_components.garden_manager.voice import answer
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    for intent_type in ("HortulusTasksToday", "HortulusHarvest", "HortulusGreenhouse", "HortulusWater", "HortulusFrost",
+                        "HortulusOverdue"):  # fmt: skip
+        assert answer(runtime, intent_type, "nl")
+    hass.config.config_dir = str(tmp_path)
+    res = await hass.services.async_call(DOMAIN, "install_voice_sentences", {}, blocking=True, return_response=True)
+    assert len(res["written"]) == 2 and (tmp_path / "custom_sentences/nl/hortulus.yaml").exists()
+    again = await hass.services.async_call(DOMAIN, "install_voice_sentences", {}, blocking=True, return_response=True)
+    assert again["written"] == []  # never overwrite without asking

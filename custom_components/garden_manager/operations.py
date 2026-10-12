@@ -21,9 +21,15 @@ from .engine.models import (
     Feature,
     GardenBed,
     GardenSettings,
+    HarvestEntry,
     IrrigationEvent,
+    JournalEntry,
     Plant,
     Planting,
+    PlantingStatus,
+    SeedPacket,
+    SoilTest,
+    Task,
     TaskNote,
     TaskPriority,
     TaskStatus,
@@ -197,6 +203,8 @@ def op_update_task(runtime: GardenRuntime, task_id: str, changes: Mapping[str, A
         task.notes.append(TaskNote(dt_util.now(), str(changes["note"])))
     if "photos" in changes:
         task.photos = [str(p) for p in changes["photos"]]
+    if "assignee" in changes:
+        task.assignee = str(changes["assignee"]) or None if changes["assignee"] else None
     if changes.get("reopen"):
         task.status = TaskStatus.OPEN
         task.completed_at = None
@@ -500,3 +508,141 @@ def op_set_shading_mode(runtime: GardenRuntime, zone_ref: str, mode: str) -> Zon
 
 def _jsonable(fields: Mapping[str, Any]) -> dict[str, Any]:
     return {k: v.isoformat() if isinstance(v, date) else v for k, v in fields.items()}
+
+
+# --------------------------------------------------------------------------- #
+# Records: harvest log, garden diary, seed stock, soil tests
+# --------------------------------------------------------------------------- #
+def _new_id(prefix: str) -> str:
+    import uuid
+
+    return f"{prefix}_{uuid.uuid4().hex[:10]}"
+
+
+@callback
+def op_log_harvest(runtime: GardenRuntime, raw: Mapping[str, Any]) -> HarvestEntry:
+    """Record a harvest.  ``planting`` (id) or ``plant`` (id) identifies the crop."""
+    data = runtime.repo.data
+    planting = data.planting(raw.get("planting_id")) if raw.get("planting_id") else None
+    if raw.get("planting_id") and planting is None:
+        raise _err("unknown_planting", planting=raw["planting_id"])
+    plant_id = planting.plant_id if planting else str(raw.get("plant_id") or "")
+    if runtime.repo.db.get(plant_id) is None:
+        raise _err("unknown_plant", plant=plant_id or "-")
+    kg = float(raw.get("kg") or 0)
+    count = int(raw["count"]) if raw.get("count") not in (None, "") else None
+    if kg < 0 or (count is not None and count < 0) or (kg == 0 and not count):
+        raise _err("invalid_harvest")
+    day = raw.get("day") or dt_util.now().date()
+    entry = HarvestEntry(
+        id=_new_id("hv"), day=day if isinstance(day, date) else date.fromisoformat(str(day)), plant_id=plant_id,
+        kg=round(kg, 3), count=count, planting_id=planting.id if planting else None,
+        bed_id=planting.bed_id if planting else raw.get("bed_id"),
+        quality=int(raw["quality"]) if raw.get("quality") else None, note=str(raw.get("note") or ""),
+    )  # fmt: skip
+    data.harvest_log.append(entry)
+    if planting is not None and planting.harvest_started_on is None:
+        planting.harvest_started_on = entry.day
+        if planting.status in (PlantingStatus.PLANNED, PlantingStatus.SOWN, PlantingStatus.TRANSPLANTED):
+            planting.status = PlantingStatus.HARVESTING
+    runtime.repo.async_changed("records")
+    return entry
+
+
+@callback
+def op_delete_record(runtime: GardenRuntime, kind: str, record_id: str) -> None:
+    data = runtime.repo.data
+    lists = {"harvest": data.harvest_log, "journal": data.journal, "seed": data.seed_stock}
+    items = lists.get(kind)
+    if items is None:
+        raise _err("invalid_record", kind=kind)
+    before = len(items)
+    items[:] = [i for i in items if i.id != record_id]
+    if len(items) == before:
+        raise _err("unknown_record", record=record_id)
+    runtime.repo.async_changed("records")
+
+
+@callback
+def op_save_journal(runtime: GardenRuntime, raw: Mapping[str, Any]) -> JournalEntry:
+    data = runtime.repo.data
+    existing = next((j for j in data.journal if j.id == raw.get("id")), None) if raw.get("id") else None
+    planting = data.planting(raw.get("planting_id")) if raw.get("planting_id") else None
+    if not str(raw.get("text") or "").strip() and not raw.get("photos"):
+        raise _err("invalid_journal")
+    fields = {
+        "text": str(raw.get("text") or ""),
+        "photos": [str(p) for p in raw.get("photos") or []],
+        "kind": raw.get("kind") or "note",
+        "planting_id": planting.id if planting else None,
+        "bed_id": raw.get("bed_id") or (planting.bed_id if planting else None),
+        "zone_id": raw.get("zone_id"),
+        "plant_id": raw.get("plant_id") or (planting.plant_id if planting else None),
+    }
+    if fields["kind"] not in ("note", "observation", "problem", "milestone"):
+        raise _err("invalid_journal")
+    if existing is not None:
+        for key, value in fields.items():
+            setattr(existing, key, value)
+        entry = existing
+    else:
+        entry = JournalEntry(id=_new_id("jn"), at=dt_util.now(), author=raw.get("author"), **fields)
+        data.journal.append(entry)
+    runtime.repo.async_changed("records")
+    return entry
+
+
+@callback
+def op_save_seed(runtime: GardenRuntime, raw: Mapping[str, Any]) -> SeedPacket:
+    data = runtime.repo.data
+    if runtime.repo.db.get(str(raw.get("plant_id") or "")) is None:
+        raise _err("unknown_plant", plant=raw.get("plant_id") or "-")
+    try:
+        packet = from_dict(
+            SeedPacket, {"id": raw.get("id") or _new_id("sd"), **{k: v for k, v in raw.items() if k != "id"}}
+        )
+    except (TypeError, ValueError, KeyError) as err:
+        raise _err("invalid_seed", reason=str(err)) from err
+    if packet.quantity < 0 or (packet.year is not None and not 1990 <= packet.year <= 2100):
+        raise _err("invalid_seed", reason="quantity / year")
+    data.seed_stock = [s for s in data.seed_stock if s.id != packet.id] + [packet]
+    runtime.repo.async_changed("records")
+    return packet
+
+
+@callback
+def op_save_soil_test(runtime: GardenRuntime, bed_ref: str, raw: Mapping[str, Any]) -> SoilTest:
+    bed = resolve_bed(runtime, bed_ref)
+    if bed is None:
+        raise _err("unknown_bed", bed=bed_ref)
+    try:
+        test = from_dict(SoilTest, dict(raw))
+    except (TypeError, ValueError, KeyError) as err:
+        raise _err("invalid_soil_test", reason=str(err)) from err
+    if test.ph is not None and not 3.0 <= test.ph <= 10.0:
+        raise _err("invalid_soil_test", reason="pH 3-10")
+    bed.soil_tests = [s for s in bed.soil_tests if s.date != test.date] + [test]
+    bed.soil_tests.sort(key=lambda s: s.date)
+    runtime.repo.async_changed("plan")
+    return test
+
+
+@callback
+def op_delete_soil_test(runtime: GardenRuntime, bed_ref: str, day: date) -> None:
+    bed = resolve_bed(runtime, bed_ref)
+    if bed is None:
+        raise _err("unknown_bed", bed=bed_ref)
+    bed.soil_tests = [s for s in bed.soil_tests if s.date != day]
+    runtime.repo.async_changed("plan")
+
+
+@callback
+def op_assign_task(runtime: GardenRuntime, task_id: str, assignee: str | None) -> Task:
+    task = runtime.repo.data.task(task_id)
+    if task is None:
+        raise _err("unknown_task", task=task_id)
+    task.assignee = assignee or None
+    task.user_modified = True
+    task.updated_at = dt_util.now()
+    runtime.repo.async_changed("tasks")
+    return task

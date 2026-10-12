@@ -9,9 +9,10 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTemperature
+from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfMass, UnitOfTemperature, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import GardenConfigEntry
 from .coordinator import GardenCoordinator
@@ -22,6 +23,7 @@ from .engine.models import (
     RiskLevel,
     Zone,
 )
+from .engine.records import harvest_summary, water_stats
 from .engine.serde import to_dict
 from .engine.tasks import tasks_due
 from .entity import BedEntity, GardenEntity, ZoneEntity, async_setup_dynamic
@@ -41,6 +43,9 @@ async def async_setup_entry(
             NextTaskSensor(coordinator),
             Et0TodaySensor(coordinator),
             GddTodaySensor(coordinator),
+            HarvestSeasonSensor(coordinator),
+            WaterWeekSensor(coordinator),
+            RainWaterSensor(coordinator),
         ]
     )
     async_setup_dynamic(
@@ -328,6 +333,66 @@ class Et0TodaySensor(GardenEntity, SensorEntity):
             "rain_mm": today.rain_mm,
             "forecast": [{"day": o.day.isoformat(), "et0": o.et0_mm, "rain": o.rain_mm} for o in data.outlook],
         }
+
+
+class HarvestSeasonSensor(GardenEntity, SensorEntity):
+    """Kilograms harvested this season (from the harvest log)."""
+
+    _attr_device_class = SensorDeviceClass.WEIGHT
+    _attr_native_unit_of_measurement = UnitOfMass.KILOGRAMS
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_icon = "mdi:basket-outline"
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator: GardenCoordinator) -> None:
+        super().__init__(coordinator, "harvest_season")
+
+    def _season(self) -> int:
+        data = self.coordinator.data
+        return data.season if data else dt_util.now().year
+
+    @property
+    def native_value(self) -> float:
+        return round(sum(c.kg for c in harvest_summary(self.coordinator.repo.data, self._season()).values()), 2)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        crops = harvest_summary(self.coordinator.repo.data, self._season())
+        return {
+            "season": self._season(),
+            "per_crop_kg": {k: v.kg for k, v in sorted(crops.items(), key=lambda kv: -kv[1].kg)},
+        }
+
+
+class WaterWeekSensor(GardenEntity, SensorEntity):
+    """Mains water used in the garden over the last 7 days (needs a water meter)."""
+
+    _attr_native_unit_of_measurement = UnitOfVolume.LITERS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:water-pump"
+
+    def __init__(self, coordinator: GardenCoordinator) -> None:
+        super().__init__(coordinator, "water_week")
+
+    @property
+    def native_value(self) -> float | None:
+        return water_stats(self.coordinator.repo.data, dt_util.now().date()).week_l
+
+
+class RainWaterSensor(GardenEntity, SensorEntity):
+    """Rain water left in the butts (level sensor x capacity)."""
+
+    _attr_device_class = SensorDeviceClass.VOLUME_STORAGE
+    _attr_native_unit_of_measurement = UnitOfVolume.LITERS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:barrel-outline"
+
+    def __init__(self, coordinator: GardenCoordinator) -> None:
+        super().__init__(coordinator, "rain_water")
+
+    @property
+    def native_value(self) -> float | None:
+        return water_stats(self.coordinator.repo.data, dt_util.now().date()).rain_available_l
 
 
 class GddTodaySensor(GardenEntity, SensorEntity):

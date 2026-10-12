@@ -21,7 +21,7 @@ scheduled ``interval_days`` after the completion date.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -154,6 +154,7 @@ class TaskContext:
     disease: dict[str, DiseaseAssessment] = field(default_factory=dict)
     nutrients: dict[str, NutrientBalance] = field(default_factory=dict)
     outlook: list[DailyOutlook] = field(default_factory=list)
+    rain_water_l: float | None = None  # in the water butts now (water settings)
     horizon_days: int = GENERATION_HORIZON_DAYS
 
 
@@ -519,7 +520,8 @@ def live_specs(ctx: TaskContext) -> list[TaskSpec]:
                         target=round(rec.band.target_mid) if rec.band else "?",
                         mm=rec.amount_mm,
                         liters=round(rec.liters),
-                    ),
+                    )
+                    + (" " + t("desc.rain_water", lang, liters=round(ctx.rain_water_l)) if ctx.rain_water_l else ""),
                     window_start=today,
                     window_end=today,
                     priority=rec.priority,
@@ -1102,3 +1104,17 @@ def week_ahead(tasks: Iterable[Task], today: date, days: int = 7) -> dict[date, 
     for day_tasks in plan.values():
         day_tasks.sort(key=lambda t_: (-t_.priority.rank, t_.title))
     return plan
+
+
+def auto_assign(tasks: Iterable[Task], assignment: Mapping[str, str]) -> int:
+    """Give unassigned new tasks the default household member for their type."""
+    if not assignment:
+        return 0
+    n = 0
+    for task in tasks:
+        if task.assignee is None and task.is_open:
+            who = assignment.get(task.type.value) or assignment.get("*")
+            if who:
+                task.assignee = who
+                n += 1
+    return n

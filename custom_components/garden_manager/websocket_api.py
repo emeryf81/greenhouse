@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
@@ -29,6 +29,7 @@ from .engine.planio import PlanImportError, export_plan
 from .engine.plantdb import FAMILIES
 from .engine.printout import PrintOptions
 from .engine.qa import answer as qa_answer, options as qa_options
+from .engine.records import harvest_summary, learned_yields, seed_report, water_stats, year_overview
 from .engine.region import resolve_profile, season_anchors, season_for_date
 from .engine.schedule import plant_windows, planting_timeline
 from .engine.serde import from_dict, to_dict
@@ -40,12 +41,18 @@ from .operations import (
     op_apply_autoplan,
     op_complete_task,
     op_delete_plant,
+    op_delete_record,
+    op_delete_soil_test,
     op_delete_task,
     op_import_plan,
+    op_log_harvest,
     op_postpone_task,
+    op_save_journal,
     op_save_plan,
     op_save_plant,
+    op_save_seed,
     op_save_settings,
+    op_save_soil_test,
     op_update_task,
 )
 from .printing import async_render_svg
@@ -85,6 +92,13 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_qa_options,
         ws_qa_ask,
         ws_supplies,
+        ws_records_overview,
+        ws_harvest_add,
+        ws_record_delete,
+        ws_journal_save,
+        ws_seed_save,
+        ws_soil_save,
+        ws_soil_delete,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -121,6 +135,9 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
         "rotation_history": [to_dict(r) for r in data.rotation_history],
         "features": [to_dict(f) for f in data.features],
         "irrigation_log": [to_dict(e) for e in data.irrigation_log[-50:]],
+        "harvest_log": [to_dict(e) for e in data.harvest_log[-300:]],
+        "journal": [to_dict(e) for e in data.journal[-200:]],
+        "seed_stock": [to_dict(e) for e in data.seed_stock],
         "irrigation_status": {
             "running": runtime.irrigation.running,
             "bed_id": runtime.irrigation.status.bed_id,
@@ -794,3 +811,115 @@ def ws_supplies(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
     analysis = runtime.coordinator.data
     items = shopping_list(runtime.repo.data, runtime.repo.db, analysis, lang) if analysis else []
     connection.send_result(msg["id"], {**supplies_catalog(lang), "shopping": [i.to_dict() for i in items]})
+
+
+# --------------------------------------------------------------------------- #
+# Records: harvest, diary, seeds, soil tests, water, year overview
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/records/overview"})
+@callback
+def ws_records_overview(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data, db, analysis = runtime.repo.data, runtime.repo.db, runtime.coordinator.data
+    today = analysis.today if analysis else dt_util.now().date()
+    season = analysis.season if analysis else today.year
+    connection.send_result(
+        msg["id"],
+        {
+            "season": season,
+            "harvest_season": {k: v.to_dict() for k, v in harvest_summary(data, season).items()},
+            "harvest_all": {k: v.to_dict() for k, v in harvest_summary(data).items()},
+            "learned_yields": learned_yields(data),
+            "seeds": seed_report(data, db, season),
+            "water": water_stats(data, today).to_dict(),
+            "year": year_overview(data, db, analysis) if analysis else None,
+        },
+    )
+
+
+def _ws_op(connection: websocket_api.ActiveConnection, msg: dict[str, Any], fn: Any) -> None:
+    """Run an operation and translate validation errors into websocket errors."""
+    try:
+        result = fn()
+    except ServiceValidationError as err:
+        connection.send_error(msg["id"], err.translation_key or "invalid_format", str(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/records/harvest/add",
+        vol.Optional("planting_id"): vol.Any(str, None),
+        vol.Optional("plant_id"): vol.Any(str, None),
+        vol.Optional("kg"): vol.Coerce(float),
+        vol.Optional("count"): vol.Any(vol.Coerce(int), None),
+        vol.Optional("quality"): vol.Any(vol.Coerce(int), None),
+        vol.Optional("day"): str,
+        vol.Optional("note"): str,
+    }
+)
+@callback
+def ws_harvest_add(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        raw = {k: v for k, v in msg.items() if k not in ("id", "type")}
+        _ws_op(connection, msg, lambda: {"harvest": to_dict(op_log_harvest(runtime, raw))})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/records/delete",
+        vol.Required("kind"): vol.In(["harvest", "journal", "seed"]),
+        vol.Required("record_id"): str,
+    }
+)
+@callback
+def ws_record_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: op_delete_record(runtime, msg["kind"], msg["record_id"]) or {})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/records/journal/save", vol.Required("entry"): dict})
+@callback
+def ws_journal_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        raw = {
+            **msg["entry"],
+            "author": msg["entry"].get("author") or (connection.user.name if connection.user else None),
+        }
+        _ws_op(connection, msg, lambda: {"entry": to_dict(op_save_journal(runtime, raw))})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/records/seeds/save", vol.Required("packet"): dict})
+@callback
+def ws_seed_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: {"packet": to_dict(op_save_seed(runtime, msg["packet"]))})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/records/soil/save", vol.Required("bed_id"): str, vol.Required("test"): dict}
+)
+@callback
+def ws_soil_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: {"test": to_dict(op_save_soil_test(runtime, msg["bed_id"], msg["test"]))})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/records/soil/delete", vol.Required("bed_id"): str, vol.Required("date"): str}
+)
+@callback
+def ws_soil_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(
+            connection, msg, lambda: op_delete_soil_test(runtime, msg["bed_id"], date.fromisoformat(msg["date"])) or {}
+        )

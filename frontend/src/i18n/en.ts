@@ -780,4 +780,6 @@ export const en: Record<string, string> = {
   "advice.cat.protection": "Protection",
   "advice.cat.support": "Support & mulch",
   "advice.cat.other": "Other",
+  "print.doc.year": "Year plan",
+  "print.doc.year.hint": "Month matrix: sow, plant, harvest",
 };

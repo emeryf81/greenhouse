@@ -491,6 +491,22 @@ class Zone:
 
 
 @dataclass(slots=True)
+class SoilTest:
+    """A soil analysis of one bed (lab report or home test kit)."""
+
+    date: date
+    ph: float | None = None
+    organic_matter_pct: float | None = None
+    # Lab values in mg per 100 g dry soil (or kit classes mapped to them).
+    n_mg: float | None = None
+    p_mg: float | None = None
+    k_mg: float | None = None
+    mg_mg: float | None = None
+    lime_status: Literal["low", "ok", "high"] | None = None
+    notes: str = ""
+
+
+@dataclass(slots=True)
 class GardenBed:
     id: str
     name: str
@@ -508,6 +524,11 @@ class GardenBed:
     irrigation_entity: str | None = None
     irrigation_flow_lpm: float | None = None
     notes: str = ""
+    soil_tests: list[SoilTest] = field(default_factory=list)
+
+    @property
+    def latest_soil_test(self) -> SoilTest | None:
+        return max(self.soil_tests, key=lambda s: s.date, default=None)
 
     @property
     def area_m2(self) -> float:
@@ -619,6 +640,8 @@ class Task:
     user_modified: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Household member doing it: a person.* entity id (or None = anyone).
+    assignee: str | None = None
 
     @property
     def is_open(self) -> bool:
@@ -698,6 +721,15 @@ class GardenResources:
 
 
 @dataclass(slots=True)
+class WaterSettings:
+    """Garden water: a (sub)meter on the garden tap and the rain water butts."""
+
+    meter_entity: str | None = None  # total m³ (or L) - a water meter / flow sensor
+    butt_level_entity: str | None = None  # % full of the rain water butt(s)
+    butt_capacity_l: float = 0.0  # total volume of all butts
+
+
+@dataclass(slots=True)
 class GardenSettings:
     region: RegionProfile = field(default_factory=RegionProfile)
     weather_entity: str | None = None
@@ -712,6 +744,11 @@ class GardenSettings:
     snap_cm: int = 10
     irrigation: IrrigationSettings = field(default_factory=IrrigationSettings)
     resources: GardenResources = field(default_factory=GardenResources)
+    water: WaterSettings = field(default_factory=WaterSettings)
+    # Default assignee per task type ("*" = every type): person.* entity ids.
+    assignment: dict[str, str] = field(default_factory=dict)
+    # person.* -> notify service, for reminders addressed to that person.
+    person_notify: dict[str, str] = field(default_factory=dict)
     # Optional extra forecast source (no API key, opt-in, needs internet).
     open_meteo: bool = False
     elevation_m: float | None = None
@@ -757,6 +794,60 @@ class IrrigationEvent:
 
 
 @dataclass(slots=True)
+class HarvestEntry:
+    """What came out of the garden: weight and/or count, per planting."""
+
+    id: str
+    day: date
+    plant_id: str
+    kg: float = 0.0
+    count: int | None = None
+    planting_id: str | None = None
+    bed_id: str | None = None
+    quality: int | None = None  # 1 (poor) .. 5 (excellent)
+    note: str = ""
+
+
+@dataclass(slots=True)
+class JournalEntry:
+    """Garden diary: a note and/or photos, linked to a planting, bed or zone."""
+
+    id: str
+    at: datetime
+    text: str = ""
+    photos: list[str] = field(default_factory=list)
+    kind: Literal["note", "observation", "problem", "milestone"] = "note"
+    planting_id: str | None = None
+    bed_id: str | None = None
+    zone_id: str | None = None
+    plant_id: str | None = None
+    author: str | None = None
+
+
+@dataclass(slots=True)
+class SeedPacket:
+    """Seed stock: one packet / jar of a variety."""
+
+    id: str
+    plant_id: str
+    variety: str = ""
+    year: int | None = None  # harvest / packing year ("use by" is derived from it)
+    quantity: float = 1.0
+    unit: Literal["packet", "seeds", "g"] = "packet"
+    source: str = ""  # shop, swap, own harvest
+    notes: str = ""
+
+
+@dataclass(slots=True)
+class WaterReading:
+    """Daily snapshot of the water meter and the rain water butts."""
+
+    day: date
+    meter_m3: float | None = None
+    butt_pct: float | None = None
+
+
+@dataclass(slots=True)
 class GardenData:
     """Root document persisted with ``homeassistant.helpers.storage.Store``."""
 
@@ -775,6 +866,10 @@ class GardenData:
     features: list[Feature] = field(default_factory=list)
     water_balance: dict[str, WaterBalance] = field(default_factory=dict)
     irrigation_log: list[IrrigationEvent] = field(default_factory=list)
+    harvest_log: list[HarvestEntry] = field(default_factory=list)
+    journal: list[JournalEntry] = field(default_factory=list)
+    seed_stock: list[SeedPacket] = field(default_factory=list)
+    water_log: list[WaterReading] = field(default_factory=list)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:

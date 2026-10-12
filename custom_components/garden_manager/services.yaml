@@ -382,7 +382,7 @@ export_pdf:
       default: garden
       selector:
         select:
-          options: [garden, zone, beds, tasks, season, blank, plants]
+          options: [garden, zone, beds, tasks, season, year, blank, plants]
     page:
       default: a4
       selector:
@@ -422,3 +422,120 @@ export_pdf:
     title:
       selector:
         text:
+
+log_harvest:
+  fields:
+    planting_id:
+      selector:
+        text:
+    plant_id:
+      example: tomato
+      selector:
+        text:
+    kg:
+      example: 1.2
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 0.05
+          unit_of_measurement: kg
+    count:
+      selector:
+        number:
+          min: 0
+          max: 10000
+    quality:
+      selector:
+        number:
+          min: 1
+          max: 5
+    day:
+      selector:
+        date:
+    note:
+      selector:
+        text:
+
+add_journal_entry:
+  fields:
+    text:
+      required: true
+      selector:
+        text:
+          multiline: true
+    kind:
+      default: note
+      selector:
+        select:
+          translation_key: journal_kind
+          options:
+            - note
+            - observation
+            - problem
+            - milestone
+    planting_id:
+      selector:
+        text:
+    bed:
+      selector:
+        text:
+    photos:
+      selector:
+        text:
+          multiple: true
+
+assign_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+    assignee:
+      selector:
+        entity:
+          domain: person
+
+save_soil_test:
+  fields:
+    bed:
+      required: true
+      selector:
+        text:
+    date:
+      required: true
+      selector:
+        date:
+    ph:
+      selector:
+        number:
+          min: 3
+          max: 10
+          step: 0.1
+    organic_matter_pct:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.1
+          unit_of_measurement: "%"
+    p_mg:
+      selector:
+        number:
+          min: 0
+          max: 500
+    k_mg:
+      selector:
+        number:
+          min: 0
+          max: 500
+    notes:
+      selector:
+        text:
+
+install_voice_sentences:
+  fields:
+    overwrite:
+      default: false
+      selector:
+        boolean:

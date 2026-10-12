@@ -53,7 +53,8 @@ from .const import (
 from .engine.analysis import GardenAnalysis, analyze
 from .engine.i18n import normalize_lang
 from .engine.models import SensorReading, WeatherSnapshot
-from .engine.tasks import MergeResult, generate_specs, merge_tasks
+from .engine.records import record_water, water_stats
+from .engine.tasks import MergeResult, auto_assign, generate_specs, merge_tasks
 from .engine.waterbalance import advance_water_balance
 from .engine.weather import merge_forecasts, parse_forecast, record_climate
 from .storage import GardenRepository
@@ -122,6 +123,7 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             ids.update(zone.sensors.entity_ids())
         for bed in data.beds:
             ids.update(data.bed_sensors(bed).entity_ids())
+        ids.update(e for e in (data.settings.water.meter_entity, data.settings.water.butt_level_entity) if e)
         return ids
 
     @callback
@@ -278,6 +280,18 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             readings[entity_id] = SensorReading(entity_id, value, reported, stale=(now - reported) > stale_after)
         return readings
 
+    def _state_float(self, entity_id: str | None, *, m3: bool = False) -> float | None:
+        """Numeric state; with ``m3`` litres are converted to m³ (meters report either)."""
+        if not entity_id or (state := self.hass.states.get(entity_id)) is None:
+            return None
+        try:
+            value = float(state.state)
+        except (TypeError, ValueError):
+            return None
+        if m3 and str(state.attributes.get("unit_of_measurement", "")).lower() in ("l", "liter", "litre", "liters"):
+            value /= 1000
+        return value
+
     def _compute(self) -> GardenAnalysis:
         repo = self.repo
         data = repo.data
@@ -316,13 +330,19 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             tz=dt_util.get_default_time_zone(),
         )
 
-        merge = merge_tasks(
-            data.tasks,
-            generate_specs(analysis.task_context(data, repo.db)),
-            today=analysis.today,
-            now=now,
-            lang=self.lang,
+        # Garden water: one meter / water-butt reading per day.
+        water = data.settings.water
+        changed |= record_water(
+            data,
+            analysis.today,
+            self._state_float(water.meter_entity, m3=True),
+            self._state_float(water.butt_level_entity),
         )
+        ctx = analysis.task_context(data, repo.db)
+        ctx.rain_water_l = water_stats(data, analysis.today).rain_available_l
+        merge = merge_tasks(data.tasks, generate_specs(ctx), today=analysis.today, now=now, lang=self.lang)
+        if auto_assign(merge.created, data.settings.assignment):
+            changed = True
         self.last_merge = merge
         if merge.changed:
             data.tasks = merge.tasks

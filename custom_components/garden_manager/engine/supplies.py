@@ -18,6 +18,7 @@ from .fertilizer import bed_fertilizer_plan
 from .geometry import plant_count
 from .models import FrostTolerance, GardenData, PlantingStatus, SowMethod, TaskType, present_in
 from .plantdb import PlantDatabase
+from .records import seed_report
 
 if TYPE_CHECKING:
     from .analysis import GardenAnalysis
@@ -63,6 +64,7 @@ TOOLS: dict[str, tuple[str, str, str, str]] = {
     "ladder": ("Three-legged ladder", "Driepootladder", "🪜", "tool"),
     "bags": ("Bin bags (leaf mould)", "Vuilniszakken (bladaarde)", "🛍️", "material"),
     "soil_kit": ("Soil test kit", "Bodemtestkit", "🧪", "material"),
+    "lime": ("Garden lime", "Tuinkalk", "🪨", "material"),
 }
 
 TASK_TOOLS: dict[TaskType, tuple[str, ...]] = {
@@ -171,7 +173,10 @@ def shopping_list(
             seeds[plant.id] = seeds.get(plant.id, 0) + 1
             if p.method is SowMethod.INDOOR_SOW:
                 indoor += count
+    in_stock = set(seeds) - set(seed_report(data, db, season)["missing"])
     for pid in sorted(seeds, key=lambda i: db.get(i).name(lang)):  # type: ignore[union-attr]
+        if pid in in_stock:
+            continue  # usable seed in the seed box
         plant = db.get(pid)
         add(pid, 1, "zakje" if nl else "packet", "zaad" if nl else "seed", "seeds", plant.name(lang) if plant else pid)
     for pid, count in sorted(young.items()):
@@ -195,7 +200,7 @@ def shopping_list(
         )
 
     # Soil
-    compost = fert = 0.0
+    compost = fert = lime = 0.0
     beds_used: dict[str, list] = {}
     for p, plant in this_season:
         beds_used.setdefault(p.bed_id, []).append((p, plant))
@@ -218,11 +223,13 @@ def shopping_list(
         bed = data.bed(bed_id)
         if bed is None:
             continue
-        plan = bed_fertilizer_plan(cultivated_m2(bed_id, group), [pl for _p, pl in group], lang)
+        plan = bed_fertilizer_plan(cultivated_m2(bed_id, group), [pl for _p, pl in group], lang, bed.latest_soil_test)
         compost += plan.compost_kg
         fert += plan.base_fertilizer_g
+        lime += plan.lime_g
     add("compost", compost, "kg", "bemesting volgens je plan" if nl else "feeding for your plan", "soil")
     add("fertiliser", fert / 1000, "kg", "zware eters" if nl else "hungry crops", "soil")
+    add("lime", lime / 1000, "kg", "volgens bodemanalyse" if nl else "from your soil test", "soil")
 
     # Protection
     fleece = mesh = 0.0

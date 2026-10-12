@@ -155,6 +155,7 @@ class GardenNotifier:
             tts=False,
             data={"tag": f"{DOMAIN}_digest", "url": "/hortulus"},
         )
+        await self._send_personal(due, lambda tasks: t("digest.title", lang), f"{DOMAIN}_digest")
 
     async def async_send_overdue(self, analysis: GardenAnalysis) -> None:
         """Evening reminder for tasks left undone, with a verdict per task."""
@@ -187,6 +188,9 @@ class GardenNotifier:
             notification_id=f"{DOMAIN}_overdue",
             data={"tag": f"{DOMAIN}_overdue", "url": "/hortulus"},
         )
+        await self._send_personal(
+            [i.task for i in items], lambda tasks: t("overdue.title", lang, count=len(tasks)), f"{DOMAIN}_overdue"
+        )
 
     async def async_send_weekly(self, analysis: GardenAnalysis) -> None:
         """Weekly look-ahead: tasks and minutes per day for the coming seven days."""
@@ -210,6 +214,27 @@ class GardenNotifier:
             notification_id=f"{DOMAIN}_weekly",
             data={"tag": f"{DOMAIN}_weekly", "url": "/hortulus"},
         )
+
+    async def _send_personal(self, tasks: list[Task], title: Any, tag: str) -> None:
+        """Each household member with a notify service gets the tasks assigned to them."""
+        mapping = self.repo.data.settings.person_notify
+        for person, service in mapping.items():
+            mine = [task for task in tasks if task.assignee == person]
+            if not mine or not service:
+                continue
+            domain, _, name = service.partition(".")
+            if not name:
+                domain, name = "notify", domain
+            if not self.hass.services.has_service(domain, name):
+                continue
+            message = "\n".join(f"- {task.title}" for task in mine[:12])
+            try:
+                await self.hass.services.async_call(
+                    domain, name, {"title": title(mine), "message": message, "data": {"tag": f"{tag}_{person}", "url": "/hortulus"}},
+                    blocking=False,
+                )  # fmt: skip
+            except HomeAssistantError as err:
+                _LOGGER.warning("Could not notify %s via %s: %s", person, service, err)
 
     async def async_send(
         self,

@@ -284,6 +284,14 @@
         "merge": "Merge (add/update)",
         "replace": "Replace layout and plantings"
       }
+    },
+    "journal_kind": {
+      "options": {
+        "note": "Note",
+        "observation": "Observation",
+        "problem": "Problem",
+        "milestone": "Milestone"
+      }
     }
   },
   "entity": {
@@ -357,6 +365,15 @@
       },
       "gdd_season": {
         "name": "Degree days this season"
+      },
+      "harvest_season": {
+        "name": "Harvest this season"
+      },
+      "water_week": {
+        "name": "Garden water (7 days)"
+      },
+      "rain_water": {
+        "name": "Rain water available"
       }
     },
     "binary_sensor": {
@@ -872,6 +889,124 @@
           "description": "Custom title."
         }
       }
+    },
+    "log_harvest": {
+      "name": "Log harvest",
+      "description": "Record what you picked: kg and/or a count, per planting or plant. Learned yields improve Autofill.",
+      "fields": {
+        "planting_id": {
+          "name": "Planting",
+          "description": "Planting id (optional)."
+        },
+        "plant_id": {
+          "name": "Plant",
+          "description": "Plant id when there is no planting."
+        },
+        "kg": {
+          "name": "Weight",
+          "description": "Kilograms harvested."
+        },
+        "count": {
+          "name": "Count",
+          "description": "Number of fruits / heads."
+        },
+        "quality": {
+          "name": "Quality",
+          "description": "1 (poor) to 5 (excellent)."
+        },
+        "day": {
+          "name": "Date",
+          "description": "Defaults to today."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Free text."
+        }
+      }
+    },
+    "add_journal_entry": {
+      "name": "Add diary entry",
+      "description": "Add a note (and photos) to the garden diary.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "What you saw or did."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Note, observation, problem or milestone."
+        },
+        "planting_id": {
+          "name": "Planting",
+          "description": "Link to a planting (optional)."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Bed name or id (optional)."
+        },
+        "photos": {
+          "name": "Photos",
+          "description": "Image ids from the image upload."
+        }
+      }
+    },
+    "assign_task": {
+      "name": "Assign task",
+      "description": "Give a task to a household member (person) or clear it.",
+      "fields": {
+        "task_id": {
+          "name": "Task",
+          "description": "Task id."
+        },
+        "assignee": {
+          "name": "Person",
+          "description": "person.* entity; empty = anyone."
+        }
+      }
+    },
+    "save_soil_test": {
+      "name": "Save soil test",
+      "description": "Store a soil analysis for a bed; fertiliser and lime advice use it.",
+      "fields": {
+        "bed": {
+          "name": "Bed",
+          "description": "Bed name or id."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Sampling date."
+        },
+        "ph": {
+          "name": "pH",
+          "description": "Soil pH."
+        },
+        "organic_matter_pct": {
+          "name": "Organic matter",
+          "description": "Percent."
+        },
+        "p_mg": {
+          "name": "Phosphate",
+          "description": "mg P2O5 per 100 g."
+        },
+        "k_mg": {
+          "name": "Potassium",
+          "description": "mg K2O per 100 g."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Lab or kit remarks."
+        }
+      }
+    },
+    "install_voice_sentences": {
+      "name": "Install voice sentences",
+      "description": "Copy the Hortulus sentences for Assist to /config/custom_sentences (EN and NL).",
+      "fields": {
+        "overwrite": {
+          "name": "Overwrite",
+          "description": "Replace files you changed yourself."
+        }
+      }
     }
   },
   "exceptions": {
@@ -913,6 +1048,24 @@
     },
     "invalid_print": {
       "message": "Invalid print options: {reason}"
+    },
+    "invalid_harvest": {
+      "message": "Give a weight (kg) or a count for the harvest."
+    },
+    "invalid_record": {
+      "message": "Unknown record type {kind}."
+    },
+    "unknown_record": {
+      "message": "Record {record} does not exist."
+    },
+    "invalid_journal": {
+      "message": "A diary entry needs text or a photo (and a valid kind)."
+    },
+    "invalid_seed": {
+      "message": "Invalid seed packet: {reason}"
+    },
+    "invalid_soil_test": {
+      "message": "Invalid soil test: {reason}"
     }
   }
 }

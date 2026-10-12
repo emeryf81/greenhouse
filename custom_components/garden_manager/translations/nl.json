@@ -284,6 +284,14 @@
         "merge": "Samenvoegen (toevoegen/bijwerken)",
         "replace": "Indeling en beplanting vervangen"
       }
+    },
+    "journal_kind": {
+      "options": {
+        "note": "Notitie",
+        "observation": "Waarneming",
+        "problem": "Probleem",
+        "milestone": "Mijlpaal"
+      }
     }
   },
   "entity": {
@@ -357,6 +365,15 @@
       },
       "gdd_season": {
         "name": "Graaddagen dit seizoen"
+      },
+      "harvest_season": {
+        "name": "Oogst dit seizoen"
+      },
+      "water_week": {
+        "name": "Tuinwater (7 dagen)"
+      },
+      "rain_water": {
+        "name": "Beschikbaar regenwater"
       }
     },
     "binary_sensor": {
@@ -872,6 +889,124 @@
           "description": "Eigen titel."
         }
       }
+    },
+    "log_harvest": {
+      "name": "Oogst registreren",
+      "description": "Registreer wat je plukte: kg en/of een aantal, per teelt of plant. Geleerde opbrengsten verbeteren Automatisch invullen.",
+      "fields": {
+        "planting_id": {
+          "name": "Teelt",
+          "description": "Id van de teelt (optioneel)."
+        },
+        "plant_id": {
+          "name": "Plant",
+          "description": "Plant-id als er geen teelt is."
+        },
+        "kg": {
+          "name": "Gewicht",
+          "description": "Geoogste kilogram."
+        },
+        "count": {
+          "name": "Aantal",
+          "description": "Aantal vruchten / kroppen."
+        },
+        "quality": {
+          "name": "Kwaliteit",
+          "description": "1 (slecht) tot 5 (uitstekend)."
+        },
+        "day": {
+          "name": "Datum",
+          "description": "Standaard vandaag."
+        },
+        "note": {
+          "name": "Notitie",
+          "description": "Vrije tekst."
+        }
+      }
+    },
+    "add_journal_entry": {
+      "name": "Dagboeknotitie toevoegen",
+      "description": "Voeg een notitie (en foto's) toe aan het tuindagboek.",
+      "fields": {
+        "text": {
+          "name": "Tekst",
+          "description": "Wat je zag of deed."
+        },
+        "kind": {
+          "name": "Soort",
+          "description": "Notitie, waarneming, probleem of mijlpaal."
+        },
+        "planting_id": {
+          "name": "Teelt",
+          "description": "Koppel aan een teelt (optioneel)."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Naam of id van het bed (optioneel)."
+        },
+        "photos": {
+          "name": "Foto's",
+          "description": "Afbeeldings-id's van de upload."
+        }
+      }
+    },
+    "assign_task": {
+      "name": "Taak toewijzen",
+      "description": "Geef een taak aan een gezinslid (persoon) of maak ze vrij.",
+      "fields": {
+        "task_id": {
+          "name": "Taak",
+          "description": "Id van de taak."
+        },
+        "assignee": {
+          "name": "Persoon",
+          "description": "person.*-entiteit; leeg = iedereen."
+        }
+      }
+    },
+    "save_soil_test": {
+      "name": "Bodemanalyse opslaan",
+      "description": "Bewaar een bodemanalyse voor een bed; bemestings- en kalkadvies gebruiken ze.",
+      "fields": {
+        "bed": {
+          "name": "Bed",
+          "description": "Naam of id van het bed."
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Datum van de staalname."
+        },
+        "ph": {
+          "name": "pH",
+          "description": "pH van de bodem."
+        },
+        "organic_matter_pct": {
+          "name": "Organische stof",
+          "description": "Procent."
+        },
+        "p_mg": {
+          "name": "Fosfaat",
+          "description": "mg P2O5 per 100 g."
+        },
+        "k_mg": {
+          "name": "Kalium",
+          "description": "mg K2O per 100 g."
+        },
+        "notes": {
+          "name": "Notities",
+          "description": "Opmerkingen van labo of kit."
+        }
+      }
+    },
+    "install_voice_sentences": {
+      "name": "Spraakzinnen installeren",
+      "description": "Kopieer de Hortulus-zinnen voor Assist naar /config/custom_sentences (NL en EN).",
+      "fields": {
+        "overwrite": {
+          "name": "Overschrijven",
+          "description": "Vervang bestanden die je zelf aanpaste."
+        }
+      }
     }
   },
   "exceptions": {
@@ -913,6 +1048,24 @@
     },
     "invalid_print": {
       "message": "Ongeldige afdrukopties: {reason}"
+    },
+    "invalid_harvest": {
+      "message": "Geef een gewicht (kg) of een aantal voor de oogst."
+    },
+    "invalid_record": {
+      "message": "Onbekend soort registratie {kind}."
+    },
+    "unknown_record": {
+      "message": "Registratie {record} bestaat niet."
+    },
+    "invalid_journal": {
+      "message": "Een dagboeknotitie heeft tekst of een foto nodig (en een geldig soort)."
+    },
+    "invalid_seed": {
+      "message": "Ongeldig zaadzakje: {reason}"
+    },
+    "invalid_soil_test": {
+      "message": "Ongeldige bodemanalyse: {reason}"
     }
   }
 }

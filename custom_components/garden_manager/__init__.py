@@ -26,6 +26,7 @@ from .printing import async_register_print_view
 from .seed import build_initial_data
 from .services import async_setup_services
 from .storage import GardenRepository
+from .voice import async_setup_intents
 from .websocket_api import async_setup_websocket
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register services and websocket commands once (HA best practice)."""
     async_setup_services(hass)
     async_setup_websocket(hass)
+    async_setup_intents(hass)
     async_register_print_view(hass)
     return True
 

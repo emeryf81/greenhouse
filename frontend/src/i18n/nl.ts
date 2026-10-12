@@ -778,4 +778,6 @@ export const nl: Record<string, string> = {
   "advice.cat.protection": "Bescherming",
   "advice.cat.support": "Steun & mulch",
   "advice.cat.other": "Overig",
+  "print.doc.year": "Jaarplan",
+  "print.doc.year.hint": "Maandmatrix: zaaien, planten, oogsten",
 };
