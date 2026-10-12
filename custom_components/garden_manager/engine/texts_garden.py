@@ -422,6 +422,10 @@ MESSAGES["en"].update(
         "advice.feed.text": "Feed with diluted nettle feed (leaf crops) or comfrey feed (fruit crops) and top-dress compost.",
         "advice.flowers": "Plant flowers between the vegetables",
         "advice.flowers.text": "About one tenth flowers ({flowers}) brings pollinators and natural pest control.",
+        "advice.year_transition": "Close {from} and move into {to}",
+        "advice.year_transition.text": "The new year has started, but nothing carries over by itself: choose in the "
+        "year-end transition which part of the garden plan, which perennials and which overwintering crops go "
+        "into {to}. Until then they get no tasks for {to}.",
         "advice.compost": "Draw a compost heap",
         "advice.compost.text": "Your own compost is the best and cheapest soil improver - place it in a half-shaded corner.",
         "advice.water_butt": "Catch rain water",
@@ -478,6 +482,10 @@ MESSAGES["nl"].update(
         "advice.feed.text": "Geef verdunde brandnetelgier (bladgewassen) of smeerwortelgier (vruchtgewassen) en strooi compost.",
         "advice.flowers": "Plant bloemen tussen de groenten",
         "advice.flowers.text": "Ongeveer een tiende bloemen ({flowers}) brengt bestuivers en natuurlijke plaagbestrijding.",
+        "advice.year_transition": "Sluit {from} af en zet je tuin over naar {to}",
+        "advice.year_transition.text": "Het nieuwe jaar is begonnen, maar niets gaat vanzelf mee: kies in de "
+        "jaarovergang welk deel van het tuinplan, welke vaste planten en welke overwinterende gewassen naar {to} gaan. "
+        "Tot dan krijgen ze geen taken voor {to}.",
         "advice.compost": "Teken een composthoop",
         "advice.compost.text": "Eigen compost is de beste en goedkoopste bodemverbeteraar - zet hem in een halfschaduwrijke hoek.",
         "advice.water_butt": "Vang regenwater op",

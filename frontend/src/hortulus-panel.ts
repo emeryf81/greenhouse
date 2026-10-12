@@ -28,10 +28,11 @@ import { setSupplies } from "./util/tools";
 import "./components/task-ui";
 import { setGlossary } from "./components/info";
 
-type Tab = "dashboard" | "planner" | "library" | "calendar" | "journal" | "advice" | "handbook" | "print" | "settings";
+type Tab = "dashboard" | "layout" | "planner" | "library" | "calendar" | "journal" | "advice" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
   { id: "dashboard", icon: "mdi:home-variant-outline", mobile: true },
-  { id: "planner", icon: "mdi:floor-plan", mobile: true },
+  { id: "layout", icon: "mdi:floor-plan", mobile: false },
+  { id: "planner", icon: "mdi:sprout", mobile: true },
   { id: "library", icon: "mdi:sprout-outline", mobile: true },
   { id: "calendar", icon: "mdi:calendar-month-outline", mobile: true },
   { id: "journal", icon: "mdi:notebook-outline", mobile: false },
@@ -57,6 +58,8 @@ export class HortulusPanel extends LitElement {
   @state() private creatingTask = false;
   @state() private error = "";
   @state() private chapter = "";
+  @state() private plannerSeason: number | null = null;
+  @state() private transitionRequest = 0;
 
   private api?: GardenApi;
   private unsubscribe?: () => Promise<void>;
@@ -229,9 +232,13 @@ export class HortulusPanel extends LitElement {
     const admin = this.hass.user?.is_admin ?? true;
     const plantMap = new Map(this.plants.map((p) => [p.id, p]));
     switch (this.tab) {
+      case "layout":
+        return html`<hl-planner-view mode="layout" .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow} .initialSeason=${this.plannerSeason}
+          .transitionRequest=${this.transitionRequest}></hl-planner-view>`;
       case "planner":
-        return html`<hl-planner-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
-          .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow}></hl-planner-view>`;
+        return html`<hl-planner-view mode="plant" .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow} .initialSeason=${this.plannerSeason}></hl-planner-view>`;
       case "library":
         return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
@@ -280,6 +287,8 @@ export class HortulusPanel extends LitElement {
         @irrigation=${(e: CustomEvent<"run" | "stop">) => this.irrigation(e.detail)}
         @new-task=${() => (this.creatingTask = true)}
         @navigate=${(e: CustomEvent<Tab>) => this.navigate(e.detail)}
+        @season-changed=${(e: CustomEvent<number>) => (this.plannerSeason = e.detail)}
+        @year-transition=${() => { this.navigate("layout"); this.transitionRequest += 1; }}
         @open-handbook=${(e: CustomEvent<{ chapter?: string }>) => this.openHandbook(e.detail?.chapter ?? "")}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}>
         ${this.error ? html`<div class="card error">${emblem(56)}<p>${this.error}</p></div>`

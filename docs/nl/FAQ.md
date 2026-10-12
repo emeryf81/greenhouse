@@ -90,7 +90,7 @@ foto's worden daarin weggelaten).
 
 ## Mijn appelboom staat elk jaar opnieuw in het plan - hoe haal ik hem weg?
 
-Meerjarige planten (fruitbomen, bessen, asperge, vaste kruiden) gaan automatisch mee naar elk volgend seizoen. Selecteer de plant in de planner en kies **Verwijderen**. Je krijgt twee keuzes: **Weg vanaf dit seizoen** (de vorige jaren behouden hem voor wisselteelt en historiek) of **Volledig wissen**.
+Meerjarige planten (fruitbomen, bessen, asperge, vaste kruiden) gaan alleen mee naar een volgend seizoen als je ze aanvinkt in de **Jaarovergang**. Wil je er een uit het huidige seizoen halen, selecteer de plant in de planner en kies **Verwijderen**. Je krijgt twee keuzes: **Weg vanaf dit seizoen** (de vorige jaren behouden hem voor wisselteelt en historiek) of **Volledig wissen**.
 
 ## Kan ik herinneringen krijgen voor taken die ik vergeten ben?
 
@@ -127,3 +127,18 @@ Ja: `type: custom:hortulus-tasks-card` wordt automatisch geladen. Ze toont de ta
 ## Gebruikt Hortulus mijn bodemanalyse?
 
 Ja. Selecteer een bed in de planner en voeg een **bodemanalyse** toe (pH, organische stof, P en K uit een labo-rapport of thuistest). Het bemestingsplan, het kalkadvies en de boodschappenlijst van dat bed volgen de laatste analyse: minder fosfaat bij een hoge P, enkel kalk als de pH te laag is voor de gewassen, meer compost bij weinig organische stof.
+
+
+## Kan ik zien wat er veranderd is, en dat terugdraaien?
+
+Ja. In **Logboek → Systeemlogboek** staat elke wijziging: wat jij of een huisgenoot in het paneel deed, wat een automatisering of actie aanpaste, en wat Hortulus zelf deed (taken aanmaken of afsluiten, opruimen). Per regel zie je wanneer, door wie en wat (bv. *Verwijderd – Teelt: Tomaat (Kasbed, seizoen 2027)*). Met **Terugdraaien** zet je de toestand van vóór die actie terug. Is een onderdeel sindsdien opnieuw gewijzigd, dan vraagt Hortulus eerst of die latere wijziging mag vervallen; een terugdraaiing die een teelt zonder bed zou achterlaten wordt geweigerd. Het terugdraaien komt zelf ook in het logboek en kan je dus weer ongedaan maken. De laatste 500 regels worden bewaard.
+
+## Waar komen de plantfoto's vandaan?
+
+Elke plant, elk advies en elk handboekhoofdstuk heeft een tekening die Hortulus zelf maakt (werkt ook zonder internet). Daarbovenop toont je browser een foto van Wikipedia, gezocht op de Latijnse naam, met een link naar de bron. Je browser vraagt die rechtstreeks op bij Wikipedia; Home Assistant zelf maakt geen verbinding. Wil je dat niet, zet het dan uit onder **Instellingen → Weergave** (per browser).
+
+## Hoe werkt het tuinplan per jaar en de jaarovergang?
+
+In **Tuinplan** geef je de tuin vorm, zonder planten: zones (volle grond, serre, koude bak, bloembakken & potten, boomgaard …), bedden en elementen zoals oprit, huis, watervat, haag, gras, tuinhuis of een pad in de serre. Dat plan geldt voor één seizoen. In de **Planner** beplant je dat seizoen op zijn tuinplan; zones en bedden liggen daar vast.
+
+Niets gaat vanzelf naar een nieuw jaar, ook vaste planten niet. Op het einde van het jaar open je de **Jaarovergang** (knop in Tuinplan en Planner; in januari herinnert Advies je eraan). Daar kies je welke zones en elementen meegaan (of je gebruikt het plan dat je al voor volgend jaar tekende), welke vaste planten en welke overwinterende gewassen (knoflook, winterprei …) je overzet, en of het nieuwe jaar meteen je actieve tuin wordt. Het oude plan wordt gearchiveerd; alles staat in het systeemlogboek en kan je terugdraaien.

@@ -137,7 +137,7 @@ latitude and photos) when opening an issue.
 
 ## My apple tree is in the plan every year - how do I remove it?
 
-Perennials (fruit trees, berries, asparagus, perennial herbs) carry over to every following season. Select the plant in the planner and choose **Remove**. You get two options: **Gone from this season** (earlier years keep it for rotation and history) or **Delete completely**.
+Perennials (fruit trees, berries, asparagus, perennial herbs) move to a following season only when you include them in the **Year-end transition**. To remove one from the current season, select the plant in the planner and choose **Remove**. You get two options: **Gone from this season** (earlier years keep it for rotation and history) or **Delete completely**.
 
 ## Can I get reminders for tasks I forgot?
 
@@ -174,3 +174,18 @@ Yes: `type: custom:hortulus-tasks-card` is loaded automatically. It shows today'
 ## Does Hortulus use my soil analysis?
 
 Yes. Select a bed in the planner and add a **soil analysis** (pH, organic matter, P and K from a lab report or a home kit). The bed's fertiliser plan, lime advice and the shopping list follow the latest analysis: less phosphate when P is high, lime only when the pH is too low for the crops, more compost when organic matter is low.
+
+
+## Can I see what changed, and undo it?
+
+Yes. **Journal → System log** lists every change: what you or someone in your household did in the panel, what an automation or action changed, and what Hortulus did itself (creating or closing tasks, clean-up). Each entry shows when, who and what (e.g. *Removed – Crop: Tomato (Greenhouse bed, season 2027)*). **Undo** restores the state from before that action. If an item was changed again since, Hortulus asks before discarding that later change; an undo that would leave a crop without its bed is refused. The undo is logged as well, so it can be reverted too. The last 500 entries are kept.
+
+## Where do the plant photos come from?
+
+Every plant, suggestion and handbook chapter has an illustration drawn by Hortulus itself (works offline). On top of that your browser shows a photo from Wikipedia, looked up by scientific name, with a link to the source. Your browser fetches it directly from Wikipedia; Home Assistant itself makes no connection. To switch it off, use **Settings → Display** (per browser).
+
+## How do the garden plan per year and the year-end transition work?
+
+In **Garden plan** you shape the garden without plants: zones (open ground, greenhouse, cold frame, planters & pots, orchard …), beds and elements such as driveway, house, water butt, hedge, lawn, shed or a path in the greenhouse. That plan holds for one season. In the **Planner** you plant that season on its plan; zones and beds are fixed there.
+
+Nothing moves into a new year by itself, perennials included. At the end of the year open the **Year-end transition** (button in Garden plan and Planner; in January Advice reminds you). Choose which zones and elements go along (or use the plan you already drew for next year), which perennials and overwintering crops (garlic, winter leeks …) move over, and whether the new year becomes your active garden right away. The old plan is archived; everything is in the system log and can be undone.

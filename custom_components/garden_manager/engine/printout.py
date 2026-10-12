@@ -16,6 +16,7 @@ with a wider left margin for the toolbar.  Colour modes:
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+import dataclasses
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 import math
@@ -43,6 +44,7 @@ from .pdf import PdfDocument, Surface, SvgPage, ellipsize, hex_rgb, text_width
 from .plantdb import FAMILIES, PlantDatabase
 from .region import season_anchors, season_bounds
 from .schedule import PlantingTimeline
+from .seasons import layout_for
 
 PAGE_SIZES: dict[str, tuple[float, float]] = {
     "a4": (210.0, 297.0),
@@ -85,6 +87,10 @@ LABELS: dict[str, dict[str, str]] = {
         "play": "Play area", "beehive": "Beehive",
         "terrace": "Terrace", "lawn": "Lawn", "flowerbed": "Flower bed", "fence": "Fence", "pond": "Pond",
         "orchard": "Orchard", "fruit": "Soft fruit", "herbs": "Herb garden", "flowers": "Flower garden",
+        "zone_garden": "Ornamental garden", "zone_containers": "Planters & pots",
+        "stone_path": "Stone path", "wood_path": "Wooden path", "stepping_stones": "Stepping stones",
+        "bark_path": "Bark path", "decking": "Decking", "wall": "Wall", "carport": "Carport / garage",
+        "shrub": "Shrub", "pool": "Swimming pool", "seating": "Seating area",
         "before": "before", "after": "after",
         "days_to_harvest": "Days to harvest", "family": "Family",
     },
@@ -111,6 +117,10 @@ LABELS: dict[str, dict[str, str]] = {
         "play": "Speelhoek", "beehive": "Bijenkast",
         "terrace": "Terras", "lawn": "Gazon", "flowerbed": "Bloemperk", "fence": "Omheining", "pond": "Vijver",
         "orchard": "Boomgaard", "fruit": "Kleinfruit", "herbs": "Kruidentuin", "flowers": "Bloementuin",
+        "zone_garden": "Siertuin", "zone_containers": "Bloembakken & potten",
+        "stone_path": "Stenen pad", "wood_path": "Houten pad", "stepping_stones": "Stapstenen",
+        "bark_path": "Schorspad", "decking": "Vlonder", "wall": "Muur", "carport": "Carport / garage",
+        "shrub": "Heester", "pool": "Zwembad", "seating": "Zithoek",
         "before": "voor", "after": "na",
         "days_to_harvest": "Dagen tot oogst", "family": "Familie",
     },
@@ -233,6 +243,8 @@ ZONE_COLORS: dict[str, tuple[str, str]] = {
     "orchard": ("#9CC46A", "#5F8F45"),
     "fruit": ("#D27A8E", "#A8506A"),
     "herbs": ("#8FA3D6", "#4F6FB0"),
+    "garden": ("#6E965A", "#7A9A5A"),
+    "containers": ("#B07A5C", "#8A5A3E"),
     "flowers": ("#E39AC0", "#B25A8A"),
 }
 FEATURE_STYLE: dict[FeatureType, tuple[str, str]] = {
@@ -254,8 +266,25 @@ FEATURE_STYLE: dict[FeatureType, tuple[str, str]] = {
     FeatureType.PARKING: ("#C9C3BA", "grid"),
     FeatureType.PLAY: ("#E8D58A", "dots"),
     FeatureType.BEEHIVE: ("#E0A526", "none"),
+    FeatureType.STONE_PATH: ("#C9C3BA", "grid"),
+    FeatureType.WOOD_PATH: ("#B98A5A", "vert"),
+    FeatureType.STEPPING_STONES: ("#BDB6AA", "dots"),
+    FeatureType.BARK_PATH: ("#A07A52", "dots"),
+    FeatureType.DECKING: ("#B98A5A", "vert"),
+    FeatureType.WALL: ("#A9775A", "grid"),
+    FeatureType.CARPORT: ("#A4ACA9", "back"),
+    FeatureType.SHRUB: ("#5F8F45", "none"),
+    FeatureType.POOL: ("#5FB0E0", "none"),
+    FeatureType.SEATING: ("#C9B28A", "none"),
     FeatureType.OTHER: ("#B4B4B4", "diag"),
 }
+
+
+def zone_label(zone_type: ZoneType) -> str:
+    """Label key of a zone type ("garden" is taken by the garden-plan title)."""
+    return f"zone_{zone_type.value}" if zone_type in (ZoneType.GARDEN, ZoneType.CONTAINERS) else zone_type.value
+
+
 FEATURE_LABEL = {
     FeatureType.PATH: "path", FeatureType.COMPOST: "compost_heap", FeatureType.WATER_BUTT: "water_butt",
     FeatureType.SHED: "shed", FeatureType.TREE: "tree", FeatureType.HEDGE: "hedge", FeatureType.TRELLIS: "trellis",
@@ -263,6 +292,10 @@ FEATURE_LABEL = {
     FeatureType.FENCE: "fence", FeatureType.POND: "pond", FeatureType.HOUSE: "house",
     FeatureType.DRIVEWAY: "driveway", FeatureType.STREET: "street", FeatureType.PARKING: "parking",
     FeatureType.PLAY: "play", FeatureType.BEEHIVE: "beehive", FeatureType.OTHER: "other",
+    FeatureType.STONE_PATH: "stone_path", FeatureType.WOOD_PATH: "wood_path",
+    FeatureType.STEPPING_STONES: "stepping_stones", FeatureType.BARK_PATH: "bark_path",
+    FeatureType.DECKING: "decking", FeatureType.WALL: "wall", FeatureType.CARPORT: "carport",
+    FeatureType.SHRUB: "shrub", FeatureType.POOL: "pool", FeatureType.SEATING: "seating",
 }  # fmt: skip
 
 
@@ -438,7 +471,7 @@ def draw_map(
         color, pattern = FEATURE_STYLE[f.type]
         color = theme.col(color)
         fx, fy, fw, fh = X(f.x_cm), Y(f.y_cm), f.width_cm * scale, f.length_cm * scale
-        if f.type in (FeatureType.TREE, FeatureType.WATER_BUTT):
+        if f.type in (FeatureType.TREE, FeatureType.WATER_BUTT, FeatureType.SHRUB):
             r = min(fw, fh) / 2
             s.circle(fx + fw / 2, fy + fh / 2, r, fill=_mix(color, 0.35), stroke=color, width=0.3)
         else:
@@ -568,7 +601,7 @@ def draw_legend(page: Page, box: Box, result: MapResult, *, crops: bool = True) 
             dash = None if zone.type is ZoneType.GREENHOUSE else (1.5, 1.0)
             s.rect(xx, yy, 6, 3.6, fill=theme.zone_fill(zone), stroke=theme.zone_stroke(zone), width=0.35, dash=dash)
 
-        entries.append((zswatch, page.lbl(zt.value)))
+        entries.append((zswatch, page.lbl(zone_label(zt))))
     for ft in sorted(result.features, key=lambda f: f.value):
         color, pattern = FEATURE_STYLE[ft]
 
@@ -729,6 +762,11 @@ class Renderer:
         w, h = PAGE_SIZES[opts.page]
         self.size = (h, w) if opts.landscape else (w, h)
         self.season = opts.season or _current_season(ctx)
+        # Print the garden plan of the chosen season (a copy of the data with that plan).
+        layout = layout_for(ctx.data, self.season)
+        if layout is not None and layout.zones is not ctx.data.zones:
+            data = dataclasses.replace(ctx.data, zones=layout.zones, beds=layout.beds, features=layout.features)
+            self.ctx = dataclasses.replace(ctx, data=data)
 
     def page(self, title: str, subtitle: str = "") -> Page:
         surface = self.new_surface(*self.size)
@@ -805,7 +843,7 @@ class Renderer:
             zones = [z for z in zones if z.is_enclosed] or zones
         for zone in zones:
             beds = [b for b in data.beds if b.zone_id == zone.id]
-            sub = f"{zone.name} · {self.lbl(zone.type.value)} · {self.lbl('season_n', season=self.season)}"
+            sub = f"{zone.name} · {self.lbl(zone_label(zone.type))} · {self.lbl('season_n', season=self.season)}"
             self._map_page(self.opts.title or self.lbl("zone"), [zone], beds, sub)
 
     def _doc_blank(self) -> None:

@@ -10,7 +10,7 @@ import pytest
 
 from custom_components.garden_manager.engine.handbook import chapter, chapters, glossary, search
 from custom_components.garden_manager.engine.maintenance import GARDEN_RULES, GREENHOUSE_RULES
-from custom_components.garden_manager.engine.models import Feature, FeatureType, TaskType
+from custom_components.garden_manager.engine.models import Feature, FeatureType, TaskType, Zone, ZoneType
 from custom_components.garden_manager.engine.pdf import MM, PdfDocument, text_width, wrap
 from custom_components.garden_manager.engine.printout import (
     DOCUMENTS,
@@ -86,6 +86,40 @@ def test_garden_map_contains_legend_crops_and_notes(ctx):
     for word in ("Legende", "Notities", "Tomaat", "Nachtschadefamilie", "Serre", "Pad"):
         assert word in text
     assert ">N</text>" in text  # north arrow
+
+
+def test_every_element_and_zone_type_prints_with_its_label(ctx):
+    garden = ctx.data
+    garden.features = [
+        Feature(f"f_{t.value}", "", t, x_cm=(i % 6) * 150, y_cm=300 + (i // 6) * 120, width_cm=120, length_cm=100)
+        for i, t in enumerate(FeatureType)
+    ]
+    # every type has a style and a label in both languages
+    for lang in ("en", "nl"):
+        assert render_svg(ctx, PrintOptions(document="garden", page="a4", lang=lang))
+    # the legend has room for a handful: check the new ones
+    keep = {
+        FeatureType.WOOD_PATH,
+        FeatureType.STONE_PATH,
+        FeatureType.STEPPING_STONES,
+        FeatureType.POOL,
+        FeatureType.WALL,
+    }
+    garden.features = [f for f in garden.features if f.type in keep]
+    garden.zones += [
+        Zone(id="z_garden", name="Voortuin", type=ZoneType.GARDEN, x_cm=0, y_cm=800, width_cm=400, length_cm=200),
+        Zone(id="z_pots", name="Terras", type=ZoneType.CONTAINERS, x_cm=500, y_cm=800, width_cm=200, length_cm=200),
+    ]
+    text = "".join(render_svg(ctx, PrintOptions(document="garden", page="a4", lang="nl")))
+    for word in ("Houten pad", "Stenen pad", "Stapstenen", "Zwembad", "Muur", "Siertuin", "Bloembakken"):
+        assert word in text, word
+
+
+def test_ornamental_garden_beds_use_the_outdoor_sensors(garden):
+    garden.settings.outdoor_sensors.air_temperature = "sensor.outside"
+    garden.zones[0].type = ZoneType.GARDEN
+    assert garden.bed_sensors(garden.bed("bed_1")).air_temperature == "sensor.outside"
+    assert garden.bed_sensors(garden.bed("gh_bed")).air_temperature == "sensor.greenhouse_temp"
 
 
 def test_eink_mode_adds_patterns(ctx):

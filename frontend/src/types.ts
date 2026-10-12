@@ -4,7 +4,7 @@
 export type ISODate = string; // "2026-04-20"
 export type ISODateTime = string;
 
-export type ZoneType = "outdoor" | "greenhouse" | "cold_frame" | "orchard" | "fruit" | "herbs" | "flowers";
+export type ZoneType = "outdoor" | "greenhouse" | "cold_frame" | "orchard" | "fruit" | "herbs" | "flowers" | "garden" | "containers";
 export type BedKind = "in_ground" | "raised" | "container";
 export type SoilType = "sandy" | "loam" | "clay" | "silt" | "peat" | "chalk" | "potting_mix";
 export type Wind = "sheltered" | "moderate" | "exposed";
@@ -69,7 +69,9 @@ export interface Zone {
 export type FeatureType =
   | "path" | "compost" | "water_butt" | "shed" | "tree" | "hedge" | "trellis"
   | "terrace" | "lawn" | "flowerbed" | "fence" | "pond"
-  | "house" | "driveway" | "street" | "parking" | "play" | "beehive" | "other";
+  | "house" | "driveway" | "street" | "parking" | "play" | "beehive"
+  | "stone_path" | "wood_path" | "stepping_stones" | "bark_path" | "decking" | "wall" | "carport" | "shrub" | "pool" | "seating"
+  | "other";
 
 export interface Feature {
   id: string;
@@ -124,6 +126,8 @@ export interface Planting {
   succession_index: number;
   notes: string;
   /** Perennials: first season it is no longer in the ground (explicit removal). */
+  /** Last season this planting is in the plan (carried over at the year-end transition); null = only its own season. */
+  last_season?: number | null;
   removed_season?: number | null;
 }
 
@@ -554,6 +558,12 @@ export interface Snapshot {
   plantings: Planting[];
   tasks: Task[];
   features?: Feature[];
+  /** Season of the live garden plan (zones/beds/features above). */
+  layout_season?: number | null;
+  /** Garden plans of other seasons (archived years, next year's draft). */
+  layouts?: Record<string, GardenLayout>;
+  /** Season still waiting for its year-end transition, if the calendar moved on. */
+  transition_due?: number | null;
   harvest_log?: HarvestEntry[];
   journal?: JournalEntry[];
   seed_stock?: SeedPacket[];
@@ -572,6 +582,23 @@ export interface Snapshot {
 }
 
 export interface PlanDoc { zones: Zone[]; beds: Bed[]; plantings: Planting[]; features: Feature[] }
+
+export interface GardenLayout { zones: Zone[]; beds: Bed[]; features: Feature[]; saved_at?: ISODateTime | null }
+
+export interface CarryCandidate { planting_id: string; plant_id: string; bed_id: string; reason: "perennial" | "overwinter"; selected: boolean }
+
+export interface TransitionPreview {
+  from_season: number;
+  to_season: number;
+  zones: Zone[];
+  features: Feature[];
+  beds: Bed[];
+  target_exists: boolean;
+  is_live: boolean;
+  candidates: CarryCandidate[];
+}
+
+export interface TransitionResult { season: number; carried: string[]; skipped: string[]; activated: boolean; revision: number }
 
 // Minimal subset of the Home Assistant frontend `hass` object we use.
 export interface HassEntity {
@@ -606,7 +633,7 @@ export interface Suggestion {
   zone_id: string | null;
   bed_id: string | null;
   planting_id: string | null;
-  action: { type: string; plant_id?: string; bed_id?: string; planting_id?: string; feature?: string } | null;
+  action: { type: string; plant_id?: string; bed_id?: string; planting_id?: string; feature?: string; from_season?: number } | null;
   handbook: string | null;
 }
 export interface AdviceResult { suggestions: Suggestion[]; coverage: { months: string[][]; gaps: number[] } }
@@ -653,4 +680,44 @@ export interface RecordsOverview {
   seeds: { packets: SeedStatus[]; missing: string[]; season: number };
   water: { week_l: number | null; season_l: number | null; rain_available_l: number | null; butt_pct: number | null; per_day: { day: string; liters: number }[] };
   year: { season: number; rows: YearRow[]; tasks: number[]; minutes: number[] } | null;
+}
+
+// -- system log ------------------------------------------------------------- //
+export type SyslogOp = "add" | "remove" | "change";
+
+export interface SyslogSummary {
+  col: string;
+  op: SyslogOp;
+  key?: string;
+  name?: string | null;
+  plant_id?: string | null;
+  bed?: string | null;
+  season?: number | null;
+  status?: string | null;
+}
+
+export interface SyslogEntry {
+  id: string;
+  at: string;
+  reason: string;
+  source: "user" | "system";
+  user: string | null;
+  undo_of: string | null;
+  undone_by: string | null;
+  summary: SyslogSummary[];
+  count: number;
+}
+
+export interface SyslogPage {
+  entries: SyslogEntry[];
+  more: boolean;
+  total: number;
+}
+
+export interface UndoResult {
+  ok: boolean;
+  conflicts: { col: string; key: string; op: SyslogOp }[];
+  problems: string[];
+  undone_by: string | null;
+  revision: number;
 }

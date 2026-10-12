@@ -1,5 +1,64 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Garden plan per year** (new tab *Garden plan*): shape the garden without plants – zones
+  (open ground, greenhouse, cold frame, planters & pots, orchard …), beds and elements
+  (driveway, house, water butt, hedge, lawn, shed, paths – also inside the greenhouse). The
+  plan is saved for one season; the *Planner* now only plants, on that season's plan (zones,
+  beds and elements are locked there). A season without a plan offers to copy another year's
+  or start empty.
+- **Year-end transition** (button in Garden plan and Planner, and an advice card once the new
+  year has started): **nothing carries into a new year by itself** – not the plan, not
+  perennials. Choose which zones and elements go along (or keep the plan already designed for
+  next year), which perennials and which overwintering crops (garlic, winter leeks …) move
+  over, and whether the new year becomes the active garden right away. The old year's plan is
+  archived; everything is in the system log and can be undone. Websocket `year/preview`,
+  `year/apply`, `layout/delete`; `plan/save` takes a `season`.
+- **System log** (Journal tab → *System log*): every change to the garden – from the panel,
+  actions/automations, and what Hortulus adjusts itself (generated tasks, clean-up) – with
+  time, who and what. **Every entry can be undone**; an item that was changed again since is
+  only overwritten after confirmation, and an undo that would leave a planting without its
+  bed is refused. The undo is logged too, so it can be reverted (redo). Kept in its own store
+  (`garden_manager.garden.syslog`, last 500 entries); websocket `syslog/list`, `syslog/undo`.
+
+- **Lay out the whole garden**: paths in **stone**, **wood**, **stepping stones** and **bark**
+  (the old path is now *gravel path*), **decking**, **wall**, **carport / garage**, **shrub**,
+  **swimming pool** and **seating area**, next to house, terrace, lawn, hedge … Elements are
+  grouped (buildings & paving, paths, green, outdoor living) and **all** of them can now be
+  drawn from a zone's own map too, not only six.
+- Zone types **Ornamental garden** and **Planters & pots**; a **Planter / pot** tool draws a
+  container bed (potting mix) you can plant like any bed.
+- Planner toolbar button **Site & elements** jumps back to drawing the site from any step
+  (the planner opens on *Plant* once there are crops, which hid the drawing tools).
+
+- **Pictures everywhere**: every plant in the library has a picture (card and detail), as do
+  advice suggestions and answers, and every handbook chapter has an illustrated garden scene
+  (overview tiles and chapter header). Pictures are illustrations built from the plant
+  stickers, so they work offline; on top of that the browser shows a **photo from
+  Wikipedia**, looked up by scientific name (Settings → *Display*, per browser, on by default;
+  cached for 30 days). Only photos under a licence Hortulus can honour (CC BY, CC BY-SA, CC0,
+  public domain) are shown, credited with creator and licence and linked to the file page;
+  small round thumbnails always use the illustration.
+
+### Changed
+- **Perennials no longer stay in the plan automatically**: a planting belongs to its own season
+  and to the seasons it was moved into at a year-end transition (`last_season`). On upgrade,
+  perennials growing now are kept for the current season once. Storage version 1.6.
+- Printouts use the garden plan of the chosen season.
+
+### Fixed
+- Beds in orchards, herb, flower and the new garden zones now use the outdoor sensors (only
+  greenhouses and cold frames have their own climate).
+- **Companion check showed crops that are not in the plan you look at.** The planner also
+  checks the previous and next season (for overwintering crops), but a crop added to this
+  season after its sowing window was moved forward to "today" and so ran into next season,
+  clashing with next season's plan – e.g. a chili added in October produced "Tomato and Chili
+  pepper overlap", shading and "good neighbours" messages about a tomato and basil of next
+  year's example plan. Crops of different seasons are now compared on their *planned* dates,
+  and a finding that does involve another season names it ("Tomato (season 2027)").
+
 ## 1.3.0 – 2026-10
 
 ### Added

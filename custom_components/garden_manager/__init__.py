@@ -70,6 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
         )
         await repo.async_flush()
 
+    repo.adopt_seasons()
     coordinator = GardenCoordinator(hass, entry, repo)
     notifier = GardenNotifier(hass, repo)
     irrigation = IrrigationController(hass, coordinator)

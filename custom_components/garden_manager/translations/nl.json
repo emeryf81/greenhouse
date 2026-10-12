@@ -1066,6 +1066,9 @@
     },
     "invalid_soil_test": {
       "message": "Ongeldige bodemanalyse: {reason}"
+    },
+    "unknown_log_entry": {
+      "message": "Logboekregel {entry} bestaat niet (meer)."
     }
   }
 }

@@ -232,6 +232,18 @@ def advise(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: 
             add(f"feed:{bed_id}", "growth", "tip", "feed", params={"bed": bed.name if bed else bed_id},
                 bed_id=bed_id, handbook="fertilizing")  # fmt: skip
 
+    # -- year-end transition ------------------------------------------------- #
+    if data.layout_season is not None and analysis.season > data.layout_season:
+        add(
+            f"year_transition:{data.layout_season}",
+            "season",
+            "warning",
+            "year_transition",
+            params={"from": data.layout_season, "to": data.layout_season + 1},
+            handbook="seasons",
+            action={"type": "year_transition", "from_season": data.layout_season},
+        )
+
     # -- ecology: the garden as a whole -------------------------------------- #
     feature_types = {f.type for f in data.features}
     if present and not any("pollinators" in pl.tags or pl.category.value == "flower" for _p, pl in present):
@@ -248,7 +260,7 @@ def advise(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: 
             handbook="watering",
             action={"type": "draw", "feature": "water_butt"},
         )
-    if data.beds and not feature_types & {FeatureType.HEDGE, FeatureType.POND, FeatureType.TREE}:
+    if data.beds and not feature_types & {FeatureType.HEDGE, FeatureType.POND, FeatureType.TREE, FeatureType.SHRUB}:
         add("habitat", "eco", "info", "habitat", handbook="home_remedies")
     if any(z.is_enclosed for z in data.zones) and not any(
         z.sensors.air_temperature for z in data.zones if z.is_enclosed

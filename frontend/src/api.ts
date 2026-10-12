@@ -24,6 +24,10 @@ import type {
   Bed,
   Settings,
   Snapshot,
+  SyslogPage,
+  TransitionPreview,
+  TransitionResult,
+  UndoResult,
 } from "./types";
 
 const D = "garden_manager";
@@ -67,8 +71,31 @@ export class GardenApi {
     }>("plants/windows", { plant_id: plantId, zone_id: zoneId ?? null, season: season ?? null });
   }
 
-  savePlan(doc: PlanDoc, baseRevision: number | null): Promise<{ revision: number }> {
-    return this.call("plan/save", { ...doc, base_revision: baseRevision });
+  savePlan(doc: PlanDoc, baseRevision: number | null, season?: number): Promise<{ revision: number }> {
+    return this.call("plan/save", { ...doc, base_revision: baseRevision, ...(season != null ? { season } : {}) });
+  }
+
+  yearPreview(fromSeason?: number): Promise<TransitionPreview> {
+    return this.call("year/preview", fromSeason != null ? { from_season: fromSeason } : {});
+  }
+
+  yearApply(opts: {
+    from_season: number; layout: "copy" | "keep"; zone_ids?: string[] | null; feature_ids?: string[] | null;
+    planting_ids: string[]; activate: boolean;
+  }): Promise<TransitionResult> {
+    return this.call("year/apply", opts);
+  }
+
+  deleteLayout(season: number): Promise<void> {
+    return this.call("layout/delete", { season });
+  }
+
+  syslog(opts: { limit?: number; before?: string | null; include_system?: boolean } = {}): Promise<SyslogPage> {
+    return this.call("syslog/list", opts);
+  }
+
+  undo(entryId: string, force = false): Promise<UndoResult> {
+    return this.call("syslog/undo", { entry_id: entryId, force });
   }
 
   checkBed(bed: Bed, plantings: Planting[]): Promise<CompatibilityReport> {

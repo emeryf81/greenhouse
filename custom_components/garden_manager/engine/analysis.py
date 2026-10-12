@@ -36,7 +36,7 @@ from .models import (
 from .phenology import PhenologyInfo, phenology, stage_kc
 from .plantdb import PlantDatabase
 from .region import SeasonAnchors, resolve_profile, season_anchors, season_bounds, season_for_date
-from .schedule import PlantingTimeline, TimingAdvice, season_timeline, timing_advice
+from .schedule import PlantingTimeline, TimingAdvice, planting_timeline, season_timeline, timing_advice
 from .serde import to_dict
 from .tasks import TaskContext, is_active
 from .waterbalance import bed_irrigation_mm
@@ -352,6 +352,11 @@ def analyze(
             relevant,
             db,
             timelines={p.id: timelines[p.id].occupancy for p in relevant if p.id in timelines},
+            planned={
+                p.id: planting_timeline(p, plants[p.id], anchors(p.season), zone, None).occupancy
+                for p in relevant
+                if p.id in plants
+            },
             radius_cm=data.settings.companion_radius_cm,
             lang=lang,
             hemisphere=hemisphere,

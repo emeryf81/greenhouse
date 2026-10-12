@@ -5,11 +5,14 @@ import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
-import type { FamilyInfo, JournalEntry, Plant, Planting, RecordsOverview, SeedPacket, Snapshot } from "../types";
+import type { FamilyInfo, JournalEntry, Plant, Planting, RecordsOverview, SeedPacket, Snapshot, SyslogEntry, SyslogSummary } from "../types";
 import { familyColor, formatDate, plantName, presentIn } from "../util/garden";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 
-type Section = "diary" | "harvest" | "seeds" | "water";
+type Section = "diary" | "harvest" | "seeds" | "water" | "system";
+const SYSLOG_PAGE = 50;
+const SYSLOG_SHOWN_LINES = 6;
+const OP_ICON: Record<string, string> = { add: "mdi:plus-circle-outline", remove: "mdi:minus-circle-outline", change: "mdi:pencil-outline" };
 const KINDS = ["note", "observation", "problem", "milestone"] as const;
 const KIND_ICON: Record<string, string> = {
   note: "mdi:note-text-outline", observation: "mdi:eye-outline", problem: "mdi:alert-circle-outline", milestone: "mdi:flag-checkered",
@@ -31,6 +34,9 @@ export class JournalView extends LitElement {
   @state() private filter = "";
   @state() private draftPhotos: string[] = [];
   @state() private busy = false;
+  @state() private syslog: SyslogEntry[] = [];
+  @state() private syslogMore = false;
+  @state() private syslogSystem = true;
 
   static styles = [
     shared,
@@ -65,6 +71,16 @@ export class JournalView extends LitElement {
       .days div { flex: 1; background: var(--hl-water-500); border-radius: 3px 3px 0 0; min-height: 2px; }
       .stars button { border: 0; background: none; cursor: pointer; font-size: 20px; color: var(--hl-text-muted); padding: 0 1px; }
       .stars button[aria-pressed="true"] { color: var(--hl-sun-500); }
+      .log { display: grid; grid-template-columns: 36px 1fr auto; gap: 4px 10px; padding: 10px 12px; border-radius: var(--hl-r-md);
+        border: 1px solid var(--hl-border); background: var(--hl-surface); align-items: start; }
+      .log.undone { opacity: 0.6; }
+      .log.system .icon { color: var(--hl-text-muted); }
+      .log .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--hl-surface-2); }
+      .log ul { margin: 4px 0 0; padding: 0; list-style: none; font-size: var(--hl-fs-sm); }
+      .log li { display: flex; gap: 6px; align-items: center; }
+      .log li ha-icon { --mdc-icon-size: 16px; color: var(--hl-text-muted); flex: none; }
+      .log .meta { font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
+      @media (max-width: 600px) { .log { grid-template-columns: 1fr; } .log .icon { display: none; } }
     `,
   ];
 
@@ -91,6 +107,20 @@ export class JournalView extends LitElement {
   private async load(): Promise<void> {
     try {
       this.overview = await this.api.records();
+    } catch {
+      /* older backend */
+    }
+    if (this.section === "system") await this.loadSyslog();
+  }
+
+  private async loadSyslog(more = false): Promise<void> {
+    try {
+      const before = more ? this.syslog[this.syslog.length - 1]?.id ?? null : null;
+      // A refresh keeps as many entries as are already on screen.
+      const limit = more ? SYSLOG_PAGE : Math.max(SYSLOG_PAGE, this.syslog.length);
+      const page = await this.api.syslog({ limit, before, include_system: this.syslogSystem });
+      this.syslog = more ? [...this.syslog, ...page.entries] : page.entries;
+      this.syslogMore = page.more;
     } catch {
       /* older backend */
     }
@@ -137,14 +167,20 @@ export class JournalView extends LitElement {
   }
 
   render(): TemplateResult {
-    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"]];
+    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["system", "mdi:history"]];
     return html`
       <div class="tabs" role="tablist">
         ${sections.map(([id, icon]) => html`<button class="chip" role="tab" aria-selected=${String(this.section === id)} aria-pressed=${String(this.section === id)}
-          @click=${() => (this.section = id)}><ha-icon icon=${icon}></ha-icon>${this.t(`journal.${id}`)}</button>`)}
+          @click=${() => this.openSection(id)}><ha-icon icon=${icon}></ha-icon>${this.t(`journal.${id}`)}</button>`)}
       </div>
-      ${this.section === "diary" ? this.renderDiary() : this.section === "harvest" ? this.renderHarvest() : this.section === "seeds" ? this.renderSeeds() : this.renderWater()}
+      ${this.section === "diary" ? this.renderDiary() : this.section === "harvest" ? this.renderHarvest() : this.section === "seeds" ? this.renderSeeds()
+        : this.section === "water" ? this.renderWater() : this.renderSystem()}
     `;
+  }
+
+  private openSection(id: Section): void {
+    this.section = id;
+    if (id === "system") void this.loadSyslog();
   }
 
   // -- diary ------------------------------------------------------------------ //
@@ -366,6 +402,72 @@ export class JournalView extends LitElement {
       ${w?.per_day.length ? html`<h3>${this.t("journal.per_day")}</h3><div class="days" role="img" aria-label=${this.t("journal.per_day")}>
         ${w.per_day.map((d) => html`<div title=${`${d.day}: ${d.liters} L`} style=${`height:${(d.liters / max) * 100}%`}></div>`)}</div>` : nothing}
       <p class="xs muted">${this.t("journal.water_hint")}</p>
+    </section>`;
+  }
+
+  // -- system log --------------------------------------------------------------- //
+  private async undo(entry: SyslogEntry): Promise<void> {
+    if (!confirm(this.t("syslog.confirm", { what: this.entryTitle(entry) }))) return;
+    this.busy = true;
+    try {
+      let res = await this.api.undo(entry.id);
+      if (!res.ok && res.conflicts.length && !res.problems.length
+        && confirm(this.t("syslog.conflict", { n: res.conflicts.length }))) {
+        res = await this.api.undo(entry.id, true);
+      }
+      if (res.ok) this.toast(this.t("syslog.undone"));
+      else if (res.problems.length) this.toast(this.t("syslog.blocked"));
+      await this.loadSyslog();
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private summaryText(s: SyslogSummary): string {
+    let what: string;
+    if (s.col === "settings") what = s.key ?? "";
+    else if (s.plant_id && (s.col === "plantings" || !s.name)) what = plantName(this.plant(s.plant_id), this.lang) || s.plant_id;
+    else what = s.name ?? "";
+    const extra = [s.bed, s.col === "plantings" && s.season ? this.t("common.season", { year: s.season }) : null].filter(Boolean).join(", ");
+    return `${this.t(`syslog.col.${s.col}`)}: ${what}${extra ? ` (${extra})` : ""}`;
+  }
+
+  private entryTitle(e: SyslogEntry): string {
+    if (e.undo_of) return this.t("syslog.reason.undo");
+    const first = e.summary[0];
+    const ops = new Set(e.summary.map((s) => s.op));
+    const verb = ops.size === 1 ? this.t(`syslog.op.${first.op}`) : this.t("syslog.op.mixed");
+    return e.summary.length === 1 ? `${verb} – ${this.summaryText(first)}` : this.t("syslog.n_changes", { verb, n: e.count });
+  }
+
+  private renderSystem(): TemplateResult {
+    const time = (iso: string) => new Date(iso).toLocaleString(this.lang === "nl" ? "nl-NL" : "en-GB",
+      { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return html`<section class="card stack" aria-labelledby="sys-h">
+      <h2 id="sys-h"><ha-icon icon="mdi:history"></ha-icon> ${this.t("journal.system")}</h2>
+      <p class="small muted">${this.t("syslog.intro")}</p>
+      <label class="row small"><input type="checkbox" .checked=${this.syslogSystem}
+        @change=${(e: Event) => { this.syslogSystem = (e.target as HTMLInputElement).checked; void this.loadSyslog(); }} />${this.t("syslog.show_system")}</label>
+      ${this.syslog.length ? nothing : html`<p class="small muted">${this.t("syslog.empty")}</p>`}
+      <div class="stack" style="gap:8px" role="list">
+        ${this.syslog.map((e) => html`<article role="listitem" class="log ${e.source} ${e.undone_by ? "undone" : ""}">
+          <div class="icon"><ha-icon icon=${e.undo_of ? "mdi:undo-variant" : e.source === "system" ? "mdi:robot-outline" : "mdi:account-edit-outline"}></ha-icon></div>
+          <div>
+            <strong>${this.entryTitle(e)}</strong>
+            <div class="meta">${time(e.at)} · ${e.source === "system" ? this.t("syslog.by_system") : e.user ?? this.t("syslog.by_unknown")}
+              · ${this.t(`syslog.reason.${e.reason}`)}${e.undone_by ? html` · <span class="chip warn">${this.t("syslog.is_undone")}</span>` : nothing}</div>
+            ${e.summary.length > 1 ? html`<ul>
+              ${e.summary.slice(0, SYSLOG_SHOWN_LINES).map((s) => html`<li><ha-icon icon=${OP_ICON[s.op]}></ha-icon>${this.summaryText(s)}</li>`)}
+              ${e.summary.length > SYSLOG_SHOWN_LINES ? html`<li class="muted">${this.t("syslog.and_more", { n: e.summary.length - SYSLOG_SHOWN_LINES })}</li>` : nothing}
+            </ul>` : nothing}
+          </div>
+          ${this.admin && !e.undone_by ? html`<button class="btn small ghost" ?disabled=${this.busy} @click=${() => this.undo(e)}
+            aria-label=${`${this.t("syslog.undo")}: ${this.entryTitle(e)}`}><ha-icon icon="mdi:undo"></ha-icon>${this.t("syslog.undo")}</button>` : html`<span></span>`}
+        </article>`)}
+      </div>
+      ${this.syslogMore ? html`<div class="row"><button class="btn small" @click=${() => this.loadSyslog(true)}>${this.t("syslog.more")}</button></div>` : nothing}
     </section>`;
   }
 }

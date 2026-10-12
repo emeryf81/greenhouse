@@ -19,7 +19,7 @@ from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
 from .const import DOMAIN
-from .engine import handbook
+from .engine import handbook, seasons, syslog
 from .engine.advisor import advise, harvest_coverage
 from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
@@ -30,7 +30,7 @@ from .engine.plantdb import FAMILIES
 from .engine.printout import PrintOptions
 from .engine.qa import answer as qa_answer, options as qa_options
 from .engine.records import harvest_summary, learned_yields, seed_report, water_stats, year_overview
-from .engine.region import resolve_profile, season_anchors, season_for_date
+from .engine.region import resolve_profile, season_anchors, season_bounds, season_for_date
 from .engine.schedule import plant_windows, planting_timeline
 from .engine.serde import from_dict, to_dict
 from .engine.succession import expand_succession
@@ -40,6 +40,7 @@ from .operations import (
     op_add_task,
     op_apply_autoplan,
     op_complete_task,
+    op_delete_layout,
     op_delete_plant,
     op_delete_record,
     op_delete_soil_test,
@@ -53,9 +54,12 @@ from .operations import (
     op_save_seed,
     op_save_settings,
     op_save_soil_test,
+    op_undo,
     op_update_task,
+    op_year_transition,
 )
 from .printing import async_render_svg
+from .storage import current_user
 
 if TYPE_CHECKING:
     from . import GardenRuntime
@@ -99,6 +103,12 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_seed_save,
         ws_soil_save,
         ws_soil_delete,
+        ws_syslog_list,
+        ws_syslog_entry,
+        ws_syslog_undo,
+        ws_layout_delete,
+        ws_year_preview,
+        ws_year_apply,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -114,6 +124,8 @@ def _require_runtime(
     runtime = _runtime(hass)
     if runtime is None:
         connection.send_error(msg["id"], "not_loaded", "Hortulus is not set up")
+    # Attribute whatever this command changes to the user in the system log.
+    current_user.set(connection.user.name if connection.user else None)
     return runtime
 
 
@@ -134,6 +146,11 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
         "tasks": [to_dict(t) for t in tasks],
         "rotation_history": [to_dict(r) for r in data.rotation_history],
         "features": [to_dict(f) for f in data.features],
+        "layout_season": data.layout_season,
+        "layouts": {k: to_dict(v) for k, v in data.layouts.items()},
+        "transition_due": seasons.pending_transition(
+            data, coordinator.data.season if coordinator.data else data.layout_season or 0
+        ),
         "irrigation_log": [to_dict(e) for e in data.irrigation_log[-50:]],
         "harvest_log": [to_dict(e) for e in data.harvest_log[-300:]],
         "journal": [to_dict(e) for e in data.journal[-200:]],
@@ -272,6 +289,7 @@ def ws_plant_windows(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         vol.Required("beds"): list,
         vol.Required("plantings"): list,
         vol.Optional("features"): list,
+        vol.Optional("season"): vol.Any(int, None),
     }
 )
 @websocket_api.require_admin
@@ -289,6 +307,7 @@ def ws_plan_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection
             beds=msg["beds"],
             plantings=msg["plantings"],
             features=msg.get("features"),
+            season=msg.get("season"),
         )
     except RevisionConflict as err:
         connection.send_error(msg["id"], "revision_conflict", str(err))
@@ -324,15 +343,19 @@ def ws_plan_check(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     today = dt_util.now().date()
     zone = data.zone(bed.zone_id)
     timelines = {}
+    planned = {}
     for p in plantings:
         plant = db.get(p.plant_id)
         if plant is not None:
-            timelines[p.id] = planting_timeline(p, plant, season_anchors(data.settings.region, p.season), zone, today)
+            anchors = season_anchors(data.settings.region, p.season)
+            timelines[p.id] = planting_timeline(p, plant, anchors, zone, today)
+            planned[p.id] = planting_timeline(p, plant, anchors, zone, None).occupancy
     report = check_bed(
         bed,
         plantings,
         db,
         timelines={k: v.occupancy for k, v in timelines.items()},
+        planned=planned,
         radius_cm=data.settings.companion_radius_cm,
         lang=lang,
         hemisphere=resolve_profile(data.settings.region).hemisphere,
@@ -922,4 +945,148 @@ def ws_soil_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     if runtime is not None:
         _ws_op(
             connection, msg, lambda: op_delete_soil_test(runtime, msg["bed_id"], date.fromisoformat(msg["date"])) or {}
+        )
+
+
+# --------------------------------------------------------------------------- #
+# System log
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/syslog/list",
+        vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=syslog.MAX_ENTRIES)),
+        vol.Optional("before"): vol.Any(str, None),
+        vol.Optional("include_system", default=True): bool,
+    }
+)
+@callback
+def ws_syslog_list(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Newest first; page with ``before`` = id of the last entry received."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    entries = list(reversed(runtime.repo.syslog))
+    if msg.get("before"):
+        ids = [e["id"] for e in entries]
+        entries = entries[ids.index(msg["before"]) + 1 :] if msg["before"] in ids else []
+    if not msg["include_system"]:
+        entries = [e for e in entries if e.get("source") != "system"]
+    page = entries[: msg["limit"]]
+    connection.send_result(
+        msg["id"],
+        {
+            "entries": [syslog.public(e) for e in page],
+            "more": len(entries) > len(page),
+            "total": len(runtime.repo.syslog),
+        },
+    )
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/syslog/entry", vol.Required("entry_id"): str})
+@websocket_api.require_admin
+@callback
+def ws_syslog_entry(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """One entry including the before/after of every changed item."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    entry = runtime.repo.syslog_entry(msg["entry_id"])
+    if entry is None:
+        connection.send_error(msg["id"], "unknown_log_entry", msg["entry_id"])
+        return
+    connection.send_result(msg["id"], {"entry": entry})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/syslog/undo",
+        vol.Required("entry_id"): str,
+        vol.Optional("force", default=False): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_syslog_undo(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: op_undo(hass, runtime, msg["entry_id"], force=msg["force"]))
+
+
+# --------------------------------------------------------------------------- #
+# Garden plans per season & the year-end transition
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/layout/delete", vol.Required("season"): int})
+@websocket_api.require_admin
+@callback
+def ws_layout_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: op_delete_layout(runtime, msg["season"]) or {})
+
+
+def _occupancy(runtime: GardenRuntime) -> dict[str, Any]:
+    """Planned occupancy of every planting (to spot crops that overwinter)."""
+    data = runtime.repo.data
+    db = runtime.repo.db
+    zones = {z.id: z for z in data.zones}
+    beds = {b.id: b for b in data.beds}
+    for layout in data.layouts.values():
+        zones.update({z.id: z for z in layout.zones if z.id not in zones})
+        beds.update({b.id: b for b in layout.beds if b.id not in beds})
+    out = {}
+    for p in data.plantings:
+        plant = db.get(p.plant_id)
+        bed = beds.get(p.bed_id)
+        if plant is None:
+            continue
+        zone = zones.get(bed.zone_id) if bed else None
+        anchors = season_anchors(data.settings.region, p.season)
+        out[p.id] = planting_timeline(p, plant, anchors, zone, None).occupancy
+    return out
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/year/preview", vol.Optional("from_season"): int})
+@callback
+def ws_year_preview(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """What the year-end transition would carry into next year (nothing is changed)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    today = dt_util.now().date()
+    from_season = msg.get("from_season") or data.layout_season or season_for_date(data.settings.region, today)
+    _start, end = season_bounds(data.settings.region, from_season)
+    result = seasons.preview(data, runtime.repo.db, from_season, season_end=end, timelines=_occupancy(runtime))
+    connection.send_result(msg["id"], result.to_dict())
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/year/apply",
+        vol.Required("from_season"): int,
+        vol.Optional("layout", default="copy"): vol.In(["copy", "keep"]),
+        vol.Optional("zone_ids"): vol.Any([str], None),
+        vol.Optional("feature_ids"): vol.Any([str], None),
+        vol.Optional("planting_ids", default=[]): [str],
+        vol.Optional("activate", default=True): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_year_apply(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(
+            connection,
+            msg,
+            lambda: op_year_transition(
+                hass,
+                runtime,
+                msg["from_season"],
+                layout=msg["layout"],
+                zone_ids=msg.get("zone_ids"),
+                feature_ids=msg.get("feature_ids"),
+                planting_ids=msg["planting_ids"],
+                activate=msg["activate"],
+            ),
         )

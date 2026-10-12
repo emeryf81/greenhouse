@@ -42,6 +42,8 @@
         }
         if (type === "plan/save") { data.snapshot.revision += 1; return { revision: data.snapshot.revision }; }
         if (type === "plans/windows") return {};
+        if (type === "year/preview") return (data.extras || {}).year_preview;
+        if (type === "year/apply") return { season: msg.from_season + 1, carried: msg.planting_ids, skipped: [], activated: msg.activate, revision: data.snapshot.revision };
         const x = data.extras || {};
         if (type === "handbook/index") return x.handbook_index;
         if (type === "handbook/chapter") return x.handbook_chapters[msg.chapter_id];

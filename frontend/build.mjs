@@ -9,7 +9,7 @@ if (test) {
   // Compile pure modules + node:test specs for `node --test`.
   rmSync(".test-dist", { recursive: true, force: true });
   await build({
-    entryPoints: ["test/geometry.test.ts", "test/history.test.ts", "test/i18n.test.ts", "test/planner.test.ts", "test/card.test.ts"],
+    entryPoints: ["test/geometry.test.ts", "test/history.test.ts", "test/i18n.test.ts", "test/planner.test.ts", "test/card.test.ts", "test/photos.test.ts"],
     outdir: ".test-dist",
     bundle: true,
     platform: "node",

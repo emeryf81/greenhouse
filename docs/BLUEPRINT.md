@@ -82,7 +82,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   ├── sensor.py · binary_sensor.py · calendar.py · todo.py · button.py · diagnostics.py
 │   ├── number.py · select.py · switch.py   irrigation limits/mode, shading mode, auto irrigation
 │   ├── controllers.py      irrigation (pump interlock, max runtime, safe shut-off) + greenhouse climate
-│   ├── printing.py          authenticated PDF view + export to /config/www/hortulus
+│   ├── printing.py          authenticated PDF view + private export with signed links
 │   ├── api.py               optional Open-Meteo client (opt-in)
 │   ├── strings.json · translations/{en,nl}.json · icons.json
 │   ├── data/plants.json     plant database (140 crops, EN/NL; built by scripts/build_plantdb.py)
@@ -450,8 +450,11 @@ class Planting:
     succession_group: str | None = None
     succession_index: int = 0
     notes: str = ""
-    # Perennials stay in the plan year after year until removed explicitly:
-    # the first season they are no longer there (None = still growing).
+    # Nothing carries into the next year by itself: the year-end transition
+    # extends ``last_season`` explicitly for perennials and overwintering crops
+    # (None = only its own season).
+    last_season: int | None = None
+    # Removed from the plan "from this season on" (history kept).
     removed_season: int | None = None
 ```
 
@@ -593,6 +596,13 @@ class GardenData:
     journal: list[JournalEntry] = field(default_factory=list)
     seed_stock: list[SeedPacket] = field(default_factory=list)
     water_log: list[WaterReading] = field(default_factory=list)
+    # Garden plans per season.  ``zones``/``beds``/``features`` above are the
+    # plan of ``layout_season`` - the garden as it is now; ``layouts`` holds the
+    # plans of other seasons (archived years, next year's draft).  A new year
+    # only gets a plan through the explicit year-end transition (or by
+    # designing it); None = not yet adopted (set on first load).
+    layout_season: int | None = None
+    layouts: dict[str, GardenLayout] = field(default_factory=dict)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:
@@ -613,7 +623,7 @@ class GardenData:
     def bed_sensors(self, bed: GardenBed) -> SensorMapping:
         zone = self.zone_of_bed(bed)
         merged = bed.sensors.merged_with(zone.sensors) if zone else bed.sensors
-        if zone is None or zone.type is ZoneType.OUTDOOR:
+        if zone is None or not zone.is_enclosed:
             merged = merged.merged_with(self.settings.outdoor_sensors)
         return merged
 ```
@@ -693,6 +703,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
         )
         await repo.async_flush()
 
+    repo.adopt_seasons()
     coordinator = GardenCoordinator(hass, entry, repo)
     notifier = GardenNotifier(hass, repo)
     irrigation = IrrigationController(hass, coordinator)
@@ -810,8 +821,9 @@ def _compute(self) -> GardenAnalysis:
 
 ```python
 @callback
-def async_changed(self, reason: str, *, bump_revision: bool = True) -> None:
+def async_changed(self, reason: str, *, bump_revision: bool = True, source: str = "user") -> None:
     """Persist and notify.  ``reason`` is e.g. ``plan``, ``tasks``, ``settings``."""
+    self.record(reason, source=source)
     # The revision guards the *plan* (optimistic concurrency for the
     # planner); ticking off a task must not invalidate an open editor.
     if bump_revision and reason in PLAN_REASONS:
@@ -1230,7 +1242,9 @@ def postpone_task(
 ```python
 async def async_step_area_sensors(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
     if user_input is not None:
-        self._data[CONF_AREAS].append({**self._area, **{k: v for k, v in user_input.items() if v not in (None, "")}})
+        self._data[CONF_AREAS].append(
+            {**self._area, **{k: v for k, v in user_input.items() if v not in (None, "")}}
+        )
         return await self.async_step_area_menu()
     enclosed = self._area.get(CONF_AREA_TYPE) == AREA_GREENHOUSE
     fields: dict[Any, Any] = {
@@ -1278,15 +1292,19 @@ def ws_plan_check(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     today = dt_util.now().date()
     zone = data.zone(bed.zone_id)
     timelines = {}
+    planned = {}
     for p in plantings:
         plant = db.get(p.plant_id)
         if plant is not None:
-            timelines[p.id] = planting_timeline(p, plant, season_anchors(data.settings.region, p.season), zone, today)
+            anchors = season_anchors(data.settings.region, p.season)
+            timelines[p.id] = planting_timeline(p, plant, anchors, zone, today)
+            planned[p.id] = planting_timeline(p, plant, anchors, zone, None).occupancy
     report = check_bed(
         bed,
         plantings,
         db,
         timelines={k: v.occupancy for k, v in timelines.items()},
+        planned=planned,
         radius_cm=data.settings.companion_radius_cm,
         lang=lang,
         hemisphere=resolve_profile(data.settings.region).hemisphere,
@@ -1545,7 +1563,7 @@ private async save(): Promise<void> {
   const doc = this.draft;
   this.saveState = "saving";
   try {
-    const res = await this.api.savePlan(doc, this.baseRevision);
+    const res = await this.api.savePlan(doc, this.baseRevision, this.season);
     this.baseRevision = res.revision;
     this.saveState = this.draft === doc ? "saved" : "dirty";
     if (this.saveState === "dirty") this.scheduleSave();
@@ -1561,6 +1579,36 @@ private async save(): Promise<void> {
       this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
     }
   }
+}
+
+/** Switch the season shown: finish saving first, then load that season's garden plan. */
+private async setSeason(season: number): Promise<void> {
+  window.clearTimeout(this.saveTimer);
+  if (this.saveState === "dirty") await this.save();
+  if (this.saveState !== "saved") {
+    // Saving failed or conflicted: stay on this season rather than drop the edits.
+    this.toast(this.t("layout.save_first"));
+    this.requestUpdate();
+    return;
+  }
+  this.seasonChosen = true;
+  this.season = season;
+  this.dispatchEvent(new CustomEvent("season-changed", { detail: season, bubbles: true, composed: true }));
+  this.selection = null;
+  this.multi = [];
+  this.focusZone = "";
+  this.syncFromSnapshot(true);
+  if (this.mode === "layout") this.step = this.draft.zones.length ? this.step : "site";
+  requestAnimationFrame(() => this.canvas?.fit());
+}
+
+/** Start this season's garden plan as a copy of another season's (or empty). */
+private startLayout(from: number | null): void {
+  const src = from == null ? null : layoutOf(this.snapshot, from);
+  const doc: PlanDoc = { ...clone(this.draft), zones: clone(src?.zones ?? []), beds: clone(src?.beds ?? []), features: clone(src?.features ?? []) };
+  this.commit(doc, this.t("layout.started", { season: this.season }));
+  this.step = doc.zones.length ? "zones" : "site";
+  requestAnimationFrame(() => this.canvas?.fit());
 }
 ```
 

@@ -9,6 +9,7 @@ import { headings, inline, renderMarkdown, slug } from "../components/markdown";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { GlossaryEntry, HandbookChapterMeta } from "../types";
+import { chapterArt, chapterBanner } from "../components/chapter-art";
 
 const CHAPTER_ICONS: Record<string, string> = {
   planning: "mdi:clipboard-text-outline", soil: "mdi:shovel", sowing: "mdi:seed-outline", watering: "mdi:watering-can-outline",
@@ -61,6 +62,10 @@ export class HandbookView extends LitElement {
       .sections { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--hl-s3); }
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--hl-s3); }
       .tile { cursor: pointer; text-align: left; display: flex; flex-direction: column; justify-content: flex-start; color: var(--hl-text); font: inherit; }
+      .tile { padding: 0; overflow: hidden; }
+      .tile .art { display: block; line-height: 0; }
+      .tile .txt { padding: var(--hl-s3) var(--hl-s4); }
+      .banner { display: block; line-height: 0; border-radius: var(--hl-r-md); overflow: hidden; margin: 0 0 var(--hl-s3); }
       .tile h3 { display: flex; gap: var(--hl-s2); align-items: center; margin: 0 0 6px; --mdc-icon-size: 20px; }
       .hit { padding: var(--hl-s2) 0; border-bottom: 1px solid var(--hl-border); cursor: pointer; }
       dl.gloss dt { font-weight: 700; margin-top: var(--hl-s3); }
@@ -145,7 +150,9 @@ export class HandbookView extends LitElement {
         <h1>${this.t("handbook.title")}</h1>
         <p class="muted">${this.t("handbook.intro")}</p>
         <div class="grid">${this.chapters.map((c) => html`<button class="card tile" @click=${() => this.open(c.id)}>
-          <h3><ha-icon icon=${CHAPTER_ICONS[c.id] ?? "mdi:book-outline"}></ha-icon>${c.title}</h3><p class="small muted">${inline(c.summary)}</p></button>`)}</div>
+          <span class="art">${chapterArt(c.id, 96)}</span>
+          <span class="txt"><h3><ha-icon icon=${CHAPTER_ICONS[c.id] ?? "mdi:book-outline"}></ha-icon>${c.title}</h3>
+          <p class="small muted">${inline(c.summary)}</p></span></button>`)}</div>
       </article>`;
     }
     const meta = this.chapters.find((c) => c.id === this.chapterId);
@@ -153,6 +160,7 @@ export class HandbookView extends LitElement {
     const prev = idx > 0 ? this.chapters[idx - 1] : undefined;
     const next = idx >= 0 && idx < this.chapters.length - 1 ? this.chapters[idx + 1] : undefined;
     return html`<article class="card">
+      <span class="banner">${chapterBanner(this.chapterId)}</span>
       <h1>${meta?.title ?? ""}</h1>
       <div class="sections">${headings(this.body).filter((h) => h.level === 2).map((h) => html`<a class="chip" href=${`#${h.id}`}
         @click=${(e: Event) => { e.preventDefault(); this.renderRoot.querySelector(`#${CSS.escape(slug(h.text))}`)?.scrollIntoView({ behavior: "smooth" }); }}>${h.text}</a>`)}</div>

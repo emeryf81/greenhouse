@@ -145,7 +145,9 @@ def test_migrates_legacy_document():
     assert doc["climate_log"] == [] and doc["notified"] == {}
     data = from_dict(GardenData, doc)  # and it loads
     assert data.tasks[0].notes[0].text == "done quickly"
-    assert STORAGE_MINOR_VERSION == 5
+    assert doc["layout_season"] is None and doc["layouts"] == {}
+    assert doc["plantings"][0]["last_season"] is None
+    assert STORAGE_MINOR_VERSION == 6
 
 
 def test_future_major_version_is_rejected():
