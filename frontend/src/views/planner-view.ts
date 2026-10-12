@@ -5,12 +5,15 @@ import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { SoilTest } from "../types";
 import type {
-  AutofillResult, Bed, BedKind, CompatibilityReport, FamilyInfo, PairFinding, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
+  AutofillResult, Bed, BedKind, CompatibilityReport, ExplainResult, FamilyInfo, PairFinding, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
   PlantingStatus, Resources, Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
 } from "../types";
 import { ZONE_CATEGORIES, addDays, daysBetween, download, familyColor, formatDate, layoutOf, plantName, presentIn, uid } from "../util/garden";
 import "../components/year-transition";
-import { summarizeReasons } from "../util/reasons";
+import { explainReason, summarizeReasons } from "../util/reasons";
+import "../components/modal";
+import "../components/date-input";
+import "../components/plan-compare";
 import "../planner/garden-canvas";
 import { FEATURE_STYLE, ZONE_STYLE, type DrawTool, type GardenCanvas, type ItemChangeDetail, type Selection } from "../planner/garden-canvas";
 import "../components/plant-image";
@@ -81,6 +84,14 @@ export class PlannerView extends LitElement {
   @property({ type: Number }) transitionRequest = 0;
   /** Season chosen in the other tab (Garden plan <-> Planner), so both show the same year. */
   @property({ type: Number }) initialSeason: number | null = null;
+  /** Open this crop (from the crops list, the analysis ...): select it and show its popup. */
+  @property({ attribute: false }) focusPlanting: { id: string; season: number; n: number } | null = null;
+  @state() private why: { plantingId: string; result: ExplainResult | null; error: string } | null = null;
+  @state() private dropWarning: { plantingId: string; text: string[] } | null = null;
+  @state() private stillPossible: { season: number; plants: { plant_id: string; beds: string[] }[] } | null = null;
+  private stillPossibleFor: number | null = null;
+  @state() private lateDismissed = false;
+  @state() private comparePlan = "";
 
   @state() private draft: PlanDoc = { zones: [], beds: [], plantings: [], features: [] };
   @state() private selection: Selection | null = null;
@@ -138,9 +149,17 @@ export class PlannerView extends LitElement {
       :host { display: block; height: 100%; }
       /* The map gets all the width and a fixed height; details open in a popup. */
       .layout { display: grid; grid-template-columns: 260px 1fr; gap: var(--hl-s3); height: max(640px, 78vh); }
-      dialog.inspector { width: min(460px, 94vw); padding: 0; }
-      dialog.inspector .pane { border: 0; max-height: 82vh; }
-      dialog.inspector header .spacer { flex: 1; }
+      .why { background: var(--hl-surface-2); border-radius: var(--hl-r-md); padding: var(--hl-s2) var(--hl-s3); }
+      .why ul { margin: 0; padding-left: 18px; }
+      .rotation .rot-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+      .rot-cell { border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); padding: 4px 6px; display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--hl-fs-xs); }
+      .rot-cell.now { border-color: var(--hl-primary); background: var(--hl-leaf-100); }
+      .rot-cell span.xs { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .rot-dots { display: flex; gap: 3px; min-height: 12px; align-items: center; }
+      .late-banner, .drop-warning { display: flex; gap: var(--hl-s3); align-items: flex-start; padding: var(--hl-s2) var(--hl-s3); border-radius: var(--hl-r-md); margin-bottom: var(--hl-s2); }
+      .late-banner { background: var(--hl-sky-100, #e6f0fa); border: 1px solid var(--hl-sky-300, #b5d0ee); }
+      .drop-warning { background: var(--hl-sun-100); border: 1px solid var(--hl-warning); }
+      .late-banner .chip { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; border: 0; font: inherit; }
       .layout.narrow { grid-template-columns: 1fr; height: auto; }
       .layout.narrow hl-garden-canvas { height: 58vh; }
       /* Mobile: canvas first, palette becomes a horizontal strip, inspector last. */
@@ -267,6 +286,44 @@ export class PlannerView extends LitElement {
       this.multi = [];
     }
     if (changed.has("transitionRequest") && this.transitionRequest > 0) this.dialog = "transition";
+    if (changed.has("focusPlanting") && this.focusPlanting) void this.openFocus(this.focusPlanting);
+  }
+
+  private async openFocus(focus: { id: string; season: number }): Promise<void> {
+    if (!this.history) this.syncFromSnapshot();
+    if (focus.season !== this.season) await this.setSeason(focus.season);
+    if (!this.draft.plantings.some((p) => p.id === focus.id)) return;
+    this.selection = { kind: "planting", id: focus.id };
+    this.multi = [];
+    this.popupOpen = true;
+  }
+
+  /** Why can (or can't) this crop go into its bed, and which beds would do? */
+  private async explainHere(p: Planting): Promise<void> {
+    this.why = { plantingId: p.id, result: null, error: "" };
+    try {
+      const result = await this.api.explain(p.plant_id, this.season);
+      if (this.why?.plantingId === p.id) this.why = { plantingId: p.id, result, error: "" };
+    } catch (err) {
+      this.why = { plantingId: p.id, result: null, error: (err as Error).message };
+    }
+  }
+
+  /** After a drop: say right away when the crop does not belong there. */
+  private async checkDrop(planting: Planting): Promise<void> {
+    try {
+      const res = await this.api.explain(planting.plant_id, this.season);
+      const verdict = res.beds.find((b) => b.bed_id === planting.bed_id);
+      if (verdict && !verdict.ok) {
+        this.dropWarning = { plantingId: planting.id, text: verdict.reasons.map((r) => explainReason(r, this.t, this.lang, this.plantMap)) };
+      }
+    } catch {
+      /* explaining is a bonus */
+    }
+  }
+
+  private emit(name: string, detail: unknown): void {
+    this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
   }
 
   /** Is this season's garden plan saved yet? */
@@ -945,6 +1002,8 @@ export class PlannerView extends LitElement {
     doc.plantings.push(planting);
     this.selection = { kind: "planting", id: planting.id };
     this.commit(doc, this.t("planner.placed", { plant: plantName(drag.plant, this.lang), bed: bed.name }), [bed.id]);
+    this.dropWarning = null;
+    void this.checkDrop(planting);
   }
 
   private ghostLabel(): string {
@@ -1082,6 +1141,8 @@ export class PlannerView extends LitElement {
           ? plantMode ? this.renderPalette() : this.step === "zones" ? this.renderZonesPane() : this.renderSitePane()
           : html`<div></div>`}
         <div class="center">
+          ${this.renderLateBanner()}
+          ${this.renderDropWarning()}
           <hl-garden-canvas
             .zones=${this.draft.zones}
             .beds=${this.draft.beds}
@@ -1124,7 +1185,8 @@ export class PlannerView extends LitElement {
       </div>
       <div class="visually-hidden" role="status" aria-live="polite">${this.announcement}</div>
       ${this.popupOpen && this.selection && !this.dialog && !this.removing && this.findItem(this.selection)
-        ? html`<dialog class="inspector" @close=${() => (this.popupOpen = false)}>${this.renderInspector()}</dialog>` : nothing}
+        ? html`<hl-modal heading=${this.t("planner.inspector")} size="narrow" closeLabel=${this.t("common.close")}
+            @closed=${() => { this.popupOpen = false; this.why = null; }}>${this.renderInspector()}</hl-modal>` : nothing}
       ${this.renderDialog()}
     `;
   }
@@ -1174,7 +1236,8 @@ export class PlannerView extends LitElement {
         ${btn("mdi:fit-to-screen-outline", this.t("planner.fit"), () => this.canvas.fit())}
         <span class="sep"></span>
         ${plantMode ? html`<label class="row small">${this.t("planner.view_date")}
-          <input type="date" .value=${this.viewDate} @change=${(e: Event) => (this.viewDate = (e.target as HTMLInputElement).value)} />
+          <hl-date-input .value=${this.viewDate} lang=${this.lang} pickLabel=${this.t("crops.pick_date")}
+            @date-change=${(e: CustomEvent<string | null>) => (this.viewDate = e.detail ?? this.snapshot.analysis?.today ?? "")}></hl-date-input>
         </label>` : nothing}
         <span class="spacer"></span>
         <span class="save-state ${this.saveState === "error" ? "error" : ""}" role="status">
@@ -1614,7 +1677,8 @@ export class PlannerView extends LitElement {
           <td>${this.admin ? html`<button class="icon-btn" aria-label=${this.t("planner.remove")} @click=${() => this.deleteSoil(bedId, st.date)}><ha-icon icon="mdi:delete-outline"></ha-icon></button>` : nothing}</td></tr>`)}
       </tbody></table>` : html`<p class="xs muted">${this.t("soil_test.none")}</p>`}
       ${!this.admin ? nothing : f ? html`<div class="form-grid">
-          <label class="field">${this.t("journal.day")}<input type="date" .value=${f.date ?? ""} @input=${(e: Event) => (this.soilForm = { ...f, date: (e.target as HTMLInputElement).value })} /></label>
+          <label class="field">${this.t("journal.day")}<hl-date-input .value=${f.date ?? ""} lang=${this.lang} pickLabel=${this.t("crops.pick_date")}
+            @date-change=${(e: CustomEvent<string | null>) => (this.soilForm = { ...f, date: e.detail ?? "" })}></hl-date-input></label>
           ${num("ph", "pH")} ${num("organic_matter_pct", this.t("soil_test.om"))} ${num("n_mg", "N (mg/100 g)", 1)}
           ${num("p_mg", "P (mg/100 g)", 1)} ${num("k_mg", "K (mg/100 g)", 1)} ${num("mg_mg", "Mg (mg/100 g)", 1)}
           <label class="field">${this.t("soil_test.lime")}<select @change=${(e: Event) => (this.soilForm = { ...f, lime_status: (e.target as HTMLSelectElement).value || null })}>
@@ -1721,6 +1785,12 @@ export class PlannerView extends LitElement {
           <h3>${plantName(plant, this.lang)}</h3>
         </div>
         <p class="xs muted">${plant?.scientific_name} · ${this.families[plant?.family ?? ""]?.[this.lang as "en" | "nl"] ?? plant?.family} · ${bed?.name}</p>
+        <div class="row wrap">
+          <button class="btn small" @click=${() => this.explainHere(p)}><ha-icon icon="mdi:help-circle-outline"></ha-icon>${this.t("planner.why_here")}</button>
+          <button class="btn small ghost" @click=${() => this.emit("focus-crop", { planting_id: p.id, season: this.season })}><ha-icon icon="mdi:table"></ha-icon>${this.t("planner.to_crops")}</button>
+          <button class="btn small ghost" @click=${() => this.emit("open-plant", p.plant_id)}><ha-icon icon="mdi:sprout"></ha-icon>${this.t("planner.plant_info")}</button>
+        </div>
+        ${this.why?.plantingId === p.id ? this.renderWhy(p) : nothing}
         ${plant?.perennial ? html`<div class="finding info"><ha-icon icon="mdi:all-inclusive"></ha-icon><span>${this.t("planner.perennial_since", { season: p.season })}
           ${plant.years_to_bearing ? html`<br />${this.t("planner.bearing_from", { season: p.season + plant.years_to_bearing })}` : nothing}</span></div>` : nothing}
         ${plant?.pollination && plant.pollination !== "self" ? html`<p class="xs"><ha-icon icon="mdi:bee"></ha-icon> ${this.t(`pollination.${plant.pollination}`)}</p>` : nothing}
@@ -1742,8 +1812,8 @@ export class PlannerView extends LitElement {
           <label class="field">${this.t("planner.length")}<input type="number" min="5" step="5" .value=${String(Math.round(p.length_cm))} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ length_cm: Number((e.target as HTMLInputElement).value) })} /></label>
           <label class="field full">${this.t(p.method === "transplant" ? "lib.transplant" : p.method === "indoor_sow" ? "lib.indoor_sow" : "lib.direct_sow")}
-            <input type="date" ?disabled=${ro} .value=${(p.method === "transplant" ? p.transplant_date : p.sow_date) ?? ""}
-              @change=${(e: Event) => this.updateSelected(p.method === "transplant" ? { transplant_date: (e.target as HTMLInputElement).value || null } : { sow_date: (e.target as HTMLInputElement).value || null })} /></label>
+            <hl-date-input ?disabled=${ro} .value=${(p.method === "transplant" ? p.transplant_date : p.sow_date) ?? ""} lang=${this.lang} pickLabel=${this.t("crops.pick_date")}
+              @date-change=${(e: CustomEvent<string | null>) => this.updateSelected(p.method === "transplant" ? { transplant_date: e.detail } : { sow_date: e.detail })}></hl-date-input></label>
         </div>
         <p class="small">${plant ? this.t("planner.count", { n: plantCount(p, plant) }) : ""}</p>
         ${advice?.reasons.length ? html`<div class="stack" style="gap:4px">${advice.reasons.filter((r) => r.key !== "reason.window_open").map((r) => html`<p class="small">${this.t(r.key, r.params)}</p>`)}</div>` : nothing}
@@ -1768,6 +1838,7 @@ export class PlannerView extends LitElement {
       const report = this.reports[b.id] ?? ba?.compatibility;
       body = html`
         <h3>${b.name}</h3>
+        ${this.mode === "plant" ? this.renderBedHistory(b) : nothing}
         <div class="form-grid">
           <label class="field full">${this.t("planner.bed_name")}<input .value=${b.name} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ name: (e.target as HTMLInputElement).value })} /></label>
@@ -1838,11 +1909,92 @@ export class PlannerView extends LitElement {
         </div>
       `;
     }
-    return html`<aside class="pane" aria-label=${this.t("planner.inspector")}>
-      <header><h3>${this.t("planner.inspector")}</h3><span class="spacer"></span>
-        <button class="icon-btn" aria-label=${this.t("common.close")} @click=${() => (this.popupOpen = false)}><ha-icon icon="mdi:close"></ha-icon></button></header>
-      <div class="pane-body stack">${body}</div>
-    </aside>`;
+    return html`<div class="stack inspector-body">${body}</div>`;
+  }
+
+  private renderWhy(p: Planting): TemplateResult {
+    const why = this.why!;
+    if (why.error) return html`<p class="small bad-text">${why.error}</p>`;
+    if (!why.result) return html`<p class="small muted">${this.t("common.loading")}</p>`;
+    const here = why.result.beds.find((b) => b.bed_id === p.bed_id);
+    const others = why.result.beds.filter((b) => b.ok && b.bed_id !== p.bed_id);
+    const text = (r: { code: string; params: Record<string, unknown> }) => explainReason(r, this.t, this.lang, this.plantMap);
+    return html`<div class="why card-inset stack" style="gap:6px">
+      ${here ? html`<p class="small"><b>${here.ok ? this.t("planner.why_ok", { bed: here.bed }) : this.t("planner.why_not", { bed: here.bed })}</b></p>
+        ${here.reasons.length ? html`<ul class="small">${here.reasons.map((r) => html`<li>${text(r)}</li>`)}</ul>` : nothing}
+        ${here.warnings.length ? html`<ul class="small muted">${here.warnings.map((r) => html`<li>${text(r)}</li>`)}</ul>` : nothing}`
+        : html`<p class="small">${this.t("planner.why_no_bed")}</p>`}
+      <p class="xs muted">${others.length ? this.t("planner.why_fits_in", { beds: others.map((b) => b.bed).join(", ") }) : this.t("planner.why_fits_nowhere")}</p>
+    </div>`;
+  }
+
+  /** Which plant families grew in this bed the last years (crop rotation at a glance). */
+  private renderBedHistory(bed: Bed): TemplateResult {
+    const seasons = Array.from({ length: 5 }, (_, i) => this.season - 4 + i);
+    const fam = (season: number): string[] => {
+      const out = new Set<string>();
+      for (const p of this.snapshot.plantings) {
+        if (p.bed_id !== bed.id || !presentIn(p, false, season)) continue;
+        const plant = this.plantMap.get(p.plant_id);
+        if (plant && !plant.perennial) out.add(plant.family);
+      }
+      for (const r of this.snapshot.rotation_history ?? []) if (r.bed_id === bed.id && r.season === season) out.add(r.family);
+      return [...out];
+    };
+    const label = (f: string) => this.families[f]?.[this.lang as "en" | "nl"] ?? f;
+    return html`<div class="rotation" role="table" aria-label=${this.t("planner.rotation_strip")}>
+      <p class="xs muted">${this.t("planner.rotation_strip")}</p>
+      <div class="rot-row">${seasons.map((season) => {
+        const fams = fam(season);
+        return html`<div class="rot-cell ${season === this.season ? "now" : ""}" role="cell" title=${fams.map(label).join(", ") || "–"}>
+          <b>${season}</b>
+          <div class="rot-dots">${fams.length ? fams.map((f) => html`<span class="family-dot" style=${`background:${familyColor(this.families, f)}`}></span>`) : html`<span class="xs muted">–</span>`}</div>
+          <span class="xs">${fams.map(label).join(", ")}</span>
+        </div>`;
+      })}</div>
+    </div>`;
+  }
+
+  /** Late in the running season: what can still go in, and planning next year instead. */
+  private renderLateBanner(): TemplateResult | typeof nothing {
+    const snap = this.snapshot;
+    const today = snap.analysis?.today;
+    const firstFrost = snap.analysis?.anchors?.first_frost;
+    if (this.mode !== "plant" || this.lateDismissed || !today || !firstFrost) return nothing;
+    if (this.season !== snap.analysis?.season || daysBetween(today, firstFrost) > 45) return nothing;
+    if (this.stillPossibleFor !== this.season) {
+      this.stillPossibleFor = this.season;
+      const season = this.season;
+      this.api.stillPossible(season).then((r) => (this.stillPossible = r)).catch(() => undefined);
+    }
+    const rows = this.stillPossible?.season === this.season ? this.stillPossible.plants : null;
+    return html`<div class="late-banner" role="status">
+      <ha-icon icon="mdi:weather-snowy"></ha-icon>
+      <div class="stack" style="gap:6px;flex:1">
+        <b>${this.t("planner.late_title", { season: this.season })}</b>
+        <span class="small">${rows == null ? this.t("common.loading") : rows.length ? this.t("planner.late_still", { n: rows.length }) : this.t("planner.late_none")}</span>
+        ${rows?.length ? html`<div class="row wrap" style="gap:4px">${rows.slice(0, 16).map((r) => {
+          const plant = this.plantMap.get(r.plant_id);
+          return plant ? html`<button class="chip" title=${this.t("planner.late_add_hint")} @click=${() => this.addToSelectedBed(plant)}>
+            ${glyphIcon(glyphFor(plant), plant.color || familyColor(this.families, plant.family), 16)}${plantName(plant, this.lang)}</button>` : nothing;
+        })}</div>` : nothing}
+      </div>
+      <button class="btn small primary" @click=${() => this.setSeason(this.season + 1)}>${this.t("planner.late_next", { season: this.season + 1 })}</button>
+      <button class="icon-btn" aria-label=${this.t("common.close")} @click=${() => (this.lateDismissed = true)}>×</button>
+    </div>`;
+  }
+
+  private renderDropWarning(): TemplateResult | typeof nothing {
+    const w = this.dropWarning;
+    const planting = w && this.draft.plantings.find((p) => p.id === w.plantingId);
+    if (!w || !planting) return nothing;
+    return html`<div class="drop-warning" role="alert">
+      <ha-icon icon="mdi:alert-outline"></ha-icon>
+      <div class="stack" style="gap:2px;flex:1"><b>${this.t("planner.drop_bad", { plant: plantName(this.plantMap.get(planting.plant_id), this.lang) })}</b>
+        ${w.text.map((line) => html`<span class="small">${line}</span>`)}</div>
+      <button class="btn small" @click=${() => { this.selection = { kind: "planting", id: planting.id }; this.popupOpen = true; void this.explainHere(planting); }}>${this.t("planner.why_here")}</button>
+      <button class="icon-btn" aria-label=${this.t("common.close")} @click=${() => (this.dropWarning = null)}>×</button>
+    </div>`;
   }
 
   /** This season has no garden plan yet: copy one, start empty, or close last year. */
@@ -1909,11 +2061,16 @@ export class PlannerView extends LitElement {
         <ha-icon icon="mdi:file-hidden"></ha-icon>
         <span class="grow"><b>${p.name}</b><br /><span class="xs muted">${this.t("common.season", { year: p.season })} ·
           ${this.t("plans.counts", { zones: p.zones, beds: p.beds, plantings: p.plantings })}${p.archived_at ? ` · ${formatDate(p.archived_at.slice(0, 10), this.lang)}` : ""}</span></span>
+        <button class="btn small ghost" aria-pressed=${String(this.comparePlan === p.id)}
+          @click=${() => (this.comparePlan = this.comparePlan === p.id ? "" : p.id)}><ha-icon icon="mdi:compare-horizontal"></ha-icon>${this.t("compare.button")}</button>
         <button class="btn small" ?disabled=${this.planBusy || !this.admin}
           @click=${() => confirm(this.t("plans.confirm_activate", { name: p.name, season: p.season })) && run(() => this.api.activatePlan(p.id), this.t("plans.activated", { name: p.name }))}>${this.t("plans.activate")}</button>
         <button class="btn small ghost danger" ?disabled=${this.planBusy || !this.admin}
           @click=${() => confirm(this.t("plans.confirm_delete", { name: p.name })) && run(() => this.api.deletePlan(p.id), this.t("plans.deleted", { name: p.name }))}>${this.t("common.delete")}</button>
       </div>`)}</div>` : html`<p class="small muted">${this.t("plans.none")}</p>`}
+      ${this.comparePlan ? html`<div class="divider"></div><h3>${this.t("compare.title")}</h3>
+        <hl-plan-compare .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} .plants=${this.plantMap} .families=${this.families}
+          left=${`p:${this.comparePlan}`} right=${`s:${this.season}`}></hl-plan-compare>` : nothing}
       <div class="row" style="justify-content:flex-end"><button class="btn" @click=${close}>${this.t("common.close")}</button></div>
     </div>`;
   }

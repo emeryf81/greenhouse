@@ -43,6 +43,7 @@ export class JournalView extends LitElement {
   static styles = [
     shared,
     css`
+      .plant-icon { border: 0; background: none; padding: 0; cursor: pointer; display: inline-grid; vertical-align: middle; }
       :host { display: block; }
       .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--hl-s3); }
       .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--hl-s4); align-items: start; }
@@ -153,7 +154,8 @@ export class JournalView extends LitElement {
 
   private icon(id: string | null | undefined, size = 24): TemplateResult {
     const p = this.plant(id);
-    return p ? glyphIcon(glyphFor(p), p.color || familyColor(this.families, p.family), size) : html``;
+    return p ? html`<button class="plant-icon" title=${this.t("lib.open_plant")} aria-label=${plantName(p, this.lang)}
+      @click=${() => this.dispatchEvent(new CustomEvent("open-plant", { detail: p.id, bubbles: true, composed: true }))}>${glyphIcon(glyphFor(p), p.color || familyColor(this.families, p.family), size)}</button>` : html``;
   }
 
   private get season(): number {

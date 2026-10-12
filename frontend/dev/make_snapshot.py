@@ -339,7 +339,15 @@ def build(lang: str) -> dict:
             }
         )
     issues = diagnose.check_garden(data, db, today=NOW.date(), current_season=NOW.year, lang=lang)
+    snapshot["diagnosis"] = diagnose.summary(issues)
+    here = diagnose.plan_view(data, season=NOW.year)
+    other = diagnose.plan_view(data, season=NOW.year - 1) or here
     extras = {
+        "compare": diagnose.compare_plans(other, here, db, lang),
+        "still_possible": {
+            "season": NOW.year,
+            "plants": diagnose.still_possible(data, db, NOW.year, today=NOW.date()),
+        },
         "crop_rows": crop_rows,
         "analysis": {
             "season": NOW.year,

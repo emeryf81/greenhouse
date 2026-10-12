@@ -47,8 +47,8 @@ export class CalendarView extends LitElement {
       <tbody>
         ${rows.map((r) => {
           const plant = this.plants.get(r.plant_id);
-          return html`<tr><th scope="row"><span class="crop">${plant ? glyphIcon(glyphFor(plant), plant.color || familyColor(this.families, plant.family), 20) : nothing}
-            ${plantName(plant, this.lang)}</span><span class="xs muted">${r.beds.join(", ")}</span></th>
+          return html`<tr><th scope="row"><button class="crop linklike" title=${this.t("lib.open_plant")} @click=${() => this.emit("open-plant", r.plant_id)}>${plant ? glyphIcon(glyphFor(plant), plant.color || familyColor(this.families, plant.family), 20) : nothing}
+            ${plantName(plant, this.lang)}</button><span class="xs muted">${r.beds.join(", ")}</span></th>
             ${months.map((_, i) => {
               const acts = r.months[String(i + 1)] ?? [];
               const act = order.find((a) => acts.includes(a));
@@ -75,6 +75,8 @@ export class CalendarView extends LitElement {
       table.year thead th { text-align: center; color: var(--hl-text-muted); text-transform: capitalize; }
       table.year th[scope="row"] { display: flex; flex-direction: column; gap: 0; }
       table.year .crop { display: inline-flex; gap: 6px; align-items: center; }
+      .linklike { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+      .linklike:hover { text-decoration: underline; }
       table.year td { height: 30px; border-radius: 6px; background: var(--hl-surface-2); text-align: center; font-size: 11px; font-weight: 700; color: #fff; }
       table.year td.now, table.year th.now { outline: 2px solid var(--hl-focus); outline-offset: -2px; }
       table.year td.grow, .sw.grow { background: color-mix(in srgb, var(--hl-leaf-500) 25%, var(--hl-surface-2)); color: var(--hl-text); }

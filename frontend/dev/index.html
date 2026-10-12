@@ -49,6 +49,11 @@
           return { planting: row && row.planting, row, revision: data.snapshot.revision };
         }
         if (type === "analysis") return (data.extras || {}).analysis;
+        if (type === "analysis/fix") return { revision: data.snapshot.revision };
+        if (type === "analysis/still_possible") return (data.extras || {}).still_possible;
+        if (type === "plan/compare") return (data.extras || {}).compare;
+        if (type === "plantings/update_many") return { updated: msg.planting_ids.length, revision: data.snapshot.revision };
+        if (type === "syslog/list") return { entries: [], more: false, total: 0 };
         if (type === "analysis/explain") return { ...(data.extras || {}).explain, plant_id: msg.plant_id };
         if (type === "year/preview") return (data.extras || {}).year_preview;
         if (type === "year/apply") return { season: msg.from_season + 1, carried: msg.planting_ids, skipped: [], activated: msg.activate, revision: data.snapshot.revision };

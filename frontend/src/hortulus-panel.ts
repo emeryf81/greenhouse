@@ -29,6 +29,9 @@ import { setPersons } from "./util/people";
 import { setSupplies } from "./util/tools";
 import "./components/task-ui";
 import { setGlossary } from "./components/info";
+import "./components/modal";
+import "./components/plant-detail";
+import { familyColor, plantName } from "./util/garden";
 
 type Tab = "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
@@ -64,6 +67,9 @@ export class HortulusPanel extends LitElement {
   @state() private chapter = "";
   @state() private plannerSeason: number | null = null;
   @state() private transitionRequest = 0;
+  @state() private popupPlant: Plant | null = null;
+  @state() private plannerFocus: { id: string; season: number; n: number } | null = null;
+  @state() private cropsFocus: { id: string; season: number; n: number } | null = null;
 
   private api?: GardenApi;
   private unsubscribe?: () => Promise<void>;
@@ -87,6 +93,10 @@ export class HortulusPanel extends LitElement {
       nav a:hover { background: var(--hl-surface-2); color: var(--hl-text); }
       nav a[aria-current="page"] { background: var(--hl-leaf-100); color: var(--hl-chip-active-fg); }
       nav a:focus-visible { outline: 2px solid var(--hl-focus); outline-offset: 2px; }
+      nav a .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #fff;
+        display: inline-grid; place-items: center; line-height: 1; }
+      nav a .badge.bad { background: var(--hl-danger); }
+      nav a .badge.warn { background: var(--hl-warning); }
       main { padding: var(--hl-s4); max-width: 1680px; margin: 0 auto; }
       .bottom-nav { display: none; }
       :host([narrow]) nav.top { display: none; }
@@ -191,6 +201,37 @@ export class HortulusPanel extends LitElement {
     this.tab = tab;
   }
 
+  private openPlant(id: string): void {
+    this.popupPlant = this.plants.find((p) => p.id === id) ?? null;
+  }
+
+  /** Show one crop in the planner (selected, popup open). */
+  private focusPlanting(detail: { planting_id: string; season: number }): void {
+    this.popupPlant = null;
+    this.plannerSeason = detail.season;
+    this.plannerFocus = { id: detail.planting_id, season: detail.season, n: (this.plannerFocus?.n ?? 0) + 1 };
+    this.navigate("planner");
+  }
+
+  /** Show one crop in the crops list. */
+  private focusCrop(detail: { planting_id: string; season: number }): void {
+    this.plannerSeason = detail.season;
+    this.cropsFocus = { id: detail.planting_id, season: detail.season, n: (this.cropsFocus?.n ?? 0) + 1 };
+    this.navigate("crops");
+  }
+
+  private renderPlantPopup(): TemplateResult | typeof nothing {
+    const p = this.popupPlant;
+    if (!p || !this.snapshot) return nothing;
+    return html`<hl-modal heading=${plantName(p, this.uiLang)} accent=${familyColor(this.families, p.family)} closeLabel=${this.t("common.close")}
+      @closed=${() => (this.popupPlant = null)}
+      @select-plant=${(e: CustomEvent<Plant>) => { this.popupPlant = e.detail; void this.updateComplete.then(() => this.renderRoot.querySelector("hl-modal")?.toTop()); }}
+      @focus-planting=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusPlanting(e.detail)}>
+      <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${this.families[p.family]?.[this.uiLang as "en" | "nl"] ?? p.family}</span>
+      <hl-plant-detail .plant=${p} .plants=${this.plants} .families=${this.families} .snapshot=${this.snapshot} .t=${this.t} lang=${this.uiLang}></hl-plant-detail>
+    </hl-modal>`;
+  }
+
   private toast(message: string): void {
     this.toastMsg = message;
     window.clearTimeout(this.toastTimer);
@@ -242,13 +283,14 @@ export class HortulusPanel extends LitElement {
           .transitionRequest=${this.transitionRequest}></hl-planner-view>`;
       case "crops":
         return html`<hl-crops-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
-          .lang=${this.uiLang} .admin=${admin} .initialSeason=${this.plannerSeason}></hl-crops-view>`;
+          .lang=${this.uiLang} .admin=${admin} .initialSeason=${this.plannerSeason} .focusPlanting=${this.cropsFocus}></hl-crops-view>`;
       case "analysis":
         return html`<hl-analysis-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin}></hl-analysis-view>`;
       case "planner":
         return html`<hl-planner-view mode="plant" .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
-          .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow} .initialSeason=${this.plannerSeason}></hl-planner-view>`;
+          .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow} .initialSeason=${this.plannerSeason}
+          .focusPlanting=${this.plannerFocus}></hl-planner-view>`;
       case "library":
         return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
@@ -271,10 +313,18 @@ export class HortulusPanel extends LitElement {
     }
   }
 
+  /** Problems the garden check finds right now (re-checked on every change). */
+  private renderBadge(): TemplateResult | typeof nothing {
+    const d = this.snapshot?.diagnosis;
+    const n = d ? d.error + d.warning : 0;
+    if (!d || !n) return nothing;
+    return html`<span class="badge ${d.error ? "bad" : "warn"}" title=${this.t("analysis.badge", { errors: d.error, warnings: d.warning })}>${n}</span>`;
+  }
+
   private renderNav(cls: string): TemplateResult {
     return html`<nav class=${cls} aria-label="Hortulus">
       ${TABS.filter((tab) => cls !== "bottom-nav" || tab.mobile).map((tab) => html`<a href="#" aria-current=${tab.id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(tab.id, e)}>
-        <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${tab.id}`)}</a>`)}
+        <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${tab.id}`)}${tab.id === "analysis" ? this.renderBadge() : nothing}</a>`)}
     </nav>`;
   }
 
@@ -300,6 +350,9 @@ export class HortulusPanel extends LitElement {
         @season-changed=${(e: CustomEvent<number>) => (this.plannerSeason = e.detail)}
         @year-transition=${() => { this.navigate("layout"); this.transitionRequest += 1; }}
         @open-handbook=${(e: CustomEvent<{ chapter?: string }>) => this.openHandbook(e.detail?.chapter ?? "")}
+        @open-plant=${(e: CustomEvent<string>) => this.openPlant(e.detail)}
+        @focus-planting=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusPlanting(e.detail)}
+        @focus-crop=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusCrop(e.detail)}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}>
         ${this.error ? html`<div class="card error">${emblem(56)}<p>${this.error}</p></div>`
           : this.snapshot ? this.renderTab() : html`<p class="empty">${this.t("common.loading")}</p>`}
@@ -310,6 +363,7 @@ export class HortulusPanel extends LitElement {
         .beds=${this.snapshot.beds} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .today=${this.snapshot.analysis?.today ?? ""}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}
         @closed=${() => { this.openTask = null; this.creatingTask = false; }}></hl-task-dialog>` : nothing}
+      ${this.renderPlantPopup()}
       ${this.toastMsg ? html`<div class="toast" role="status" aria-live="polite">${this.toastMsg}</div>` : nothing}
     `;
   }

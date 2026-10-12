@@ -48,6 +48,7 @@ export class AdviceView extends LitElement {
   static styles = [
     shared,
     css`
+      .pic[role="button"] { cursor: pointer; }
       :host { display: block; }
       .grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--hl-s4); align-items: start; }
       @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
@@ -198,7 +199,9 @@ export class AdviceView extends LitElement {
     const plant = s.plants.map((id) => this.plants.find((x) => x.id === id)).find(Boolean);
     const title = this.t(`advice.kind.${s.kind}`);
     if (plant) {
-      return html`<span class="pic" title=${title}><hl-plant-image .plant=${plant} color=${familyColor(this.families, plant.family)}
+      return html`<span class="pic" title=${`${title} · ${this.t("lib.open_plant")}`} role="button" tabindex="0"
+        @click=${() => this.dispatchEvent(new CustomEvent("open-plant", { detail: plant.id, bubbles: true, composed: true }))}
+        @keydown=${(e: KeyboardEvent) => e.key === "Enter" && this.dispatchEvent(new CustomEvent("open-plant", { detail: plant.id, bubbles: true, composed: true }))}><hl-plant-image .plant=${plant} color=${familyColor(this.families, plant.family)}
         lang=${this.lang} size="thumb"></hl-plant-image><span class="badge">${icon}</span></span>`;
     }
     if (s.handbook) return html`<span class="pic" title=${title}>${chapterArt(s.handbook, 44)}<span class="badge">${icon}</span></span>`;

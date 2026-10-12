@@ -560,6 +560,8 @@ export interface Snapshot {
   plantings: Planting[];
   tasks: Task[];
   features?: Feature[];
+  /** Families grown per bed and season before Hortulus knew the plantings (crop rotation). */
+  rotation_history?: { bed_id: string; season: number; family: string; plant_id?: string | null; source?: string }[];
   /** Season of the live garden plan (zones/beds/features above). */
   layout_season?: number | null;
   /** Garden plans of other seasons (archived years, next year's draft). */
