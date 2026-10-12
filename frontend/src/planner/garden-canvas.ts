@@ -1,15 +1,59 @@
 import { LitElement, css, html, svg, nothing, type PropertyValues, type SVGTemplateResult } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
-import type { Analysis, Bed, CompatibilityReport, FamilyInfo, Plant, Planting, Timeline, Zone } from "../types";
+import type { Analysis, Bed, CompatibilityReport, FamilyInfo, Feature, Plant, Planting, Timeline, Zone } from "../types";
 import { familyColor, isActiveOn, plantMonogram, plantName } from "../util/garden";
 import { bedRect, clampInto, extents, plantPositions, plantingRect, snap, zoneRect, type Rect } from "./geometry";
 import type { Translate } from "../i18n";
 
-export type ItemKind = "zone" | "bed" | "planting";
-export interface Selection { kind: ItemKind; id: string }
+export type ItemKind = "zone" | "bed" | "planting" | "feature";
+export interface Selection { kind: ItemKind; id: string; additive?: boolean }
 export interface Ghost { rect: Rect; valid: boolean; color: string; label: string }
 
-export interface ItemChangeDetail { kind: ItemKind; id: string; rect: Rect; targetBedId?: string }
+export interface ItemChangeDetail { kind: ItemKind; id: string; rect: Rect; targetBedId?: string; dx: number; dy: number; group: boolean }
+
+const FEATURE_STYLE: Record<string, { fill: string; stroke: string; icon: string }> = {
+  path: { fill: "#d8cbb3", stroke: "#a8987a", icon: "🚶" },
+  compost: { fill: "#8a6a45", stroke: "#5c442a", icon: "♻" },
+  water_butt: { fill: "#4c8fbf", stroke: "#2d6a96", icon: "💧" },
+  shed: { fill: "#9aa3a0", stroke: "#6b7370", icon: "🏠" },
+  tree: { fill: "#4e7d3a", stroke: "#2f5222", icon: "🌳" },
+  hedge: { fill: "#5f8f45", stroke: "#3d6b2a", icon: "🌿" },
+  trellis: { fill: "#7a5c3e", stroke: "#5a3f25", icon: "╫" },
+  other: { fill: "#b4b4b4", stroke: "#888", icon: "•" },
+};
+
+const LINK_STYLE: Record<string, { color: string; dash: string; width: number }> = {
+  friend: { color: "var(--hl-leaf-500)", dash: "none", width: 2 },
+  pest_synergy: { color: "var(--hl-leaf-600)", dash: "2 3", width: 2 },
+  enemy: { color: "var(--hl-tomato-500)", dash: "6 4", width: 2.5 },
+  allelopathy: { color: "#8e5ba8", dash: "6 4", width: 2.5 },
+  competition: { color: "var(--hl-sun-500)", dash: "3 3", width: 2 },
+  shading: { color: "#6b7370", dash: "1 4", width: 2.5 },
+  overlap: { color: "var(--hl-sun-500)", dash: "6 4", width: 2.5 },
+};
+
+/** Plant symbol by growth habit: shape carries meaning beyond colour. */
+export function glyph(habit: string, cx: number, cy: number, r: number, color: string): SVGTemplateResult {
+  switch (habit) {
+    case "climbing": // a pole with a triangle: climbs a support
+      return svg`<path d=${`M${cx} ${cy - r} L${cx + r * 0.9} ${cy + r * 0.8} L${cx - r * 0.9} ${cy + r * 0.8} Z`} fill=${color} fill-opacity="0.85"></path>`;
+    case "vine": // sprawling: ring
+      return svg`<circle cx=${cx} cy=${cy} r=${r * 0.8} fill="none" stroke=${color} stroke-width=${r * 0.45} stroke-opacity="0.85"></circle>`;
+    case "upright": // tall and narrow: diamond
+      return svg`<path d=${`M${cx} ${cy - r} L${cx + r * 0.6} ${cy} L${cx} ${cy + r} L${cx - r * 0.6} ${cy} Z`} fill=${color} fill-opacity="0.85"></path>`;
+    case "rosette": { // leafy rosette: four petals
+      const p = r * 0.55;
+      return svg`<g fill=${color} fill-opacity="0.85"><circle cx=${cx - p} cy=${cy} r=${p}></circle><circle cx=${cx + p} cy=${cy} r=${p}></circle>
+        <circle cx=${cx} cy=${cy - p} r=${p}></circle><circle cx=${cx} cy=${cy + p} r=${p}></circle></g>`;
+    }
+    case "root": // taproot: downward triangle
+      return svg`<path d=${`M${cx - r * 0.9} ${cy - r * 0.7} L${cx + r * 0.9} ${cy - r * 0.7} L${cx} ${cy + r} Z`} fill=${color} fill-opacity="0.85"></path>`;
+    case "bulb": // bulb: teardrop
+      return svg`<path d=${`M${cx} ${cy - r} Q${cx + r} ${cy + r * 0.2} ${cx} ${cy + r} Q${cx - r} ${cy + r * 0.2} ${cx} ${cy - r} Z`} fill=${color} fill-opacity="0.85"></path>`;
+    default: // bush: disc
+      return svg`<circle cx=${cx} cy=${cy} r=${r} fill=${color} fill-opacity="0.85"></circle>`;
+  }
+}
 
 interface DragState {
   mode: "move" | "resize" | "pan";
@@ -48,6 +92,11 @@ export class GardenCanvas extends LitElement {
   @property({ attribute: false }) zones: Zone[] = [];
   @property({ attribute: false }) beds: Bed[] = [];
   @property({ attribute: false }) plantings: Planting[] = [];
+  @property({ attribute: false }) features: Feature[] = [];
+  @property({ attribute: false }) multi: Selection[] = [];
+  @property({ type: Boolean }) showFeatures = true;
+  @property({ type: Boolean }) showPlantings = true;
+  @property({ type: Boolean }) showZones = true;
   @property({ attribute: false }) plants: Map<string, Plant> = new Map();
   @property({ attribute: false }) families: Record<string, FamilyInfo> = {};
   @property({ attribute: false }) selection: Selection | null = null;
@@ -72,6 +121,7 @@ export class GardenCanvas extends LitElement {
   @query("svg") private svgEl!: SVGSVGElement;
 
   private drag: DragState | null = null;
+  private pendingSelect: Selection | null = null;
   private fitted = false;
   private resizeObserver?: ResizeObserver;
 
@@ -121,7 +171,7 @@ export class GardenCanvas extends LitElement {
   fit(): void {
     const box = this.getBoundingClientRect();
     if (!box.width || !box.height) return;
-    const ext = extents(this.zones, this.beds);
+    const ext = extents(this.zones, this.beds, this.features.map((f) => ({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm })));
     const pad = 32;
     this.k = Math.max(0.2, Math.min((box.width - pad * 2) / ext.w, (box.height - pad * 2) / ext.h, 6));
     this.tx = pad - ext.x * this.k + (box.width - pad * 2 - ext.w * this.k) / 2;
@@ -154,6 +204,10 @@ export class GardenCanvas extends LitElement {
   // Pointer interaction
   // ---------------------------------------------------------------------- //
   private rectOf(kind: ItemKind, id: string): Rect | null {
+    if (kind === "feature") {
+      const f = this.features.find((i) => i.id === id);
+      return f ? { x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm } : null;
+    }
     if (kind === "zone") {
       const z = this.zones.find((i) => i.id === id);
       return z ? zoneRect(z) : null;
@@ -174,7 +228,14 @@ export class GardenCanvas extends LitElement {
     if (!pt) return;
     this.svgEl.setPointerCapture(ev.pointerId);
     if (kind && id) {
-      this.dispatchEvent(new CustomEvent<Selection>("select", { detail: { kind, id } }));
+      const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+      const inGroup = this.multi.some((m) => m.kind === kind && m.id === id);
+      if (!(inGroup && !additive && !resize)) {
+        this.dispatchEvent(new CustomEvent<Selection>("select", { detail: { kind, id, additive } }));
+      } else {
+        this.pendingSelect = { kind, id }; // a click without dragging narrows the group
+      }
+      if (additive) return;
       const origin = this.rectOf(kind, id);
       if (!origin || this.readonly) {
         this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
@@ -235,6 +296,9 @@ export class GardenCanvas extends LitElement {
     if (this.svgEl.hasPointerCapture(ev.pointerId)) this.svgEl.releasePointerCapture(ev.pointerId);
     const preview = this.preview;
     this.preview = null;
+    const pending = this.pendingSelect;
+    this.pendingSelect = null;
+    if (pending && !d.moved) this.dispatchEvent(new CustomEvent<Selection>("select", { detail: pending }));
     if (!preview || !d.moved || d.mode === "pan") return;
     let targetBedId: string | undefined;
     if (preview.kind === "planting") {
@@ -243,8 +307,11 @@ export class GardenCanvas extends LitElement {
       const target = [...this.beds].reverse().find((b) => cx >= b.x_cm && cx <= b.x_cm + b.width_cm && cy >= b.y_cm && cy <= b.y_cm + b.length_cm);
       targetBedId = target?.id;
     }
+    const group = d.mode === "move" && this.multi.length > 1 && this.multi.some((m) => m.kind === preview.kind && m.id === preview.id);
     this.dispatchEvent(
-      new CustomEvent<ItemChangeDetail>("item-change", { detail: { kind: preview.kind, id: preview.id, rect: preview.rect, targetBedId } }),
+      new CustomEvent<ItemChangeDetail>("item-change", {
+        detail: { kind: preview.kind, id: preview.id, rect: preview.rect, targetBedId, dx: preview.rect.x - d.origin.x, dy: preview.rect.y - d.origin.y, group },
+      }),
     );
   }
 
@@ -259,7 +326,29 @@ export class GardenCanvas extends LitElement {
   // ---------------------------------------------------------------------- //
   private effectiveRect(kind: ItemKind, id: string, base: Rect): Rect {
     if (this.preview && this.preview.kind === kind && this.preview.id === id) return this.preview.rect;
+    // Group move: every selected item of the dragged kind follows the pointer.
+    const p = this.preview;
+    if (p && p.kind === kind && this.drag?.mode === "move" && this.multi.length > 1 && this.multi.some((m) => m.kind === kind && m.id === id)
+      && this.multi.some((m) => m.kind === p.kind && m.id === p.id)) {
+      const origin = this.drag.origin;
+      return { ...base, x: base.x + (p.rect.x - origin.x), y: base.y + (p.rect.y - origin.y) };
+    }
     return base;
+  }
+
+  private renderFeature(f: Feature): SVGTemplateResult {
+    const r = this.effectiveRect("feature", f.id, { x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm });
+    const st = FEATURE_STYLE[f.type] ?? FEATURE_STYLE.other;
+    const fs = 11 / this.k;
+    const round = f.type === "tree" || f.type === "water_butt";
+    return svg`<g role="button" aria-label=${`${f.name} (${this.t(`feature.${f.type}`)})`} @pointerdown=${(e: PointerEvent) => this.onPointerDown(e, "feature", f.id)} style="cursor:move">
+      ${round
+        ? svg`<ellipse cx=${r.x + r.w / 2} cy=${r.y + r.h / 2} rx=${r.w / 2} ry=${r.h / 2} fill=${st.fill} fill-opacity="0.55" stroke=${st.stroke} stroke-width="1.5" vector-effect="non-scaling-stroke"></ellipse>`
+        : svg`<rect x=${r.x} y=${r.y} width=${r.w} height=${r.h} rx=${f.type === "path" ? 2 / this.k : 4 / this.k} fill=${st.fill}
+            fill-opacity=${f.type === "path" ? 0.75 : 0.55} stroke=${st.stroke} stroke-width="1.2" vector-effect="non-scaling-stroke"
+            stroke-dasharray=${f.type === "trellis" ? "6 3" : "none"}></rect>`}
+      ${r.w * this.k > 40 && r.h * this.k > 14 ? svg`<text class="label" x=${r.x + r.w / 2} y=${r.y + r.h / 2 + fs * 0.35} font-size=${fs} text-anchor="middle">${st.icon} ${f.name}</text>` : nothing}
+    </g>`;
   }
 
   /** Offset applied to beds while their zone is being dragged. */
@@ -376,7 +465,7 @@ export class GardenCanvas extends LitElement {
         <title>${label}</title>
         <rect class="planting-rect" x=${r.x} y=${r.y} width=${r.w} height=${r.h} rx=${3 / this.k}
           fill=${color} fill-opacity="0.22" stroke=${color} stroke-width="1.5" stroke-dasharray=${active ? "none" : "4 3"}></rect>
-        ${dots.slice(0, 400).map(([x, y]) => svg`<circle cx=${bedR.x + x} cy=${bedR.y + y} r=${dotR} fill=${color} fill-opacity="0.85"></circle>`)}
+        ${dots.slice(0, 400).map(([x, y]) => glyph(plant.habit, bedR.x + x, bedR.y + y, dotR, color))}
         ${r.w * this.k > 26 && r.h * this.k > 14
           ? svg`<text class="mono" x=${r.x + r.w / 2} y=${r.y + r.h / 2 + fs * 0.35} font-size=${fs} text-anchor="middle">${plantMonogram(name)}</text>`
           : nothing}
@@ -404,19 +493,51 @@ export class GardenCanvas extends LitElement {
         const a = center(f.a);
         const b = center(f.b);
         if (!a || !b) continue;
-        const color = f.kind === "friend" ? "var(--hl-leaf-500)" : f.kind === "enemy" ? "var(--hl-tomato-500)" : "var(--hl-sun-500)";
-        out.push(svg`<line class="link" x1=${a[0]} y1=${a[1]} x2=${b[0]} y2=${b[1]} stroke=${color}
-          stroke-width=${f.kind === "friend" ? 2 : 2.5} stroke-dasharray=${f.kind === "friend" ? "none" : "6 4"} stroke-linecap="round" opacity="0.9"></line>`);
+        const st = LINK_STYLE[f.kind] ?? LINK_STYLE.overlap;
+        out.push(svg`<line class="link" x1=${a[0]} y1=${a[1]} x2=${b[0]} y2=${b[1]} stroke=${st.color}
+          stroke-width=${st.width} stroke-dasharray=${st.dash} stroke-linecap="round" opacity="0.9"><title>${this.t(f.key, f.params)}</title></line>`);
       }
     }
     return out;
+  }
+
+  private selectionRect(sel: Selection): Rect | null {
+    if (sel.kind === "feature") {
+      const f = this.features.find((i) => i.id === sel.id);
+      return f ? this.effectiveRect("feature", f.id, { x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }) : null;
+    }
+    if (sel.kind === "bed") {
+      const b = this.beds.find((i) => i.id === sel.id);
+      return b ? this.bedAbs(b) : null;
+    }
+    if (sel.kind === "zone") {
+      const z = this.zones.find((i) => i.id === sel.id);
+      return z ? this.effectiveRect("zone", z.id, zoneRect(z)) : null;
+    }
+    const p = this.plantings.find((i) => i.id === sel.id);
+    const bed = p && this.beds.find((b) => b.id === p.bed_id);
+    if (!p || !bed) return null;
+    const br = this.bedAbs(bed);
+    return this.effectiveRect("planting", p.id, { x: br.x + p.x_cm, y: br.y + p.y_cm, w: p.width_cm, h: p.length_cm });
+  }
+
+  private renderMulti(): SVGTemplateResult[] {
+    if (this.multi.length < 2) return [];
+    const pad = 3 / this.k;
+    return this.multi
+      .filter((m) => !(this.selection && m.kind === this.selection.kind && m.id === this.selection.id))
+      .map((m) => this.selectionRect(m))
+      .filter((r): r is Rect => !!r)
+      .map((r) => svg`<rect class="selected-outline" x=${r.x - pad} y=${r.y - pad} width=${r.w + pad * 2} height=${r.h + pad * 2} opacity="0.7"></rect>`);
   }
 
   private renderSelection(): SVGTemplateResult | typeof nothing {
     const sel = this.selection;
     if (!sel) return nothing;
     let r: Rect | null = null;
-    if (sel.kind === "bed") {
+    if (sel.kind === "feature") {
+      r = this.selectionRect(sel);
+    } else if (sel.kind === "bed") {
       const b = this.beds.find((i) => i.id === sel.id);
       r = b ? this.bedAbs(b) : null;
     } else if (sel.kind === "zone") {
@@ -465,8 +586,10 @@ export class GardenCanvas extends LitElement {
         @wheel=${this.onWheel}
       >
         <g transform=${`translate(${this.tx} ${this.ty}) scale(${this.k})`}>
-          ${this.renderGrid()} ${this.zones.map((z) => this.renderZone(z))} ${this.beds.map((b) => this.renderBed(b))}
-          ${this.plantings.map((p) => this.renderPlanting(p))} ${this.renderLinks()} ${this.renderSelection()} ${this.renderGhost()}
+          ${this.renderGrid()} ${this.showZones ? this.zones.map((z) => this.renderZone(z)) : nothing}
+          ${this.showFeatures ? this.features.map((f) => this.renderFeature(f)) : nothing} ${this.beds.map((b) => this.renderBed(b))}
+          ${this.showPlantings ? this.plantings.map((p) => this.renderPlanting(p)) : nothing} ${this.showPlantings ? this.renderLinks() : nothing}
+          ${this.renderMulti()} ${this.renderSelection()} ${this.renderGhost()}
         </g>
       </svg>
       <div class="zoom-indicator" aria-hidden="true">${Math.round(this.k * 100)} px/m</div>

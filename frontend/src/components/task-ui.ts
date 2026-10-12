@@ -3,7 +3,8 @@ import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
-import type { Bed, Priority, Task, TaskType } from "../types";
+import type { Bed, Priority, Snapshot, Task, TaskType } from "../types";
+import "./info";
 import { TASK_COLORS, TASK_ICONS, addDays, formatDate } from "../util/garden";
 
 export interface TaskCtx {
@@ -12,6 +13,46 @@ export interface TaskCtx {
   today: string;
   onOpen: (task: Task) => void;
   onComplete: (task: Task) => void;
+  /** Optional: enables swipe-left to postpone by a day on touch screens. */
+  onPostpone?: (task: Task, days: number) => void;
+}
+
+// -- swipe actions (touch / pen only, mouse keeps normal clicks) -------------
+const SWIPE_THRESHOLD = 80;
+interface SwipeState { x: number; y: number; dx: number; active: boolean; id: number }
+const swipes = new WeakMap<HTMLElement, SwipeState>();
+
+function swipeDown(ev: PointerEvent): void {
+  if (ev.pointerType === "mouse") return;
+  swipes.set(ev.currentTarget as HTMLElement, { x: ev.clientX, y: ev.clientY, dx: 0, active: false, id: ev.pointerId });
+}
+
+function swipeMove(ev: PointerEvent): void {
+  const el = ev.currentTarget as HTMLElement;
+  const st = swipes.get(el);
+  if (!st || st.id !== ev.pointerId) return;
+  const dx = ev.clientX - st.x;
+  const dy = ev.clientY - st.y;
+  if (!st.active && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    st.active = true;
+    el.setPointerCapture(ev.pointerId);
+  }
+  if (!st.active) return;
+  st.dx = dx;
+  el.style.transform = `translateX(${Math.max(-140, Math.min(140, dx))}px)`;
+  el.dataset.swipe = dx > SWIPE_THRESHOLD ? "complete" : dx < -SWIPE_THRESHOLD ? "postpone" : "";
+}
+
+function swipeEnd(ev: PointerEvent, task: Task, ctx: TaskCtx): void {
+  const el = ev.currentTarget as HTMLElement;
+  const st = swipes.get(el);
+  swipes.delete(el);
+  el.style.transform = "";
+  delete el.dataset.swipe;
+  if (!st?.active) return;
+  ev.preventDefault();
+  if (st.dx > SWIPE_THRESHOLD && task.status === "open") ctx.onComplete(task);
+  else if (st.dx < -SWIPE_THRESHOLD && task.status === "open" && ctx.onPostpone) ctx.onPostpone(task, 1);
 }
 
 /** Compact, accessible task row used on the dashboard and in list views. */
@@ -20,7 +61,8 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
   const done = task.status !== "open";
   const color = TASK_COLORS[task.type] ?? "var(--hl-soil-500)";
   return html`
-    <li class="task-row ${done ? "done" : ""} prio-${task.priority}">
+    <li class="task-row ${done ? "done" : ""} prio-${task.priority}" @pointerdown=${swipeDown} @pointermove=${swipeMove}
+      @pointerup=${(e: PointerEvent) => swipeEnd(e, task, ctx)} @pointercancel=${(e: PointerEvent) => swipeEnd(e, task, ctx)}>
       <button class="check" role="checkbox" aria-checked=${String(done)} aria-label=${`${ctx.t("task.complete")}: ${task.title}`}
         ?disabled=${done} @click=${() => ctx.onComplete(task)}>
         <ha-icon icon=${done ? "mdi:check-circle" : "mdi:checkbox-blank-circle-outline"}></ha-icon>
@@ -42,7 +84,9 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
 
 export const taskRowStyles = css`
   ul.tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .task-row { display: flex; align-items: center; gap: var(--hl-s1); border-radius: var(--hl-r-md); }
+  .task-row { display: flex; align-items: center; gap: var(--hl-s1); border-radius: var(--hl-r-md); touch-action: pan-y; transition: transform 0.15s ease-out; background: var(--hl-surface); }
+  .task-row[data-swipe="complete"] { background: var(--hl-leaf-100); }
+  .task-row[data-swipe="postpone"] { background: var(--hl-sun-100); }
   .task-row:hover { background: var(--hl-surface-2); }
   .task-row.done .task-title { text-decoration: line-through; color: var(--hl-text-muted); }
   .task-row.prio-urgent { box-shadow: inset 3px 0 0 var(--hl-danger); }
@@ -66,6 +110,7 @@ export class TaskDialog extends LitElement {
   @property() lang = "en";
   @property() today = "";
   @property({ type: Boolean }) create = false;
+  @property({ attribute: false }) snapshot: Snapshot | null = null;
   @state() private note = "";
   @state() private photos: string[] = [];
   @state() private busy = false;
@@ -85,6 +130,10 @@ export class TaskDialog extends LitElement {
       .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hl-s2) var(--hl-s3); }
       .form-grid .full { grid-column: 1 / -1; }
       .big-icon { --mdc-icon-size: 28px; }
+      .context { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+      .ctx { background: var(--hl-surface-2); border-radius: var(--hl-r-sm); padding: 6px 8px; font-size: var(--hl-fs-xs); color: var(--hl-text-muted);
+        display: flex; flex-direction: column; gap: 2px; }
+      .ctx b { font-size: var(--hl-fs-sm); color: var(--hl-text); }
     `,
   ];
 
@@ -168,6 +217,40 @@ export class TaskDialog extends LitElement {
     </form>`;
   }
 
+  /** Live sensor / weather context so the gardener can judge the task on the spot. */
+  private renderContext(task: Task): TemplateResult | typeof nothing {
+    const a = this.snapshot?.analysis;
+    if (!a) return nothing;
+    const items: [string, string][] = [];
+    const bed = task.bed_id ? a.beds[task.bed_id] : undefined;
+    const zoneId = task.zone_id ?? this.snapshot?.beds.find((b) => b.id === task.bed_id)?.zone_id;
+    const zone = zoneId ? a.zones[zoneId] : undefined;
+    const num = (v: number | null | undefined, unit: string, digits = 0) => (v == null ? null : `${v.toFixed(digits)} ${unit}`);
+    if (bed) {
+      const m = num(bed.irrigation.moisture, "%");
+      if (m) items.push([this.t("ctx.moisture"), m]);
+      const st = bed.sensors?.soil_temperature?.value;
+      if (st != null) items.push([this.t("ctx.soil_temp"), `${st.toFixed(1)} °C`]);
+      if (bed.irrigation.action !== "none") items.push([this.t("ctx.irrigation"), this.t(`irrigation.${bed.irrigation.action}`, { mm: bed.irrigation.amount_mm, liters: Math.round(bed.irrigation.liters) })]);
+      if (bed.depletion_mm != null && bed.taw_mm) items.push([this.t("ctx.water_balance"), `${bed.depletion_mm.toFixed(0)} / ${bed.taw_mm.toFixed(0)} mm`]);
+      if (bed.nutrients?.index != null) items.push([this.t("ctx.nutrients"), `${bed.nutrients.index} / 100`]);
+    }
+    if (zone) {
+      if (zone.air_temperature != null) items.push([this.t("ctx.air_temp"), `${zone.air_temperature.toFixed(1)} °C`]);
+      if (zone.humidity != null) items.push([this.t("ctx.humidity"), `${Math.round(zone.humidity)} %`]);
+      if (zone.disease && zone.disease.level !== "unknown") items.push([this.t("ctx.disease"), this.t(`risk.${zone.disease.level}`)]);
+      if (zone.frost.level !== "unknown") items.push([this.t("ctx.frost"), `${this.t(`risk.${zone.frost.level}`)}${zone.frost.plant_level_min_c != null ? ` · ${zone.frost.plant_level_min_c.toFixed(1)} °C` : ""}`]);
+    }
+    const today = a.outlook[0];
+    if (today) {
+      if (today.tmin != null && today.tmax != null) items.push([this.t("ctx.today"), `${today.tmin.toFixed(0)}–${today.tmax.toFixed(0)} °C`]);
+      items.push([this.t("ctx.rain"), `${today.rain_mm.toFixed(1)} mm`]);
+      if (today.et0_mm != null) items.push([this.t("ctx.et0"), `${today.et0_mm.toFixed(1)} mm`]);
+    }
+    if (!items.length) return nothing;
+    return html`<h4>${this.t("ctx.title")}</h4><div class="context">${items.map(([k, v]) => html`<div class="ctx">${k}<b>${v}</b></div>`)}</div>`;
+  }
+
   private renderTask(task: Task): TemplateResult {
     const open = task.status === "open";
     const act = (action: "complete" | "skip" | "reopen" | "delete", message?: string) =>
@@ -194,6 +277,10 @@ export class TaskDialog extends LitElement {
       </div>
       <div class="body">
         ${task.description ? html`<p>${task.description}</p>` : nothing}
+        ${task.title_params?.handbook ? html`<a class="small" href="#" @click=${(e: Event) => { e.preventDefault();
+          this.dispatchEvent(new CustomEvent("open-handbook", { detail: { chapter: task.title_params.handbook }, bubbles: true, composed: true }));
+          this.close(); }}><ha-icon icon="mdi:book-open-page-variant-outline" style="--mdc-icon-size:16px"></ha-icon> ${this.t("handbook.read_more")}</a>` : nothing}
+        ${this.renderContext(task)}
         ${task.window_start && task.window_end && task.window_start !== task.window_end
           ? html`<p class="small muted">${this.t("task.window", { start: formatDate(task.window_start, this.lang), end: formatDate(task.window_end, this.lang) })}</p>` : nothing}
         ${task.recurrence ? html`<p class="small muted">↻ ${this.t("task.repeat", { n: task.recurrence.interval_days })}</p>` : nothing}

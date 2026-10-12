@@ -19,15 +19,20 @@ import "./views/planner-view";
 import "./views/library-view";
 import "./views/calendar-view";
 import "./views/settings-view";
+import "./views/handbook-view";
+import "./views/print-view";
 import "./components/task-ui";
+import { setGlossary } from "./components/info";
 
-type Tab = "dashboard" | "planner" | "library" | "calendar" | "settings";
-const TABS: { id: Tab; icon: string }[] = [
-  { id: "dashboard", icon: "mdi:home-variant-outline" },
-  { id: "planner", icon: "mdi:floor-plan" },
-  { id: "library", icon: "mdi:sprout-outline" },
-  { id: "calendar", icon: "mdi:calendar-month-outline" },
-  { id: "settings", icon: "mdi:cog-outline" },
+type Tab = "dashboard" | "planner" | "library" | "calendar" | "handbook" | "print" | "settings";
+const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
+  { id: "dashboard", icon: "mdi:home-variant-outline", mobile: true },
+  { id: "planner", icon: "mdi:floor-plan", mobile: true },
+  { id: "library", icon: "mdi:sprout-outline", mobile: true },
+  { id: "calendar", icon: "mdi:calendar-month-outline", mobile: true },
+  { id: "handbook", icon: "mdi:book-open-page-variant-outline", mobile: true },
+  { id: "print", icon: "mdi:printer-outline", mobile: false },
+  { id: "settings", icon: "mdi:cog-outline", mobile: true },
 ];
 
 @customElement("hortulus-panel")
@@ -45,6 +50,7 @@ export class HortulusPanel extends LitElement {
   @state() private openTask: Task | null = null;
   @state() private creatingTask = false;
   @state() private error = "";
+  @state() private chapter = "";
 
   private api?: GardenApi;
   private unsubscribe?: () => Promise<void>;
@@ -99,8 +105,9 @@ export class HortulusPanel extends LitElement {
       }
     }
     if (changed.has("route") && this.route) {
-      const seg = this.route.path.replace(/^\//, "").split("/")[0] as Tab;
+      const [seg, sub] = this.route.path.replace(/^\//, "").split("/") as [Tab, string | undefined];
       this.tab = TABS.some((t) => t.id === seg) ? seg : "dashboard";
+      if (this.tab === "handbook") this.chapter = sub ?? "";
     }
   }
 
@@ -122,18 +129,36 @@ export class HortulusPanel extends LitElement {
   private async connect(): Promise<void> {
     try {
       await this.loadPlants();
+      void this.loadGlossary();
       this.unsubscribe = await this.api!.subscribe((snap) => {
         this.snapshot = snap;
         const lang = normalizeLang(snap.lang);
         if (lang !== this.uiLang) {
           this.uiLang = lang;
           this.t = makeTranslator(lang);
+          void this.loadGlossary();
         }
         if (this.openTask) this.openTask = snap.tasks.find((t) => t.id === this.openTask!.id) ?? null;
       });
     } catch (err) {
       this.error = (err as { code?: string }).code === "not_loaded" ? this.t("common.not_loaded") : String((err as Error).message ?? err);
     }
+  }
+
+  private async loadGlossary(): Promise<void> {
+    try {
+      setGlossary((await this.api!.handbookIndex(this.uiLang)).glossary);
+    } catch {
+      /* older backend - tooltips stay empty */
+    }
+  }
+
+  private openHandbook(chapter = ""): void {
+    this.chapter = chapter;
+    const base = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/handbook${chapter ? `/${chapter}` : ""}`;
+    history.pushState(null, "", base);
+    window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+    this.tab = "handbook";
   }
 
   private async loadPlants(): Promise<void> {
@@ -165,6 +190,30 @@ export class HortulusPanel extends LitElement {
     }
   }
 
+  private async irrigation(action: "run" | "stop"): Promise<void> {
+    try {
+      if (action === "stop") {
+        await this.api!.irrigationStop();
+        this.toast(this.t("dash.irrigation_stopped"));
+        return;
+      }
+      const res = await this.api!.irrigationRun();
+      const skipped = Object.values(res.reasons ?? {});
+      this.toast(res.started ? this.t("dash.irrigation_started", { min: Math.round(res.total_minutes) }) : skipped[0] ?? this.t("dash.irrigation_nothing"));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
+  private async postponeTask(task: Task, days: number): Promise<void> {
+    try {
+      await this.api!.taskAction(task.id, "postpone", { days });
+      this.toast(this.t("task.postponed", { title: task.title, n: days }));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
   // ---------------------------------------------------------------------- //
   private renderTab(): TemplateResult {
     const snap = this.snapshot!;
@@ -178,17 +227,21 @@ export class HortulusPanel extends LitElement {
         return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
       case "calendar":
-        return html`<hl-calendar-view .snapshot=${snap} .t=${this.t} .lang=${this.uiLang}></hl-calendar-view>`;
+        return html`<hl-calendar-view .snapshot=${snap} .t=${this.t} .lang=${this.uiLang} .plants=${plantMap} .families=${this.families}></hl-calendar-view>`;
+      case "handbook":
+        return html`<hl-handbook-view .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .chapterId=${this.chapter} .narrow=${this.narrow}></hl-handbook-view>`;
+      case "print":
+        return html`<hl-print-view .snapshot=${snap} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .narrow=${this.narrow} .admin=${admin}></hl-print-view>`;
       case "settings":
         return html`<hl-settings-view .snapshot=${snap} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
       default:
-        return html`<hl-dashboard-view .snapshot=${snap} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang}></hl-dashboard-view>`;
+        return html`<hl-dashboard-view .snapshot=${snap} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-dashboard-view>`;
     }
   }
 
   private renderNav(cls: string): TemplateResult {
     return html`<nav class=${cls} aria-label="Hortulus">
-      ${TABS.map((tab) => html`<a href="#" aria-current=${tab.id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(tab.id, e)}>
+      ${TABS.filter((tab) => cls !== "bottom-nav" || tab.mobile).map((tab) => html`<a href="#" aria-current=${tab.id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(tab.id, e)}>
         <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${tab.id}`)}</a>`)}
     </nav>`;
   }
@@ -203,14 +256,18 @@ export class HortulusPanel extends LitElement {
       </header>
       <main @open-task=${(e: CustomEvent<Task>) => (this.openTask = e.detail)}
         @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}
+        @postpone-task=${(e: CustomEvent<{ task: Task; days: number }>) => this.postponeTask(e.detail.task, e.detail.days)}
+        @irrigation=${(e: CustomEvent<"run" | "stop">) => this.irrigation(e.detail)}
         @new-task=${() => (this.creatingTask = true)}
         @navigate=${(e: CustomEvent<Tab>) => this.navigate(e.detail)}
+        @open-handbook=${(e: CustomEvent<{ chapter?: string }>) => this.openHandbook(e.detail?.chapter ?? "")}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}>
         ${this.error ? html`<div class="card error">${emblem(56)}<p>${this.error}</p></div>`
           : this.snapshot ? this.renderTab() : html`<p class="empty">${this.t("common.loading")}</p>`}
       </main>
       ${this.renderNav("bottom-nav")}
-      ${this.snapshot && (this.openTask || this.creatingTask) ? html`<hl-task-dialog .task=${this.openTask} .create=${this.creatingTask}
+      ${this.snapshot && (this.openTask || this.creatingTask) ? html`<hl-task-dialog .task=${this.openTask} .create=${this.creatingTask} .snapshot=${this.snapshot}
+        @open-handbook=${(e: CustomEvent<{ chapter?: string }>) => this.openHandbook(e.detail?.chapter ?? "")}
         .beds=${this.snapshot.beds} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .today=${this.snapshot.analysis?.today ?? ""}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}
         @closed=${() => { this.openTask = null; this.creatingTask = false; }}></hl-task-dialog>` : nothing}

@@ -37,7 +37,9 @@ export const PEST_NL: Record<string, string> = {
   powdery_mildew: "echte meeldauw", downy_mildew: "valse meeldauw", cucumber_mosaic_virus: "komkommermozaïekvirus",
   clubroot: "knolvoet", white_rot: "witrot", rust: "roest", alternaria: "alternaria", leaf_spot: "bladvlekken",
   root_rot: "wortelrot", anthracnose: "vlekkenziekte", halo_blight: "vetvlekkenziekte", chocolate_spot: "chocoladevlekken",
-  damping_off: "kiemplantenziekte",
+  damping_off: "kiemplantenziekte", ants: "mieren", asparagus_beetle: "aspergekever", canker: "kanker", celery_fly: "selderijvlieg",
+  colorado_beetle: "coloradokever", nematodes: "aaltjes", scab: "schurft", smut: "builenbrand", verticillium_wilt: "verwelkingsziekte",
+  wireworm: "ritnaald",
 };
 
 export const tagLabel = (tag: string, lang: string): string =>

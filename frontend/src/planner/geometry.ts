@@ -102,12 +102,47 @@ export function findFreeSpot(bed: Bed, size: { w: number; h: number }, taken: Re
 }
 
 /** Bounding box of everything drawn (for "fit to screen"). */
-export function extents(zones: Zone[], beds: Bed[]): Rect {
-  const rects = [...zones.map(zoneRect), ...beds.map(bedRect)];
+export function extents(zones: Zone[], beds: Bed[], extra: Rect[] = []): Rect {
+  const rects = [...zones.map(zoneRect), ...beds.map(bedRect), ...extra];
   if (!rects.length) return { x: 0, y: 0, w: 600, h: 400 };
   const x1 = Math.min(...rects.map((r) => r.x));
   const y1 = Math.min(...rects.map((r) => r.y));
   const x2 = Math.max(...rects.map((r) => r.x + r.w));
   const y2 = Math.max(...rects.map((r) => r.y + r.h));
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+export type AlignMode = "left" | "right" | "top" | "bottom" | "hcenter" | "vcenter" | "hdistribute" | "vdistribute";
+
+/** Align / distribute rectangles (returns new rects in the same order). */
+export function alignRects(rects: Rect[], mode: AlignMode): Rect[] {
+  if (rects.length < 2) return rects.map((r) => ({ ...r }));
+  const out = rects.map((r) => ({ ...r }));
+  const minX = Math.min(...rects.map((r) => r.x));
+  const maxX = Math.max(...rects.map((r) => r.x + r.w));
+  const minY = Math.min(...rects.map((r) => r.y));
+  const maxY = Math.max(...rects.map((r) => r.y + r.h));
+  switch (mode) {
+    case "left": out.forEach((r) => (r.x = minX)); break;
+    case "right": out.forEach((r) => (r.x = maxX - r.w)); break;
+    case "top": out.forEach((r) => (r.y = minY)); break;
+    case "bottom": out.forEach((r) => (r.y = maxY - r.h)); break;
+    case "hcenter": out.forEach((r) => (r.x = (minX + maxX) / 2 - r.w / 2)); break;
+    case "vcenter": out.forEach((r) => (r.y = (minY + maxY) / 2 - r.h / 2)); break;
+    case "hdistribute": {
+      const order = out.map((r, i) => [r, i] as const).sort((a, b) => a[0].x - b[0].x);
+      const gap = (maxX - minX - order.reduce((s, [r]) => s + r.w, 0)) / (order.length - 1);
+      let x = minX;
+      for (const [r] of order) { r.x = x; x += r.w + gap; }
+      break;
+    }
+    case "vdistribute": {
+      const order = out.map((r, i) => [r, i] as const).sort((a, b) => a[0].y - b[0].y);
+      const gap = (maxY - minY - order.reduce((s, [r]) => s + r.h, 0)) / (order.length - 1);
+      let y = minY;
+      for (const [r] of order) { r.y = y; y += r.h + gap; }
+      break;
+    }
+  }
+  return out.map((r) => ({ ...r, x: Math.round(r.x), y: Math.round(r.y) }));
 }

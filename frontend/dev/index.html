@@ -42,6 +42,16 @@
         }
         if (type === "plan/save") { data.snapshot.revision += 1; return { revision: data.snapshot.revision }; }
         if (type === "plans/windows") return {};
+        const x = data.extras || {};
+        if (type === "handbook/index") return x.handbook_index;
+        if (type === "handbook/chapter") return x.handbook_chapters[msg.chapter_id];
+        if (type === "handbook/search") {
+          const q = msg.query.toLowerCase();
+          return { results: Object.values(x.handbook_chapters).filter((c) => c.body.toLowerCase().includes(q)).map((c) => ({ id: c.id, title: c.title, score: 1, snippet: c.summary })) };
+        }
+        if (type === "print/render") return { pages: x.print_pages };
+        if (type === "plan/autofill") return x.autofill;
+        if (type === "irrigation/plan" || type === "irrigation/run") return { ...x.irrigation_plan, started: true };
         return {};
       },
       async subscribeMessage(cb, msg) { window.__calls.push(msg); subs.push(cb); setTimeout(() => cb(data.snapshot), 10); return async () => {}; },

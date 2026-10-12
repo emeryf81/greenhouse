@@ -4,13 +4,14 @@ import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type {
-  Bed, BedKind, CompatibilityReport, FamilyInfo, LayoutMode, PlanDoc, Plant, Planting, PlantingStatus,
-  Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
+  AutofillResult, Bed, BedKind, CompatibilityReport, FamilyInfo, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
+  PlantingStatus, Resources, Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
 } from "../types";
 import { addDays, daysBetween, download, familyColor, formatDate, plantName, uid } from "../util/garden";
 import "../planner/garden-canvas";
 import type { GardenCanvas, ItemChangeDetail, Selection } from "../planner/garden-canvas";
-import { bedAt, clampInto, defaultFootprint, extents, findFreeSpot, plantCount, snap, type Rect } from "../planner/geometry";
+import { alignRects, bedAt, clampInto, defaultFootprint, extents, findFreeSpot, plantCount, snap, type AlignMode, type Rect } from "../planner/geometry";
+import "../components/info";
 import { History } from "../planner/history";
 
 type SaveState = "saved" | "dirty" | "saving" | "error";
@@ -24,6 +25,12 @@ interface PaletteDrag {
 
 const clone = <T,>(v: T): T => structuredClone(v);
 const emptySensors = () => ({ soil_moisture: null, soil_temperature: null, air_temperature: null, air_humidity: null, light: null, rain: null });
+const FEATURE_TYPES: FeatureType[] = ["path", "compost", "water_butt", "shed", "tree", "hedge", "trellis", "other"];
+const FEATURE_SIZE: Record<FeatureType, [number, number]> = {
+  path: [300, 50], compost: [100, 100], water_butt: [60, 60], shed: [200, 150], tree: [150, 150], hedge: [300, 60], trellis: [200, 20], other: [80, 80],
+};
+const GOALS = ["fresh", "storage", "herbs", "pollinators", "winter", "perennials", "easy"];
+const CATEGORIES = ["vegetable", "herb", "fruit", "flower"] as const;
 
 export function defaultMethod(plant: Plant): SowMethod {
   const s = plant.sowing;
@@ -44,8 +51,18 @@ export class PlannerView extends LitElement {
   @property({ type: Boolean }) admin = true;
   @property({ type: Boolean }) narrow = false;
 
-  @state() private draft: PlanDoc = { zones: [], beds: [], plantings: [] };
+  @state() private draft: PlanDoc = { zones: [], beds: [], plantings: [], features: [] };
   @state() private selection: Selection | null = null;
+  @state() private multi: Selection[] = [];
+  @state() private showFeatures = true;
+  @state() private showPlantings = true;
+  @state() private showZones = true;
+  @state() private categoryFilter = "";
+  @state() private autofill: AutofillResult | null = null;
+  @state() private autofillBusy = false;
+  @state() private autofillReplace = false;
+  @state() private autofillBeds: string[] = [];
+  @state() private autofillResources: Resources | null = null;
   @state() private season = new Date().getFullYear();
   @state() private saveState: SaveState = "saved";
   @state() private reports: Record<string, CompatibilityReport> = {};
@@ -60,7 +77,7 @@ export class PlannerView extends LitElement {
   @state() private familyFilter = "";
   @state() private paletteDrag: PaletteDrag | null = null;
   @state() private ghostReport: CompatibilityReport | null = null;
-  @state() private dialog: "shortcuts" | "succession" | "import" | null = null;
+  @state() private dialog: "shortcuts" | "succession" | "import" | "autofill" | null = null;
   @state() private announcement = "";
   @state() private paletteOpen = true;
 
@@ -147,7 +164,7 @@ export class PlannerView extends LitElement {
     }
     const unchangedLocally = this.saveState === "saved";
     if (!this.history || (unchangedLocally && snap.revision !== this.baseRevision)) {
-      const doc = { zones: clone(snap.zones), beds: clone(snap.beds), plantings: clone(snap.plantings) };
+      const doc = { zones: clone(snap.zones), beds: clone(snap.beds), plantings: clone(snap.plantings), features: clone(snap.features ?? []) };
       this.history ? this.history.reset(doc) : (this.history = new History(doc));
       this.draft = doc;
       this.baseRevision = snap.revision;
@@ -248,15 +265,77 @@ export class PlannerView extends LitElement {
   // ---------------------------------------------------------------------- //
   // Mutations
   // ---------------------------------------------------------------------- //
-  private findItem(sel: Selection): Zone | Bed | Planting | undefined {
-    const list = sel.kind === "zone" ? this.draft.zones : sel.kind === "bed" ? this.draft.beds : this.draft.plantings;
-    return (list as { id: string }[]).find((i) => i.id === sel.id) as Zone | Bed | Planting | undefined;
+  private findItem(sel: Selection): Zone | Bed | Planting | Feature | undefined {
+    const list = sel.kind === "zone" ? this.draft.zones : sel.kind === "bed" ? this.draft.beds : sel.kind === "feature" ? this.draft.features : this.draft.plantings;
+    return (list as { id: string }[]).find((i) => i.id === sel.id) as Zone | Bed | Planting | Feature | undefined;
+  }
+
+  private onSelect(sel: Selection | null): void {
+    if (!sel) {
+      this.selection = null;
+      this.multi = [];
+      return;
+    }
+    if (sel.additive) {
+      const same = this.multi.filter((m) => m.kind === sel.kind);
+      const exists = same.some((m) => m.id === sel.id);
+      this.multi = exists ? same.filter((m) => m.id !== sel.id) : [...same, { kind: sel.kind, id: sel.id }];
+      this.selection = this.multi[this.multi.length - 1] ?? null;
+      this.announce(this.t("planner.selected_n", { n: this.multi.length }));
+      return;
+    }
+    this.selection = { kind: sel.kind, id: sel.id };
+    this.multi = [this.selection];
+  }
+
+  /** Align or distribute the selected beds / plantings / elements. */
+  private align(mode: AlignMode): void {
+    if (this.multi.length < 2 || !this.admin) return;
+    const doc = clone(this.draft);
+    const kind = this.multi[0].kind;
+    const touched = new Set<string>();
+    if (kind === "planting") {
+      // Plantings align in canvas space but stay inside their own bed.
+      const items = this.multi.map((m) => doc.plantings.find((p) => p.id === m.id)!).filter(Boolean);
+      const beds = new Map(doc.beds.map((b) => [b.id, b]));
+      const rects = items.map((p) => ({ x: beds.get(p.bed_id)!.x_cm + p.x_cm, y: beds.get(p.bed_id)!.y_cm + p.y_cm, w: p.width_cm, h: p.length_cm }));
+      alignRects(rects, mode).forEach((r, i) => {
+        const p = items[i];
+        const bed = beds.get(p.bed_id)!;
+        const c = clampInto({ ...r, x: r.x - bed.x_cm, y: r.y - bed.y_cm }, { x: 0, y: 0, w: bed.width_cm, h: bed.length_cm });
+        Object.assign(p, { x_cm: c.x, y_cm: c.y });
+        touched.add(bed.id);
+      });
+    } else {
+      const list = (kind === "bed" ? doc.beds : kind === "zone" ? doc.zones : doc.features) as (Bed | Zone | Feature)[];
+      const items = this.multi.map((m) => list.find((i) => i.id === m.id)!).filter(Boolean);
+      alignRects(items.map((i) => ({ x: i.x_cm, y: i.y_cm, w: i.width_cm, h: i.length_cm })), mode).forEach((r, i) => {
+        const item = items[i];
+        const dx = r.x - item.x_cm;
+        const dy = r.y - item.y_cm;
+        item.x_cm = r.x;
+        item.y_cm = r.y;
+        if (kind === "zone") for (const b of doc.beds.filter((b) => b.zone_id === item.id)) { b.x_cm += dx; b.y_cm += dy; }
+        if (kind === "bed") touched.add(item.id);
+      });
+    }
+    this.commit(doc, this.t("planner.aligned", { n: this.multi.length }), [...touched]);
   }
 
   private onItemChange(ev: CustomEvent<ItemChangeDetail>): void {
-    const { kind, id, rect, targetBedId } = ev.detail;
+    const { kind, id, rect, targetBedId, dx: gdx, dy: gdy, group } = ev.detail;
     const doc = clone(this.draft);
     const step = this.snapOn ? this.snapshot.settings.snap_cm : 1;
+    if (group) {
+      this.moveGroup(doc, kind, gdx, gdy);
+      return;
+    }
+    if (kind === "feature") {
+      const f = doc.features.find((i) => i.id === id)!;
+      Object.assign(f, { x_cm: rect.x, y_cm: rect.y, width_cm: rect.w, length_cm: rect.h });
+      this.commit(doc, this.t("planner.moved", { name: f.name }));
+      return;
+    }
     if (kind === "zone") {
       const z = doc.zones.find((i) => i.id === id)!;
       const dx = rect.x - z.x_cm;
@@ -283,10 +362,33 @@ export class PlannerView extends LitElement {
     }
   }
 
+  private moveGroup(doc: PlanDoc, kind: Selection["kind"], dx: number, dy: number): void {
+    const ids = new Set(this.multi.filter((m) => m.kind === kind).map((m) => m.id));
+    const touched = new Set<string>();
+    if (kind === "planting") {
+      for (const p of doc.plantings.filter((p) => ids.has(p.id))) {
+        const bed = doc.beds.find((b) => b.id === p.bed_id)!;
+        const c = clampInto({ x: p.x_cm + dx, y: p.y_cm + dy, w: p.width_cm, h: p.length_cm }, { x: 0, y: 0, w: bed.width_cm, h: bed.length_cm });
+        Object.assign(p, { x_cm: c.x, y_cm: c.y });
+        touched.add(bed.id);
+      }
+    } else {
+      const list = (kind === "bed" ? doc.beds : kind === "zone" ? doc.zones : doc.features) as (Bed | Zone | Feature)[];
+      for (const item of list.filter((i) => ids.has(i.id))) {
+        item.x_cm = Math.round(item.x_cm + dx);
+        item.y_cm = Math.round(item.y_cm + dy);
+        if (kind === "zone") for (const b of doc.beds.filter((b) => b.zone_id === item.id)) { b.x_cm += dx; b.y_cm += dy; }
+        if (kind === "bed") touched.add(item.id);
+      }
+    }
+    this.commit(doc, this.t("planner.moved_n", { n: ids.size }), [...touched]);
+  }
+
   private updateSelected(patch: Record<string, unknown>, nested?: "microclimate"): void {
     if (!this.selection) return;
     const doc = clone(this.draft);
-    const list = (this.selection.kind === "zone" ? doc.zones : this.selection.kind === "bed" ? doc.beds : doc.plantings) as unknown as Record<string, unknown>[];
+    const list = (this.selection.kind === "zone" ? doc.zones : this.selection.kind === "bed" ? doc.beds
+      : this.selection.kind === "feature" ? doc.features : doc.plantings) as unknown as Record<string, unknown>[];
     const item = list.find((i) => i.id === this.selection!.id);
     if (!item) return;
     if (nested) Object.assign(item[nested] as object, patch);
@@ -300,6 +402,24 @@ export class PlannerView extends LitElement {
     if (!sel || !this.admin) return;
     const doc = clone(this.draft);
     let name = "";
+    if (this.multi.length > 1 && (sel.kind === "planting" || sel.kind === "feature")) {
+      const ids = new Set(this.multi.map((m) => m.id));
+      const beds = doc.plantings.filter((p) => ids.has(p.id)).map((p) => p.bed_id);
+      doc.plantings = doc.plantings.filter((p) => !ids.has(p.id));
+      doc.features = doc.features.filter((f) => !ids.has(f.id));
+      this.commit(doc, this.t("planner.removed_n", { n: ids.size }), [...new Set(beds)]);
+      this.selection = null;
+      this.multi = [];
+      return;
+    }
+    if (sel.kind === "feature") {
+      const f = doc.features.find((i) => i.id === sel.id);
+      doc.features = doc.features.filter((i) => i.id !== sel.id);
+      this.commit(doc, this.t("planner.removed", { name: f?.name ?? "" }));
+      this.selection = null;
+      this.multi = [];
+      return;
+    }
     if (sel.kind === "planting") {
       const p = doc.plantings.find((i) => i.id === sel.id);
       name = plantName(this.plantMap.get(p?.plant_id ?? ""), this.lang);
@@ -322,6 +442,79 @@ export class PlannerView extends LitElement {
       this.commit(doc, this.t("planner.removed", { name: zone?.name ?? "" }));
     }
     this.selection = null;
+    this.multi = [];
+  }
+
+  private addFeature(type: FeatureType): void {
+    if (!this.admin) return;
+    const doc = clone(this.draft);
+    const ext = extents(doc.zones, doc.beds);
+    const [w, h] = FEATURE_SIZE[type];
+    const feature: Feature = {
+      id: uid("ft"), name: this.t(`feature.${type}`), type, x_cm: Math.round(ext.x), y_cm: Math.round(ext.y + ext.h + 40), width_cm: w, length_cm: h, notes: "",
+    };
+    doc.features.push(feature);
+    this.selection = { kind: "feature", id: feature.id };
+    this.multi = [this.selection];
+    this.commit(doc, this.t("planner.placed", { plant: feature.name, bed: "" }));
+    requestAnimationFrame(() => this.canvas?.fit());
+  }
+
+  /** Move a planting to another bed (rotation alternative), same spot if it fits. */
+  private moveToBed(plantingId: string, bedId: string): void {
+    const doc = clone(this.draft);
+    const p = doc.plantings.find((i) => i.id === plantingId);
+    const bed = doc.beds.find((b) => b.id === bedId);
+    if (!p || !bed) return;
+    const old = p.bed_id;
+    const taken = this.bedPlantings(bed.id, doc).filter((o) => o.season === p.season).map((o) => ({ x: o.x_cm, y: o.y_cm, w: o.width_cm, h: o.length_cm }));
+    const size = { w: Math.min(p.width_cm, bed.width_cm), h: Math.min(p.length_cm, bed.length_cm) };
+    const spot = findFreeSpot(bed, size, taken, this.snapshot.settings.snap_cm) ?? { x: 0, y: 0 };
+    Object.assign(p, { bed_id: bed.id, x_cm: spot.x, y_cm: spot.y, width_cm: size.w, length_cm: size.h });
+    this.commit(doc, this.t("planner.moved", { name: plantName(this.plantMap.get(p.plant_id), this.lang) }), [old, bed.id]);
+  }
+
+  // -- autofill ------------------------------------------------------------ //
+  private openAutofill(): void {
+    const r = this.snapshot.settings.resources;
+    this.autofillResources = r ? clone(r) : { household_size: 2, hours_per_week: 3, water_liters_per_week: null, compost_kg: null, irrigation: false, goals: ["fresh", "herbs"], wanted: [], excluded: [] };
+    this.autofill = null;
+    this.autofillBeds = [];
+    this.dialog = "autofill";
+  }
+
+  private async runAutofill(): Promise<void> {
+    if (!this.autofillResources) return;
+    this.autofillBusy = true;
+    try {
+      if (this.saveState !== "saved") await this.save();
+      this.autofill = await this.api.autofill({
+        season: this.season,
+        bed_ids: this.autofillBeds.length ? this.autofillBeds : undefined,
+        replace: this.autofillReplace,
+        resources: this.autofillResources,
+      });
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
+    } finally {
+      this.autofillBusy = false;
+    }
+  }
+
+  private async applyAutofill(): Promise<void> {
+    const res = this.autofill;
+    if (!res) return;
+    try {
+      const out = await this.api.autofillApply(res.plantings, this.autofillReplace ? res.beds : [], this.baseRevision);
+      this.baseRevision = out.revision;
+      this.history = null;
+      this.saveState = "saved";
+      this.dialog = null;
+      this.autofill = null;
+      this.toast(this.t("autofill.applied", { n: res.summary.plantings }));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
+    }
   }
 
   private duplicateSelected(): void {
@@ -517,7 +710,7 @@ export class PlannerView extends LitElement {
     switch (key) {
       case "Delete":
       case "Backspace": this.removeSelected(); return handled();
-      case "Escape": this.selection = null; this.paletteDrag = null; this.dialog = null; return handled();
+      case "Escape": this.selection = null; this.multi = []; this.paletteDrag = null; this.dialog = null; return handled();
       case "g": this.snapOn = !this.snapOn; return handled();
       case "c": this.showCompanions = !this.showCompanions; return handled();
       case "m": this.showMoisture = !this.showMoisture; return handled();
@@ -619,6 +812,11 @@ export class PlannerView extends LitElement {
             .zones=${this.draft.zones}
             .beds=${this.draft.beds}
             .plantings=${this.seasonPlantings}
+            .features=${this.draft.features}
+            .multi=${this.multi}
+            .showFeatures=${this.showFeatures}
+            .showPlantings=${this.showPlantings}
+            .showZones=${this.showZones}
             .plants=${this.plantMap}
             .families=${this.families}
             .selection=${this.selection}
@@ -635,7 +833,7 @@ export class PlannerView extends LitElement {
             .showTemperature=${this.showTemperature}
             .viewDate=${this.viewDate}
             .readonly=${!this.admin}
-            @select=${(e: CustomEvent<Selection | null>) => (this.selection = e.detail)}
+            @select=${(e: CustomEvent<Selection | null>) => this.onSelect(e.detail)}
             @item-change=${this.onItemChange}
           ></hl-garden-canvas>
           ${drag ? html`<div class="drag-ghost-hint" role="status">${ghost ? ghost.label : plantName(drag.plant, this.lang)}</div>` : nothing}
@@ -671,6 +869,19 @@ export class PlannerView extends LitElement {
         ${btn("mdi:water-percent", `${this.t("planner.overlay_moisture")} (M)`, () => (this.showMoisture = !this.showMoisture), this.showMoisture)}
         ${btn("mdi:thermometer", `${this.t("planner.overlay_temperature")} (T)`, () => (this.showTemperature = !this.showTemperature), this.showTemperature)}
         <span class="sep"></span>
+        ${btn("mdi:texture-box", this.t("planner.layer_zones"), () => (this.showZones = !this.showZones), this.showZones)}
+        ${btn("mdi:map-marker-path", this.t("planner.layer_features"), () => (this.showFeatures = !this.showFeatures), this.showFeatures)}
+        ${btn("mdi:sprout", this.t("planner.layer_plantings"), () => (this.showPlantings = !this.showPlantings), this.showPlantings)}
+        ${this.multi.length > 1 ? html`<span class="sep"></span>
+          ${btn("mdi:align-horizontal-left", this.t("planner.align.left"), () => this.align("left"))}
+          ${btn("mdi:align-horizontal-center", this.t("planner.align.hcenter"), () => this.align("hcenter"))}
+          ${btn("mdi:align-horizontal-right", this.t("planner.align.right"), () => this.align("right"))}
+          ${btn("mdi:align-vertical-top", this.t("planner.align.top"), () => this.align("top"))}
+          ${btn("mdi:align-vertical-center", this.t("planner.align.vcenter"), () => this.align("vcenter"))}
+          ${btn("mdi:align-vertical-bottom", this.t("planner.align.bottom"), () => this.align("bottom"))}
+          ${btn("mdi:distribute-horizontal-center", this.t("planner.align.hdistribute"), () => this.align("hdistribute"), undefined, this.multi.length < 3)}
+          ${btn("mdi:distribute-vertical-center", this.t("planner.align.vdistribute"), () => this.align("vdistribute"), undefined, this.multi.length < 3)}` : nothing}
+        <span class="sep"></span>
         ${btn("mdi:magnify-plus-outline", this.t("planner.zoom_in"), () => this.canvas.zoom(1.2))}
         ${btn("mdi:magnify-minus-outline", this.t("planner.zoom_out"), () => this.canvas.zoom(1 / 1.2))}
         ${btn("mdi:fit-to-screen-outline", this.t("planner.fit"), () => this.canvas.fit())}
@@ -683,8 +894,14 @@ export class PlannerView extends LitElement {
           <ha-icon icon=${this.saveState === "saved" ? "mdi:cloud-check-outline" : "mdi:cloud-upload-outline"}></ha-icon>${this.t(stateLabel)}
         </span>
         ${this.admin ? html`
+          <button class="btn small primary" @click=${() => this.openAutofill()}><ha-icon icon="mdi:auto-fix"></ha-icon>${this.t("autofill.title")}</button>
           <button class="btn small" @click=${() => this.addBed()}><ha-icon icon="mdi:plus"></ha-icon>${this.t("planner.add_bed")}</button>
-          <button class="btn small ghost" @click=${() => this.addZone()}>${this.t("planner.add_zone")}</button>` : nothing}
+          <button class="btn small ghost" @click=${() => this.addZone()}>${this.t("planner.add_zone")}</button>
+          <label class="row small"><span class="visually-hidden">${this.t("planner.add_feature")}</span>
+            <select aria-label=${this.t("planner.add_feature")} @change=${(e: Event) => { const el = e.target as HTMLSelectElement; if (el.value) this.addFeature(el.value as FeatureType); el.value = ""; }}>
+              <option value="">+ ${this.t("planner.add_feature")}</option>
+              ${FEATURE_TYPES.map((f) => html`<option value=${f}>${this.t(`feature.${f}`)}</option>`)}
+            </select></label>` : nothing}
         ${btn("mdi:file-export-outline", this.t("planner.export_json"), () => this.exportPlan("json"))}
         ${btn("mdi:code-braces", this.t("planner.export_yaml"), () => this.exportPlan("yaml"))}
         ${this.admin ? btn("mdi:file-import-outline", this.t("planner.import"), () => (this.dialog = "import")) : nothing}
@@ -698,6 +915,7 @@ export class PlannerView extends LitElement {
     const q = this.search.trim().toLowerCase();
     const list = this.plants.filter((p) => {
       if (this.familyFilter && p.family !== this.familyFilter) return false;
+      if (this.categoryFilter && (p.category ?? "vegetable") !== this.categoryFilter) return false;
       if (!q) return true;
       return [p.id, p.scientific_name, ...Object.values(p.names)].some((s) => s.toLowerCase().includes(q));
     }).sort((a, b) => plantName(a, this.lang).localeCompare(plantName(b, this.lang)));
@@ -715,14 +933,15 @@ export class PlannerView extends LitElement {
         <div class="pane-body stack">
           <input type="search" placeholder=${this.t("common.search")} aria-label=${this.t("common.search")} .value=${this.search}
             @input=${(e: Event) => (this.search = (e.target as HTMLInputElement).value)} />
-          <div class="row wrap family-chips">
-            <button class="chip" aria-pressed=${String(!this.familyFilter)} @click=${() => (this.familyFilter = "")}>${this.t("common.all")}</button>
-            ${families.map((f) => html`
-              <button class="chip" aria-pressed=${String(this.familyFilter === f)} @click=${() => (this.familyFilter = this.familyFilter === f ? "" : f)}
-                title=${this.families[f]?.[this.lang as "en" | "nl"] ?? f}>
-                <span class="family-dot" style=${`background:${familyColor(this.families, f)}`}></span>${(this.families[f]?.[this.lang as "en" | "nl"] ?? f).split(" ")[0]}
-              </button>`)}
+          <div class="row wrap family-chips" role="group" aria-label=${this.t("lib.category")}>
+            ${CATEGORIES.map((c) => html`<button class="chip" aria-pressed=${String(this.categoryFilter === c)}
+              @click=${() => (this.categoryFilter = this.categoryFilter === c ? "" : c)}>${this.t(`category.${c}`)}</button>`)}
           </div>
+          <label class="row small"><span class="visually-hidden">${this.t("lib.family")}</span>
+            <select @change=${(e: Event) => (this.familyFilter = (e.target as HTMLSelectElement).value)}>
+              <option value="" ?selected=${!this.familyFilter}>${this.t("lib.family")}: ${this.t("common.all")}</option>
+              ${families.map((f) => html`<option value=${f} ?selected=${this.familyFilter === f}>${this.families[f]?.[this.lang as "en" | "nl"] ?? f}</option>`)}
+            </select></label>
           <p class="xs muted">${this.t("planner.palette_hint")}</p>
           <div class="palette-list" role="list">
             ${list.map((p) => {
@@ -762,7 +981,12 @@ export class PlannerView extends LitElement {
     if (!pairs.length && !rot.length && !oob && !placement.length) return html`<p class="small muted">${this.t("planner.no_warnings")}</p>`;
     return html`<div class="stack" style="gap:6px">
       ${pairs.map((f) => html`<div class="finding ${f.severity}"><ha-icon icon=${icon[f.severity]}></ha-icon><span>${this.t(f.key, f.params)}</span></div>`)}
-      ${rot.map((r) => html`<div class="finding ${r.severity}"><ha-icon icon="mdi:rotate-3d-variant"></ha-icon><span>${this.t(r.key, r.params)}</span></div>`)}
+      ${rot.map((r) => html`<div class="finding ${r.severity}"><ha-icon icon="mdi:rotate-3d-variant"></ha-icon><span>${this.t(r.key, r.params)}
+        <hl-info term="rotation" .t=${this.t}></hl-info>
+        ${r.alternatives?.length ? html`<br /><span class="xs">${this.t("planner.alternatives")}:
+          ${r.alternatives.map((bid) => html`<button class="chip" ?disabled=${!this.admin} @click=${() => this.moveToBed(r.planting, bid)}>${this.draft.beds.find((b) => b.id === bid)?.name ?? bid}</button>`)}</span>` : nothing}</span></div>`)}
+      ${plantingId && report?.suggestions?.[plantingId]?.length ? html`<div class="finding info"><ha-icon icon="mdi:lightbulb-on-outline"></ha-icon>
+        <span>${this.t("planner.better_neighbours")}: ${report.suggestions[plantingId].map((pid) => plantName(this.plantMap.get(pid), this.lang)).join(", ")}</span></div>` : nothing}
       ${placement.map((p) => html`<div class="finding warning"><ha-icon icon="mdi:greenhouse"></ha-icon><span>${this.t(p.key, p.params)}</span></div>`)}
       ${oob ? html`<div class="finding warning"><ha-icon icon="mdi:border-outside"></ha-icon><span>${this.t("planner.out_of_bounds")}</span></div>` : nothing}
     </div>`;
@@ -799,13 +1023,122 @@ export class PlannerView extends LitElement {
       </div>`;
   }
 
+  private renderPhenology(pid: string): TemplateResult | typeof nothing {
+    const ph = this.snapshot.analysis?.phenology?.[pid];
+    if (!ph || ph.stage === "not_planted") return nothing;
+    return html`<div class="row wrap">
+      <span class="chip ok"><ha-icon icon="mdi:sprout"></ha-icon>${this.t(`stage.${ph.stage}`)}</span>
+      <span class="chip">Kc ${ph.kc.toFixed(2)} <hl-info term="kc" .t=${this.t}></hl-info></span>
+      ${ph.gdd != null && ph.gdd_target ? html`<span class="chip">${Math.round(ph.gdd)} / ${ph.gdd_target} GDD <hl-info term="gdd" .t=${this.t}></hl-info></span>` : nothing}
+      ${ph.harvest_estimate ? html`<span class="chip warn"><ha-icon icon="mdi:basket-outline"></ha-icon>${this.t("cal.harvest_estimate", { date: formatDate(ph.harvest_estimate, this.lang) })}</span>` : nothing}
+      ${ph.heat_stress_days ? html`<span class="chip bad">${this.t("planner.heat_stress", { n: ph.heat_stress_days })}</span>` : nothing}
+    </div>`;
+  }
+
+  private renderAutofill(): TemplateResult {
+    const r = this.autofillResources!;
+    const set = (patch: Partial<Resources>) => (this.autofillResources = { ...r, ...patch });
+    const res = this.autofill;
+    const plantList = [...this.plants].sort((a, b) => plantName(a, this.lang).localeCompare(plantName(b, this.lang)));
+    const close = () => (this.dialog = null);
+    const bedName = (id: string) => this.draft.beds.find((b) => b.id === id)?.name ?? id;
+    return html`<div class="stack">
+      <h2><ha-icon icon="mdi:auto-fix"></ha-icon> ${this.t("autofill.title")} <hl-info term="autofill" .t=${this.t}></hl-info></h2>
+      <p class="small muted">${this.t("autofill.intro", { season: this.season })}</p>
+      <div class="form-grid">
+        <label class="field">${this.t("autofill.household")}<input type="number" min="1" max="20" .value=${String(r.household_size)}
+          @change=${(e: Event) => set({ household_size: Number((e.target as HTMLInputElement).value) })} /></label>
+        <label class="field">${this.t("autofill.hours")}<input type="number" min="0" step="0.5" .value=${String(r.hours_per_week)}
+          @change=${(e: Event) => set({ hours_per_week: Number((e.target as HTMLInputElement).value) })} /></label>
+        <label class="field">${this.t("autofill.water")}<input type="number" min="0" step="10" placeholder="∞" .value=${String(r.water_liters_per_week ?? "")}
+          @change=${(e: Event) => set({ water_liters_per_week: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value) })} /></label>
+        <label class="field">${this.t("autofill.compost")}<input type="number" min="0" step="5" placeholder="∞" .value=${String(r.compost_kg ?? "")}
+          @change=${(e: Event) => set({ compost_kg: (e.target as HTMLInputElement).value === "" ? null : Number((e.target as HTMLInputElement).value) })} /></label>
+        <label class="field full row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${r.irrigation}
+          @change=${(e: Event) => set({ irrigation: (e.target as HTMLInputElement).checked })} />${this.t("autofill.has_irrigation")}</label>
+      </div>
+      <div class="row wrap" role="group" aria-label=${this.t("autofill.goals")}><span class="small">${this.t("autofill.goals")}:</span>
+        ${GOALS.map((g) => html`<button class="chip" aria-pressed=${String(r.goals.includes(g))}
+          @click=${() => set({ goals: r.goals.includes(g) ? r.goals.filter((x) => x !== g) : [...r.goals, g] })}>${this.t(`autofill.goal.${g}`)}</button>`)}
+      </div>
+      <div class="form-grid">
+        <label class="field">${this.t("autofill.wanted")}
+          <select @change=${(e: Event) => { const el = e.target as HTMLSelectElement; if (el.value && !r.wanted.includes(el.value)) set({ wanted: [...r.wanted, el.value] }); el.value = ""; }}>
+            <option value="">+</option>${plantList.map((p) => html`<option value=${p.id}>${plantName(p, this.lang)}</option>`)}</select></label>
+        <label class="field">${this.t("autofill.excluded")}
+          <select @change=${(e: Event) => { const el = e.target as HTMLSelectElement; if (el.value && !r.excluded.includes(el.value)) set({ excluded: [...r.excluded, el.value] }); el.value = ""; }}>
+            <option value="">+</option>${plantList.map((p) => html`<option value=${p.id}>${plantName(p, this.lang)}</option>`)}</select></label>
+      </div>
+      <div class="row wrap">
+        ${r.wanted.map((id) => html`<button class="chip ok" title=${this.t("common.delete")} @click=${() => set({ wanted: r.wanted.filter((x) => x !== id) })}>♥ ${plantName(this.plantMap.get(id), this.lang)} ✕</button>`)}
+        ${r.excluded.map((id) => html`<button class="chip bad" title=${this.t("common.delete")} @click=${() => set({ excluded: r.excluded.filter((x) => x !== id) })}>⊘ ${plantName(this.plantMap.get(id), this.lang)} ✕</button>`)}
+      </div>
+      <div class="row wrap" role="group" aria-label=${this.t("autofill.beds")}><span class="small">${this.t("autofill.beds")}:</span>
+        ${this.draft.beds.map((b) => html`<button class="chip" aria-pressed=${String(this.autofillBeds.includes(b.id))}
+          @click=${() => (this.autofillBeds = this.autofillBeds.includes(b.id) ? this.autofillBeds.filter((x) => x !== b.id) : [...this.autofillBeds, b.id])}>${b.name}</button>`)}
+        <span class="xs muted">${this.autofillBeds.length ? "" : this.t("autofill.all_empty")}</span>
+      </div>
+      <label class="row small"><input type="checkbox" .checked=${this.autofillReplace} @change=${(e: Event) => (this.autofillReplace = (e.target as HTMLInputElement).checked)} />${this.t("autofill.replace")}</label>
+      <div class="row"><button class="btn" ?disabled=${this.autofillBusy} @click=${() => this.runAutofill()}><ha-icon icon="mdi:creation"></ha-icon>${this.t("autofill.propose")}</button></div>
+      ${res ? html`
+        <div class="divider"></div>
+        <div class="row wrap">
+          <span class="chip ok">${this.t("autofill.sum_crops", { n: res.summary.crops })}</span>
+          <span class="chip">${this.t("autofill.sum_yield", { kg: res.summary.yield_kg })}</span>
+          <span class="chip">${this.t("autofill.sum_time", { min: res.summary.minutes_week })}</span>
+          <span class="chip">${this.t("autofill.sum_water", { l: res.summary.water_l_week })}</span>
+          <span class="chip">${this.t("autofill.sum_compost", { kg: res.summary.compost_kg })}</span>
+        </div>
+        ${res.warnings.map((w) => html`<div class="finding warning"><ha-icon icon="mdi:alert-outline"></ha-icon><span>${this.t(w.key, { ...w.params,
+          plants: Array.isArray(w.params.plants) ? (w.params.plants as string[]).map((id) => plantName(this.plantMap.get(id), this.lang)).join(", ") : w.params.plants })}</span></div>`)}
+        <div style="max-height:30vh;overflow:auto"><table class="shortcuts" style="width:100%">
+          <tr><th align="left">${this.t("lib.plant")}</th><th align="left">${this.t("task.bed")}</th><th align="right">#</th><th align="right">m²</th><th align="right">kg</th></tr>
+          ${res.placements.map((pl) => html`<tr><td><span class="family-dot" style=${`background:${familyColor(this.families, this.plantMap.get(pl.plant_id)?.family)}`}></span>
+            ${plantName(this.plantMap.get(pl.plant_id), this.lang)}${pl.sowings > 1 ? html` <span class="xs muted">×${pl.sowings}</span>` : nothing}</td>
+            <td>${bedName(pl.bed_id)}</td><td align="right">${pl.count}</td><td align="right">${pl.area_m2.toFixed(1)}</td><td align="right">${pl.yield_kg.toFixed(1)}</td></tr>`)}
+        </table></div>
+        ${res.skipped.length ? html`<p class="xs muted">${this.t("autofill.skipped")}: ${res.skipped.map((sk) => `${plantName(this.plantMap.get(sk.plant_id), this.lang)} (${this.t(`autofill.reason.${sk.reason}`)})`).join(", ")}</p>` : nothing}
+      ` : nothing}
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn ghost" @click=${close}>${this.t("common.cancel")}</button>
+        <button class="btn primary" ?disabled=${!res?.plantings.length} @click=${() => this.applyAutofill()}>${this.t("autofill.apply")}</button>
+      </div>
+    </div>`;
+  }
+
   private renderInspector(): TemplateResult {
     const sel = this.selection;
     const item = sel ? this.findItem(sel) : undefined;
     const ro = !this.admin;
     let body: TemplateResult;
     if (!sel || !item) {
-      body = html`<p class="small muted">${this.t("planner.nothing_selected")}</p>`;
+      body = html`<p class="small muted">${this.t("planner.nothing_selected")}</p><p class="xs muted">${this.t("planner.multi_hint")}</p>`;
+    } else if (this.multi.length > 1) {
+      body = html`<h3>${this.t("planner.selected_n", { n: this.multi.length })}</h3>
+        <p class="small muted">${this.t("planner.multi_hint")}</p>
+        <div class="row wrap">
+          ${(["left", "hcenter", "right", "top", "vcenter", "bottom", "hdistribute", "vdistribute"] as AlignMode[]).map((m) => html`
+            <button class="btn small" ?disabled=${ro || (m.endsWith("distribute") && this.multi.length < 3)} @click=${() => this.align(m)}>${this.t(`planner.align.${m}`)}</button>`)}
+        </div>
+        ${!ro && (sel.kind === "planting" || sel.kind === "feature") ? html`<div class="row"><button class="btn small danger" @click=${() => this.removeSelected()}>${this.t("planner.remove")}</button></div>` : nothing}`;
+    } else if (sel.kind === "feature") {
+      const f = item as Feature;
+      body = html`<h3>${f.name}</h3>
+        <div class="form-grid">
+          <label class="field full">${this.t("planner.bed_name")}<input .value=${f.name} ?disabled=${ro}
+            @change=${(e: Event) => this.updateSelected({ name: (e.target as HTMLInputElement).value })} /></label>
+          <label class="field full">${this.t("planner.kind")}
+            <select ?disabled=${ro} @change=${(e: Event) => this.updateSelected({ type: (e.target as HTMLSelectElement).value })}>
+              ${FEATURE_TYPES.map((t) => html`<option value=${t} ?selected=${f.type === t}>${this.t(`feature.${t}`)}</option>`)}
+            </select></label>
+          <label class="field">${this.t("planner.width")}<input type="number" min="10" step="10" .value=${String(f.width_cm)} ?disabled=${ro}
+            @change=${(e: Event) => this.updateSelected({ width_cm: Number((e.target as HTMLInputElement).value) })} /></label>
+          <label class="field">${this.t("planner.length")}<input type="number" min="10" step="10" .value=${String(f.length_cm)} ?disabled=${ro}
+            @change=${(e: Event) => this.updateSelected({ length_cm: Number((e.target as HTMLInputElement).value) })} /></label>
+          <label class="field full">${this.t("task.notes")}<textarea rows="2" .value=${f.notes} ?disabled=${ro}
+            @change=${(e: Event) => this.updateSelected({ notes: (e.target as HTMLTextAreaElement).value })}></textarea></label>
+        </div>
+        ${ro ? nothing : html`<div class="row"><button class="btn small danger" @click=${() => this.removeSelected()}>${this.t("planner.remove")}</button></div>`}`;
     } else if (sel.kind === "planting") {
       const p = item as Planting;
       const plant = this.plantMap.get(p.plant_id);
@@ -840,6 +1173,7 @@ export class PlannerView extends LitElement {
         </div>
         <p class="small">${plant ? this.t("planner.count", { n: plantCount(p, plant) }) : ""}</p>
         ${advice?.reasons.length ? html`<div class="stack" style="gap:4px">${advice.reasons.filter((r) => r.key !== "reason.window_open").map((r) => html`<p class="small">${this.t(r.key, r.params)}</p>`)}</div>` : nothing}
+        ${this.renderPhenology(p.id)}
         <h4>${this.t("planner.timeline")}</h4>
         ${this.renderTimeline(this.timelines[p.id])}
         <h4>${this.t("planner.warnings")}</h4>
@@ -914,6 +1248,11 @@ export class PlannerView extends LitElement {
             @change=${(e: Event) => this.updateSelected({ shade_pct: Number((e.target as HTMLInputElement).value) }, "microclimate")} /></label>
           <label class="field row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${z.microclimate.heated} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ heated: (e.target as HTMLInputElement).checked }, "microclimate")} />${this.t("settings.heated")}</label>
+          <label class="field row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${Boolean(z.microclimate.wall_heat)} ?disabled=${ro}
+            @change=${(e: Event) => this.updateSelected({ wall_heat: (e.target as HTMLInputElement).checked }, "microclimate")} />${this.t("settings.wall_heat")}
+            <hl-info term="microclimate" .t=${this.t}></hl-info></label>
+          ${z.type !== "outdoor" ? html`<label class="field row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${Boolean(z.microclimate.thermal_mass)} ?disabled=${ro}
+            @change=${(e: Event) => this.updateSelected({ thermal_mass: (e.target as HTMLInputElement).checked }, "microclimate")} />${this.t("settings.thermal_mass")}</label>` : nothing}
         </div>
         ${ro ? nothing : html`<div class="row"><button class="btn small danger" @click=${() => this.removeSelected()}>${this.t("planner.remove")}</button></div>`}
       `;
@@ -937,6 +1276,8 @@ export class PlannerView extends LitElement {
       content = html`<h2>${this.t("planner.shortcuts")}</h2>
         <table class="shortcuts">${rows.map(([k, l]) => html`<tr><td><kbd>${k}</kbd></td><td>${this.t(l)}</td></tr>`)}</table>
         <div class="row" style="justify-content:flex-end"><button class="btn" @click=${close}>${this.t("common.close")}</button></div>`;
+    } else if (this.dialog === "autofill") {
+      content = this.renderAutofill();
     } else if (this.dialog === "succession") {
       const p = this.selection ? this.draft.plantings.find((i) => i.id === this.selection!.id) : undefined;
       const plant = p && this.plantMap.get(p.plant_id);
@@ -959,7 +1300,7 @@ export class PlannerView extends LitElement {
           <button class="btn primary" type="submit">${this.t("planner.import")}</button></div>
       </form>`;
     }
-    return html`<dialog @close=${close}>${content}</dialog>`;
+    return html`<dialog @close=${close} style=${this.dialog === "autofill" ? "max-width:760px" : ""}>${content}</dialog>`;
   }
 }
 

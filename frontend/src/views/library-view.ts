@@ -5,6 +5,7 @@ import { tagLabel, type Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Snapshot, Window } from "../types";
 import { addDays, daysBetween, familyColor, formatDate, plantName, windowDates } from "../util/garden";
+import "../components/info";
 
 type Filter = "" | "greenhouse" | "quick" | "custom";
 
@@ -30,6 +31,7 @@ export class LibraryView extends LitElement {
   @property({ type: Boolean }) admin = true;
   @state() private query = "";
   @state() private family = "";
+  @state() private category = "";
   @state() private filter: Filter = "";
   @state() private selected: Plant | null = null;
   @state() private editing: { plant: Plant; mode: "custom" | "override" } | null = null;
@@ -104,6 +106,7 @@ export class LibraryView extends LitElement {
     const q = this.query.trim().toLowerCase();
     return this.plants
       .filter((p) => !this.family || p.family === this.family)
+      .filter((p) => !this.category || (p.category ?? "vegetable") === this.category)
       .filter((p) => this.filter !== "greenhouse" || p.greenhouse.suitability === "yes")
       .filter((p) => this.filter !== "quick" || p.days_to_maturity[0] <= 50)
       .filter((p) => this.filter !== "custom" || p.source !== "builtin")
@@ -122,6 +125,12 @@ export class LibraryView extends LitElement {
             ${["", ...families].map((f) => html`<option value=${f} ?selected=${f === this.family}>${f ? (this.families[f]?.[this.lang as "en" | "nl"] ?? f) : `${this.t("lib.family")}: ${this.t("common.all")}`}</option>`)}
           </select>
         </label>
+        <label class="row small"><span class="visually-hidden">${this.t("lib.category")}</span>
+          <select style="width:auto" @change=${(e: Event) => (this.category = (e.target as HTMLSelectElement).value)}>
+            ${["", "vegetable", "herb", "fruit", "flower"].map((c) => html`<option value=${c} ?selected=${c === this.category}>${c ? this.t(`category.${c}`) : `${this.t("lib.category")}: ${this.t("common.all")}`}</option>`)}
+          </select>
+        </label>
+        <span class="small muted">${this.t("lib.count", { n: this.filtered().length })}</span>
         ${(["greenhouse", "quick", "custom"] as Filter[]).map((f) => html`
           <button class="chip" aria-pressed=${String(this.filter === f)} @click=${() => (this.filter = this.filter === f ? "" : f)}>${this.t(`lib.filter_${f}`)}</button>`)}
         <span class="spacer"></span>
@@ -183,8 +192,20 @@ export class LibraryView extends LitElement {
             <span>${this.t("lib.frost")}</span><span>${this.t(`frost.${p.frost_tolerance}`)} (${p.min_temp_c} °C)</span>
             <span>${this.t("lib.greenhouse")}</span><span>${this.t(`suit.${p.greenhouse.suitability}`)} · ${p.greenhouse.min_night_c}–${p.greenhouse.max_day_c} °C</span>
             <span>${this.t("lib.water")} / ${this.t("lib.nutrients")}</span><span>${this.t(`level.${p.water_needs}`)} / ${this.t(`level.${p.nutrient_needs}`)}</span>
-            <span>${this.t("lib.rotation")}</span><span>${this.t("lib.rotation_years", { n: p.rotation_years })}</span>
+            <span>${this.t("lib.rotation")} <hl-info term="rotation" .t=${this.t}></hl-info></span><span>${this.t("lib.rotation_years", { n: p.rotation_years })}</span>
+            ${p.category ? html`<span>${this.t("lib.category")}</span><span>${this.t(`category.${p.category}`)}${p.perennial ? ` · ${this.t("lib.perennial")}` : ""}</span>` : nothing}
+            ${p.height_cm ? html`<span>${this.t("lib.height")}</span><span>${p.height_cm} cm · ${this.t("lib.roots")} ${p.root_depth_cm ?? "?"} cm</span>` : nothing}
+            ${p.kc ? html`<span>Kc <hl-info term="kc" .t=${this.t}></hl-info></span><span>${p.kc.map((v) => v.toFixed(2)).join(" → ")}</span>` : nothing}
+            ${p.npk ? html`<span>N · P · K <hl-info term="npk" .t=${this.t}></hl-info></span><span>${p.npk.join(" · ")} / 3</span>` : nothing}
+            ${p.gdd_to_maturity ? html`<span>${this.t("lib.gdd")} <hl-info term="gdd" .t=${this.t}></hl-info></span><span>${p.gdd_to_maturity} °C·d (${this.t("lib.base")} ${p.gdd_base_c} °C)</span>` : nothing}
+            ${p.plants_per_person ? html`<span>${this.t("lib.per_person")}</span><span>${p.plants_per_person} · ${p.yield_kg_m2 ?? "?"} kg/m²</span>` : nothing}
           </div>
+          ${p.deters?.length || p.trap_for?.length || p.allelopathic || p.shade_tolerant ? html`<div class="row wrap">
+            ${(p.deters ?? []).map((x) => html`<span class="chip ok" title=${this.t("lib.deters")}>🛡 ${tagLabel(x, this.lang)}</span>`)}
+            ${(p.trap_for ?? []).map((x) => html`<span class="chip warn" title=${this.t("lib.trap_for")}>🪤 ${tagLabel(x, this.lang)} <hl-info term="trap_crop" .t=${this.t}></hl-info></span>`)}
+            ${p.allelopathic ? html`<span class="chip bad">${this.t("lib.allelopathic")} <hl-info term="allelopathy" .t=${this.t}></hl-info></span>` : nothing}
+            ${p.shade_tolerant ? html`<span class="chip cold">${this.t("lib.shade_tolerant")}</span>` : nothing}
+          </div>` : nothing}
           ${p.greenhouse.notes[lang] ? html`<p class="small">${p.greenhouse.notes[lang]}</p>` : nothing}
           <section class="stack"><h3>${this.t("lib.friends")}</h3>
             ${rel("friend").map(([id, why]) => html`<div class="rel"><span class="chip ok">${name(id)}</span><span class="muted">${why}</span></div>`)}</section>

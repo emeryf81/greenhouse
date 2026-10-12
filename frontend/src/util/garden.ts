@@ -38,6 +38,17 @@ export const TASK_ICONS: Record<TaskType, string> = {
   ventilate: "mdi:window-open-variant",
   shade: "mdi:sun-angle-outline",
   frost_protect: "mdi:snowflake-alert",
+  soil_prep: "mdi:shovel",
+  compost: "mdi:recycle",
+  green_manure: "mdi:grass",
+  mulch: "mdi:layers-outline",
+  clean_greenhouse: "mdi:spray-bottle",
+  winter_prep: "mdi:snowflake-variant",
+  plan_season: "mdi:clipboard-text-outline",
+  tool_care: "mdi:hammer-wrench",
+  soil_test: "mdi:test-tube",
+  cut_back: "mdi:content-cut",
+  divide: "mdi:call-split",
   custom: "mdi:checkbox-marked-circle-outline",
 };
 
@@ -52,6 +63,13 @@ export const TASK_COLORS: Partial<Record<TaskType, string>> = {
   shade: "var(--hl-sun-500)",
   weed: "var(--hl-soil-500)",
   pest_check: "var(--hl-tomato-500)",
+  soil_prep: "var(--hl-soil-500)",
+  compost: "var(--hl-soil-700)",
+  green_manure: "var(--hl-leaf-600)",
+  mulch: "var(--hl-soil-500)",
+  clean_greenhouse: "var(--hl-frost-500)",
+  winter_prep: "var(--hl-frost-500)",
+  plan_season: "var(--hl-leaf-700)",
 };
 
 // -- dates (all local, ISO yyyy-mm-dd) --------------------------------------

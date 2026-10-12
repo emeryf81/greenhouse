@@ -1,6 +1,12 @@
 // Thin, typed wrapper around the garden_manager websocket commands.
 import type {
+  AutofillResult,
   CompatibilityReport,
+  GlossaryEntry,
+  HandbookChapterMeta,
+  IrrigationPlan,
+  PrintOptions,
+  Resources,
   FamilyInfo,
   HomeAssistant,
   Plant,
@@ -100,6 +106,64 @@ export class GardenApi {
 
   saveSettings(settings: Partial<Settings> | Record<string, unknown>): Promise<{ settings: Settings }> {
     return this.call("settings/save", { settings });
+  }
+
+  // -- autofill ----------------------------------------------------------- //
+  autofill(opts: { season?: number; bed_ids?: string[]; replace?: boolean; resources?: Partial<Resources>; max_crops?: number }): Promise<AutofillResult> {
+    return this.call("plan/autofill", opts);
+  }
+
+  autofillApply(plantings: Planting[], replaceBeds: string[], baseRevision: number | null): Promise<{ revision: number }> {
+    return this.call("plan/autofill/apply", { plantings, replace_beds: replaceBeds, base_revision: baseRevision });
+  }
+
+  // -- print --------------------------------------------------------------- //
+  printPreview(options: Partial<PrintOptions>): Promise<{ pages: string[] }> {
+    return this.call("print/render", { options });
+  }
+
+  /** Download the PDF through the authenticated HTTP view. */
+  async printPdf(options: Partial<PrintOptions>): Promise<{ blob: Blob; filename: string }> {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(options)) {
+      if (value === null || value === undefined || value === "") continue;
+      query.set(key, Array.isArray(value) ? value.join(",") : String(value));
+    }
+    const resp = await this.hass.fetchWithAuth(`/api/${D}/print?${query.toString()}`);
+    if (!resp.ok) throw new Error(`${resp.status} ${await resp.text()}`);
+    const disposition = resp.headers.get("Content-Disposition") ?? "";
+    const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "hortulus.pdf";
+    return { blob: await resp.blob(), filename };
+  }
+
+  exportPdfToConfig(options: Partial<PrintOptions>): Promise<unknown> {
+    return this.hass.callService(D, "export_pdf", options as Record<string, unknown>);
+  }
+
+  // -- handbook ------------------------------------------------------------ //
+  handbookIndex(lang?: string): Promise<{ chapters: HandbookChapterMeta[]; glossary: Record<string, GlossaryEntry> }> {
+    return this.call("handbook/index", lang ? { lang } : {});
+  }
+
+  handbookChapter(chapterId: string, lang?: string): Promise<HandbookChapterMeta & { body: string }> {
+    return this.call("handbook/chapter", { chapter_id: chapterId, ...(lang ? { lang } : {}) });
+  }
+
+  handbookSearch(query: string, lang?: string): Promise<{ results: { id: string; title: string; snippet: string; score: number }[] }> {
+    return this.call("handbook/search", { query, ...(lang ? { lang } : {}) });
+  }
+
+  // -- irrigation ---------------------------------------------------------- //
+  irrigationPlan(): Promise<IrrigationPlan> {
+    return this.call("irrigation/plan");
+  }
+
+  irrigationRun(bedIds?: string[], amountMm?: number): Promise<IrrigationPlan & { started: boolean }> {
+    return this.call("irrigation/run", { ...(bedIds ? { bed_ids: bedIds } : {}), ...(amountMm ? { amount_mm: amountMm } : {}) });
+  }
+
+  irrigationStop(): Promise<void> {
+    return this.call("irrigation/stop");
   }
 
   /** Upload a photo through HA's image_upload integration; returns the image id. */

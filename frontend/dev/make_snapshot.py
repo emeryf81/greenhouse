@@ -22,8 +22,15 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from custom_components.garden_manager.engine import handbook  # noqa: E402
 from custom_components.garden_manager.engine.analysis import analyze  # noqa: E402
+from custom_components.garden_manager.engine.autoplan import AutoplanOptions, autoplan  # noqa: E402
+from custom_components.garden_manager.engine.irrigation import plan_irrigation  # noqa: E402
 from custom_components.garden_manager.engine.models import (  # noqa: E402
+    Feature,
+    FeatureType,
+    GardenResources,
+    IrrigationEvent,
     LayoutMode,
     Planting,
     PlantingStatus,
@@ -36,6 +43,7 @@ from custom_components.garden_manager.engine.plantdb import (  # noqa: E402
     PlantDatabase,
     load_builtin_json,
 )
+from custom_components.garden_manager.engine.printout import PrintContext, PrintOptions, render_svg  # noqa: E402
 from custom_components.garden_manager.engine.serde import to_dict  # noqa: E402
 from custom_components.garden_manager.engine.tasks import generate_specs, merge_tasks  # noqa: E402
 from custom_components.garden_manager.engine.weather import parse_forecast  # noqa: E402
@@ -98,6 +106,16 @@ def build(lang: str) -> dict:
             planting.status, planting.sown_on, planting.transplanted_on = PROGRESS[planting.plant_id]
         elif planting.plant_id == "lettuce" and planting.succession_index == 0:
             planting.status, planting.sown_on = PlantingStatus.SOWN, date(2026, 4, 1)
+    data.features = [
+        Feature("ft_path", "Path" if lang == "en" else "Pad", FeatureType.PATH, x_cm=-20, y_cm=-90, width_cm=900, length_cm=60),
+        Feature("ft_butt", "Water butt" if lang == "en" else "Regenton", FeatureType.WATER_BUTT, x_cm=-110, y_cm=0, width_cm=60, length_cm=60),
+        Feature("ft_compost", "Compost", FeatureType.COMPOST, x_cm=-140, y_cm=120, width_cm=100, length_cm=100),
+    ]
+    data.settings.resources = GardenResources(household_size=3, hours_per_week=4, goals=["fresh", "herbs", "storage"], wanted=["tomato"])
+    data.settings.irrigation.pump_entity = "switch.garden_pump"
+    bed1 = next(b for b in data.beds if b.name == "Bed 1")
+    bed1.irrigation_entity, bed1.irrigation_flow_lpm = "switch.valve_bed_1", 4.0
+    data.irrigation_log = [IrrigationEvent(bed1.id, NOW - timedelta(days=1, hours=2), 6.0, 12.0, 3.0, "auto")]
     data.revision = 7
 
     raw = json.loads((ROOT / "tests/fixtures/forecast_hourly_rain.json").read_text())["weather.home"]["forecast"]
@@ -124,6 +142,9 @@ def build(lang: str) -> dict:
         "plantings": [to_dict(p) for p in data.plantings],
         "tasks": [to_dict(t) for t in data.tasks],
         "rotation_history": [],
+        "features": [to_dict(f) for f in data.features],
+        "irrigation_log": [to_dict(e) for e in data.irrigation_log],
+        "irrigation_status": {"running": False, "bed_id": None, "ends_at": None, "last_error": None},
         "analysis": analysis.to_dict(),
         "weather": {
             "available": True,
@@ -135,7 +156,22 @@ def build(lang: str) -> dict:
             "error": None,
         },
     }
-    return {"snapshot": snapshot, "plants": {"plants": db.as_dicts(), "families": FAMILIES, "overrides": {}}}
+    # Canned answers for the other websocket commands, produced by the real engine.
+    chapters = handbook.chapters(lang)
+    ctx = PrintContext(data, db, analysis.timelines, analysis.today, "Hortulus")
+    proposal = autoplan(data, db, AutoplanOptions(season=2027, replace=True, lang=lang), today=analysis.today)
+    irrigation = plan_irrigation(
+        data, {k: b.irrigation for k, b in analysis.beds.items()}, now=NOW,
+        frost_by_zone={k: z.frost for k, z in analysis.zones.items()}, outdoor_frost=analysis.frost, outdoor_temp=14.0, force=True,
+    )  # fmt: skip
+    extras = {
+        "handbook_index": {"chapters": [c.meta() for c in chapters], "glossary": handbook.glossary(lang)},
+        "handbook_chapters": {c.id: {**c.meta(), "body": c.body} for c in chapters},
+        "print_pages": render_svg(ctx, PrintOptions(document="garden", page="remarkable", color_mode="eink", lang=lang)),
+        "autofill": {**proposal.to_dict(), "season": 2027, "revision": data.revision},
+        "irrigation_plan": {**irrigation.to_dict(), "reasons": {}, "running": False},
+    }
+    return {"snapshot": snapshot, "plants": {"plants": db.as_dicts(), "families": FAMILIES, "overrides": {}}, "extras": extras}
 
 
 if __name__ == "__main__":

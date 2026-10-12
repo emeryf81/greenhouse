@@ -5,6 +5,7 @@ import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Snapshot, Task } from "../types";
 import { addDays, familyColor, formatDate, plantName, sortTasks } from "../util/garden";
 import { renderTaskRow, taskRowStyles, type TaskCtx } from "../components/task-ui";
+import "../components/info";
 
 const RISK_CHIP: Record<string, string> = { none: "ok", low: "cold", moderate: "warn", high: "bad", unknown: "" };
 const ALERT_ICON: Record<string, string> = {
@@ -13,6 +14,8 @@ const ALERT_ICON: Record<string, string> = {
   dry: "mdi:water-alert",
   sensor_stale: "mdi:access-point-network-off",
   forecast: "mdi:weather-cloudy-alert",
+  disease: "mdi:mushroom-outline",
+  nutrients: "mdi:flask-outline",
 };
 
 @customElement("hl-dashboard-view")
@@ -22,6 +25,7 @@ export class DashboardView extends LitElement {
   @property({ attribute: false }) families: Record<string, FamilyInfo> = {};
   @property({ attribute: false }) t!: Translate;
   @property() lang = "en";
+  @property({ type: Boolean }) admin = true;
 
   static styles = [
     shared,
@@ -66,6 +70,7 @@ export class DashboardView extends LitElement {
       today: this.snapshot.analysis?.today ?? "",
       onOpen: (task: Task) => this.emit("open-task", task),
       onComplete: (task: Task) => this.emit("complete-task", task),
+      onPostpone: (task: Task, days: number) => this.emit("postpone-task", { task, days }),
     };
   }
 
@@ -124,13 +129,18 @@ export class DashboardView extends LitElement {
             ${a.frost.plant_level_min_c != null ? html`<div class="kv"><span></span><span class="muted">${this.t("dash.min_temp", { temp: a.frost.plant_level_min_c })}${a.frost.min_at ? ` · ${new Date(a.frost.min_at).toLocaleString(this.lang === "nl" ? "nl-NL" : "en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : ""}</span></div>` : nothing}
           ` : html`<p class="small muted">${this.t("dash.forecast_missing")}</p>`}
           <div class="divider"></div>
-          <div class="kv"><span>${this.t("dash.gdd")}</span><span><b>${Math.round(a.gdd.season_total)}</b> <span class="muted xs">${this.t("dash.gdd_since", { date: formatDate(a.gdd.since, this.lang) })}</span></span></div>
+          ${a.et0_today != null ? html`<div class="kv"><span>ET₀ ${this.t("common.today").toLowerCase()} <hl-info term="et0" .t=${this.t}></hl-info></span>
+            <span><b>${a.et0_today.toFixed(1)} mm</b> <span class="muted xs">${a.et0_method === "penman_monteith" ? "Penman-Monteith" : a.et0_method === "hargreaves" ? "Hargreaves" : ""}</span></span></div>` : nothing}
+          ${a.gdd_today != null ? html`<div class="kv"><span>${this.t("dash.gdd_today")}</span><span><b>${a.gdd_today.toFixed(1)}</b></span></div>` : nothing}
+          <div class="kv"><span>${this.t("dash.gdd")} <hl-info term="gdd" .t=${this.t}></hl-info></span><span><b>${Math.round(a.gdd.season_total)}</b> <span class="muted xs">${this.t("dash.gdd_since", { date: formatDate(a.gdd.since, this.lang) })}</span></span></div>
         </section>
 
         <section class="card span-8" aria-labelledby="beds-h">
           <header><h2 id="beds-h">${this.t("dash.beds")}</h2></header>
           <div class="beds">${snap.beds.map((bed) => this.renderBed(bed.id))}</div>
         </section>
+
+        ${this.renderWaterClimate()}
 
         <section class="card span-4" aria-labelledby="up-h">
           ${greenhouses.map((z) => {
@@ -147,6 +157,34 @@ export class DashboardView extends LitElement {
         </section>
       </div>
     `;
+  }
+
+  private renderWaterClimate(): TemplateResult {
+    const snap = this.snapshot;
+    const a = snap.analysis!;
+    const status = snap.irrigation_status;
+    const cfg = snap.settings.irrigation;
+    const valves = snap.beds.filter((b) => b.irrigation_entity).length;
+    const zones = snap.zones.filter((z) => a.zones[z.id]?.disease && a.zones[z.id].disease!.level !== "unknown");
+    const needWater = snap.beds.filter((b) => a.beds[b.id]?.irrigation.action === "water");
+    const bedName = (id: string | null) => snap.beds.find((b) => b.id === id)?.name ?? "";
+    return html`<section class="card span-4" aria-labelledby="wc-h">
+      <header><h2 id="wc-h">${this.t("dash.water_climate")}</h2></header>
+      <div class="kv"><span>${this.t("dash.irrigation_mode")}</span><span class="chip">${this.t(`settings.irrigation_mode.${cfg?.mode ?? "advise"}`)}</span></div>
+      ${status?.running ? html`<div class="kv"><span class="chip ok"><ha-icon icon="mdi:sprinkler"></ha-icon>${this.t("dash.watering_now", { bed: bedName(status.bed_id) })}</span>
+        <button class="btn small danger" @click=${() => this.emit("irrigation", "stop")}>${this.t("dash.stop")}</button></div>` : nothing}
+      ${status?.last_error ? html`<p class="xs" style="color:var(--hl-danger)">⚠ ${status.last_error}</p>` : nothing}
+      <div class="kv"><span>${this.t("dash.beds_need_water")}</span><b>${needWater.length ? needWater.map((b) => b.name).join(", ") : "–"}</b></div>
+      ${valves && this.admin && !status?.running ? html`<button class="btn small" @click=${() => this.emit("irrigation", "run")}>
+        <ha-icon icon="mdi:sprinkler"></ha-icon>${this.t("dash.water_now")}</button>
+        <p class="xs muted">${this.t("dash.safety_note")} <hl-info term="frost_lockout" .t=${this.t}></hl-info></p>` : nothing}
+      ${zones.length ? html`<div class="divider"></div>
+        <div class="kv"><span><b>${this.t("dash.disease_risk")}</b> <hl-info term="leaf_wetness" .t=${this.t}></hl-info></span></div>
+        ${zones.map((z) => {
+          const d = a.zones[z.id].disease!;
+          return html`<div class="kv"><span>${z.name}</span><span class="chip ${RISK_CHIP[d.level]}">${this.t(`risk.${d.level}`)}${d.wet_hours ? ` · ${Math.round(d.wet_hours)} h` : ""}</span></div>`;
+        })}` : nothing}
+    </section>`;
   }
 
   private renderBed(bedId: string): TemplateResult {
@@ -170,6 +208,10 @@ export class DashboardView extends LitElement {
           <div class="kv"><span>💧 ${Math.round(irr.moisture)}%</span>${soilT != null ? html`<span>🌡 ${soilT.toFixed(1)} °C</span>` : nothing}</div>` : html`<p class="xs muted">${this.t("dash.no_sensor")}</p>`}
         ${irr ? html`<p class="small"><ha-icon icon="mdi:watering-can-outline" style="--mdc-icon-size:16px"></ha-icon>
           ${this.t(`irrigation.${irr.action}`, { mm: irr.amount_mm, liters: Math.round(irr.liters) })}${irr.duration_min ? ` · ${Math.round(irr.duration_min)} min` : ""}</p>` : nothing}
+        ${ba?.nutrients?.index != null ? html`<div class="kv"><span>${this.t("dash.nutrients")} <hl-info term="nutrient_index" .t=${this.t}></hl-info></span>
+          <span class="chip ${ba.nutrients.status === "balanced" ? "ok" : "warn"}">${ba.nutrients.index}/100</span></div>` : nothing}
+        ${ba?.depletion_mm != null && ba.taw_mm ? html`<div class="kv xs muted"><span>${this.t("dash.water_balance")} <hl-info term="water_balance" .t=${this.t}></hl-info></span>
+          <span>${Math.round(ba.depletion_mm)} / ${Math.round(ba.taw_mm)} mm</span></div>` : nothing}
         <div class="avatars" aria-label=${this.t("dash.active_crops", { n: active.length })}>
           ${active.map((p) => {
             const plant = this.plants.get(p!.plant_id);
