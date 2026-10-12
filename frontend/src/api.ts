@@ -25,10 +25,13 @@ import type {
   Settings,
   Snapshot,
   SyslogPage,
+  AnalysisResult,
+  ExplainResult,
   TransitionPreview,
   TransitionResult,
   UndoResult,
 } from "./types";
+import type { CropRow } from "./views/crops-view";
 
 const D = "garden_manager";
 
@@ -149,8 +152,36 @@ export class GardenApi {
     return this.call("plan/autofill", opts);
   }
 
-  autofillApply(plantings: Planting[], replaceBeds: string[], baseRevision: number | null): Promise<{ revision: number }> {
-    return this.call("plan/autofill/apply", { plantings, replace_beds: replaceBeds, base_revision: baseRevision });
+  autofillApply(plantings: Planting[], replaceBeds: string[], baseRevision: number | null, planFrom?: number | null): Promise<{ revision: number }> {
+    return this.call("plan/autofill/apply", { plantings, replace_beds: replaceBeds, base_revision: baseRevision, ...(planFrom != null ? { plan_from: planFrom } : {}) });
+  }
+
+  newPlan(season: number, start: "empty" | "zones" | "zones_beds", oldName?: string): Promise<{ archived: string; name: string; plantings: number; revision: number }> {
+    return this.call("plan/new", { season, start, ...(oldName ? { old_name: oldName } : {}) });
+  }
+
+  activatePlan(planId: string, oldName?: string): Promise<{ season: number; archived: string; revision: number }> {
+    return this.call("plan/activate", { plan_id: planId, ...(oldName ? { old_name: oldName } : {}) });
+  }
+
+  deletePlan(planId: string): Promise<void> {
+    return this.call("plan/delete", { plan_id: planId });
+  }
+
+  plantingsSeason(season: number): Promise<{ season: number; rows: CropRow[] }> {
+    return this.call("plantings/season", { season });
+  }
+
+  updatePlanting(plantingId: string, changes: Partial<Planting>): Promise<{ planting: Planting; row: CropRow | null; revision: number }> {
+    return this.call("planting/update", { planting_id: plantingId, changes });
+  }
+
+  analysis(): Promise<AnalysisResult> {
+    return this.call("analysis");
+  }
+
+  explain(plantId: string, season?: number, matchZone = true): Promise<ExplainResult> {
+    return this.call("analysis/explain", { plant_id: plantId, season: season ?? null, match_zone: matchZone });
   }
 
   // -- print --------------------------------------------------------------- //

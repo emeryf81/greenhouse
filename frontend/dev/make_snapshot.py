@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from custom_components.garden_manager.engine import handbook, seasons  # noqa: E402
+from custom_components.garden_manager.engine import diagnose, handbook, seasons  # noqa: E402
 from custom_components.garden_manager.engine.advisor import advise, harvest_coverage  # noqa: E402
 from custom_components.garden_manager.engine.analysis import analyze  # noqa: E402
 from custom_components.garden_manager.engine.autoplan import AutoplanOptions, autoplan  # noqa: E402
@@ -61,6 +61,8 @@ from custom_components.garden_manager.engine.records import (  # noqa: E402
     water_stats,
     year_overview,
 )
+from custom_components.garden_manager.engine.region import season_anchors  # noqa: E402
+from custom_components.garden_manager.engine.schedule import planting_timeline  # noqa: E402
 from custom_components.garden_manager.engine.serde import to_dict  # noqa: E402
 from custom_components.garden_manager.engine.supplies import catalog, shopping_list  # noqa: E402
 from custom_components.garden_manager.engine.tasks import generate_specs, merge_tasks  # noqa: E402
@@ -316,7 +318,52 @@ def build(lang: str) -> dict:
         data, {k: b.irrigation for k, b in analysis.beds.items()}, now=NOW,
         frost_by_zone={k: z.frost for k, z in analysis.zones.items()}, outdoor_frost=analysis.frost, outdoor_temp=14.0, force=True,
     )  # fmt: skip
+    crop_rows = []
+    for p in data.plantings:
+        if not seasons.present_in(p, False, NOW.year):
+            continue
+        plant = db.get(p.plant_id)
+        bed = data.bed(p.bed_id)
+        zone = data.zone(bed.zone_id) if bed else None
+        tl = (
+            planting_timeline(p, plant, season_anchors(data.settings.region, p.season), zone, NOW.date()).to_dict()
+            if plant
+            else None
+        )
+        crop_rows.append(
+            {
+                "planting": to_dict(p),
+                "bed": bed.name if bed else None,
+                "zone": zone.name if zone else None,
+                "timeline": tl,
+            }
+        )
+    issues = diagnose.check_garden(data, db, today=NOW.date(), current_season=NOW.year, lang=lang)
     extras = {
+        "crop_rows": crop_rows,
+        "analysis": {
+            "season": NOW.year,
+            "layout_season": data.layout_season,
+            "issues": [i.to_dict() for i in issues],
+            "errors": [],
+            "counts": {
+                "zones": len(data.zones),
+                "beds": len(data.beds),
+                "features": len(data.features),
+                "plantings": len(data.plantings),
+                "plans": 1,
+                "archived_plans": 0,
+                "log_entries": 0,
+            },
+        },
+        "explain": {
+            "plant_id": "tomato",
+            "season": NOW.year,
+            "has_plan": True,
+            "beds": [
+                v.to_dict() for v in diagnose.explain_plant(db.get("tomato"), data, db, NOW.year, today=NOW.date())
+            ],
+        },
         "year_preview": seasons.preview(data, db, NOW.year, season_end=date(NOW.year, 12, 31)).to_dict(),
         "handbook_index": {"chapters": [c.meta() for c in chapters], "glossary": handbook.glossary(lang)},
         "handbook_chapters": {c.id: {**c.meta(), "body": c.body} for c in chapters},

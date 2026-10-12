@@ -557,3 +557,32 @@ async def test_new_plan_analysis_and_autofill_on_next_years_plan(hass: HomeAssis
     analysis = (await _result(client))["result"]
     assert analysis["errors"] and analysis["errors"][0]["source"] == "error"
     assert analysis["counts"]["archived_plans"] == 1
+
+
+async def test_crops_list_and_date_edits_without_the_planner(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    planting = repo.data.plantings[0]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/plantings/season", "season": planting.season})
+    rows = (await _result(client))["result"]["rows"]
+    row = next(r for r in rows if r["planting"]["id"] == planting.id)
+    assert row["bed"] and "timeline" in row
+
+    before = (planting.x_cm, planting.y_cm, planting.bed_id)
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/planting/update",
+            "planting_id": planting.id,
+            "changes": {"sown_on": "2026-04-02", "count": 7},
+        }
+    )
+    res = await _result(client)
+    assert res["success"], res
+    assert res["result"]["row"]["planting"]["sown_on"] == "2026-04-02"
+    updated = next(p for p in repo.data.plantings if p.id == planting.id)
+    assert updated.count == 7 and (updated.x_cm, updated.y_cm, updated.bed_id) == before  # nothing moved
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/planting/update", "planting_id": "nope", "changes": {}})
+    assert not (await _result(client))["success"]

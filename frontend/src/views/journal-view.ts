@@ -29,6 +29,8 @@ export class JournalView extends LitElement {
   @property() lang = "en";
   @property({ type: Boolean }) admin = true;
   @property() section: Section = "diary";
+  /** Show only the system log (used by the Analysis tab). */
+  @property({ type: Boolean }) systemOnly = false;
 
   @state() private overview: RecordsOverview | null = null;
   @state() private filter = "";
@@ -74,6 +76,7 @@ export class JournalView extends LitElement {
       .log { display: grid; grid-template-columns: 36px 1fr auto; gap: 4px 10px; padding: 10px 12px; border-radius: var(--hl-r-md);
         border: 1px solid var(--hl-border); background: var(--hl-surface); align-items: start; }
       .log.undone { opacity: 0.6; }
+      .log.error { border-left: 4px solid var(--hl-tomato-500); }
       .log.system .icon { color: var(--hl-text-muted); }
       .log .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--hl-surface-2); }
       .log ul { margin: 4px 0 0; padding: 0; list-style: none; font-size: var(--hl-fs-sm); }
@@ -110,7 +113,7 @@ export class JournalView extends LitElement {
     } catch {
       /* older backend */
     }
-    if (this.section === "system") await this.loadSyslog();
+    if (this.section === "system" || this.systemOnly) await this.loadSyslog();
   }
 
   private async loadSyslog(more = false): Promise<void> {
@@ -167,6 +170,7 @@ export class JournalView extends LitElement {
   }
 
   render(): TemplateResult {
+    if (this.systemOnly) return this.renderSystem();
     const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["system", "mdi:history"]];
     return html`
       <div class="tabs" role="tablist">
@@ -435,6 +439,7 @@ export class JournalView extends LitElement {
   }
 
   private entryTitle(e: SyslogEntry): string {
+    if (e.source === "error") return `${this.t("syslog.error")}: ${e.summary[0]?.name ?? ""}`;
     if (e.undo_of) return this.t("syslog.reason.undo");
     const first = e.summary[0];
     const ops = new Set(e.summary.map((s) => s.op));
@@ -453,17 +458,17 @@ export class JournalView extends LitElement {
       ${this.syslog.length ? nothing : html`<p class="small muted">${this.t("syslog.empty")}</p>`}
       <div class="stack" style="gap:8px" role="list">
         ${this.syslog.map((e) => html`<article role="listitem" class="log ${e.source} ${e.undone_by ? "undone" : ""}">
-          <div class="icon"><ha-icon icon=${e.undo_of ? "mdi:undo-variant" : e.source === "system" ? "mdi:robot-outline" : "mdi:account-edit-outline"}></ha-icon></div>
+          <div class="icon"><ha-icon icon=${e.source === "error" ? "mdi:alert-circle-outline" : e.undo_of ? "mdi:undo-variant" : e.source === "system" ? "mdi:robot-outline" : "mdi:account-edit-outline"}></ha-icon></div>
           <div>
             <strong>${this.entryTitle(e)}</strong>
             <div class="meta">${time(e.at)} · ${e.source === "system" ? this.t("syslog.by_system") : e.user ?? this.t("syslog.by_unknown")}
-              · ${this.t(`syslog.reason.${e.reason}`)}${e.undone_by ? html` · <span class="chip warn">${this.t("syslog.is_undone")}</span>` : nothing}</div>
+              · ${e.source === "error" ? e.reason : this.t(`syslog.reason.${e.reason}`)}${e.undone_by ? html` · <span class="chip warn">${this.t("syslog.is_undone")}</span>` : nothing}</div>
             ${e.summary.length > 1 ? html`<ul>
               ${e.summary.slice(0, SYSLOG_SHOWN_LINES).map((s) => html`<li><ha-icon icon=${OP_ICON[s.op]}></ha-icon>${this.summaryText(s)}</li>`)}
               ${e.summary.length > SYSLOG_SHOWN_LINES ? html`<li class="muted">${this.t("syslog.and_more", { n: e.summary.length - SYSLOG_SHOWN_LINES })}</li>` : nothing}
             </ul>` : nothing}
           </div>
-          ${this.admin && !e.undone_by ? html`<button class="btn small ghost" ?disabled=${this.busy} @click=${() => this.undo(e)}
+          ${this.admin && !e.undone_by && e.source !== "error" && e.count > 0 ? html`<button class="btn small ghost" ?disabled=${this.busy} @click=${() => this.undo(e)}
             aria-label=${`${this.t("syslog.undo")}: ${this.entryTitle(e)}`}><ha-icon icon="mdi:undo"></ha-icon>${this.t("syslog.undo")}</button>` : html`<span></span>`}
         </article>`)}
       </div>

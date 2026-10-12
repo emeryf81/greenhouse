@@ -603,6 +603,8 @@ class GardenData:
     # designing it); None = not yet adopted (set on first load).
     layout_season: int | None = None
     layouts: dict[str, GardenLayout] = field(default_factory=dict)
+    # Plans set aside with "start a new plan"; one can be made active again.
+    archived_plans: list[ArchivedPlan] = field(default_factory=list)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:
@@ -2989,6 +2991,7 @@ def _bed_score(
     history: list[Any],
     season: int,
     respect: bool = True,
+    why: list[dict[str, Any]] | None = None,
 ) -> float | None:
     plant = demand.plant
     enclosed = bool(zone and zone.is_enclosed)
@@ -3000,12 +3003,17 @@ def _bed_score(
     probe = Planting("probe", plant.id, bed.id, season)
     for finding in check_rotation(probe, bed, history, db):
         if finding.severity == "error":
+            if why is not None:
+                why.append({"code": "rotation", "params": {"family": finding.family, "season": finding.conflicting_season,
+                                                           "years": finding.years_required}})  # fmt: skip
             return None
         score -= 20
     for other in placed:
         rel = db.relation(plant.id, other.plant.id)
         if rel.relation is Relation.ENEMY and respect:
             if rel.strength >= 2:
+                if why is not None:
+                    why.append({"code": "bad_neighbour", "params": {"plant_id": other.plant.id}})
                 return None
             score -= 15
         elif rel.relation is Relation.FRIEND:

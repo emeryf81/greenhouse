@@ -94,6 +94,8 @@ export function glyph(habit: string, cx: number, cy: number, r: number, color: s
 
 interface DragState {
   mode: "move" | "resize" | "pan" | "draw";
+  /** The item under the pointer: a click without moving opens it ("item-click"). */
+  clicked?: { kind: ItemKind; id: string };
   kind?: ItemKind;
   id?: string;
   pointerId: number;
@@ -306,11 +308,11 @@ export class GardenCanvas extends LitElement {
       const origin = this.rectOf(kind, id);
       if (!origin || this.readonly || (this.lockLayout && kind !== "planting")) {
         this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
-          startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false };
+          startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: { kind, id } };
         return;
       }
       this.drag = { mode: resize ? "resize" : "move", kind, id, pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin,
-        startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false };
+        startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: resize ? undefined : { kind, id } };
     } else {
       this.dispatchEvent(new CustomEvent<Selection | null>("select", { detail: null }));
       this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
@@ -382,6 +384,9 @@ export class GardenCanvas extends LitElement {
     const pending = this.pendingSelect;
     this.pendingSelect = null;
     if (pending && !d.moved) this.dispatchEvent(new CustomEvent<Selection>("select", { detail: pending }));
+    if (d.clicked && !d.moved && !(ev.shiftKey || ev.ctrlKey || ev.metaKey)) {
+      this.dispatchEvent(new CustomEvent<Selection>("item-click", { detail: { kind: d.clicked.kind, id: d.clicked.id } }));
+    }
     if (!preview || !d.moved || d.mode === "pan") return;
     let targetBedId: string | undefined;
     if (preview.kind === "planting") {

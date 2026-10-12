@@ -58,6 +58,7 @@ from .operations import (
     op_save_settings,
     op_save_soil_test,
     op_undo,
+    op_update_planting,
     op_update_task,
     op_year_transition,
 )
@@ -117,6 +118,8 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_plan_delete,
         ws_analysis,
         ws_analysis_explain,
+        ws_plantings_season,
+        ws_planting_update,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -1250,3 +1253,68 @@ def ws_analysis_explain(hass: HomeAssistant, connection: websocket_api.ActiveCon
             "beds": [v.to_dict() for v in verdicts],
         },
     )
+
+
+# --------------------------------------------------------------------------- #
+# Crops of a season (list view with all dates, no dragging)
+# --------------------------------------------------------------------------- #
+def _season_rows(runtime: GardenRuntime, season: int) -> list[dict[str, Any]]:
+    data = runtime.repo.data
+    db = runtime.repo.db
+    layout = seasons.layout_for(data, season)
+    # a crop whose year has no plan (or whose bed is gone) still shows the bed it knew
+    beds = {b.id: b for b in data.beds}
+    zones = {z.id: z for z in data.zones}
+    if layout is not None:
+        beds |= {b.id: b for b in layout.beds}
+        zones |= {z.id: z for z in layout.zones}
+    today = dt_util.now().date()
+    rows = []
+    for p in data.plantings:
+        if not seasons.present_in(p, False, season):
+            continue
+        plant = db.get(p.plant_id)
+        bed = beds.get(p.bed_id)
+        timeline = None
+        if plant is not None:
+            zone = zones.get(bed.zone_id) if bed else None
+            timeline = planting_timeline(
+                p, plant, season_anchors(data.settings.region, p.season), zone, today
+            ).to_dict()
+        rows.append(
+            {
+                "planting": to_dict(p),
+                "bed": bed.name if bed else None,
+                "zone": zones[bed.zone_id].name if bed and bed.zone_id in zones else None,
+                "timeline": timeline,
+            }
+        )
+    return rows
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plantings/season", vol.Required("season"): int})
+@callback
+def ws_plantings_season(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Every crop of a season with its bed and computed dates."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        connection.send_result(msg["id"], {"season": msg["season"], "rows": _season_rows(runtime, msg["season"])})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/planting/update", vol.Required("planting_id"): str, vol.Required("changes"): dict}
+)
+@websocket_api.require_admin
+@callback
+def ws_planting_update(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Change dates, status, count or notes of one crop (no geometry needed)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+
+    def run() -> dict[str, Any]:
+        updated = op_update_planting(runtime, msg["planting_id"], msg["changes"])
+        row = next((r for r in _season_rows(runtime, updated.season) if r["planting"]["id"] == updated.id), None)
+        return {"planting": to_dict(updated), "row": row, "revision": runtime.repo.data.revision}
+
+    _ws_op(connection, msg, run)

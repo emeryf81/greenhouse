@@ -5,9 +5,10 @@ import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
-import type { Bed, Priority, Snapshot, Task, TaskType } from "../types";
+import type { Bed, FamilyInfo, Plant, Priority, Snapshot, Task, TaskType } from "../types";
+import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import "./info";
-import { TASK_COLORS, TASK_ICONS, addDays, formatDate } from "../util/garden";
+import { TASK_COLORS, TASK_ICONS, addDays, familyColor, formatDate } from "../util/garden";
 
 export interface TaskCtx {
   t: Translate;
@@ -17,6 +18,18 @@ export interface TaskCtx {
   onComplete: (task: Task) => void;
   /** Optional: enables swipe-left to postpone by a day on touch screens. */
   onPostpone?: (task: Task, days: number) => void;
+  /** Optional: the crop a task is about, shown as its plant icon. */
+  plantOf?: (task: Task) => { plant: Plant; color: string } | null;
+}
+
+/** ``plantOf`` for a task context: the task's planting, or the plant named in its title. */
+export function taskPlantResolver(snapshot: Snapshot | undefined, plants: Map<string, Plant>, families: Record<string, FamilyInfo>) {
+  return (task: Task): { plant: Plant; color: string } | null => {
+    const planting = task.planting_id ? snapshot?.plantings.find((p) => p.id === task.planting_id) : undefined;
+    const id = planting?.plant_id ?? (task.title_params?.plant_id as string | undefined);
+    const plant = id ? plants.get(id) : undefined;
+    return plant ? { plant, color: plant.color || familyColor(families, plant.family) } : null;
+  };
 }
 
 // -- swipe actions (touch / pen only, mouse keeps normal clicks) -------------
@@ -62,6 +75,7 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
   const overdue = task.status === "open" && task.due < ctx.today;
   const done = task.status !== "open";
   const color = TASK_COLORS[task.type] ?? "var(--hl-soil-500)";
+  const crop = ctx.plantOf?.(task) ?? null;
   return html`
     <li class="task-row ${done ? "done" : ""} prio-${task.priority}" @pointerdown=${swipeDown} @pointermove=${swipeMove}
       @pointerup=${(e: PointerEvent) => swipeEnd(e, task, ctx)} @pointercancel=${(e: PointerEvent) => swipeEnd(e, task, ctx)}>
@@ -70,7 +84,9 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
         <ha-icon icon=${done ? "mdi:check-circle" : "mdi:checkbox-blank-circle-outline"}></ha-icon>
       </button>
       <button class="task-main" @click=${() => ctx.onOpen(task)}>
-        <span class="type-icon" style=${`color:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span>
+        ${crop ? html`<span class="type-icon crop" title=${ctx.t(`type.${task.type}`)}>${glyphIcon(glyphFor(crop.plant), crop.color, 24)}
+          <span class="type-badge" style=${`background:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span></span>`
+          : html`<span class="type-icon" style=${`color:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span>`}
         <span class="task-text">
           <span class="task-title">${task.title}</span>
           <span class="task-meta">
@@ -98,6 +114,9 @@ export const taskRowStyles = css`
   .check:hover:not([disabled]) { background: var(--hl-leaf-100); }
   .task-main { flex: 1; display: flex; align-items: center; gap: var(--hl-s2); border: 0; background: transparent; text-align: left; cursor: pointer; padding: 6px 4px; color: var(--hl-text); min-width: 0; }
   .type-icon { --mdc-icon-size: 20px; flex: none; }
+  .type-icon.crop { position: relative; width: 28px; height: 28px; display: grid; place-items: center; }
+  .type-badge { position: absolute; right: -4px; bottom: -4px; width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center;
+    color: #fff; --mdc-icon-size: 10px; box-shadow: 0 0 0 2px var(--hl-surface); }
   .task-text { display: flex; flex-direction: column; min-width: 0; }
   .task-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
   .task-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }

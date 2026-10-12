@@ -6,7 +6,7 @@ import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, RecordsOverview, Snapshot, Task } from "../types";
 import { TASK_COLORS, TASK_ICONS, addDays, daysBetween, familyColor, formatDate, parseDate, plantName, sortTasks, toIso } from "../util/garden";
-import { renderTaskRow, taskRowStyles, type TaskCtx } from "../components/task-ui";
+import { renderTaskRow, taskPlantResolver, taskRowStyles, type TaskCtx } from "../components/task-ui";
 
 type Mode = "month" | "week" | "list" | "timeline" | "year";
 
@@ -217,6 +217,7 @@ export class CalendarView extends LitElement {
       onOpen: (task) => this.emit("open-task", task),
       onComplete: (task) => this.emit("complete-task", task),
       onPostpone: (task, days) => this.emit("postpone-task", { task, days }),
+      plantOf: taskPlantResolver(this.snapshot, this.plants, this.families),
     };
     const map = this.byDay();
     const days = [...map.keys()].filter((d) => d >= this.cursor).sort().slice(0, 30);

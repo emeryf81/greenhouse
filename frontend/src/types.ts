@@ -463,7 +463,9 @@ export interface AutofillResult {
   plantings: Planting[];
   placements: { plant_id: string; bed_id: string; count: number; area_m2: number; reason: string; yield_kg: number;
     minutes_week: number; water_l_week: number; sowings: number }[];
-  skipped: { plant_id: string; reason: string }[];
+  skipped: { plant_id: string; reason: string; beds?: Record<string, Reason[]> }[];
+  /** The season had no plan: the proposal was made on this year's plan (copied when applied). */
+  plan_from?: number | null;
   warnings: { key: string; params: Record<string, unknown> }[];
   beds: string[];
   summary: { crops: number; plantings: number; yield_kg: number; minutes_week: number; water_l_week: number; compost_kg: number; fertilizer_g: number };
@@ -564,6 +566,8 @@ export interface Snapshot {
   layouts?: Record<string, GardenLayout>;
   /** Season still waiting for its year-end transition, if the calendar moved on. */
   transition_due?: number | null;
+  /** Plans set aside with "start a new plan". */
+  archived_plans?: ArchivedPlanSummary[];
   harvest_log?: HarvestEntry[];
   journal?: JournalEntry[];
   seed_stock?: SeedPacket[];
@@ -582,6 +586,28 @@ export interface Snapshot {
 }
 
 export interface PlanDoc { zones: Zone[]; beds: Bed[]; plantings: Planting[]; features: Feature[] }
+
+export interface ArchivedPlanSummary {
+  id: string; name: string; season: number; archived_at: ISODateTime | null;
+  zones: number; beds: number; features: number; plantings: number;
+}
+
+/** A machine-readable reason with parameters, explained in the UI (``reason.<code>``). */
+export interface Reason { code: string; params: Record<string, unknown> }
+
+export interface AnalysisIssue { code: string; severity: "error" | "warning" | "info"; params: Record<string, unknown>; refs: Record<string, string[]> }
+
+export interface AnalysisResult {
+  season: number;
+  layout_season: number | null;
+  issues: AnalysisIssue[];
+  errors: SyslogEntry[];
+  counts: Record<string, number>;
+}
+
+export interface BedVerdict { bed_id: string; bed: string; zone: string; ok: boolean; reasons: Reason[]; warnings: Reason[]; free_m2: number }
+
+export interface ExplainResult { plant_id: string; season: number; has_plan: boolean; beds: BedVerdict[] }
 
 export interface GardenLayout { zones: Zone[]; beds: Bed[]; features: Feature[]; saved_at?: ISODateTime | null }
 
@@ -700,7 +726,7 @@ export interface SyslogEntry {
   id: string;
   at: string;
   reason: string;
-  source: "user" | "system";
+  source: "user" | "system" | "error";
   user: string | null;
   undo_of: string | null;
   undone_by: string | null;
