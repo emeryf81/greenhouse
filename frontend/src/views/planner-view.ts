@@ -5,7 +5,7 @@ import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { SoilTest } from "../types";
 import type {
-  AutofillResult, Bed, BedKind, CompatibilityReport, FamilyInfo, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
+  AutofillResult, Bed, BedKind, CompatibilityReport, FamilyInfo, PairFinding, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
   PlantingStatus, Resources, Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
 } from "../types";
 import { ZONE_CATEGORIES, addDays, daysBetween, download, familyColor, formatDate, plantName, presentIn, uid } from "../util/garden";
@@ -1258,6 +1258,18 @@ export class PlannerView extends LitElement {
     `;
   }
 
+  /** Name plantings of another season as such: they are not on the canvas of this season. */
+  private findingParams(f: PairFinding): Record<string, unknown> {
+    const params: Record<string, unknown> = { ...f.params };
+    for (const [id, key] of [[f.a, "a"], [f.b, "b"]] as const) {
+      const p = this.draft.plantings.find((i) => i.id === id);
+      if (p && p.season !== this.season && !this.plantMap.get(p.plant_id)?.perennial && typeof params[key] === "string") {
+        params[key] = this.t("planner.other_season", { name: params[key], year: p.season });
+      }
+    }
+    return params;
+  }
+
   private renderFindings(bedId: string, plantingId?: string): TemplateResult {
     const report = this.reports[bedId] ?? this.snapshot.analysis?.beds[bedId]?.compatibility;
     const rotation = this.reports[bedId]?.rotation ?? this.snapshot.analysis?.beds[bedId]?.rotation ?? [];
@@ -1268,7 +1280,7 @@ export class PlannerView extends LitElement {
     const icon = { error: "mdi:alert-octagon-outline", warning: "mdi:alert-outline", info: "mdi:heart-outline" } as const;
     if (!pairs.length && !rot.length && !oob && !placement.length) return html`<p class="small muted">${this.t("planner.no_warnings")}</p>`;
     return html`<div class="stack" style="gap:6px">
-      ${pairs.map((f) => html`<div class="finding ${f.severity}"><ha-icon icon=${icon[f.severity]}></ha-icon><span>${this.t(f.key, f.params)}</span></div>`)}
+      ${pairs.map((f) => html`<div class="finding ${f.severity}"><ha-icon icon=${icon[f.severity]}></ha-icon><span>${this.t(f.key, this.findingParams(f))}</span></div>`)}
       ${rot.map((r) => html`<div class="finding ${r.severity}"><ha-icon icon="mdi:rotate-3d-variant"></ha-icon><span>${this.t(r.key, r.params)}
         <hl-info term="rotation" .t=${this.t}></hl-info>
         ${r.alternatives?.length ? html`<br /><span class="xs">${this.t("planner.alternatives")}:

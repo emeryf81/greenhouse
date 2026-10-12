@@ -11,7 +11,8 @@ from custom_components.garden_manager.engine.compatibility import (
     suggest_companions,
 )
 from custom_components.garden_manager.engine.models import RotationRecord
-from custom_components.garden_manager.engine.schedule import DateWindow
+from custom_components.garden_manager.engine.region import season_anchors
+from custom_components.garden_manager.engine.schedule import DateWindow, planting_timeline
 
 
 def bed(garden, bed_id="bed_1"):
@@ -67,6 +68,45 @@ def test_overlap_only_conflicts_when_sharing_time(garden, db, make_planting):
     together = {**sequential, beans.id: DateWindow(date(2026, 4, 15), date(2026, 8, 1))}
     report = check_bed(bed(garden), [radish, beans], db, timelines=together)
     assert any(p.kind == "overlap" and p.severity == "error" for p in report.pairs)
+
+
+def test_late_crop_does_not_clash_with_next_seasons_plan(garden, db, make_planting):
+    """Regression: in October a chili added to *this* season rolled forward into next
+    season and clashed with next season's (invisible) tomato and basil."""
+    bed_ = garden.bed("gh_bed")
+    zone = garden.zone(bed_.zone_id)
+    tomato = make_planting("tomato", bed_id="gh_bed", season=2027, x_cm=0, y_cm=0, width_cm=200, length_cm=50,
+                           layout="row", method="indoor_sow")  # fmt: skip
+    basil = make_planting("basil", bed_id="gh_bed", season=2027, x_cm=0, y_cm=60, width_cm=50, length_cm=40,
+                          method="indoor_sow")  # fmt: skip
+    chili = make_planting("chili_pepper", bed_id="gh_bed", season=2026, x_cm=20, y_cm=40, width_cm=40, length_cm=40,
+                          method="indoor_sow")  # fmt: skip
+    plantings = [tomato, basil, chili]
+    today = date(2026, 10, 12)
+    region = garden.settings.region
+    live, planned = {}, {}
+    for p in plantings:
+        anchors = season_anchors(region, p.season)
+        live[p.id] = planting_timeline(p, db.get(p.plant_id), anchors, zone, today).occupancy
+        planned[p.id] = planting_timeline(p, db.get(p.plant_id), anchors, zone, None).occupancy
+    # The live (moved-forward) chili timeline reaches into 2027 - the cause of the bug.
+    assert live[chili.id].end.year == 2027
+    report = check_bed(bed_, plantings, db, timelines=live, planned=planned, lang="nl")
+    assert not [f for f in report.pairs if chili.id in (f.a, f.b)], [f.key for f in report.pairs]
+    # Crops of the same season are still compared with each other.
+    assert any(f.kind == "friend" for f in report.pairs if {f.a, f.b} == {tomato.id, basil.id})
+
+
+def test_real_cross_season_overlap_is_still_found(garden, db, make_planting):
+    """Garlic planted in autumn for next summer does share the bed with next season's crops."""
+    garlic = make_planting("garlic", season=2026, x_cm=0, y_cm=0, width_cm=60, length_cm=30)
+    beans = make_planting("bush_bean", season=2027, x_cm=0, y_cm=0, width_cm=60, length_cm=30)
+    planned = {
+        garlic.id: DateWindow(date(2026, 10, 15), date(2027, 7, 15)),
+        beans.id: DateWindow(date(2027, 5, 15), date(2027, 8, 30)),
+    }
+    report = check_bed(bed(garden), [garlic, beans], db, timelines=planned, planned=planned)
+    assert any(p.kind == "overlap" for p in report.pairs)
 
 
 def test_out_of_bounds_planting(garden, db, make_planting):

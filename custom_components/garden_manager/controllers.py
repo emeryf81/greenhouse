@@ -185,7 +185,7 @@ class IrrigationController:
                 self.status.running = False
                 self.status.bed_id = None
                 self.status.ends_at = None
-                self.coordinator.repo.async_changed("tasks")
+                self.coordinator.repo.async_changed("tasks", source="system")
 
     def _log(self, bed_id: str, minutes: float, run: Any, source: str) -> None:
         data = self.coordinator.repo.data

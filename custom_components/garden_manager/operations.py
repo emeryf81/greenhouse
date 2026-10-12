@@ -657,3 +657,42 @@ def op_assign_task(runtime: GardenRuntime, task_id: str, assignee: str | None) -
     task.updated_at = dt_util.now()
     runtime.repo.async_changed("tasks")
     return task
+
+
+# --------------------------------------------------------------------------- #
+# System log
+# --------------------------------------------------------------------------- #
+@callback
+def op_undo(hass: HomeAssistant, runtime: GardenRuntime, entry_id: str, *, force: bool = False) -> dict[str, Any]:
+    """Revert one system-log entry; keeps devices in sync like ``op_save_plan``.
+
+    Returns ``{"ok", "conflicts", "problems", "entry"}``: with conflicts (items
+    changed again since) nothing happens unless ``force``; broken references
+    (e.g. a planting whose bed was deleted later) always block.
+    """
+    repo = runtime.repo
+    old_zones = [(z.id, z.name, z.type) for z in repo.data.zones]
+    old_beds = [(b.id, b.name) for b in repo.data.beds]
+    try:
+        result = repo.async_undo(entry_id, force=force)
+    except KeyError as err:
+        raise _err("unknown_log_entry", entry=entry_id) from err
+    applied = result.ok or (force and not result.problems)
+    if applied:
+        removed = ({z[0] for z in old_zones} - {z.id for z in repo.data.zones}) | (
+            {b[0] for b in old_beds} - {b.id for b in repo.data.beds}
+        )
+        if removed:
+            _remove_devices(hass, runtime, removed)
+        if old_zones != [(z.id, z.name, z.type) for z in repo.data.zones] or old_beds != [
+            (b.id, b.name) for b in repo.data.beds
+        ]:
+            async_dispatcher_send(hass, SIGNAL_LAYOUT_CHANGED)
+    entry = repo.syslog_entry(entry_id)
+    return {
+        "ok": applied,
+        "conflicts": result.conflicts,
+        "problems": result.problems,
+        "undone_by": entry.get("undone_by") if entry else None,
+        "revision": repo.data.revision,
+    }

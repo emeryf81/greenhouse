@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextvars import ContextVar
 from datetime import timedelta
 import logging
 from typing import Any
+import uuid
 
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import SAVE_DELAY_SECONDS, STORAGE_KEY
+from .engine import syslog
 from .engine.migrations import STORAGE_MINOR_VERSION, STORAGE_VERSION, migrate
 from .engine.models import GardenData
 from .engine.plantdb import PlantDatabase
@@ -21,6 +24,30 @@ _LOGGER = logging.getLogger(__name__)
 
 DONE_TASK_RETENTION = timedelta(days=400)
 PLAN_REASONS = frozenset({"plan", "import"})
+SYSLOG_SAVE_DELAY_SECONDS = 10
+
+# Who triggers the change being made right now (set by the websocket API for
+# panel actions); read when the change is written to the system log.
+current_user: ContextVar[str | None] = ContextVar("hortulus_user", default=None)
+
+PLAN_COLLECTIONS = frozenset({"zones", "beds", "plantings", "features", "rotation_history"})
+RECORD_COLLECTIONS = frozenset({"harvest_log", "journal", "seed_stock", "irrigation_log"})
+
+
+def undo_reasons(collections: set[str]) -> list[str]:
+    """Change reasons (as used by the operations) that cover these collections."""
+    reasons = []
+    if collections & PLAN_COLLECTIONS:
+        reasons.append("plan")
+    if collections & {"custom_plants", "plant_overrides"}:
+        reasons.append("plants")
+    if "settings" in collections:
+        reasons.append("settings")
+    if collections & RECORD_COLLECTIONS:
+        reasons.append("records")
+    if "tasks" in collections or not reasons:
+        reasons.append("tasks")
+    return reasons
 
 
 class GardenStore(Store[dict[str, Any]]):
@@ -54,9 +81,22 @@ class GardenRepository:
         self._builtin = builtin_plants
         self._db: PlantDatabase | None = None
         self._listeners: list[Callable[[str], None]] = []
+        # System log: every change, reversible.  Kept in its own store so the
+        # garden document stays small and needs no migration for it.
+        self.syslog_store = Store[dict[str, Any]](hass, 1, f"{STORAGE_KEY}.syslog")
+        self.syslog: list[dict[str, Any]] = []
+        self._baseline: dict[str, dict[str, Any]] = syslog.snapshot(to_dict(self.data))
+        self._pending_undo_of: str | None = None
 
     async def async_load(self) -> bool:
         """Load from disk.  Returns ``True`` when no data existed yet."""
+        raw_log = await self.syslog_store.async_load()
+        self.syslog = list((raw_log or {}).get("entries") or [])
+        loaded = await self._async_load_data()
+        self.rebase()
+        return loaded
+
+    async def _async_load_data(self) -> bool:
         raw = await self.store.async_load()
         if raw is None:
             self.data = GardenData()
@@ -92,8 +132,9 @@ class GardenRepository:
         return remove
 
     @callback
-    def async_changed(self, reason: str, *, bump_revision: bool = True) -> None:
+    def async_changed(self, reason: str, *, bump_revision: bool = True, source: str = "user") -> None:
         """Persist and notify.  ``reason`` is e.g. ``plan``, ``tasks``, ``settings``."""
+        self.record(reason, source=source)
         # The revision guards the *plan* (optimistic concurrency for the
         # planner); ticking off a task must not invalidate an open editor.
         if bump_revision and reason in PLAN_REASONS:
@@ -106,13 +147,80 @@ class GardenRepository:
 
     @callback
     def async_schedule_save(self) -> None:
+        # Background writers (task generation, notifications ...) only call
+        # this; whatever they changed is logged as a system action.
+        self.record("auto", source="system")
         self.store.async_delay_save(self._serialize, SAVE_DELAY_SECONDS)
+
+    # ------------------------------------------------------------------ #
+    # System log
+    # ------------------------------------------------------------------ #
+    def rebase(self) -> None:
+        """Accept the current document as the logged state without an entry."""
+        self._baseline = syslog.snapshot(to_dict(self.data))
+
+    @callback
+    def record(self, reason: str, *, source: str = "user") -> dict[str, Any] | None:
+        """Log what changed since the last call; ``None`` when nothing did."""
+        current = syslog.snapshot(to_dict(self.data))
+        changes = syslog.diff(self._baseline, current)
+        if not changes:
+            return None
+        before_beds = self._baseline.get("beds", {})
+        bed_names = {k: v.get("name", k) for k, v in before_beds.items()}
+        bed_names.update({k: v.get("name", k) for k, v in current.get("beds", {}).items()})
+        undo_of, self._pending_undo_of = self._pending_undo_of, None
+        entry = syslog.make_entry(
+            f"log_{uuid.uuid4().hex[:12]}",
+            dt_util.now().isoformat(timespec="seconds"),
+            reason,
+            source,
+            changes,
+            lambda col, key, item: syslog.reference(col, key, item, bed_names=bed_names),
+            user=current_user.get() if source == "user" else None,
+            undo_of=undo_of,
+        )
+        self.syslog = syslog.append(self.syslog, entry)
+        self._baseline = current
+        self.syslog_store.async_delay_save(lambda: {"entries": self.syslog}, SYSLOG_SAVE_DELAY_SECONDS)
+        return entry
+
+    def syslog_entry(self, entry_id: str) -> dict[str, Any] | None:
+        return next((e for e in self.syslog if e["id"] == entry_id), None)
+
+    @callback
+    def async_undo(self, entry_id: str, *, force: bool = False) -> syslog.UndoResult:
+        """Revert one logged entry.  The undo is logged too (and can be undone)."""
+        entry = self.syslog_entry(entry_id)
+        if entry is None:
+            raise KeyError(entry_id)
+        self.record("auto", source="system")  # never mix unlogged changes into the undo
+        doc = to_dict(self.data)
+        result = syslog.undo(
+            doc, entry["changes"], force=force, known_plants=[p["id"] for p in self._builtin if "id" in p]
+        )
+        if not result.ok and not (force and not result.problems):
+            return result
+        revision = self.data.revision
+        self.data = from_dict(GardenData, result.doc)
+        self.data.revision = revision
+        self._pending_undo_of = entry_id
+        # Notify with the reasons the original change would have used, so
+        # devices, schedules and the planner follow along.
+        reasons = undo_reasons({c["col"] for c in entry["changes"]})
+        for reason in reasons:
+            self.async_changed(reason)
+        return result
 
     async def async_flush(self) -> None:
         await self.store.async_save(self._serialize())
+        await self.syslog_store.async_save({"entries": self.syslog})
 
     def _serialize(self) -> dict[str, Any]:
+        self.record("auto", source="system")
         self._prune()
+        # Housekeeping (old finished tasks) is not an action worth logging.
+        self.rebase()
         return to_dict(self.data)
 
     def _prune(self) -> None:

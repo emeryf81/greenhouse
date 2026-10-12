@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **System log** (Journal tab → *System log*): every change to the garden – from the panel,
+  actions/automations, and what Hortulus adjusts itself (generated tasks, clean-up) – with
+  time, who and what. **Every entry can be undone**; an item that was changed again since is
+  only overwritten after confirmation, and an undo that would leave a planting without its
+  bed is refused. The undo is logged too, so it can be reverted (redo). Kept in its own store
+  (`garden_manager.garden.syslog`, last 500 entries); websocket `syslog/list`, `syslog/undo`.
+
+### Fixed
+- **Companion check showed crops that are not in the plan you look at.** The planner also
+  checks the previous and next season (for overwintering crops), but a crop added to this
+  season after its sowing window was moved forward to "today" and so ran into next season,
+  clashing with next season's plan – e.g. a chili added in October produced "Tomato and Chili
+  pepper overlap", shading and "good neighbours" messages about a tomato and basil of next
+  year's example plan. Crops of different seasons are now compared on their *planned* dates,
+  and a finding that does involve another season names it ("Tomato (season 2027)").
+
 ## 1.3.0 – 2026-10
 
 ### Added

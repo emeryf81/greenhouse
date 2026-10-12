@@ -127,3 +127,8 @@ Ja: `type: custom:hortulus-tasks-card` wordt automatisch geladen. Ze toont de ta
 ## Gebruikt Hortulus mijn bodemanalyse?
 
 Ja. Selecteer een bed in de planner en voeg een **bodemanalyse** toe (pH, organische stof, P en K uit een labo-rapport of thuistest). Het bemestingsplan, het kalkadvies en de boodschappenlijst van dat bed volgen de laatste analyse: minder fosfaat bij een hoge P, enkel kalk als de pH te laag is voor de gewassen, meer compost bij weinig organische stof.
+
+
+## Kan ik zien wat er veranderd is, en dat terugdraaien?
+
+Ja. In **Logboek → Systeemlogboek** staat elke wijziging: wat jij of een huisgenoot in het paneel deed, wat een automatisering of actie aanpaste, en wat Hortulus zelf deed (taken aanmaken of afsluiten, opruimen). Per regel zie je wanneer, door wie en wat (bv. *Verwijderd – Teelt: Tomaat (Kasbed, seizoen 2027)*). Met **Terugdraaien** zet je de toestand van vóór die actie terug. Is een onderdeel sindsdien opnieuw gewijzigd, dan vraagt Hortulus eerst of die latere wijziging mag vervallen; een terugdraaiing die een teelt zonder bed zou achterlaten wordt geweigerd. Het terugdraaien komt zelf ook in het logboek en kan je dus weer ongedaan maken. De laatste 500 regels worden bewaard.

@@ -654,3 +654,43 @@ export interface RecordsOverview {
   water: { week_l: number | null; season_l: number | null; rain_available_l: number | null; butt_pct: number | null; per_day: { day: string; liters: number }[] };
   year: { season: number; rows: YearRow[]; tasks: number[]; minutes: number[] } | null;
 }
+
+// -- system log ------------------------------------------------------------- //
+export type SyslogOp = "add" | "remove" | "change";
+
+export interface SyslogSummary {
+  col: string;
+  op: SyslogOp;
+  key?: string;
+  name?: string | null;
+  plant_id?: string | null;
+  bed?: string | null;
+  season?: number | null;
+  status?: string | null;
+}
+
+export interface SyslogEntry {
+  id: string;
+  at: string;
+  reason: string;
+  source: "user" | "system";
+  user: string | null;
+  undo_of: string | null;
+  undone_by: string | null;
+  summary: SyslogSummary[];
+  count: number;
+}
+
+export interface SyslogPage {
+  entries: SyslogEntry[];
+  more: boolean;
+  total: number;
+}
+
+export interface UndoResult {
+  ok: boolean;
+  conflicts: { col: string; key: string; op: SyslogOp }[];
+  problems: string[];
+  undone_by: string | null;
+  revision: number;
+}

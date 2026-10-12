@@ -24,6 +24,8 @@ import type {
   Bed,
   Settings,
   Snapshot,
+  SyslogPage,
+  UndoResult,
 } from "./types";
 
 const D = "garden_manager";
@@ -69,6 +71,14 @@ export class GardenApi {
 
   savePlan(doc: PlanDoc, baseRevision: number | null): Promise<{ revision: number }> {
     return this.call("plan/save", { ...doc, base_revision: baseRevision });
+  }
+
+  syslog(opts: { limit?: number; before?: string | null; include_system?: boolean } = {}): Promise<SyslogPage> {
+    return this.call("syslog/list", opts);
+  }
+
+  undo(entryId: string, force = false): Promise<UndoResult> {
+    return this.call("syslog/undo", { entry_id: entryId, force });
   }
 
   checkBed(bed: Bed, plantings: Planting[]): Promise<CompatibilityReport> {

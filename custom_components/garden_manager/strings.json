@@ -1066,6 +1066,9 @@
     },
     "invalid_soil_test": {
       "message": "Invalid soil test: {reason}"
+    },
+    "unknown_log_entry": {
+      "message": "System log entry {entry} does not exist (anymore)."
     }
   }
 }

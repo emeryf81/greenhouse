@@ -319,7 +319,9 @@ and reloads the conversation agent. Field: `overwrite`. See *Voice* below.
 `irrigation/run`, `irrigation/stop`, `advice`, `qa/options`, `qa/ask`, `supplies`,
 `records/overview` (harvest per crop, learned yields, seed box, water, year matrix),
 `records/harvest/add`, `records/delete`, `records/journal/save`, `records/seeds/save`,
-`records/soil/save`, `records/soil/delete`. Writes to the plan, plants and settings require
+`records/soil/save`, `records/soil/delete`, `syslog/list` (system log, newest first, paged
+with `before`), `syslog/entry` (one entry with before/after per item), `syslog/undo`
+(`entry_id`, optional `force`). Writes to the plan, plants and settings, and undo, require
 an admin user.
 
 ## Lovelace card

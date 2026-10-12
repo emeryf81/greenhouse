@@ -174,3 +174,8 @@ Yes: `type: custom:hortulus-tasks-card` is loaded automatically. It shows today'
 ## Does Hortulus use my soil analysis?
 
 Yes. Select a bed in the planner and add a **soil analysis** (pH, organic matter, P and K from a lab report or a home kit). The bed's fertiliser plan, lime advice and the shopping list follow the latest analysis: less phosphate when P is high, lime only when the pH is too low for the crops, more compost when organic matter is low.
+
+
+## Can I see what changed, and undo it?
+
+Yes. **Journal → System log** lists every change: what you or someone in your household did in the panel, what an automation or action changed, and what Hortulus did itself (creating or closing tasks, clean-up). Each entry shows when, who and what (e.g. *Removed – Crop: Tomato (Greenhouse bed, season 2027)*). **Undo** restores the state from before that action. If an item was changed again since, Hortulus asks before discarding that later change; an undo that would leave a crop without its bed is refused. The undo is logged as well, so it can be reverted too. The last 500 entries are kept.

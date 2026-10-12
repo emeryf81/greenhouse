@@ -19,7 +19,7 @@ from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
 from .const import DOMAIN
-from .engine import handbook
+from .engine import handbook, syslog
 from .engine.advisor import advise, harvest_coverage
 from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
@@ -53,9 +53,11 @@ from .operations import (
     op_save_seed,
     op_save_settings,
     op_save_soil_test,
+    op_undo,
     op_update_task,
 )
 from .printing import async_render_svg
+from .storage import current_user
 
 if TYPE_CHECKING:
     from . import GardenRuntime
@@ -99,6 +101,9 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_seed_save,
         ws_soil_save,
         ws_soil_delete,
+        ws_syslog_list,
+        ws_syslog_entry,
+        ws_syslog_undo,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -114,6 +119,8 @@ def _require_runtime(
     runtime = _runtime(hass)
     if runtime is None:
         connection.send_error(msg["id"], "not_loaded", "Hortulus is not set up")
+    # Attribute whatever this command changes to the user in the system log.
+    current_user.set(connection.user.name if connection.user else None)
     return runtime
 
 
@@ -324,15 +331,19 @@ def ws_plan_check(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     today = dt_util.now().date()
     zone = data.zone(bed.zone_id)
     timelines = {}
+    planned = {}
     for p in plantings:
         plant = db.get(p.plant_id)
         if plant is not None:
-            timelines[p.id] = planting_timeline(p, plant, season_anchors(data.settings.region, p.season), zone, today)
+            anchors = season_anchors(data.settings.region, p.season)
+            timelines[p.id] = planting_timeline(p, plant, anchors, zone, today)
+            planned[p.id] = planting_timeline(p, plant, anchors, zone, None).occupancy
     report = check_bed(
         bed,
         plantings,
         db,
         timelines={k: v.occupancy for k, v in timelines.items()},
+        planned=planned,
         radius_cm=data.settings.companion_radius_cm,
         lang=lang,
         hemisphere=resolve_profile(data.settings.region).hemisphere,
@@ -923,3 +934,66 @@ def ws_soil_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         _ws_op(
             connection, msg, lambda: op_delete_soil_test(runtime, msg["bed_id"], date.fromisoformat(msg["date"])) or {}
         )
+
+
+# --------------------------------------------------------------------------- #
+# System log
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/syslog/list",
+        vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=syslog.MAX_ENTRIES)),
+        vol.Optional("before"): vol.Any(str, None),
+        vol.Optional("include_system", default=True): bool,
+    }
+)
+@callback
+def ws_syslog_list(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Newest first; page with ``before`` = id of the last entry received."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    entries = list(reversed(runtime.repo.syslog))
+    if msg.get("before"):
+        ids = [e["id"] for e in entries]
+        entries = entries[ids.index(msg["before"]) + 1 :] if msg["before"] in ids else []
+    if not msg["include_system"]:
+        entries = [e for e in entries if e.get("source") != "system"]
+    page = entries[: msg["limit"]]
+    connection.send_result(
+        msg["id"],
+        {
+            "entries": [syslog.public(e) for e in page],
+            "more": len(entries) > len(page),
+            "total": len(runtime.repo.syslog),
+        },
+    )
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/syslog/entry", vol.Required("entry_id"): str})
+@callback
+def ws_syslog_entry(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """One entry including the before/after of every changed item."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    entry = runtime.repo.syslog_entry(msg["entry_id"])
+    if entry is None:
+        connection.send_error(msg["id"], "unknown_log_entry", msg["entry_id"])
+        return
+    connection.send_result(msg["id"], {"entry": entry})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/syslog/undo",
+        vol.Required("entry_id"): str,
+        vol.Optional("force", default=False): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_syslog_undo(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: op_undo(hass, runtime, msg["entry_id"], force=msg["force"]))

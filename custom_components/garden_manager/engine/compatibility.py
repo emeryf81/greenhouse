@@ -298,6 +298,7 @@ def check_bed(
     db: PlantDatabase,
     *,
     timelines: dict[str, DateWindow] | None = None,
+    planned: dict[str, DateWindow] | None = None,
     radius_cm: float = 60.0,
     lang: str = "en",
     hemisphere: Hemisphere = Hemisphere.NORTH,
@@ -306,8 +307,15 @@ def check_bed(
 
     ``timelines`` maps planting id -> occupancy window; plantings that are
     never in the ground at the same time (succession!) never conflict.
+
+    ``planned`` holds the occupancy *as planned* (not moved forward to today).
+    Annuals of different seasons are compared with it: a crop of this season
+    that is planned too late must not "roll over" into next season's plan and
+    clash with crops the user does not even see in this season's view.  Real
+    overlaps (garlic planted in autumn for next summer) are still found.
     """
     timelines = timelines or {}
+    planned = planned or {}
     report = CompatibilityReport()
     bounds = Rect(0, 0, bed.width_cm, bed.length_cm)
     items = [(p, planting_rect(p), db.get(p.plant_id)) for p in plantings if p.bed_id == bed.id]
@@ -318,7 +326,10 @@ def check_bed(
     total = 0.0
     for i, (pa, ra, plant_a) in enumerate(items):
         for pb, rb, plant_b in items[i + 1 :]:
-            if not _overlaps_in_time(timelines.get(pa.id), timelines.get(pb.id)):
+            windows = timelines
+            if pa.season != pb.season and not plant_a.perennial and not plant_b.perennial:
+                windows = {**timelines, **planned}
+            if not _overlaps_in_time(windows.get(pa.id), windows.get(pb.id)):
                 continue
             for finding in evaluate_pair(
                 pa,

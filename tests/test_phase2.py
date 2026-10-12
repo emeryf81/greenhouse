@@ -421,3 +421,44 @@ async def test_voice_answers_and_sentence_install(hass: HomeAssistant, garden, t
     assert len(res["written"]) == 2 and (tmp_path / "custom_sentences/nl/hortulus.yaml").exists()
     again = await hass.services.async_call(DOMAIN, "install_voice_sentences", {}, blocking=True, return_response=True)
     assert again["written"] == []  # never overwrite without asking
+
+
+async def test_system_log_records_and_undoes_actions(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    removed = repo.data.plantings[0]
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/plan/save",
+            "base_revision": repo.data.revision,
+            "zones": [to_dict(z) for z in repo.data.zones],
+            "beds": [to_dict(b) for b in repo.data.beds],
+            "plantings": [to_dict(p) for p in repo.data.plantings[1:]],
+        }
+    )
+    assert (await _result(client))["success"]
+    assert repo.data.planting(removed.id) is None
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/syslog/list", "include_system": False})
+    page = (await _result(client))["result"]
+    latest = page["entries"][0]
+    assert latest["source"] == "user" and latest["reason"] == "plan" and latest["user"]
+    assert {"col": "plantings", "op": "remove"}.items() <= latest["summary"][0].items()
+    assert latest["summary"][0]["plant_id"] == removed.plant_id
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/syslog/undo", "entry_id": latest["id"]})
+    res = (await _result(client))["result"]
+    assert res["ok"] and res["undone_by"]
+    assert repo.data.planting(removed.id) is not None
+
+    # The undo is logged too and can itself be undone (redo).
+    await client.send_json_auto_id({"type": f"{DOMAIN}/syslog/list", "include_system": False})
+    entries = (await _result(client))["result"]["entries"]
+    assert entries[0]["undo_of"] == latest["id"] and entries[1]["undone_by"] == entries[0]["id"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/syslog/undo", "entry_id": entries[0]["id"]})
+    assert (await _result(client))["result"]["ok"]
+    assert repo.data.planting(removed.id) is None
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/syslog/undo", "entry_id": "log_nope"})
+    assert not (await _result(client))["success"]
