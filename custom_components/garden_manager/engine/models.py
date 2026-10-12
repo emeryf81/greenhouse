@@ -39,6 +39,8 @@ class ZoneType(StrEnum):
     FRUIT = "fruit"  # soft fruit: berries, currants, canes, grapes
     HERBS = "herbs"  # herb garden
     FLOWERS = "flowers"  # flower / pollinator border
+    GARDEN = "garden"  # ornamental garden: shrubs, borders, lawn edges
+    CONTAINERS = "containers"  # planters, pots, balcony and terrace boxes
 
 
 # What each zone type is meant to hold (used by the planner palette and autofill).
@@ -50,6 +52,8 @@ ZONE_CATEGORIES: dict[str, tuple[str, ...]] = {
     "fruit": ("fruit",),
     "herbs": ("herb", "flower"),
     "flowers": ("flower", "herb"),
+    "garden": ("flower", "herb", "fruit"),
+    "containers": ("vegetable", "herb", "flower", "fruit"),
 }
 
 
@@ -261,6 +265,16 @@ class FeatureType(StrEnum):
     PARKING = "parking"
     PLAY = "play"
     BEEHIVE = "beehive"
+    STONE_PATH = "stone_path"
+    WOOD_PATH = "wood_path"
+    STEPPING_STONES = "stepping_stones"
+    BARK_PATH = "bark_path"
+    DECKING = "decking"
+    WALL = "wall"
+    CARPORT = "carport"
+    SHRUB = "shrub"
+    POOL = "pool"
+    SEATING = "seating"
     OTHER = "other"
 
 
@@ -890,7 +904,7 @@ class GardenData:
     def bed_sensors(self, bed: GardenBed) -> SensorMapping:
         zone = self.zone_of_bed(bed)
         merged = bed.sensors.merged_with(zone.sensors) if zone else bed.sensors
-        if zone is None or zone.type is ZoneType.OUTDOOR:
+        if zone is None or not zone.is_enclosed:
             merged = merged.merged_with(self.settings.outdoor_sensors)
         return merged
 

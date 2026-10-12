@@ -248,7 +248,7 @@ def advise(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: 
             handbook="watering",
             action={"type": "draw", "feature": "water_butt"},
         )
-    if data.beds and not feature_types & {FeatureType.HEDGE, FeatureType.POND, FeatureType.TREE}:
+    if data.beds and not feature_types & {FeatureType.HEDGE, FeatureType.POND, FeatureType.TREE, FeatureType.SHRUB}:
         add("habitat", "eco", "info", "habitat", handbook="home_remedies")
     if any(z.is_enclosed for z in data.zones) and not any(
         z.sensors.air_temperature for z in data.zones if z.is_enclosed

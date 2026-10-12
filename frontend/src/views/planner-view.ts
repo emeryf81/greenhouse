@@ -27,23 +27,30 @@ interface PaletteDrag {
 
 const clone = <T,>(v: T): T => structuredClone(v);
 const emptySensors = () => ({ soil_moisture: null, soil_temperature: null, air_temperature: null, air_humidity: null, light: null, rain: null });
-const FEATURE_TYPES: FeatureType[] = [
-  "house", "driveway", "street", "parking", "terrace", "path", "lawn", "flowerbed", "hedge", "fence", "tree", "pond",
-  "shed", "compost", "water_butt", "trellis", "play", "beehive", "other",
+/** Garden elements, grouped as in the "draw site" pane. */
+const FEATURE_GROUPS: [string, FeatureType[]][] = [
+  ["buildings", ["house", "carport", "shed", "driveway", "parking", "street", "terrace", "decking", "wall"]],
+  ["paths", ["path", "stone_path", "wood_path", "stepping_stones", "bark_path"]],
+  ["green", ["lawn", "flowerbed", "hedge", "shrub", "tree", "pond"]],
+  ["outdoor_living", ["seating", "pool", "play", "fence", "trellis", "compost", "water_butt", "beehive", "other"]],
 ];
+const FEATURE_TYPES: FeatureType[] = FEATURE_GROUPS.flatMap(([, types]) => types);
 const FEATURE_SIZE: Record<FeatureType, [number, number]> = {
   path: [300, 60], terrace: [400, 300], lawn: [500, 400], flowerbed: [200, 100], compost: [100, 100], water_butt: [60, 60],
   shed: [200, 150], tree: [400, 400], house: [1000, 800], driveway: [300, 800], street: [1500, 600], parking: [500, 500],
   play: [300, 300], beehive: [60, 60], hedge: [400, 80], fence: [500, 10], trellis: [200, 20], pond: [200, 150], other: [80, 80],
+  stone_path: [300, 80], wood_path: [300, 80], stepping_stones: [300, 50], bark_path: [300, 60], decking: [400, 300],
+  wall: [400, 20], carport: [300, 500], shrub: [150, 150], pool: [800, 400], seating: [300, 250],
 };
-const ZONE_TYPES: ZoneType[] = ["outdoor", "greenhouse", "cold_frame", "orchard", "fruit", "herbs", "flowers"];
+const ZONE_TYPES: ZoneType[] = ["outdoor", "garden", "greenhouse", "cold_frame", "containers", "orchard", "fruit", "herbs", "flowers"];
 /** Zones whose plants live in one big "bed" (trees, bushes, herb & flower borders). */
-const OPEN_ZONES: ZoneType[] = ["orchard", "fruit", "herbs", "flowers"];
+const OPEN_ZONES: ZoneType[] = ["orchard", "fruit", "herbs", "flowers", "garden"];
 const ZONE_SIZE: Record<ZoneType, [number, number]> = {
   outdoor: [600, 400], greenhouse: [300, 200], cold_frame: [150, 80], orchard: [1000, 800], fruit: [600, 300], herbs: [300, 200], flowers: [400, 150],
+  garden: [800, 600], containers: [400, 200],
 };
 type Step = "site" | "zones" | "plant";
-type Tool = { kind: "zone"; type: ZoneType } | { kind: "feature"; type: FeatureType } | { kind: "bed" };
+type Tool = { kind: "zone"; type: ZoneType } | { kind: "feature"; type: FeatureType } | { kind: "bed"; bedKind?: BedKind };
 const GOALS = ["fresh", "storage", "herbs", "pollinators", "winter", "perennials", "easy"];
 const CATEGORIES = ["vegetable", "herb", "fruit", "flower"] as const;
 
@@ -182,6 +189,8 @@ export class PlannerView extends LitElement {
       .step-sep { color: var(--hl-text-muted); }
       .crumbs { display: inline-flex; gap: 6px; align-items: center; }
       .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 6px; }
+      details.elements > summary { cursor: pointer; padding: 6px 0; }
+      details.elements[open] > summary { margin-bottom: 4px; }
       .tool { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: var(--hl-r-md);
         border: 1px solid var(--hl-border); background: var(--hl-surface-2); cursor: pointer; color: var(--hl-text); font: inherit; }
       .tool:hover { background: var(--hl-surface-3); }
@@ -544,7 +553,7 @@ export class PlannerView extends LitElement {
   private toolInfo(tool: Tool): DrawTool {
     if (tool.kind === "zone") return { label: this.t(`settings.zone_type.${tool.type}`), color: ZONE_STYLE[tool.type].stroke.startsWith("var") ? "#6f9a45" : ZONE_STYLE[tool.type].stroke };
     if (tool.kind === "feature") return { label: this.t(`feature.${tool.type}`), color: FEATURE_STYLE[tool.type]?.stroke ?? "#888" };
-    return { label: this.t("planner.bed_name"), color: "#8a6a45" };
+    return { label: this.t(tool.bedKind === "container" ? "planner.draw_planter" : "planner.bed_name"), color: "#8a6a45" };
   }
 
   private onDrawRect(ev: CustomEvent<Rect>): void {
@@ -573,7 +582,7 @@ export class PlannerView extends LitElement {
       this.selection = { kind: "feature", id: feature.id };
       this.commit(doc, this.t("planner.placed", { plant: feature.name, bed: "" }));
     } else {
-      if (!r.w) r = at(120, 80);
+      if (!r.w) r = tool.bedKind === "container" ? at(80, 40) : at(120, 80);
       const cx = r.x + r.w / 2;
       const cy = r.y + r.h / 2;
       const zone = doc.zones.find((z) => z.id === this.focusZone) ??
@@ -583,7 +592,8 @@ export class PlannerView extends LitElement {
         return;
       }
       const bed = this.makeBed(zone, clampInto(r, { x: zone.x_cm, y: zone.y_cm, w: zone.width_cm, h: zone.length_cm }),
-        `${this.t("planner.new_bed")} ${doc.beds.length + 1}`, zone.type === "outdoor" ? "raised" : "in_ground");
+        `${this.t(tool.bedKind === "container" ? "planner.new_planter" : "planner.new_bed")} ${doc.beds.length + 1}`,
+        tool.bedKind ?? (zone.type === "containers" ? "container" : zone.type === "outdoor" ? "raised" : "in_ground"));
       doc.beds.push(bed);
       this.selection = { kind: "bed", id: bed.id };
       this.commit(doc, this.t("planner.placed", { plant: bed.name, bed: zone.name }), [bed.id]);
@@ -594,7 +604,8 @@ export class PlannerView extends LitElement {
   private makeBed(zone: Zone, r: Rect, name: string, kind: BedKind): Bed {
     return {
       id: uid("bed"), name, zone_id: zone.id, kind, x_cm: r.x, y_cm: r.y, width_cm: r.w, length_cm: r.h, orientation_deg: 0,
-      soil: "loam", shade_pct: null, sensors: emptySensors(), irrigation_entity: null, irrigation_flow_lpm: null, notes: "",
+      soil: kind === "container" ? "potting_mix" : "loam", shade_pct: null, sensors: emptySensors(), irrigation_entity: null,
+      irrigation_flow_lpm: null, notes: "",
     };
   }
 
@@ -1057,7 +1068,9 @@ export class PlannerView extends LitElement {
         </span>
         ${this.admin ? html`
           <button class="btn small primary" @click=${() => this.openAutofill()}><ha-icon icon="mdi:auto-fix"></ha-icon>${this.t("autofill.title")}</button>
-          <button class="btn small" @click=${() => this.addBed()}><ha-icon icon="mdi:plus"></ha-icon>${this.t("planner.add_bed")}</button>` : nothing}
+          <button class="btn small" @click=${() => this.addBed()}><ha-icon icon="mdi:plus"></ha-icon>${this.t("planner.add_bed")}</button>
+          ${this.step !== "site" ? html`<button class="btn small" @click=${() => { this.closeZone(); this.step = "site"; this.tool = null; }}>
+            <ha-icon icon="mdi:draw"></ha-icon>${this.t("planner.draw_site")}</button>` : nothing}` : nothing}
         <details class="more">
           <summary class="icon-btn" title=${this.t("planner.more")} aria-label=${this.t("planner.more")}><ha-icon icon="mdi:dots-vertical"></ha-icon></summary>
           <div class="menu" role="menu">
@@ -1095,10 +1108,20 @@ export class PlannerView extends LitElement {
   }
 
   private renderToolButton(tool: Tool, icon: TemplateResult | string, label: string, hint = ""): TemplateResult {
-    const active = this.tool && this.tool.kind === tool.kind && ("type" in tool ? (this.tool as { type?: string }).type === tool.type : true);
+    const active = this.tool && this.tool.kind === tool.kind && ("type" in tool ? (this.tool as { type?: string }).type === tool.type
+      : (this.tool as { bedKind?: string }).bedKind === (tool as { bedKind?: string }).bedKind);
     return html`<button class="tool ${active ? "active" : ""}" aria-pressed=${String(!!active)} title=${hint || label} ?disabled=${!this.admin}
       @click=${() => (this.tool = active ? null : tool)}>
       <span class="tool-icon">${icon}</span><span class="tool-label">${label}</span></button>`;
+  }
+
+  /** All garden elements, grouped (buildings & paving, paths, green, outdoor living). */
+  private renderFeatureGroups(): TemplateResult {
+    return html`${FEATURE_GROUPS.map(([group, types]) => html`
+      <h4>${this.t(`planner.elements.${group}`)}</h4>
+      <div class="tool-grid">
+        ${types.map((f) => this.renderToolButton({ kind: "feature", type: f }, FEATURE_STYLE[f]?.icon || "▭", this.t(`feature.${f}`)))}
+      </div>`)}`;
   }
 
   /** Step 1: draw the site - zones and garden elements on the 10 cm grid. */
@@ -1111,10 +1134,7 @@ export class PlannerView extends LitElement {
         <div class="tool-grid">
           ${ZONE_TYPES.map((z) => this.renderToolButton({ kind: "zone", type: z }, ZONE_STYLE[z].icon, this.t(`settings.zone_type.${z}`), this.t(`zone_hint.${z}`)))}
         </div>
-        <h4>${this.t("planner.elements")}</h4>
-        <div class="tool-grid">
-          ${FEATURE_TYPES.map((f) => this.renderToolButton({ kind: "feature", type: f }, FEATURE_STYLE[f]?.icon || "▭", this.t(`feature.${f}`)))}
-        </div>
+        ${this.renderFeatureGroups()}
         <div class="divider"></div>
         <h4>${this.t("planner.your_zones")} (${this.draft.zones.length})</h4>
         ${this.draft.zones.length ? html`<div class="stack" style="gap:6px">${this.draft.zones.map((z) => html`
@@ -1164,9 +1184,12 @@ export class PlannerView extends LitElement {
         <h4>${this.t("planner.beds_in_zone")} (${beds.length})</h4>
         <div class="tool-grid">
           ${this.renderToolButton({ kind: "bed" }, "▭", this.t("planner.draw_bed"))}
-          ${FEATURE_TYPES.filter((f) => ["path", "tree", "trellis", "water_butt", "compost", "flowerbed"].includes(f))
-            .map((f) => this.renderToolButton({ kind: "feature", type: f }, FEATURE_STYLE[f]?.icon || "▭", this.t(`feature.${f}`)))}
+          ${this.renderToolButton({ kind: "bed", bedKind: "container" }, "🪴", this.t("planner.draw_planter"), this.t("planner.draw_planter_hint"))}
         </div>
+        <details class="elements">
+          <summary class="small"><b>${this.t("planner.elements_in_zone")}</b></summary>
+          ${this.renderFeatureGroups()}
+        </details>
         <div class="stack" style="gap:4px">${beds.map((b) => html`<button class="zone-row as-btn" @click=${() => this.onSelect({ kind: "bed", id: b.id })}>
           <span>▭</span><span class="grow"><b>${b.name}</b> <span class="xs muted">${(b.width_cm / 100).toFixed(1)} × ${(b.length_cm / 100).toFixed(1)} m · ${this.t(`kind.${b.kind}`)}</span></span></button>`)}</div>
         <div class="divider"></div>

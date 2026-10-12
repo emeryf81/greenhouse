@@ -10,7 +10,19 @@
   bed is refused. The undo is logged too, so it can be reverted (redo). Kept in its own store
   (`garden_manager.garden.syslog`, last 500 entries); websocket `syslog/list`, `syslog/undo`.
 
+- **Lay out the whole garden**: paths in **stone**, **wood**, **stepping stones** and **bark**
+  (the old path is now *gravel path*), **decking**, **wall**, **carport / garage**, **shrub**,
+  **swimming pool** and **seating area**, next to house, terrace, lawn, hedge … Elements are
+  grouped (buildings & paving, paths, green, outdoor living) and **all** of them can now be
+  drawn from a zone's own map too, not only six.
+- Zone types **Ornamental garden** and **Planters & pots**; a **Planter / pot** tool draws a
+  container bed (potting mix) you can plant like any bed.
+- Planner toolbar button **Site & elements** jumps back to drawing the site from any step
+  (the planner opens on *Plant* once there are crops, which hid the drawing tools).
+
 ### Fixed
+- Beds in orchards, herb, flower and the new garden zones now use the outdoor sensors (only
+  greenhouses and cold frames have their own climate).
 - **Companion check showed crops that are not in the plan you look at.** The planner also
   checks the previous and next season (for overwintering crops), but a crop added to this
   season after its sowing window was moved forward to "today" and so ran into next season,

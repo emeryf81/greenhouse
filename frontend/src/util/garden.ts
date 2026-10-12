@@ -158,4 +158,6 @@ export const ZONE_CATEGORIES: Record<string, string[]> = {
   fruit: ["fruit"],
   herbs: ["herb", "flower"],
   flowers: ["flower", "herb"],
+  garden: ["flower", "herb", "fruit"],
+  containers: ["vegetable", "herb", "flower", "fruit"],
 };

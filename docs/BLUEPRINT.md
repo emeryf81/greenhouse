@@ -613,7 +613,7 @@ class GardenData:
     def bed_sensors(self, bed: GardenBed) -> SensorMapping:
         zone = self.zone_of_bed(bed)
         merged = bed.sensors.merged_with(zone.sensors) if zone else bed.sensors
-        if zone is None or zone.type is ZoneType.OUTDOOR:
+        if zone is None or not zone.is_enclosed:
             merged = merged.merged_with(self.settings.outdoor_sensors)
         return merged
 ```

@@ -33,6 +33,16 @@ export const FEATURE_STYLE: Record<string, { fill: string; stroke: string; icon:
   street: { fill: "#8f9294", stroke: "#5f6264", icon: "🛣️", pattern: "asphalt", opacity: 0.95 },
   play: { fill: "#efe0a0", stroke: "#c2a84a", icon: "🛝", opacity: 0.7 },
   beehive: { fill: "#f2c230", stroke: "#b5841a", icon: "🐝", opacity: 0.85 },
+  stone_path: { fill: "#cfc8bd", stroke: "#958d80", icon: "🪨", pattern: "flagstones", opacity: 0.95 },
+  wood_path: { fill: "#c39463", stroke: "#8a6238", icon: "🪵", pattern: "planks", opacity: 0.95 },
+  stepping_stones: { fill: "#a6cc72", stroke: "#8f887c", icon: "👣", pattern: "stepping", opacity: 0.9 },
+  bark_path: { fill: "#a07a52", stroke: "#7d5a38", icon: "🟫", pattern: "bark", opacity: 0.9 },
+  decking: { fill: "#c39463", stroke: "#8a6238", icon: "🪑", pattern: "planks", opacity: 0.95 },
+  wall: { fill: "#b07a5c", stroke: "#7d4f36", icon: "🧱", pattern: "bricks", opacity: 0.95 },
+  carport: { fill: "#a4aca9", stroke: "#6b7370", icon: "🚙", pattern: "roof", opacity: 0.85 },
+  shrub: { fill: "#5f8f45", stroke: "#3d6b2a", icon: "🌳", pattern: "hedge", opacity: 0.75 },
+  pool: { fill: "#5fb0e0", stroke: "#2d7fb0", icon: "🏊", pattern: "pool", opacity: 0.95 },
+  seating: { fill: "#d9c7a3", stroke: "#9c8460", icon: "🪑", pattern: "tiles", opacity: 0.85 },
   other: { fill: "#b4b4b4", stroke: "#888", icon: "•", opacity: 0.55 },
 };
 
@@ -45,6 +55,8 @@ export const ZONE_STYLE: Record<string, { fill: string; stroke: string; dash: st
   fruit: { fill: "rgba(200, 60, 90, 0.08)", stroke: "#c8506a", dash: "10 4", icon: "🫐" },
   herbs: { fill: "rgba(80, 110, 176, 0.09)", stroke: "#6a84c0", dash: "10 4", icon: "🌿" },
   flowers: { fill: "rgba(224, 106, 160, 0.09)", stroke: "#d27aa8", dash: "10 4", icon: "🌸" },
+  garden: { fill: "rgba(110, 150, 90, 0.10)", stroke: "#7a9a5a", dash: "10 4", icon: "🏡" },
+  containers: { fill: "rgba(176, 122, 92, 0.10)", stroke: "#b07a5c", dash: "4 3", icon: "🪴" },
 };
 
 const LINK_STYLE: Record<string, { color: string; dash: string; width: number }> = {
@@ -411,7 +423,7 @@ export class GardenCanvas extends LitElement {
     const fs = 11 / this.k;
     const cx = r.x + r.w / 2;
     const cy = r.y + r.h / 2;
-    const round = f.type === "tree" || f.type === "water_butt" || f.type === "pond";
+    const round = f.type === "tree" || f.type === "water_butt" || f.type === "pond" || f.type === "shrub";
     let shape: SVGTemplateResult;
     if (f.type === "tree") {
       const size = Math.min(r.w, r.h);
@@ -490,6 +502,31 @@ export class GardenCanvas extends LitElement {
         </pattern>
         <pattern id="feat-house" width="30" height="30" patternUnits="userSpaceOnUse">
           <rect width="30" height="30" fill="#c9b8a8"></rect><path d="M0 0L30 30M30 0L0 30" stroke="#b3a191" stroke-width="1"></path>
+        </pattern>
+        <pattern id="feat-flagstones" width="48" height="36" patternUnits="userSpaceOnUse">
+          <rect width="48" height="36" fill="#9a9285"></rect>
+          <path d="M2 2h18l2 13H3zM24 2h21l-1 10H25zM25 15h20v19H27zM3 18h20l-1 16H2z" fill="#d2ccc2" stroke="#b3ab9e" stroke-width="0.8"></path>
+        </pattern>
+        <pattern id="feat-planks" width="40" height="12" patternUnits="userSpaceOnUse">
+          <rect width="40" height="12" fill="#c39463"></rect>
+          <path d="M0 0.5H40M0 6.5H40M14 0V6M32 6V12" stroke="#8a6238" stroke-width="0.9"></path>
+          <path d="M3 3.5h6M20 9.5h8" stroke="#a87a4c" stroke-width="0.6"></path>
+        </pattern>
+        <pattern id="feat-stepping" width="40" height="40" patternUnits="userSpaceOnUse">
+          <rect width="40" height="40" fill="#a6cc72"></rect>
+          <ellipse cx="11" cy="11" rx="8" ry="7" fill="#cfc8bd" stroke="#958d80" stroke-width="0.8"></ellipse>
+          <ellipse cx="30" cy="30" rx="8" ry="7" fill="#cfc8bd" stroke="#958d80" stroke-width="0.8"></ellipse>
+        </pattern>
+        <pattern id="feat-bark" width="18" height="18" patternUnits="userSpaceOnUse">
+          <rect width="18" height="18" fill="#a07a52"></rect>
+          <path d="M2 4l5 1M10 2l4 3M4 11l6-1M12 9l4 2M3 16l4-1M11 15l5 1" stroke="#7d5a38" stroke-width="1.4" stroke-linecap="round"></path>
+        </pattern>
+        <pattern id="feat-bricks" width="24" height="12" patternUnits="userSpaceOnUse">
+          <rect width="24" height="12" fill="#b07a5c"></rect><path d="M0 0.5H24M0 6.5H24M12 0V6M0 6V12M24 6V12" stroke="#e6d5c8" stroke-width="1"></path>
+        </pattern>
+        <pattern id="feat-pool" width="40" height="20" patternUnits="userSpaceOnUse">
+          <rect width="40" height="20" fill="#62b6e6"></rect>
+          <path d="M2 10q5-4 10 0t10 0 10 0 10 0" fill="none" stroke="#d8f0fb" stroke-width="1.4"></path>
         </pattern>
         <pattern id="feat-pavers" width="24" height="12" patternUnits="userSpaceOnUse">
           <rect width="24" height="12" fill="#d2ccc2"></rect><path d="M0 0.5H24M0 6.5H24M6 0V6M18 6V12" stroke="#b3ab9e" stroke-width="1"></path>

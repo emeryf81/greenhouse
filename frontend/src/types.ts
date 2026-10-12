@@ -4,7 +4,7 @@
 export type ISODate = string; // "2026-04-20"
 export type ISODateTime = string;
 
-export type ZoneType = "outdoor" | "greenhouse" | "cold_frame" | "orchard" | "fruit" | "herbs" | "flowers";
+export type ZoneType = "outdoor" | "greenhouse" | "cold_frame" | "orchard" | "fruit" | "herbs" | "flowers" | "garden" | "containers";
 export type BedKind = "in_ground" | "raised" | "container";
 export type SoilType = "sandy" | "loam" | "clay" | "silt" | "peat" | "chalk" | "potting_mix";
 export type Wind = "sheltered" | "moderate" | "exposed";
@@ -69,7 +69,9 @@ export interface Zone {
 export type FeatureType =
   | "path" | "compost" | "water_butt" | "shed" | "tree" | "hedge" | "trellis"
   | "terrace" | "lawn" | "flowerbed" | "fence" | "pond"
-  | "house" | "driveway" | "street" | "parking" | "play" | "beehive" | "other";
+  | "house" | "driveway" | "street" | "parking" | "play" | "beehive"
+  | "stone_path" | "wood_path" | "stepping_stones" | "bark_path" | "decking" | "wall" | "carport" | "shrub" | "pool" | "seating"
+  | "other";
 
 export interface Feature {
   id: string;
