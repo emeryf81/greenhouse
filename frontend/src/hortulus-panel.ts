@@ -21,18 +21,21 @@ import "./views/calendar-view";
 import "./views/settings-view";
 import "./views/handbook-view";
 import "./views/print-view";
+import "./views/advice-view";
+import { setSupplies } from "./util/tools";
 import "./components/task-ui";
 import { setGlossary } from "./components/info";
 
-type Tab = "dashboard" | "planner" | "library" | "calendar" | "handbook" | "print" | "settings";
+type Tab = "dashboard" | "planner" | "library" | "calendar" | "advice" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
   { id: "dashboard", icon: "mdi:home-variant-outline", mobile: true },
   { id: "planner", icon: "mdi:floor-plan", mobile: true },
   { id: "library", icon: "mdi:sprout-outline", mobile: true },
   { id: "calendar", icon: "mdi:calendar-month-outline", mobile: true },
+  { id: "advice", icon: "mdi:chat-question-outline", mobile: true },
   { id: "handbook", icon: "mdi:book-open-page-variant-outline", mobile: true },
   { id: "print", icon: "mdi:printer-outline", mobile: false },
-  { id: "settings", icon: "mdi:cog-outline", mobile: true },
+  { id: "settings", icon: "mdi:cog-outline", mobile: false },
 ];
 
 @customElement("hortulus-panel")
@@ -79,7 +82,8 @@ export class HortulusPanel extends LitElement {
       :host([narrow]) nav.top { display: none; }
       :host([narrow]) .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 4; background: var(--hl-surface);
         border-top: 1px solid var(--hl-border); justify-content: space-around; padding: 4px 0 calc(4px + env(safe-area-inset-bottom)); }
-      :host([narrow]) .bottom-nav a { flex-direction: column; height: auto; padding: 4px 6px; font-size: 11px; gap: 2px; margin: 0; }
+      :host([narrow]) .bottom-nav a { flex-direction: column; height: auto; padding: 4px 2px; font-size: 10.5px; gap: 2px; margin: 0;
+        flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       :host([narrow]) main { padding: var(--hl-s3) var(--hl-s3) 88px; }
       .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; background: var(--hl-soil-900); color: #fff;
         padding: 10px 18px; border-radius: var(--hl-r-pill); box-shadow: var(--hl-shadow-3); font-size: var(--hl-fs-sm); max-width: calc(100vw - 32px); }
@@ -148,6 +152,7 @@ export class HortulusPanel extends LitElement {
   private async loadGlossary(): Promise<void> {
     try {
       setGlossary((await this.api!.handbookIndex(this.uiLang)).glossary);
+      setSupplies(await this.api!.supplies());
     } catch {
       /* older backend - tooltips stay empty */
     }
@@ -228,6 +233,9 @@ export class HortulusPanel extends LitElement {
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
       case "calendar":
         return html`<hl-calendar-view .snapshot=${snap} .t=${this.t} .lang=${this.uiLang} .plants=${plantMap} .families=${this.families}></hl-calendar-view>`;
+      case "advice":
+        return html`<hl-advice-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin}></hl-advice-view>`;
       case "handbook":
         return html`<hl-handbook-view .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .chapterId=${this.chapter} .narrow=${this.narrow}></hl-handbook-view>`;
       case "print":
@@ -253,6 +261,10 @@ export class HortulusPanel extends LitElement {
           <ha-icon icon="mdi:menu"></ha-icon></button>` : nothing}
         <div class="brand">${emblem(30)}<span>Hortulus</span>${this.narrow ? nothing : html`<small>${this.t("app.tagline")}</small>`}</div>
         ${this.renderNav("top")}
+        ${this.narrow ? html`<span style="flex:1"></span>
+          <button class="icon-btn" aria-label=${this.t("nav.print")} @click=${() => this.navigate("print")}><ha-icon icon="mdi:printer-outline"></ha-icon></button>
+          <button class="icon-btn" aria-label=${this.t("nav.settings")} aria-pressed=${String(this.tab === "settings")} @click=${() => this.navigate("settings")}>
+            <ha-icon icon="mdi:cog-outline"></ha-icon></button>` : nothing}
       </header>
       <main @open-task=${(e: CustomEvent<Task>) => (this.openTask = e.detail)}
         @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}

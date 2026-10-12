@@ -287,3 +287,52 @@ async def test_websocket_print_handbook_autofill(hass: HomeAssistant, garden, ha
     await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/plan"})
     plan = (await _result(client))["result"]
     assert "runs" in plan and "reasons" in plan
+
+
+async def test_websocket_advice_qa_supplies(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/advice"})
+    advice = (await _result(client))["result"]
+    assert "suggestions" in advice and len(advice["coverage"]["months"]) == 12
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/qa/options"})
+    opts = (await _result(client))["result"]
+    assert "plant" in opts["subjects"] and opts["targets"]["plant"]
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/qa/ask", "subject": "plant", "problem": "pests", "target": "tomato"}
+    )
+    ans = (await _result(client))["result"]
+    assert ans["title"] and ans["remedies"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/qa/ask", "subject": "plant", "problem": "nonsense"})
+    assert not (await _result(client))["success"]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/supplies"})
+    supplies = (await _result(client))["result"]
+    assert supplies["tools"]["secateurs"] and "prune" in supplies["task_tools"] and "shopping" in supplies
+
+
+async def test_overdue_reminder_and_weekly_plan(hass: HomeAssistant, garden) -> None:
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    analysis = runtime.coordinator.data
+    from datetime import timedelta
+
+    from custom_components.garden_manager.engine.models import Task, TaskType
+
+    runtime.repo.data.tasks.append(
+        Task(
+            id="late",
+            title="Sow carrots",
+            type=TaskType.SOW_DIRECT,
+            due=analysis.today - timedelta(days=5),
+            window_end=analysis.today - timedelta(days=1),
+        )
+    )
+    await runtime.notifier.async_send_overdue(analysis)
+    await runtime.notifier.async_send_weekly(analysis)
+    await hass.async_block_till_done()
+    notes = hass.data.get("persistent_notification") or {}
+    ids = set(notes) if isinstance(notes, dict) else set()
+    assert f"{DOMAIN}_overdue" in ids and f"{DOMAIN}_weekly" in ids
+    # Once per day only
+    assert f"overdue:{analysis.today.isoformat()}" in runtime.repo.data.notified

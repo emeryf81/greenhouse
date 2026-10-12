@@ -369,6 +369,15 @@ class Plant:
     trap_for: list[str] = field(default_factory=list)
     allelopathic: bool = False
     shade_tolerant: bool = False
+    # Perennials: harvest each year in these windows once bearing.
+    harvest_windows: list[Window] = field(default_factory=list)
+    years_to_bearing: int = 0
+    emoji: str = ""
+    icon: str = ""  # vector glyph drawn on the planner map (see frontend plant-glyphs)
+    color: str = ""  # glyph colour (the crop's own colour, not the family colour)
+    # Short ecological growing tips and home remedies (per language).
+    tips: dict[str, list[str]] = field(default_factory=dict)
+    pollination: Literal["self", "insects", "wind", "partner", "none"] = "self"
     source: Literal["builtin", "custom", "override"] = "builtin"
 
     def name(self, lang: str = "en") -> str:
@@ -380,10 +389,10 @@ A database entry (excerpt of `data/plants.json`):
 ```json
   {
    "habit": "bush",
-   "category": "herb",
+   "category": "fruit",
    "perennial": true,
-   "spacing_cm": 90,
-   "row_spacing_cm": 40,
+   "spacing_cm": 25,
+   "row_spacing_cm": 25,
    "sowing_depth_cm": 0.5,
    "germination_days": [
     10,
@@ -398,7 +407,7 @@ A database entry (excerpt of `data/plants.json`):
    "maturity_from": "sow",
    "harvest_duration_days": 150,
    "continuous_harvest": true,
-   "harvest_interval_days": 14,
+   "harvest_interval_days": 4,
    "transplant_age_days": [
     56,
     84
@@ -436,6 +445,9 @@ class Planting:
     succession_group: str | None = None
     succession_index: int = 0
     notes: str = ""
+    # Perennials stay in the plan year after year until removed explicitly:
+    # the first season they are no longer there (None = still growing).
+    removed_season: int | None = None
 ```
 
 ### 3.4 `Task`
@@ -690,6 +702,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
 
     entry.async_on_unload(async_track_time_change(hass, _midnight, hour=0, minute=5, second=0))
     _schedule_digest(hass, entry)
+    _schedule_reminders(hass, entry)
     _schedule_irrigation(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
@@ -877,6 +890,13 @@ def planting_timeline(
         frost_limit = anchors.first_frost + timedelta(weeks=windows.extension_weeks)
         if harvest_start < frost_limit < harvest_end:
             harvest_end = frost_limit
+    bearing = True
+    if plant.perennial and plant.harvest_windows:
+        # Perennials crop in fixed seasonal windows, not "days after planting".
+        bearing = plant.years_to_bearing <= 0
+        win = _perennial_harvest(plant, anchors, in_ground)
+        if win:
+            harvest_start, harvest_end = win
     if planting.finished_on:
         harvest_end = planting.finished_on
 
@@ -895,6 +915,7 @@ def planting_timeline(
         harvest_start=harvest_start,
         harvest_end=harvest_end,
         late=late,
+        bearing=bearing,
     )
 ```
 
@@ -1315,6 +1336,7 @@ private async connect(): Promise<void> {
 private async loadGlossary(): Promise<void> {
   try {
     setGlossary((await this.api!.handbookIndex(this.uiLang)).glossary);
+    setSupplies(await this.api!.supplies());
   } catch {
     /* older backend - tooltips stay empty */
   }
@@ -1402,6 +1424,14 @@ private onPointerMove(ev: PointerEvent): void {
     return;
   }
   const pt = this.clientToCanvas(ev.clientX, ev.clientY);
+  if (d.mode === "draw") {
+    if (!pt) return;
+    const step = this.snapOn ? this.snapStep : 1;
+    const x2 = snap(pt.x, step);
+    const y2 = snap(pt.y, step);
+    this.drawRect = { x: Math.min(d.startX, x2), y: Math.min(d.startY, y2), w: Math.abs(x2 - d.startX), h: Math.abs(y2 - d.startY) };
+    return;
+  }
   if (!pt || !d.kind || !d.id) return;
   const dx = pt.x - d.startX;
   const dy = pt.y - d.startY;
@@ -2860,6 +2890,7 @@ def _bed_score(
     db: PlantDatabase,
     history: list[Any],
     season: int,
+    respect: bool = True,
 ) -> float | None:
     plant = demand.plant
     enclosed = bool(zone and zone.is_enclosed)
@@ -2875,7 +2906,7 @@ def _bed_score(
         score -= 20
     for other in placed:
         rel = db.relation(plant.id, other.plant.id)
-        if rel.relation is Relation.ENEMY:
+        if rel.relation is Relation.ENEMY and respect:
             if rel.strength >= 2:
                 return None
             score -= 15

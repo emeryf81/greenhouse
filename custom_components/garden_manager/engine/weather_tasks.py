@@ -239,7 +239,9 @@ def weather_adjust(specs: list[TaskSpec], ctx: TaskContext) -> None:
         reason = ", ".join(t(f"weather.problem.{p}", lang) for p in problems)
         if candidates:
             best = min(candidates, key=lambda d: (abs((d - due).days), d < due))
-            spec.description = (spec.description + " " + t("weather.moved", lang, date=best.strftime("%d/%m"), reason=reason)).strip()
+            spec.description = (
+                spec.description + " " + t("weather.moved", lang, date=best.strftime("%d/%m"), reason=reason)
+            ).strip()
             spec.due = best
         else:
             spec.description = (spec.description + " " + t("weather.no_good_day", lang, reason=reason)).strip()

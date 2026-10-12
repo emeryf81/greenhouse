@@ -687,6 +687,14 @@ class GardenResources:
     goals: list[str] = field(default_factory=lambda: ["fresh", "herbs"])
     wanted: list[str] = field(default_factory=list)
     excluded: list[str] = field(default_factory=list)
+    # Auto-planner preferences
+    # strict = only the wanted crops; balanced = wanted + goals; free = wider choice.
+    freedom: Literal["strict", "balanced", "free"] = "balanced"
+    respect_companions: bool = True  # never put bad neighbours together
+    add_pollinators: bool = True  # add a few bee & hoverfly flowers
+    year_round: bool = False  # add winter & storage crops for harvests in every month
+    allow_perennials: bool = True  # may propose crops that stay for years
+    match_zone_type: bool = True  # orchard -> fruit, herb garden -> herbs ...
 
 
 @dataclass(slots=True)

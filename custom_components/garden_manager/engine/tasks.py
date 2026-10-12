@@ -1102,4 +1102,3 @@ def week_ahead(tasks: Iterable[Task], today: date, days: int = 7) -> dict[date, 
     for day_tasks in plan.values():
         day_tasks.sort(key=lambda t_: (-t_.priority.rank, t_.title))
     return plan
-

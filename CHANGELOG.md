@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.2.0 – 2026-10
+
+### Added
+- **Garden plan in three steps**: draw zones and elements by dragging on the 10 cm grid,
+  arrange every zone on its own map (double‑click a zone), then plant by hand or with
+  Autofill. New zone types orchard, soft fruit, herb and flower garden; new elements house,
+  driveway, street, parking, terrace, lawn, flower bed, fence, pond, play area, beehive.
+- **Plant icons**: 45 vector icons coloured per crop instead of dots; dense crops are drawn
+  as rows of seedlings with one large icon and a name label; legend for badges.
+- **Perennials across seasons**: trees, bushes and perennial herbs carry over every year
+  (`removed_season` for explicit removal) with season‑keyed yearly care; harvest tasks only
+  once a tree bears (`years_to_bearing`).
+- **Plant database 232 crops**: 92 new plants – fruit trees, soft, cane and vine fruit, more
+  vegetables, herbs, flowers and green manures – plus icon, colour, emoji, pollination,
+  harvest windows and eco tips for every plant.
+- **Advice tab**: Q&A sentence builder (subject › target › question/problem) with live status,
+  causes, actions, home remedies and prevention; garden suggestions (pollination partners,
+  pollinator flowers, bad neighbours, shading, harvest gaps, empty beds, ecology) with
+  one‑click apply; harvest per month; seasonal shopping list; tools per job.
+- **Tasks**: 21 new yearly maintenance rules (greenhouse windows, biocontrol, nettle and
+  comfrey feed, gutters, nest boxes, seed saving, orchard care …), weather episodes (heat,
+  dry spell, storm, heavy rain), weather‑aware rescheduling, tools in the task dialog,
+  new task types (protect, clean, tie in, thin fruit, pollinate, check, make feed).
+- **Reminders**: evening reminder of overdue tasks with a verdict (still possible / too late /
+  do now) and a weekly look‑ahead; times configurable in Settings.
+- **Autofill preferences**: freedom of choice, respect neighbours, add pollinators, aim for
+  year‑round harvests, perennials allowed, respect the zone type.
+- **Handbook**: chapters on fruit, tools & materials, home remedies, year‑round harvest and
+  choosing sensors; new glossary terms.
+- **Websocket API**: `advice`, `qa/options`, `qa/ask`, `supplies`.
+
 ## 1.1.0 – 2026-10
 
 ### Added

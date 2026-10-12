@@ -20,6 +20,7 @@ import voluptuous as vol
 
 from .const import DOMAIN
 from .engine import handbook
+from .engine.advisor import advise, harvest_coverage
 from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
 from .engine.i18n import t
@@ -27,10 +28,12 @@ from .engine.models import GardenBed, GardenResources, Planting
 from .engine.planio import PlanImportError, export_plan, import_plan
 from .engine.plantdb import FAMILIES
 from .engine.printout import PrintOptions
+from .engine.qa import answer as qa_answer, options as qa_options
 from .engine.region import resolve_profile, season_anchors, season_for_date
 from .engine.schedule import plant_windows, planting_timeline
 from .engine.serde import from_dict, to_dict
 from .engine.succession import expand_succession
+from .engine.supplies import catalog as supplies_catalog, shopping_list
 from .operations import (
     RevisionConflict,
     op_add_task,
@@ -77,6 +80,10 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_irrigation_plan,
         ws_irrigation_run,
         ws_irrigation_stop,
+        ws_advice,
+        ws_qa_options,
+        ws_qa_ask,
+        ws_supplies,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -714,3 +721,76 @@ async def ws_irrigation_stop(
         return
     await runtime.irrigation.async_stop()
     connection.send_result(msg["id"])
+
+
+# --------------------------------------------------------------------------- #
+# Advice, Q&A and supplies
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/advice"})
+@websocket_api.async_response
+async def ws_advice(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Suggestions for the current plan plus the month-by-month harvest coverage."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None or runtime.coordinator.data is None:
+        if runtime is not None:
+            connection.send_error(msg["id"], "not_ready", "Analysis not ready yet")
+        return
+    data, db, analysis, lang = runtime.repo.data, runtime.repo.db, runtime.coordinator.data, runtime.coordinator.lang
+
+    def build() -> dict[str, Any]:
+        return {
+            "suggestions": [s.to_dict() for s in advise(data, db, analysis, lang)],
+            "coverage": harvest_coverage(data, db, analysis).to_dict(),
+        }
+
+    connection.send_result(msg["id"], await hass.async_add_executor_job(build))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/qa/options"})
+@callback
+def ws_qa_options(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    season = season_for_date(data.settings.region, dt_util.now().date())
+    connection.send_result(msg["id"], qa_options(data, runtime.repo.db, season, runtime.coordinator.lang))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/qa/ask",
+        vol.Required("subject"): str,
+        vol.Required("problem"): str,
+        vol.Optional("target"): vol.Any(str, None),
+    }
+)
+@callback
+def ws_qa_ask(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    analysis = runtime.coordinator.data
+    if analysis is None:
+        connection.send_error(msg["id"], "not_ready", "Analysis not ready yet")
+        return
+    try:
+        result = qa_answer(msg["subject"], msg["problem"], msg.get("target"), runtime.repo.data, runtime.repo.db,
+                           analysis, runtime.coordinator.lang)  # fmt: skip
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_format", str(err))
+        return
+    connection.send_result(msg["id"], result.to_dict())
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/supplies"})
+@callback
+def ws_supplies(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Tool catalogue, tools per task type and the season's shopping list."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    lang = runtime.coordinator.lang
+    analysis = runtime.coordinator.data
+    items = shopping_list(runtime.repo.data, runtime.repo.db, analysis, lang) if analysis else []
+    connection.send_result(msg["id"], {**supplies_catalog(lang), "shopping": [i.to_dict() for i in items]})

@@ -1,3 +1,4 @@
+import { toolsFor } from "../util/tools";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
@@ -281,6 +282,8 @@ export class TaskDialog extends LitElement {
           this.dispatchEvent(new CustomEvent("open-handbook", { detail: { chapter: task.title_params.handbook }, bubbles: true, composed: true }));
           this.close(); }}><ha-icon icon="mdi:book-open-page-variant-outline" style="--mdc-icon-size:16px"></ha-icon> ${this.t("handbook.read_more")}</a>` : nothing}
         ${this.renderContext(task)}
+        ${toolsFor(task.type) ? html`<p class="small"><ha-icon icon="mdi:toolbox-outline" style="--mdc-icon-size:16px"></ha-icon>
+          <b>${this.t("task.tools")}:</b> ${toolsFor(task.type)}</p>` : nothing}
         ${task.window_start && task.window_end && task.window_start !== task.window_end
           ? html`<p class="small muted">${this.t("task.window", { start: formatDate(task.window_start, this.lang), end: formatDate(task.window_end, this.lang) })}</p>` : nothing}
         ${task.recurrence ? html`<p class="small muted">↻ ${this.t("task.repeat", { n: task.recurrence.interval_days })}</p>` : nothing}

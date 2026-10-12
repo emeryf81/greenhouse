@@ -87,3 +87,19 @@ logger:
 
 Voeg bij een melding altijd de **diagnose** toe (notify‑diensten, speakers, breedtegraad en
 foto's worden daarin weggelaten).
+
+## Mijn appelboom staat elk jaar opnieuw in het plan - hoe haal ik hem weg?
+
+Meerjarige planten (fruitbomen, bessen, asperge, vaste kruiden) gaan automatisch mee naar elk volgend seizoen. Selecteer de plant in de planner en kies **Verwijderen**. Je krijgt twee keuzes: **Weg vanaf dit seizoen** (de vorige jaren behouden hem voor wisselteelt en historiek) of **Volledig wissen**.
+
+## Kan ik herinneringen krijgen voor taken die ik vergeten ben?
+
+Ja. Onder **Instellingen › Meldingen › Herinneringen** stel je een tijdstip in voor de dagelijkse herinnering van achterstallige taken (per taak zie je of het nog kan, of het te laat is en je beter overslaat) en een **weekoverzicht** op een dag naar keuze. Ze gaan via dezelfde kanalen als de andere meldingen (blijvende melding, push, …).
+
+## Houdt de planning rekening met het weer?
+
+Ja. Met **Taken plannen volgens het weer** (standaard aan) schuiven zaaien, uitplanten, afharden, snoeien, bodem klaarmaken en dergelijke binnen hun venster naar de dichtstbijzijnde geschikte dag (geen regen, vorst, hitte of storm). Lukt dat niet, dan krijgt de taak een weerwaarschuwing. Daarnaast maakt Hortulus taken voor hitte, droogte, storm en zware regen, met ecologische tips.
+
+## Welke sensoren moet ik kopen?
+
+Zie het handboekhoofdstuk **Sensoren kiezen en kopen**: begin met een thermometer in de serre en één bodemvochtsensor in je belangrijkste bed.

@@ -34,6 +34,7 @@ from typing import Any
 from .compatibility import check_rotation, rotation_history
 from .fertilizer import bed_fertilizer_plan
 from .models import (
+    ZONE_CATEGORIES,
     BedKind,
     FrostTolerance,
     GardenBed,
@@ -77,6 +78,8 @@ POPULAR = (
     "coriander", "mint", "rosemary", "oregano", "sage", "marigold", "nasturtium", "calendula", "borage",
 )  # fmt: skip
 
+# Flowers added for bees and hoverflies when insect-pollinated crops are planned.
+POLLINATOR_FLOWERS = ("borage", "calendula", "phacelia", "sweet_alyssum")
 GOALS = ("fresh", "storage", "herbs", "pollinators", "winter", "perennials", "easy")
 
 
@@ -227,7 +230,15 @@ def crop_demand(db: PlantDatabase, resources: GardenResources, max_crops: int) -
         plant = db.get(pid)
         if plant is not None:
             add(plant, 1000.0 - i, "wanted")
+    if resources.freedom == "strict":
+        return sorted(chosen.values(), key=lambda d: -d.priority)
+    if not resources.allow_perennials:
+        excluded |= {p.id for p in db.all() if p.perennial and p.id not in resources.wanted}
+    if resources.freedom == "free":
+        max_crops += 6
     goals = [g for g in resources.goals if g in GOALS] or ["fresh"]
+    if resources.year_round:
+        goals += [g for g in ("winter", "storage") if g not in goals]
     families: dict[str, int] = {}
     for g_idx, goal in enumerate(goals):
         candidates = [p for p in db.all() if _goal_match(p, goal)]
@@ -246,7 +257,17 @@ def crop_demand(db: PlantDatabase, resources: GardenResources, max_crops: int) -
                 if len(chosen) > before:
                     families[plant.family] = families.get(plant.family, 0) + 1
                     taken += 1
-    return sorted(chosen.values(), key=lambda d: -d.priority)[: max(max_crops, len(resources.wanted))]
+    result = sorted(chosen.values(), key=lambda d: -d.priority)[: max(max_crops, len(resources.wanted))]
+    if resources.add_pollinators and any(d.plant.pollination in ("insects", "partner") for d in result):
+        have = {d.plant.id for d in result}
+        if not any("pollinators" in d.plant.tags and d.plant.category is PlantCategory.FLOWER for d in result):
+            for pid in POLLINATOR_FLOWERS[:2]:
+                plant = db.get(pid)
+                if plant is not None and pid not in have and pid not in excluded:
+                    count = 3 + household // 2
+                    area = count * plant.spacing_cm * max(plant.row_spacing_cm, plant.spacing_cm)
+                    result.append(CropDemand(plant, count, area, 100.0, "pollinators"))
+    return result
 
 
 def scale_to_capacity(demands: list[CropDemand], beds: Sequence[GardenBed]) -> float:
@@ -283,8 +304,14 @@ def _prefers_glass(plant: Plant) -> bool:
     )
 
 
-def _feasible(plant: Plant, bed: GardenBed, zone: Zone | None, data: GardenData, season: int, today: date) -> bool:
+def _feasible(
+    plant: Plant, bed: GardenBed, zone: Zone | None, data: GardenData, season: int, today: date, match_zone: bool = True
+) -> bool:
     enclosed = bool(zone and zone.is_enclosed)
+    if match_zone and zone is not None:
+        allowed = ZONE_CATEGORIES.get(zone.type.value)
+        if allowed and plant.category.value not in allowed:
+            return False
     if enclosed and plant.greenhouse.suitability is Suitability.NO:
         return False
     anchors = season_anchors(data.settings.region, season)
@@ -306,6 +333,7 @@ def _bed_score(
     db: PlantDatabase,
     history: list[Any],
     season: int,
+    respect: bool = True,
 ) -> float | None:
     plant = demand.plant
     enclosed = bool(zone and zone.is_enclosed)
@@ -321,7 +349,7 @@ def _bed_score(
         score -= 20
     for other in placed:
         rel = db.relation(plant.id, other.plant.id)
-        if rel.relation is Relation.ENEMY:
+        if rel.relation is Relation.ENEMY and respect:
             if rel.strength >= 2:
                 return None
             score -= 15
@@ -508,9 +536,18 @@ def autoplan(
         ranked: list[tuple[float, GardenBed]] = []
         for bed in beds:
             zone = data.zone(bed.zone_id)
-            if not _feasible(plant, bed, zone, data, season, today):
+            if not _feasible(plant, bed, zone, data, season, today, resources.match_zone_type):
                 continue
-            score = _bed_score(demand, bed, zone, [i.demand for i in assigned[bed.id]], db, history, season)
+            score = _bed_score(
+                demand,
+                bed,
+                zone,
+                [i.demand for i in assigned[bed.id]],
+                db,
+                history,
+                season,
+                resources.respect_companions,
+            )
             if score is not None:
                 ranked.append((score, bed))
         if not ranked:

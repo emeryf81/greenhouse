@@ -23,6 +23,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from custom_components.garden_manager.engine import handbook  # noqa: E402
+from custom_components.garden_manager.engine.advisor import advise, harvest_coverage  # noqa: E402
 from custom_components.garden_manager.engine.analysis import analyze  # noqa: E402
 from custom_components.garden_manager.engine.autoplan import AutoplanOptions, autoplan  # noqa: E402
 from custom_components.garden_manager.engine.irrigation import plan_irrigation  # noqa: E402
@@ -30,8 +31,6 @@ from custom_components.garden_manager.engine.models import (  # noqa: E402
     Feature,
     FeatureType,
     GardenBed,
-    Zone,
-    ZoneType,
     GardenResources,
     IrrigationEvent,
     LayoutMode,
@@ -40,6 +39,8 @@ from custom_components.garden_manager.engine.models import (  # noqa: E402
     SensorReading,
     SowMethod,
     WeatherSnapshot,
+    Zone,
+    ZoneType,
 )
 from custom_components.garden_manager.engine.plantdb import (  # noqa: E402
     FAMILIES,
@@ -47,7 +48,9 @@ from custom_components.garden_manager.engine.plantdb import (  # noqa: E402
     load_builtin_json,
 )
 from custom_components.garden_manager.engine.printout import PrintContext, PrintOptions, render_svg  # noqa: E402
+from custom_components.garden_manager.engine.qa import answer as qa_answer, options as qa_options  # noqa: E402
 from custom_components.garden_manager.engine.serde import to_dict  # noqa: E402
+from custom_components.garden_manager.engine.supplies import catalog, shopping_list  # noqa: E402
 from custom_components.garden_manager.engine.tasks import generate_specs, merge_tasks  # noqa: E402
 from custom_components.garden_manager.engine.weather import parse_forecast  # noqa: E402
 from custom_components.garden_manager.seed import build_initial_data  # noqa: E402
@@ -132,21 +135,61 @@ def build(lang: str) -> dict:
     ]
     # Orchard + soft fruit below the vegetable garden: perennials planted in earlier years.
     bottom = max(z.y_cm + z.length_cm for z in data.zones) + 120
-    orchard = Zone("zone_orchard", "Boomgaard" if lang == "nl" else "Orchard", ZoneType.ORCHARD,
-                   x_cm=-20, y_cm=bottom, width_cm=900, length_cm=600)
-    fruit = Zone("zone_fruit", "Fruithoek" if lang == "nl" else "Fruit corner", ZoneType.FRUIT,
-                 x_cm=920, y_cm=bottom, width_cm=500, length_cm=300)
+    orchard = Zone(
+        "zone_orchard",
+        "Boomgaard" if lang == "nl" else "Orchard",
+        ZoneType.ORCHARD,
+        x_cm=-20,
+        y_cm=bottom,
+        width_cm=900,
+        length_cm=600,
+    )
+    fruit = Zone(
+        "zone_fruit",
+        "Fruithoek" if lang == "nl" else "Fruit corner",
+        ZoneType.FRUIT,
+        x_cm=920,
+        y_cm=bottom,
+        width_cm=500,
+        length_cm=300,
+    )
     data.zones += [orchard, fruit]
-    obed = GardenBed("bed_orchard", orchard.name, orchard.id, x_cm=orchard.x_cm, y_cm=orchard.y_cm,
-                     width_cm=orchard.width_cm, length_cm=orchard.length_cm)
-    fbed = GardenBed("bed_fruit", fruit.name, fruit.id, x_cm=fruit.x_cm, y_cm=fruit.y_cm,
-                     width_cm=fruit.width_cm, length_cm=fruit.length_cm)
+    obed = GardenBed(
+        "bed_orchard",
+        orchard.name,
+        orchard.id,
+        x_cm=orchard.x_cm,
+        y_cm=orchard.y_cm,
+        width_cm=orchard.width_cm,
+        length_cm=orchard.length_cm,
+    )
+    fbed = GardenBed(
+        "bed_fruit",
+        fruit.name,
+        fruit.id,
+        x_cm=fruit.x_cm,
+        y_cm=fruit.y_cm,
+        width_cm=fruit.width_cm,
+        length_cm=fruit.length_cm,
+    )
     data.beds += [obed, fbed]
     trees = [("apple", 2022, 0, 0), ("pear", 2023, 400, 0), ("sweet_cherry", 2025, 0, 300), ("plum", 2024, 400, 300)]
     for pid, season, x, y in trees:
-        data.plantings.append(Planting(f"pl_{pid}", pid, obed.id, season, LayoutMode.SINGLE, x_cm=x + 50, y_cm=y,
-                                       width_cm=300, length_cm=300, method=SowMethod.TRANSPLANT,
-                                       status=PlantingStatus.TRANSPLANTED))
+        data.plantings.append(
+            Planting(
+                f"pl_{pid}",
+                pid,
+                obed.id,
+                season,
+                LayoutMode.SINGLE,
+                x_cm=x + 50,
+                y_cm=y,
+                width_cm=300,
+                length_cm=300,
+                method=SowMethod.TRANSPLANT,
+                status=PlantingStatus.TRANSPLANTED,
+            )
+        )
     data.plantings += [
         Planting("pl_alpine", "alpine_strawberry", obed.id, 2025, LayoutMode.ROW, x_cm=780, y_cm=0, width_cm=60, length_cm=600,
                  method=SowMethod.TRANSPLANT, status=PlantingStatus.TRANSPLANTED),
@@ -227,6 +270,25 @@ def build(lang: str) -> dict:
         ),
         "autofill": {**proposal.to_dict(), "season": 2027, "revision": data.revision},
         "irrigation_plan": {**irrigation.to_dict(), "reasons": {}, "running": False},
+        "advice": {
+            "suggestions": [x.to_dict() for x in advise(data, db, analysis, lang)],
+            "coverage": harvest_coverage(data, db, analysis).to_dict(),
+        },
+        "qa_options": qa_options(data, db, 2026, lang),
+        "qa_answers": {
+            f"{subj}/{prob}/{tgt}": qa_answer(subj, prob, tgt, data, db, analysis, lang).to_dict()
+            for subj, prob, tgt in (
+                ("plant", "what_to_do", "tomato"),
+                ("plant", "pests", "tomato"),
+                ("plant", "disease", "tomato"),
+                ("plant", "pruning", "apple"),
+                ("plant", "no_fruit", "apple"),
+                ("plant", "when_sow", "carrot"),
+                ("greenhouse", "too_hot", data.zones[1].id),
+                ("garden", "year_round", ""),
+            )
+        },
+        "supplies": {**catalog(lang), "shopping": [i.to_dict() for i in shopping_list(data, db, analysis, lang)]},
     }
     return {
         "snapshot": snapshot,

@@ -51,6 +51,10 @@
         }
         if (type === "print/render") return { pages: x.print_pages };
         if (type === "plan/autofill") return x.autofill;
+        if (type === "advice") return x.advice;
+        if (type === "qa/options") return x.qa_options;
+        if (type === "qa/ask") return x.qa_answers[`${msg.subject}/${msg.problem}/${msg.target ?? ""}`] ?? Object.values(x.qa_answers)[0];
+        if (type === "supplies") return x.supplies;
         if (type === "irrigation/plan" || type === "irrigation/run") return { ...x.irrigation_plan, started: true };
         return {};
       },

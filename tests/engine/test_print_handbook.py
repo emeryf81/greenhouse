@@ -156,3 +156,14 @@ def test_handbook_search_and_fallback():
     hits = search("serre", "nl")
     assert hits and hits[0]["id"] == "greenhouse"
     assert chapter("watering", "de").title == chapter("watering", "en").title
+
+
+def test_every_handbook_file_is_a_chapter():
+    from pathlib import Path
+
+    from custom_components.garden_manager.engine.handbook import chapters as all_chapters
+
+    root = Path(__file__).resolve().parents[2] / "custom_components/garden_manager/data/handbook"
+    for lang in ("en", "nl"):
+        files = list((root / lang).glob("*.md"))
+        assert len(all_chapters(lang)) == len(files) >= 21

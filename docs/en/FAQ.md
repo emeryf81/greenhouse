@@ -134,3 +134,19 @@ logger:
 
 Please attach the **diagnostics** download (it redacts notify services, speakers,
 latitude and photos) when opening an issue.
+
+## My apple tree is in the plan every year - how do I remove it?
+
+Perennials (fruit trees, berries, asparagus, perennial herbs) carry over to every following season. Select the plant in the planner and choose **Remove**. You get two options: **Gone from this season** (earlier years keep it for rotation and history) or **Delete completely**.
+
+## Can I get reminders for tasks I forgot?
+
+Yes. Under **Settings › Notifications › Reminders** set a time for the daily overdue reminder (for each task it says whether it is still possible, or too late and better skipped) and a **weekly look-ahead** on a day of your choice. They use the same channels as other notifications.
+
+## Does the schedule take the weather into account?
+
+Yes. With **Weather-aware scheduling** (on by default) sowing, planting out, hardening off, pruning, soil preparation and similar jobs move inside their window to the nearest suitable day (no rain, frost, heat or storm). If none exists the task gets a weather warning. Hortulus also creates tasks for heat, dry spells, storms and heavy rain, with ecological tips.
+
+## Which sensors should I buy?
+
+See the handbook chapter **Choosing and buying sensors**: start with a greenhouse thermometer and one soil moisture sensor in your main bed.

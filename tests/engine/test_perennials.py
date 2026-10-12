@@ -30,7 +30,9 @@ def test_present_in_rules():
 
 def test_apple_tree_carries_over_with_yearly_care(garden, db, make_planting):
     garden.plantings = [
-        make_planting("apple", "bed_1", 2025, id="apple1", status=PlantingStatus.TRANSPLANTED, width_cm=100, length_cm=100)
+        make_planting(
+            "apple", "bed_1", 2025, id="apple1", status=PlantingStatus.TRANSPLANTED, width_cm=100, length_cm=100
+        )
     ]
     analysis, specs = specs_at(garden, db, datetime(2027, 1, 20, 9, 0, tzinfo=TZ))
     tl = analysis.timelines["apple1"]

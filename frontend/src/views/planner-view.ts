@@ -157,6 +157,9 @@ export class PlannerView extends LitElement {
       .legend { display: flex; flex-wrap: wrap; gap: var(--hl-s2); font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
       .legend span { display: inline-flex; align-items: center; gap: 4px; }
       .score { font-size: var(--hl-fs-2xl); font-weight: 700; }
+      .prefs { border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); padding: 8px 12px; display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 12px; }
+      .prefs legend { font-weight: 600; padding: 0 4px; }
       .more { position: relative; }
       .more > summary { list-style: none; cursor: pointer; }
       .more > summary::-webkit-details-marker { display: none; }
@@ -1352,6 +1355,15 @@ export class PlannerView extends LitElement {
         ${r.wanted.map((id) => html`<button class="chip ok" title=${this.t("common.delete")} @click=${() => set({ wanted: r.wanted.filter((x) => x !== id) })}>♥ ${plantName(this.plantMap.get(id), this.lang)} ✕</button>`)}
         ${r.excluded.map((id) => html`<button class="chip bad" title=${this.t("common.delete")} @click=${() => set({ excluded: r.excluded.filter((x) => x !== id) })}>⊘ ${plantName(this.plantMap.get(id), this.lang)} ✕</button>`)}
       </div>
+      <fieldset class="prefs"><legend>${this.t("autofill.prefs")}</legend>
+        <label class="field">${this.t("autofill.freedom")}
+          <select @change=${(e: Event) => set({ freedom: (e.target as HTMLSelectElement).value as Resources["freedom"] })}>
+            ${(["strict", "balanced", "free"] as const).map((f) => html`<option value=${f} ?selected=${(r.freedom ?? "balanced") === f}>${this.t(`autofill.freedom.${f}`)}</option>`)}
+          </select></label>
+        ${(["respect_companions", "add_pollinators", "year_round", "allow_perennials", "match_zone_type"] as const).map((k) => html`
+          <label class="row small"><input type="checkbox" .checked=${r[k] ?? !["year_round"].includes(k)}
+            @change=${(e: Event) => set({ [k]: (e.target as HTMLInputElement).checked } as Partial<Resources>)} />${this.t(`autofill.pref.${k}`)}</label>`)}
+      </fieldset>
       <div class="row wrap" role="group" aria-label=${this.t("autofill.beds")}><span class="small">${this.t("autofill.beds")}:</span>
         ${this.draft.beds.map((b) => html`<button class="chip" aria-pressed=${String(this.autofillBeds.includes(b.id))}
           @click=${() => (this.autofillBeds = this.autofillBeds.includes(b.id) ? this.autofillBeds.filter((x) => x !== b.id) : [...this.autofillBeds, b.id])}>${b.name}</button>`)}

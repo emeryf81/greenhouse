@@ -43,3 +43,14 @@ test("markdown helpers", () => {
   assert.equal(parts.filter((p) => typeof p === "string").join(""), "a  c  ");
   assert.equal(parts.length, 6);
 });
+
+import { presentIn, ZONE_CATEGORIES } from "../src/util/garden";
+
+test("perennials carry over until removed, annuals stay in their season", () => {
+  const p = { season: 2024, removed_season: null } as unknown as Parameters<typeof presentIn>[0];
+  assert.equal(presentIn(p, true, 2023), false);
+  assert.equal(presentIn(p, true, 2027), true);
+  assert.equal(presentIn({ ...p, removed_season: 2026 }, true, 2026), false);
+  assert.equal(presentIn(p, false, 2025), false);
+  assert.deepEqual(ZONE_CATEGORIES.orchard, ["fruit"]);
+});

@@ -433,6 +433,12 @@ export interface Resources {
   goals: string[];
   wanted: string[];
   excluded: string[];
+  freedom?: "strict" | "balanced" | "free";
+  respect_companions?: boolean;
+  add_pollinators?: boolean;
+  year_round?: boolean;
+  allow_perennials?: boolean;
+  match_zone_type?: boolean;
 }
 
 export interface IrrigationRun { bed_id: string; entity_id: string; minutes: number; mm: number; liters: number; capped: boolean }
@@ -579,4 +585,43 @@ export interface HomeAssistant {
   };
   fetchWithAuth(path: string, init?: RequestInit): Promise<Response>;
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
+}
+
+// -- advice, Q&A and supplies (phase 3) ---------------------------------- //
+export interface Suggestion {
+  id: string;
+  kind: string;
+  severity: "warning" | "tip" | "info";
+  title: string;
+  text: string;
+  plants: string[];
+  zone_id: string | null;
+  bed_id: string | null;
+  planting_id: string | null;
+  action: { type: string; plant_id?: string; bed_id?: string; planting_id?: string; feature?: string } | null;
+  handbook: string | null;
+}
+export interface AdviceResult { suggestions: Suggestion[]; coverage: { months: string[][]; gaps: number[] } }
+export interface QaTarget { id: string; name: string; planted?: boolean; category?: string }
+export interface QaOptions { subjects: Record<string, string[]>; targets: Record<string, QaTarget[]> }
+export interface QaAnswer {
+  subject: string;
+  problem: string;
+  target: string | null;
+  title: string;
+  status: string[];
+  facts: string[];
+  causes: string[];
+  actions: string[];
+  remedies: string[];
+  prevention: string[];
+  tasks: { id: string; title: string; due: string }[];
+  plants: string[];
+  handbook: string | null;
+}
+export interface ShoppingItem { id: string; name: string; emoji: string; quantity: number; unit: string; reason: string; category: string }
+export interface Supplies {
+  tools: Record<string, { name: string; emoji: string; kind: string }>;
+  task_tools: Record<string, string[]>;
+  shopping: ShoppingItem[];
 }

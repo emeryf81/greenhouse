@@ -1,5 +1,9 @@
 // Thin, typed wrapper around the garden_manager websocket commands.
 import type {
+  AdviceResult,
+  QaAnswer,
+  QaOptions,
+  Supplies,
   AutofillResult,
   CompatibilityReport,
   GlossaryEntry,
@@ -164,6 +168,23 @@ export class GardenApi {
 
   irrigationStop(): Promise<void> {
     return this.call("irrigation/stop");
+  }
+
+  // -- advice, Q&A, supplies ------------------------------------------------ //
+  advice(): Promise<AdviceResult> {
+    return this.call("advice");
+  }
+
+  qaOptions(): Promise<QaOptions> {
+    return this.call("qa/options");
+  }
+
+  qaAsk(subject: string, problem: string, target: string | null): Promise<QaAnswer> {
+    return this.call("qa/ask", { subject, problem, target });
+  }
+
+  supplies(): Promise<Supplies> {
+    return this.call("supplies");
   }
 
   /** Upload a photo through HA's image_upload integration; returns the image id. */
