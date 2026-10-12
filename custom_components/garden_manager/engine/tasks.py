@@ -11,6 +11,7 @@ key prefix          meaning
 ``b:<bed>:…``       bed level routines (weeding, pest checks)
 ``s:water:…``       sensor driven, valid for one day
 ``w:<kind>:…``      weather driven (frost, ventilation), valid for one day
+``m:<rule>:…``      seasonal garden work (soil prep, greenhouse clean, winter)
 ==================  =========================================================
 
 Recurring series keep exactly one *open* task under the series key.  When an
@@ -23,9 +24,10 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 import uuid
 
+from .fertilizer import feed_dose
 from .geometry import plant_count
 from .i18n import t
 from .models import (
@@ -52,7 +54,11 @@ from .plantdb import PlantDatabase
 from .region import season_anchors, season_for_date
 from .schedule import PlantingTimeline, TimingAdvice
 from .watering import IrrigationRecommendation
-from .weather import FrostAssessment, GreenhouseAdvice
+from .weather import DiseaseAssessment, FrostAssessment, GreenhouseAdvice
+
+if TYPE_CHECKING:
+    from .fertilizer import NutrientBalance
+    from .phenology import PhenologyInfo
 
 # Far enough to show the whole season (incl. harvest) in the calendar.
 GENERATION_HORIZON_DAYS = 270
@@ -81,8 +87,21 @@ BASE_MINUTES: dict[TaskType, int] = {
     TaskType.VENTILATE: 5,
     TaskType.SHADE: 15,
     TaskType.FROST_PROTECT: 15,
+    TaskType.SOIL_PREP: 30,
+    TaskType.COMPOST: 45,
+    TaskType.GREEN_MANURE: 20,
+    TaskType.MULCH: 30,
+    TaskType.CLEAN_GREENHOUSE: 120,
+    TaskType.WINTER_PREP: 60,
+    TaskType.PLAN_SEASON: 60,
+    TaskType.TOOL_CARE: 45,
+    TaskType.SOIL_TEST: 30,
+    TaskType.CUT_BACK: 15,
+    TaskType.DIVIDE: 30,
     TaskType.CUSTOM: 15,
 }
+# Crops that are inspected when the zone's fungal disease risk is raised.
+DISEASE_PRONE = {"Solanaceae": "blight", "Cucurbitaceae": "mildew"}
 
 
 def new_id() -> str:
@@ -123,6 +142,9 @@ class TaskContext:
     irrigation: dict[str, IrrigationRecommendation] = field(default_factory=dict)
     frost_by_zone: dict[str, FrostAssessment] = field(default_factory=dict)
     greenhouse: dict[str, GreenhouseAdvice] = field(default_factory=dict)
+    phenology: dict[str, PhenologyInfo] = field(default_factory=dict)
+    disease: dict[str, DiseaseAssessment] = field(default_factory=dict)
+    nutrients: dict[str, NutrientBalance] = field(default_factory=dict)
     horizon_days: int = GENERATION_HORIZON_DAYS
 
 
@@ -296,6 +318,7 @@ def planting_specs(
     rules = list(plant.care)
     if plant.feeding_interval_days and not has_feed_rule:
         rules.append(CareRule(task=TaskType.FEED, start_day=21, interval_days=plant.feeding_interval_days, minutes=10))
+    area_m2 = planting.width_cm * planting.length_cm / 10_000
     for idx, rule in enumerate(rules):
         first = _care_anchor(rule, tl) + timedelta(days=rule.start_day)
         until = _care_anchor(rule, tl) + timedelta(days=rule.end_day) if rule.end_day is not None else tl.harvest_end
@@ -314,7 +337,7 @@ def planting_specs(
                 first,
                 window_start=first,
                 window_end=until if rule.interval_days else first + timedelta(days=7),
-                description=rule.notes.get(lang) or rule.notes.get("en", ""),
+                description=_care_description(rule, plant, count, area_m2, lang),
                 minutes=rule.minutes,
                 recurrence=Recurrence(rule.interval_days, until) if rule.interval_days else None,
                 depends_on=deps,
@@ -322,7 +345,12 @@ def planting_specs(
         )
 
     # -- harvest --------------------------------------------------------- #
-    desc = t("desc.harvest", lang, start=tl.harvest_start.isoformat(), end=tl.harvest_end.isoformat())
+    harvest_start = tl.harvest_start
+    pheno = ctx.phenology.get(pid)
+    if pheno and pheno.harvest_estimate and planting.harvest_started_on is None:
+        # Degree days refine the calendar: a warm spring brings it forward.
+        harvest_start = min(max(pheno.harvest_estimate, ctx.today), tl.harvest_end)
+    desc = t("desc.harvest", lang, start=harvest_start.isoformat(), end=tl.harvest_end.isoformat())
     harvest_deps = [f"p:{pid}:transplant" if tl.method is not SowMethod.DIRECT_SOW else f"p:{pid}:sow_direct"]
     if not plant.harvestable:
         pass  # companion flowers etc.
@@ -331,8 +359,8 @@ def planting_specs(
             common(
                 "harvest",
                 TaskType.HARVEST,
-                tl.harvest_start,
-                window_start=tl.harvest_start,
+                harvest_start,
+                window_start=harvest_start,
                 window_end=tl.harvest_end,
                 description=desc,
                 priority=TaskPriority.NORMAL,
@@ -346,8 +374,8 @@ def planting_specs(
             common(
                 "harvest",
                 TaskType.HARVEST,
-                tl.harvest_start,
-                window_start=tl.harvest_start,
+                harvest_start,
+                window_start=harvest_start,
                 window_end=tl.harvest_end,
                 title_key="task.harvest_start",
                 description=desc,
@@ -357,6 +385,15 @@ def planting_specs(
             )
         )
     return specs
+
+
+def _care_description(rule: CareRule, plant: Plant, count: int, area_m2: float, lang: str) -> str:
+    text = rule.notes.get(lang) or rule.notes.get("en", "")
+    if rule.task is TaskType.FEED:
+        dose = feed_dose(plant, count, area_m2)
+        amount = t("desc.feed", lang, liquid=dose.liquid_liters, ml=dose.concentrate_ml, grams=dose.dry_grams)
+        text = f"{text} {amount}".strip()
+    return text
 
 
 def bed_specs(ctx: TaskContext, bed: GardenBed, plantings: Sequence[tuple[Planting, Plant]]) -> list[TaskSpec]:
@@ -501,6 +538,40 @@ def live_specs(ctx: TaskContext) -> list[TaskSpec]:
             )
         )
 
+    for zone_id, items in by_zone.items():
+        disease = ctx.disease.get(zone_id)
+        if disease is None or disease.level not in ("moderate", "high"):
+            continue
+        kinds: dict[str, list[str]] = {}
+        for _p, plant in items:
+            kind = DISEASE_PRONE.get(plant.family)
+            if kind:
+                kinds.setdefault(kind, []).append(plant.name(lang))
+        for kind, names in sorted(kinds.items()):
+            reason_key = disease.reasons[0] if disease.reasons else "wet_hours"
+            reason = t(
+                f"disease.reason.{reason_key}",
+                lang,
+                hours=round(disease.wet_hours),
+                humidity=round(disease.humidity_now) if disease.humidity_now is not None else "?",
+            )
+            specs.append(
+                TaskSpec(
+                    key=f"w:disease:{kind}:{zone_id}:{today.isoformat()}",
+                    type=TaskType.PEST_CHECK,
+                    due=today,
+                    title_key="task.disease_check",
+                    title_params={"plants": ", ".join(sorted(set(names))), "disease": t(f"disease.{kind}", lang)},
+                    description=t("desc.disease", lang, level=disease.level, reason=reason),
+                    window_start=today,
+                    window_end=today + timedelta(days=1),
+                    priority=TaskPriority.HIGH if disease.level == "high" else TaskPriority.NORMAL,
+                    minutes=5 + 2 * len(names),
+                    source=TaskSource.WEATHER,
+                    zone_id=zone_id,
+                )
+            )
+
     for zone in data.zones:
         advice = ctx.greenhouse.get(zone.id)
         if advice is None or advice.action is GreenhouseAction.NONE:
@@ -562,6 +633,9 @@ def generate_specs(ctx: TaskContext) -> list[TaskSpec]:
     for bed in data.beds:
         specs.extend(bed_specs(ctx, bed, per_bed.get(bed.id, [])))
     _apply_dependency_lag(specs, ctx.today)
+    from .maintenance import maintenance_specs  # maintenance imports TaskSpec
+
+    specs.extend(maintenance_specs(ctx))
     specs = [s for s in specs if s.due <= horizon]
     specs.extend(live_specs(ctx))
     for spec in specs:

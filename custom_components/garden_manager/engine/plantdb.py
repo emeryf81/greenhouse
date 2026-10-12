@@ -27,6 +27,21 @@ FAMILIES: dict[str, dict[str, str]] = {
     "Asteraceae": {"en": "Daisy family", "nl": "Composietenfamilie", "color": "#4FA38A"},
     "Lamiaceae": {"en": "Mints & herbs", "nl": "Lipbloemigen", "color": "#4F6FB0"},
     "Poaceae": {"en": "Grasses", "nl": "Grassenfamilie", "color": "#B79F2E"},
+    "Polygonaceae": {"en": "Knotweed family", "nl": "Duizendknoopfamilie", "color": "#B5485A"},
+    "Rosaceae": {"en": "Rose family", "nl": "Rozenfamilie", "color": "#D9577A"},
+    "Asparagaceae": {"en": "Asparagus family", "nl": "Aspergefamilie", "color": "#5E8C61"},
+    "Boraginaceae": {"en": "Borage family", "nl": "Ruwbladigen", "color": "#5C7FC4"},
+    "Tropaeolaceae": {"en": "Nasturtiums", "nl": "Oost-Indische-kersfamilie", "color": "#E2702F"},
+    "Caprifoliaceae": {"en": "Honeysuckle family", "nl": "Kamperfoeliefamilie", "color": "#7AA36A"},
+    "Portulacaceae": {"en": "Purslanes", "nl": "Posteleinfamilie", "color": "#8DB255"},
+    "Montiaceae": {"en": "Miner's lettuces", "nl": "Winterposteleinfamilie", "color": "#6FA69A"},
+    "Aizoaceae": {"en": "Ice plants", "nl": "IJskruidfamilie", "color": "#7F9F4F"},
+    "Malvaceae": {"en": "Mallows", "nl": "Kaasjeskruidfamilie", "color": "#C77DB0"},
+    "Lauraceae": {"en": "Laurels", "nl": "Laurierfamilie", "color": "#4D7A4A"},
+    "Verbenaceae": {"en": "Verbenas", "nl": "IJzerhardfamilie", "color": "#9A72C2"},
+    "Iridaceae": {"en": "Irises", "nl": "Lissenfamilie", "color": "#8A5CC4"},
+    "Urticaceae": {"en": "Nettles", "nl": "Brandnetelfamilie", "color": "#62815A"},
+    "Rutaceae": {"en": "Rues", "nl": "Wijnruitfamilie", "color": "#A8A23A"},
 }
 
 
@@ -54,6 +69,36 @@ def _fold(text: str) -> str:
     return "".join(c for c in norm if not unicodedata.combining(c)).casefold()
 
 
+# Family-level relations: used when no plant-level relation exists, so that
+# custom plants and new varieties get sensible companion advice too.
+FAMILY_RELATIONS: list[tuple[str, str, Relation, int, dict[str, str]]] = [
+    ("Amaryllidaceae", "Fabaceae", Relation.ENEMY, 2,
+     {"en": "Alliums inhibit the nitrogen-fixing bacteria of legumes.",
+      "nl": "Uiachtigen remmen de stikstofbindende bacteriën van peulvruchten."}),
+    ("Amaryllidaceae", "Apiaceae", Relation.FRIEND, 2,
+     {"en": "Their scents mask each other from onion fly and carrot fly.",
+      "nl": "Hun geuren maskeren elkaar voor uienvlieg en wortelvlieg."}),
+    ("Brassicaceae", "Solanaceae", Relation.ENEMY, 1,
+     {"en": "Two groups of heavy feeders competing for nutrients.",
+      "nl": "Twee groepen zware eters die om voeding concurreren."}),
+    ("Lamiaceae", "Brassicaceae", Relation.FRIEND, 1,
+     {"en": "Aromatic herbs mask brassicas from cabbage white and flea beetle.",
+      "nl": "Aromatische kruiden verbergen kool voor koolwitje en aardvlo."}),
+    ("Fabaceae", "Cucurbitaceae", Relation.FRIEND, 1,
+     {"en": "Legumes add nitrogen for the hungry cucurbits.",
+      "nl": "Peulvruchten leveren stikstof voor de hongerige komkommerachtigen."}),
+    ("Fabaceae", "Poaceae", Relation.FRIEND, 2,
+     {"en": "Nitrogen for the grass, support for the climber (Three Sisters).",
+      "nl": "Stikstof voor het gras, steun voor de klimmer (drie zussen)."}),
+    ("Poaceae", "Cucurbitaceae", Relation.FRIEND, 1,
+     {"en": "Squash leaves act as living mulch under corn.",
+      "nl": "Pompoenblad werkt als levende mulch onder maïs."}),
+    ("Fabaceae", "Brassicaceae", Relation.FRIEND, 1,
+     {"en": "Legumes leave nitrogen for heavy-feeding brassicas.",
+      "nl": "Peulvruchten laten stikstof achter voor zwaar etende kolen."}),
+]  # fmt: skip
+
+
 @dataclass(frozen=True, slots=True)
 class RelationInfo:
     relation: Relation
@@ -61,6 +106,7 @@ class RelationInfo:
     reasons: dict[str, str]
     # True when only one side declared it (we treat relations as symmetric).
     one_sided: bool
+    source: str = "plant"  # plant | family
 
 
 class PlantDatabase:
@@ -148,7 +194,7 @@ class PlantDatabase:
         """
         links = self._relations.get((a, b), []) + self._relations.get((b, a), [])
         if not links:
-            return RelationInfo(Relation.NEUTRAL, 0, {}, one_sided=False)
+            return self.family_relation(a, b)
         enemies = [link for link in links if link.relation is Relation.ENEMY]
         chosen = enemies or [link for link in links if link.relation is Relation.FRIEND]
         if not chosen:
@@ -164,6 +210,15 @@ class PlantDatabase:
             reasons,
             one_sided,
         )
+
+    def family_relation(self, a: str, b: str) -> RelationInfo:
+        pa, pb = self._plants.get(a), self._plants.get(b)
+        if pa is None or pb is None or pa.family == pb.family:
+            return RelationInfo(Relation.NEUTRAL, 0, {}, one_sided=False)
+        for fa, fb, rel, strength, reason in FAMILY_RELATIONS:
+            if {fa, fb} == {pa.family, pb.family}:
+                return RelationInfo(rel, strength, reason, one_sided=False, source="family")
+        return RelationInfo(Relation.NEUTRAL, 0, {}, one_sided=False)
 
     def friends_of(self, plant_id: str) -> list[str]:
         return sorted(

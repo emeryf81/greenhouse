@@ -15,6 +15,14 @@ touching, 0 at ``reach``).  Each interacting pair contributes::
     overlap : -30 * overlap_fraction          (physical crowding)
     same family touching: -3                  (shared pests/diseases)
 
+When no explicit relation exists, further factors are evaluated:
+
+    pest synergy  : +6 * influence   A deters / traps a pest that attacks B
+    allelopathy   : -10 * influence  fennel, sunflower, wormwood ...
+    competition   : -4 * influence   two heavy feeders shoulder to shoulder
+    shading       : -8 * influence   a tall crop on the sun side of a sun lover
+                    +3 * influence   ... or welcome shade for a shade-tolerant crop
+
 The bed score is ``clamp(50 + sum, 0, 100)`` - 50 is neutral.  Every
 contribution carries an i18n key + params so the UI can explain it.
 """
@@ -26,7 +34,8 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from .geometry import Rect, planting_rect
-from .models import GardenBed, Plant, Planting, Relation, RotationRecord
+from .i18n import pest_label
+from .models import GardenBed, Hemisphere, Level, Plant, Planting, Relation, RotationRecord, Zone
 from .plantdb import PlantDatabase
 from .schedule import DateWindow
 
@@ -37,7 +46,7 @@ Severity = Literal["info", "warning", "error"]
 class PairFinding:
     a: str  # planting id
     b: str
-    kind: Literal["friend", "enemy", "overlap", "same_family"]
+    kind: Literal["friend", "enemy", "overlap", "same_family", "pest_synergy", "allelopathy", "competition", "shading"]
     severity: Severity
     score: float
     distance_cm: float
@@ -67,6 +76,7 @@ class RotationFinding:
     severity: Severity
     key: str = "compat.rotation"
     params: dict[str, Any] = field(default_factory=dict)
+    alternatives: list[str] = field(default_factory=list)  # bed ids without conflict
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +88,7 @@ class RotationFinding:
             "severity": self.severity,
             "key": self.key,
             "params": self.params,
+            "alternatives": self.alternatives,
         }
 
 
@@ -89,6 +100,8 @@ class CompatibilityReport:
     out_of_bounds: list[str] = field(default_factory=list)
     # Plant-vs-place problems, e.g. a crop that does not belong under glass.
     placement: list[dict[str, Any]] = field(default_factory=list)
+    # Better neighbours for plantings that have conflicts: planting id -> plant ids
+    suggestions: dict[str, list[str]] = field(default_factory=dict)
 
     @property
     def conflicts(self) -> list[PairFinding]:
@@ -101,6 +114,7 @@ class CompatibilityReport:
             "rotation": [r.to_dict() for r in self.rotation],
             "out_of_bounds": self.out_of_bounds,
             "placement": self.placement,
+            "suggestions": self.suggestions,
         }
 
 
@@ -121,6 +135,7 @@ def evaluate_pair(
     *,
     radius_cm: float,
     lang: str = "en",
+    hemisphere: Hemisphere = Hemisphere.NORTH,
 ) -> list[PairFinding]:
     findings: list[PairFinding] = []
     gap = ra.gap(rb)
@@ -188,7 +203,93 @@ def evaluate_pair(
                     {"a": name_a, "b": name_b},
                 )
             )
+        if rel.relation is Relation.NEUTRAL or rel.source == "family":
+            findings.extend(_secondary_factors(pa, ra, plant_a, pb, rb, plant_b, influence, gap, lang, hemisphere, rel))
     return findings
+
+
+def _secondary_factors(
+    pa: Planting,
+    ra: Rect,
+    plant_a: Plant,
+    pb: Planting,
+    rb: Rect,
+    plant_b: Plant,
+    influence: float,
+    gap: float,
+    lang: str,
+    hemisphere: Hemisphere,
+    rel: Any,
+) -> list[PairFinding]:
+    """Factors derived from plant traits rather than explicit relations."""
+    out: list[PairFinding] = []
+    name_a, name_b = plant_a.name(lang), plant_b.name(lang)
+
+    # -- pest deterrence / trap crops ------------------------------------ #
+    for helper, helper_p, target, target_p in ((plant_a, pa, plant_b, pb), (plant_b, pb, plant_a, pa)):
+        deterred = sorted(set(helper.deters) & set(target.pests))
+        trapped = sorted(set(helper.trap_for) & set(target.pests))
+        if deterred or trapped:
+            pests = ", ".join(pest_label(p, lang) for p in (deterred or trapped))
+            out.append(
+                PairFinding(
+                    helper_p.id, target_p.id, "pest_synergy", "info", 6 * influence, gap,
+                    "compat.deters" if deterred else "compat.trap",
+                    {"a": helper.name(lang), "b": target.name(lang), "pests": pests},
+                )
+            )  # fmt: skip
+
+    if rel.relation is Relation.FRIEND:
+        return out
+
+    # -- allelopathy ------------------------------------------------------ #
+    for culprit, culprit_p, victim, victim_p in ((plant_a, pa, plant_b, pb), (plant_b, pb, plant_a, pa)):
+        if culprit.allelopathic and not victim.allelopathic:
+            out.append(
+                PairFinding(
+                    culprit_p.id, victim_p.id, "allelopathy", "warning", -10 * influence, gap,
+                    "compat.allelopathy", {"a": culprit.name(lang), "b": victim.name(lang)},
+                )
+            )  # fmt: skip
+            break
+
+    # -- nutrient competition -------------------------------------------- #
+    if plant_a.nutrient_needs is Level.HIGH and plant_b.nutrient_needs is Level.HIGH and influence > 0.5:
+        out.append(
+            PairFinding(
+                pa.id, pb.id, "competition", "info", -4 * influence, gap,
+                "compat.competition", {"a": name_a, "b": name_b},
+            )
+        )  # fmt: skip
+
+    # -- shading (canvas y grows to the south; sun from the equator side) -- #
+    tall, short = (plant_a, plant_b) if plant_a.height_cm >= plant_b.height_cm else (plant_b, plant_a)
+    tall_r, short_r = (ra, rb) if tall is plant_a else (rb, ra)
+    tall_p, short_p = (pa, pb) if tall is plant_a else (pb, pa)
+    if tall.height_cm >= 80 and tall.height_cm >= 1.6 * short.height_cm:
+        sun_side = (
+            tall_r.center[1] > short_r.center[1]
+            if hemisphere is Hemisphere.NORTH
+            else tall_r.center[1] < short_r.center[1]
+        )
+        x_overlap = min(tall_r.x2, short_r.x2) - max(tall_r.x, short_r.x)
+        dy = abs(tall_r.center[1] - short_r.center[1])
+        if sun_side and x_overlap > -20 and dy <= tall.height_cm:
+            if short.shade_tolerant:
+                out.append(
+                    PairFinding(
+                        tall_p.id, short_p.id, "shading", "info", 3 * influence, gap,
+                        "compat.shade_benefit", {"a": tall.name(lang), "b": short.name(lang)},
+                    )
+                )  # fmt: skip
+            else:
+                out.append(
+                    PairFinding(
+                        tall_p.id, short_p.id, "shading", "warning", -8 * influence, gap,
+                        "compat.shading", {"a": tall.name(lang), "b": short.name(lang), "height": tall.height_cm},
+                    )
+                )  # fmt: skip
+    return out
 
 
 def check_bed(
@@ -199,6 +300,7 @@ def check_bed(
     timelines: dict[str, DateWindow] | None = None,
     radius_cm: float = 60.0,
     lang: str = "en",
+    hemisphere: Hemisphere = Hemisphere.NORTH,
 ) -> CompatibilityReport:
     """Companion + spacing analysis for all plantings of one bed.
 
@@ -225,14 +327,27 @@ def check_bed(
                 pb,
                 rb,
                 plant_b,
-                db,
+                db,  # type: ignore[arg-type]
                 radius_cm=radius_cm,
-                lang=lang,  # type: ignore[arg-type]
+                lang=lang,
+                hemisphere=hemisphere,
             ):
                 report.pairs.append(finding)
                 total += finding.score
     report.score = max(0.0, min(100.0, 50.0 + total))
     report.pairs.sort(key=lambda f: ({"error": 0, "warning": 1, "info": 2}[f.severity], f.score))
+    # Better neighbours for every planting involved in a conflict.
+    present = {p.plant_id for p, _r, _pl in items}
+    for finding in report.pairs:
+        if finding.severity == "info":
+            continue
+        for pid in (finding.a, finding.b):
+            planting = next((p for p, _r, _pl in items if p.id == pid), None)
+            if planting is None or pid in report.suggestions:
+                continue
+            report.suggestions[pid] = [
+                other for other, _s in suggest_companions(planting.plant_id, db, limit=8) if other not in present
+            ][:3]
     return report
 
 
@@ -299,6 +414,32 @@ def check_rotation(
             )
     findings.sort(key=lambda f: -f.conflicting_season)
     return findings[:1]  # most recent conflict is the one that matters
+
+
+def suggest_beds(
+    planting: Planting,
+    beds: Sequence[GardenBed],
+    zones: Sequence[Zone],
+    history: Iterable[RotationRecord],
+    db: PlantDatabase,
+) -> list[str]:
+    """Beds where this crop would *not* break rotation and suits the zone."""
+    plant = db.get(planting.plant_id)
+    if plant is None:
+        return []
+    history = list(history)
+    zone_by_id = {z.id: z for z in zones}
+    out = []
+    for bed in beds:
+        if bed.id == planting.bed_id:
+            continue
+        zone = zone_by_id.get(bed.zone_id)
+        if zone is not None and zone.is_enclosed and plant.greenhouse.suitability.value == "no":
+            continue
+        probe = Planting(id=planting.id, plant_id=planting.plant_id, bed_id=bed.id, season=planting.season)
+        if not check_rotation(probe, bed, history, db):
+            out.append(bed.id)
+    return out
 
 
 def suggest_companions(plant_id: str, db: PlantDatabase, *, limit: int = 5) -> list[tuple[str, int]]:

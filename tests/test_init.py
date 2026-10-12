@@ -185,7 +185,7 @@ async def test_websocket_api(hass: HomeAssistant, setup_garden, hass_ws_client) 
 
     await client.send_json_auto_id({"type": f"{DOMAIN}/plants"})
     plants = (await _result(client))["result"]
-    assert len(plants["plants"]) == 20 and "Solanaceae" in plants["families"]
+    assert len(plants["plants"]) >= 130 and "Solanaceae" in plants["families"]
 
     bed = snapshot["beds"][0]
     draft = [

@@ -48,6 +48,18 @@ SOIL_SHIFT: dict[SoilType, float] = {
 CROP_KC: dict[Level, float] = {Level.LOW: 0.6, Level.MEDIUM: 0.85, Level.HIGH: 1.05}
 ENCLOSED_ET_FACTOR = 0.7
 RAIN_EFFICIENCY = 0.8
+# Available water capacity (mm of plant-available water per metre of soil).
+AWC_MM_PER_M: dict[SoilType, float] = {
+    SoilType.SANDY: 80.0,
+    SoilType.LOAM: 160.0,
+    SoilType.CLAY: 180.0,
+    SoilType.SILT: 200.0,
+    SoilType.PEAT: 250.0,
+    SoilType.CHALK: 120.0,
+    SoilType.POTTING_MIX: 220.0,
+}
+# Fraction of total available water that may be used before stress (FAO-56 p).
+ALLOWED_DEPLETION = 0.5
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +96,33 @@ def classify_moisture(value: float | None, band: MoistureBand) -> MoistureStatus
     if value > band.wet_above:
         return MoistureStatus.WET
     return MoistureStatus.OPTIMAL
+
+
+def total_available_water(soil: SoilType, root_depth_mm: float) -> float:
+    """TAW in mm for the root zone (FAO-56 eq. 82)."""
+    return AWC_MM_PER_M.get(soil, 160.0) * root_depth_mm / 1000
+
+
+def update_water_balance(
+    depletion_mm: float,
+    *,
+    et0_mm: float,
+    kc: float,
+    rain_mm: float,
+    irrigation_mm: float,
+    taw_mm: float,
+    enclosed: bool = False,
+) -> float:
+    """One day of the root-zone bucket (FAO-56 eq. 85, no capillary rise).
+
+    Depletion grows with crop ET and shrinks with effective rain and
+    irrigation; it never drops below 0 (field capacity - excess drains) nor
+    rises above TAW (wilting point).
+    """
+    effective_rain = 0.0 if enclosed else RAIN_EFFICIENCY * rain_mm
+    depletion = depletion_mm + et0_mm * kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0)
+    depletion -= effective_rain + irrigation_mm
+    return round(max(0.0, min(taw_mm, depletion)), 1)
 
 
 @dataclass(slots=True)
@@ -134,7 +173,16 @@ def recommend_irrigation(
     *,
     root_zone_depth_mm: float = 200.0,
     max_irrigation_mm: float = 20.0,
+    kc: float | None = None,
+    depletion: tuple[float, float] | None = None,
 ) -> IrrigationRecommendation:
+    """Irrigation advice for one bed.
+
+    ``kc`` is the growth-stage crop coefficient of the thirstiest active crop
+    (falls back to a coefficient per water-need class).  ``depletion`` is the
+    ``(depletion_mm, taw_mm)`` water-balance bucket used when no moisture sensor
+    is mapped.
+    """
     need = dominant_need(active_needs)
     band = band_for(need or Level.MEDIUM, bed.soil)
     rec = IrrigationRecommendation(
@@ -146,6 +194,7 @@ def recommend_irrigation(
     )
     enclosed = bool(zone and zone.is_enclosed)
     shade = bed.shade_pct if bed.shade_pct is not None else (zone.microclimate.shade_pct if zone else 0)
+    crop_kc = kc if kc is not None and kc > 0 else CROP_KC[need or Level.MEDIUM]
 
     today = outlook[0] if outlook else None
     tomorrow = outlook[1] if len(outlook) > 1 else None
@@ -153,7 +202,7 @@ def recommend_irrigation(
         rec.rain_24h_mm = round(today.rain_mm if today else 0.0, 1)
         rec.rain_48h_mm = round(rec.rain_24h_mm + (tomorrow.rain_mm if tomorrow else 0.0), 1)
     if today and today.et0_mm is not None:
-        factor = CROP_KC[need or Level.MEDIUM] * (ENCLOSED_ET_FACTOR if enclosed else 1.0)
+        factor = crop_kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0)
         factor *= 1 - shade / 200  # 50 % shade -> 25 % less demand
         rec.etc_24h_mm = round(today.et0_mm * factor, 1)
 
@@ -161,10 +210,38 @@ def recommend_irrigation(
         rec.reasons.append("no_active_crops")
         return rec
 
+    if moisture is None and depletion is not None:
+        # Water-balance bucket: water when depletion exceeds the readily
+        # available water (p x TAW); refill to field capacity.
+        depleted, taw = depletion
+        rec.confidence = "medium"
+        raw = ALLOWED_DEPLETION * taw
+        credited = 0.0 if enclosed else RAIN_EFFICIENCY * rec.rain_24h_mm
+        rec.status = (
+            MoistureStatus.DRY
+            if depleted >= raw
+            else MoistureStatus.SLIGHTLY_DRY
+            if depleted >= 0.7 * raw
+            else MoistureStatus.OPTIMAL
+        )
+        if depleted >= raw:
+            if credited >= 0.8 * depleted:
+                rec.action = IrrigationAction.SKIP_RAIN_EXPECTED
+                rec.reasons.append("rain_expected")
+                return rec
+            rec.action = IrrigationAction.WATER
+            rec.amount_mm = round(min(max(depleted - credited, 2.0), max_irrigation_mm), 1)
+            rec.priority = TaskPriority.HIGH if depleted >= 0.9 * taw else TaskPriority.NORMAL
+            rec.reasons.append("water_balance_depleted")
+            _finish(rec, bed)
+        else:
+            rec.reasons.append("water_balance_ok")
+        return rec
+
     if moisture is None:
-        # No sensor: forecast water balance only, ask the gardener to check.
+        # No sensor, no bucket yet: forecast water balance only.
         rec.confidence = "low"
-        demand = sum((o.et0_mm or 0.0) * CROP_KC[need] * (ENCLOSED_ET_FACTOR if enclosed else 1.0) for o in outlook[:2])
+        demand = sum((o.et0_mm or 0.0) * crop_kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0) for o in outlook[:2])
         rain = 0.0 if enclosed else RAIN_EFFICIENCY * rec.rain_48h_mm
         if demand - rain > 6.0 or (enclosed and demand > 4.0):
             rec.action = IrrigationAction.CHECK_MANUALLY

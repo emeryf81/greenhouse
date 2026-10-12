@@ -14,6 +14,8 @@ History
 1.3  ``tasks[].photos``, ``tasks[].notes`` as objects (were plain strings),
      ``settings.notifications`` block (was ``settings.notify_service``)
 1.4  ``climate_log`` + ``notified`` (GDD and notification dedupe)
+1.5  ``features`` (paths, compost ...), ``water_balance``, ``irrigation_log``,
+     ``settings.irrigation`` / ``settings.resources``
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ import copy
 from typing import Any
 
 STORAGE_VERSION = 1
-STORAGE_MINOR_VERSION = 4
+STORAGE_MINOR_VERSION = 5
 
 Doc = dict[str, Any]
 
@@ -60,10 +62,25 @@ def _v1_3_to_1_4(doc: Doc) -> Doc:
     return doc
 
 
+def _v1_4_to_1_5(doc: Doc) -> Doc:
+    doc.setdefault("features", [])
+    doc.setdefault("water_balance", {})
+    doc.setdefault("irrigation_log", [])
+    settings = doc.setdefault("settings", {})
+    irrigation = settings.setdefault("irrigation", {})
+    # 1.4 kept a per-bed valve only; derive the global mode from it.
+    if "mode" not in irrigation:
+        has_valves = any(b.get("irrigation_entity") for b in doc.get("beds", []))
+        irrigation["mode"] = "advise" if has_valves else "off"
+    settings.setdefault("resources", {})
+    return doc
+
+
 MIGRATIONS: dict[int, Callable[[Doc], Doc]] = {
     1: _v1_1_to_1_2,
     2: _v1_2_to_1_3,
     3: _v1_3_to_1_4,
+    4: _v1_4_to_1_5,
 }
 
 

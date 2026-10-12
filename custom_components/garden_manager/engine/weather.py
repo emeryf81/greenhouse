@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta, tzinfo
+import itertools
 import math
 from typing import Any, Literal
 
@@ -216,6 +217,12 @@ def zone_night_offset(zone: Zone | None) -> float:
     # Exposed sites lose heat faster, sheltered spots keep it.
     if zone.type is ZoneType.OUTDOOR:
         offset += {"sheltered": 0.5, "moderate": 0.0, "exposed": -0.5}[zone.microclimate.wind.value]
+    # A sun-facing wall re-radiates the day's heat; water barrels or a stone
+    # floor buffer an enclosure.
+    if zone.microclimate.wall_heat:
+        offset += 1.0
+    if zone.microclimate.thermal_mass and zone.is_enclosed:
+        offset += 1.0
     return offset
 
 
@@ -337,8 +344,8 @@ def greenhouse_advice(
 # --------------------------------------------------------------------------- #
 # Evapotranspiration (Hargreaves-Samani, FAO-56 eq. 52)
 # --------------------------------------------------------------------------- #
-def extraterrestrial_radiation(latitude_deg: float, day: date) -> float:
-    """Ra in MJ m-2 day-1 (FAO-56 eq. 21).  Valid at all latitudes."""
+def _solar(latitude_deg: float, day: date) -> tuple[float, float]:
+    """(Ra in MJ m-2 day-1, daylight hours N) - FAO-56 eq. 21 and 34."""
     j = day.timetuple().tm_yday
     days_in_year = 366 if (day.year % 4 == 0 and (day.year % 100 != 0 or day.year % 400 == 0)) else 365
     phi = math.radians(latitude_deg)
@@ -352,7 +359,80 @@ def extraterrestrial_radiation(latitude_deg: float, day: date) -> float:
         * dr
         * (ws * math.sin(phi) * math.sin(delta) + math.cos(phi) * math.cos(delta) * math.sin(ws))
     )
-    return max(ra, 0.0)
+    return max(ra, 0.0), 24 / math.pi * ws
+
+
+def extraterrestrial_radiation(latitude_deg: float, day: date) -> float:
+    """Ra in MJ m-2 day-1 (FAO-56 eq. 21).  Valid at all latitudes."""
+    return _solar(latitude_deg, day)[0]
+
+
+def daylight_hours(latitude_deg: float, day: date) -> float:
+    """Maximum possible sunshine duration N (hours), FAO-56 eq. 34."""
+    return _solar(latitude_deg, day)[1]
+
+
+def _svp(t: float) -> float:
+    """Saturation vapour pressure e°(T) in kPa (FAO-56 eq. 11)."""
+    return 0.6108 * math.exp(17.27 * t / (t + 237.3))
+
+
+def et0_penman_monteith(
+    tmin: float,
+    tmax: float,
+    latitude_deg: float,
+    day: date,
+    *,
+    rh_min: float | None = None,
+    rh_max: float | None = None,
+    rh_mean: float | None = None,
+    u2: float | None = None,
+    wind_kmh_10m: float | None = None,
+    rs: float | None = None,
+    sunshine_fraction: float | None = None,
+    elevation_m: float = 0.0,
+) -> float | None:
+    """FAO-56 Penman-Monteith reference ET (mm/day), eq. 6.
+
+    Needs humidity and wind; solar radiation comes from ``rs`` (MJ/m²/day, e.g.
+    Open-Meteo) or is estimated with the Angström formula from the sunshine
+    fraction n/N - which an HA forecast gives us via cloud cover (n/N ≈ 1 -
+    clouds).  Returns ``None`` when inputs are insufficient; callers then fall
+    back to Hargreaves-Samani.
+    """
+    if tmax < tmin:
+        tmin, tmax = tmax, tmin
+    if u2 is None and wind_kmh_10m is not None:
+        u2 = wind_kmh_10m / 3.6 * 4.87 / math.log(67.8 * 10 - 5.42)  # eq. 47, measured at 10 m
+    if u2 is None or (rh_min is None and rh_mean is None):
+        return None
+    ra, _daylight = _solar(latitude_deg, day)
+    if rs is None:
+        if sunshine_fraction is None:
+            return None
+        rs = (0.25 + 0.50 * max(0.0, min(1.0, sunshine_fraction))) * ra  # eq. 35
+    tmean = (tmax + tmin) / 2
+    delta = 4098 * _svp(tmean) / (tmean + 237.3) ** 2  # eq. 13
+    pressure = 101.3 * ((293 - 0.0065 * elevation_m) / 293) ** 5.26  # eq. 7
+    gamma = 0.000665 * pressure  # eq. 8
+    es = (_svp(tmax) + _svp(tmin)) / 2  # eq. 12
+    if rh_min is not None and rh_max is not None:
+        ea = (_svp(tmin) * rh_max / 100 + _svp(tmax) * rh_min / 100) / 2  # eq. 17
+    else:
+        rh = rh_mean if rh_mean is not None else rh_min
+        ea = (rh or 70.0) / 100 * es  # eq. 19
+    rso = (0.75 + 2e-5 * elevation_m) * ra  # eq. 37
+    rns = 0.77 * rs  # eq. 38 (albedo 0.23)
+    rel_shortwave = min(rs / rso, 1.0) if rso > 0 else 0.0
+    rnl = (
+        4.903e-9
+        * (((tmax + 273.16) ** 4 + (tmin + 273.16) ** 4) / 2)
+        * (0.34 - 0.14 * math.sqrt(max(ea, 0.0)))
+        * (1.35 * rel_shortwave - 0.35)
+    )  # eq. 39
+    rn = rns - rnl
+    num = 0.408 * delta * rn + gamma * 900 / (tmean + 273) * u2 * (es - ea)
+    return max(round(num / (delta + gamma * (1 + 0.34 * u2)), 2), 0.0)
 
 
 def et0_hargreaves(tmin: float, tmax: float, latitude_deg: float, day: date) -> float:
@@ -372,27 +452,54 @@ class DailyOutlook:
     tmax: float | None
     rain_mm: float  # probability weighted
     et0_mm: float | None
+    rh_min: float | None = None
+    rh_max: float | None = None
+    wind_kmh: float | None = None
+    cloud_fraction: float | None = None
+    rs_mj: float | None = None
+    et0_method: str | None = None  # penman_monteith | hargreaves
 
 
 def daily_outlook(
-    weather: WeatherSnapshot, now: datetime, tz: tzinfo, latitude: float, days: int = 3
+    weather: WeatherSnapshot,
+    now: datetime,
+    tz: tzinfo,
+    latitude: float,
+    days: int = 3,
+    elevation_m: float = 0.0,
 ) -> list[DailyOutlook]:
-    """Per local day: min/max temperature, expected rain, ET0.
+    """Per local day: temperature range, humidity, wind, clouds, rain and ET0.
 
     Prefers aggregating hourly data (exact local-day boundaries, DST safe);
-    falls back to the daily forecast.
+    falls back to the daily forecast.  ET0 uses FAO-56 Penman-Monteith when
+    humidity and wind are known, otherwise Hargreaves-Samani.
     """
     today = now.astimezone(tz).date()
     result: dict[date, DailyOutlook] = {}
+    extra: dict[date, dict[str, list[float]]] = {}
+
+    def acc_for(d: date) -> dict[str, list[float]]:
+        return extra.setdefault(d, {"rh": [], "wind": [], "cloud": [], "rs": []})
+
     if weather.hourly:
         for p in weather.hourly:
-            d = p.at.astimezone(tz).date()
+            local = p.at.astimezone(tz)
+            d = local.date()
             if not today <= d < today + timedelta(days=days):
                 continue
             o = result.setdefault(d, DailyOutlook(d, None, None, 0.0, None))
+            acc = acc_for(d)
             if p.temperature is not None:
                 o.tmin = p.temperature if o.tmin is None else min(o.tmin, p.temperature)
                 o.tmax = p.temperature if o.tmax is None else max(o.tmax, p.temperature)
+            if p.humidity is not None:
+                acc["rh"].append(p.humidity)
+            if p.wind_speed is not None:
+                acc["wind"].append(p.wind_speed)
+            if (p.cloud_coverage is not None or p.condition) and 7 <= local.hour <= 19:
+                acc["cloud"].append(_cloud_fraction(p))  # daylight clouds drive radiation
+            if p.shortwave_radiation is not None:
+                acc["rs"].append(p.shortwave_radiation)
             o.rain_mm += expected_rain(p)
     if not result and weather.daily:
         for p in weather.daily:
@@ -400,9 +507,42 @@ def daily_outlook(
             if not today <= d < today + timedelta(days=days):
                 continue
             result[d] = DailyOutlook(d, p.templow, p.temperature, expected_rain(p), None)
-    for o in result.values():
+            acc = acc_for(d)
+            if p.humidity is not None:
+                acc["rh"].append(p.humidity)
+            if p.wind_speed is not None:
+                acc["wind"].append(p.wind_speed)
+            if p.cloud_coverage is not None or p.condition:
+                acc["cloud"].append(_cloud_fraction(p))
+            if p.shortwave_radiation is not None:
+                acc["rs"].append(p.shortwave_radiation)
+    for d, o in result.items():
+        acc = acc_for(d)
+        if acc["rh"]:
+            o.rh_min, o.rh_max = min(acc["rh"]), max(acc["rh"])
+        if acc["wind"]:
+            o.wind_kmh = round(sum(acc["wind"]) / len(acc["wind"]), 1)
+        if acc["cloud"]:
+            o.cloud_fraction = round(sum(acc["cloud"]) / len(acc["cloud"]), 2)
+        if acc["rs"]:
+            o.rs_mj = max(acc["rs"])  # daily sum (Open-Meteo) repeated per hour
         if o.tmin is not None and o.tmax is not None:
-            o.et0_mm = et0_hargreaves(o.tmin, o.tmax, latitude, o.day)
+            pm = et0_penman_monteith(
+                o.tmin,
+                o.tmax,
+                latitude,
+                o.day,
+                rh_min=o.rh_min,
+                rh_max=o.rh_max,
+                wind_kmh_10m=o.wind_kmh,
+                rs=o.rs_mj,
+                sunshine_fraction=None if o.cloud_fraction is None else 1 - o.cloud_fraction,
+                elevation_m=elevation_m,
+            )
+            if pm is not None:
+                o.et0_mm, o.et0_method = pm, "penman_monteith"
+            else:
+                o.et0_mm, o.et0_method = et0_hargreaves(o.tmin, o.tmax, latitude, o.day), "hargreaves"
         o.rain_mm = round(o.rain_mm, 1)
     return [result[d] for d in sorted(result)]
 
@@ -414,6 +554,85 @@ def expected_rain(point: ForecastPoint) -> float:
     prob = point.precipitation_probability
     factor = 1.0 if prob is None else max(0.0, min(1.0, prob / 100))
     return point.precipitation * factor
+
+
+# --------------------------------------------------------------------------- #
+# Disease pressure
+# --------------------------------------------------------------------------- #
+@dataclass(slots=True)
+class DiseaseAssessment:
+    level: str = "unknown"  # none | low | moderate | high | unknown
+    wet_hours: float = 0.0  # hours with RH >= 90 % at 10-25 °C in the next 48 h
+    hutton_period: bool = False  # late-blight weather (Hutton criteria)
+    humidity_now: float | None = None
+    leaf_wet_now: bool | None = None
+    reasons: list[str] = field(default_factory=list)
+
+
+def assess_disease(
+    weather: WeatherSnapshot,
+    now: datetime,
+    tz: tzinfo,
+    *,
+    humidity_now: float | None = None,
+    leaf_wetness_now: float | None = None,
+    enclosed: bool = False,
+    horizon_hours: int = 48,
+) -> DiseaseAssessment:
+    """Fungal disease pressure from humidity, temperature and leaf wetness.
+
+    * **Hutton period** (late blight): two consecutive days with a minimum of
+      at least 10 °C and at least 6 hours of RH >= 90 %.
+    * **Wet hours**: RH >= 90 % at 10-25 °C - when spores of downy mildew,
+      botrytis and blight germinate.
+    * A wet leaf right now (sensor) or stagnant greenhouse air (RH >= 85 %)
+      raises the level.
+    """
+    out = DiseaseAssessment(humidity_now=humidity_now)
+    if leaf_wetness_now is not None:
+        out.leaf_wet_now = leaf_wetness_now >= 50 or leaf_wetness_now == 1.0
+    horizon = now + timedelta(hours=horizon_hours)
+    pts = [p for p in weather.hourly if now - timedelta(hours=1) <= p.at <= horizon and p.temperature is not None]
+    has_forecast = weather.available and any(p.humidity is not None for p in pts)
+    if has_forecast and not enclosed:
+        per_day: dict[date, list[float]] = {}  # day -> [tmin, humid hours]
+        for idx, p in enumerate(pts):
+            nxt = pts[idx + 1].at if idx + 1 < len(pts) else p.at + timedelta(hours=1)
+            hours = min((nxt - p.at).total_seconds() / 3600, 3.0)
+            temp = float(p.temperature)  # type: ignore[arg-type]
+            day = per_day.setdefault(p.at.astimezone(tz).date(), [99.0, 0.0])
+            day[0] = min(day[0], temp)
+            if p.humidity is not None and p.humidity >= 90:
+                day[1] += hours
+                if 10 <= temp <= 25:
+                    out.wet_hours += hours
+        days = sorted(per_day)
+        for a, b in itertools.pairwise(days):
+            if min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
+                out.hutton_period = True
+        out.wet_hours = round(out.wet_hours, 1)
+    elif not has_forecast and humidity_now is None and out.leaf_wet_now is None:
+        return out  # unknown
+
+    order = ["none", "low", "moderate", "high"]
+    level = 0
+    if out.hutton_period:
+        level = 3
+        out.reasons.append("hutton_period")
+    elif out.wet_hours >= 10:
+        level = 2
+        out.reasons.append("long_wet_period")
+    elif out.wet_hours >= 4:
+        level = 1
+        out.reasons.append("wet_hours")
+    if enclosed and humidity_now is not None and humidity_now >= 85:
+        level = max(level, 1) + (1 if humidity_now >= 92 else 0)
+        out.reasons.append("humid_greenhouse_air")
+    if out.leaf_wet_now:
+        level += 1
+        out.reasons.append("leaf_wet_now")
+    out.level = order[min(level, 3)]
+    return out
 
 
 # --------------------------------------------------------------------------- #

@@ -145,7 +145,7 @@ def test_migrates_legacy_document():
     assert doc["climate_log"] == [] and doc["notified"] == {}
     data = from_dict(GardenData, doc)  # and it loads
     assert data.tasks[0].notes[0].text == "done quickly"
-    assert STORAGE_MINOR_VERSION == 4
+    assert STORAGE_MINOR_VERSION == 5
 
 
 def test_future_major_version_is_rejected():
@@ -182,7 +182,10 @@ def test_succession_splits_bed_and_stays_in_window(garden, db, make_planting):
 # --------------------------------------------------------------------------- #
 def test_starter_database_integrity(db):
     plants = db.all()
-    assert 10 <= len(plants) <= 20
+    assert len(plants) >= 130
+    categories = {p.category.value for p in plants}
+    assert categories == {"vegetable", "herb", "fruit", "flower"}
+    assert sum(1 for p in plants if p.category.value == "herb") >= 50
     ids = {p.id for p in plants}
     for plant in plants:
         assert plant.names.get("en") and plant.names.get("nl"), plant.id
@@ -205,5 +208,6 @@ def test_overrides_and_search(db):
     tomato = custom_db.get("tomato")
     assert tomato.spacing_cm == 60 and tomato.names == {"en": "Tomato", "nl": "Trostomaat"}
     assert tomato.source == "override"
-    assert [p.id for p in db.search("tomaat")] == ["tomato"]
-    assert {p.id for p in db.search(family="Fabaceae")} == {"pea", "bush_bean", "broad_bean"}
+    assert {p.id for p in db.search("tomaat")} == {"tomato", "cherry_tomato"}
+    assert {"pea", "bush_bean", "broad_bean", "runner_bean"} <= {p.id for p in db.search(family="Fabaceae")}
+    assert [p.id for p in db.search("bieslook")] == ["chives", "garlic_chives"]

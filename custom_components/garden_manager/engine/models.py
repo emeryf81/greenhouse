@@ -134,6 +134,18 @@ class TaskType(StrEnum):
     VENTILATE = "ventilate"
     SHADE = "shade"
     FROST_PROTECT = "frost_protect"
+    # Seasonal garden work (not tied to a single crop)
+    SOIL_PREP = "soil_prep"
+    COMPOST = "compost"
+    GREEN_MANURE = "green_manure"
+    MULCH = "mulch"
+    CLEAN_GREENHOUSE = "clean_greenhouse"
+    WINTER_PREP = "winter_prep"
+    PLAN_SEASON = "plan_season"
+    TOOL_CARE = "tool_care"
+    SOIL_TEST = "soil_test"
+    CUT_BACK = "cut_back"
+    DIVIDE = "divide"
     CUSTOM = "custom"
 
 
@@ -190,6 +202,32 @@ class IrrigationAction(StrEnum):
     WATER = "water"
     SKIP_RAIN_EXPECTED = "skip_rain_expected"
     CHECK_MANUALLY = "check_manually"
+
+
+class DiseaseRisk(StrEnum):
+    NONE = "none"
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
+    UNKNOWN = "unknown"
+
+
+class PlantCategory(StrEnum):
+    VEGETABLE = "vegetable"
+    HERB = "herb"
+    FLOWER = "flower"
+    FRUIT = "fruit"
+
+
+class FeatureType(StrEnum):
+    PATH = "path"
+    COMPOST = "compost"
+    WATER_BUTT = "water_butt"
+    SHED = "shed"
+    TREE = "tree"
+    HEDGE = "hedge"
+    TRELLIS = "trellis"
+    OTHER = "other"
 
 
 class GreenhouseAction(StrEnum):
@@ -302,6 +340,20 @@ class Plant:
     gdd_base_c: float = 10.0
     gdd_to_maturity: int | None = None
     tags: list[str] = field(default_factory=list)
+    category: PlantCategory = PlantCategory.VEGETABLE
+    # FAO-56 crop coefficients: initial, mid-season, late season.
+    kc: list[float] = field(default_factory=lambda: [0.5, 1.0, 0.8])
+    # Relative nitrogen / phosphorus / potassium demand (0 = none ... 3 = high).
+    npk: list[float] = field(default_factory=lambda: [1.0, 1.0, 1.0])
+    height_cm: int = 50
+    root_depth_cm: int = 30
+    plants_per_person: float = 2.0
+    yield_kg_m2: float = 2.0
+    # Pests this plant deters (scent, root exudates) or lures away (trap crop).
+    deters: list[str] = field(default_factory=list)
+    trap_for: list[str] = field(default_factory=list)
+    allelopathic: bool = False
+    shade_tolerant: bool = False
     source: Literal["builtin", "custom", "override"] = "builtin"
 
     def name(self, lang: str = "en") -> str:
@@ -321,31 +373,36 @@ class SensorMapping:
     air_humidity: str | None = None
     light: str | None = None
     rain: str | None = None
+    # Advanced probes (all optional)
+    par: str | None = None  # PAR/PPFD in µmol/m²/s
+    ec: str | None = None  # electrical conductivity in mS/cm
+    npk_n: str | None = None  # mg/kg
+    npk_p: str | None = None
+    npk_k: str | None = None
+    leaf_wetness: str | None = None  # binary or %
 
     def merged_with(self, fallback: SensorMapping) -> SensorMapping:
         """Bed sensors fall back to the sensors of their zone."""
-        return SensorMapping(
-            soil_moisture=self.soil_moisture or fallback.soil_moisture,
-            soil_temperature=self.soil_temperature or fallback.soil_temperature,
-            air_temperature=self.air_temperature or fallback.air_temperature,
-            air_humidity=self.air_humidity or fallback.air_humidity,
-            light=self.light or fallback.light,
-            rain=self.rain or fallback.rain,
-        )
+        return SensorMapping(**{k: getattr(self, k) or getattr(fallback, k) for k in SENSOR_KEYS})
 
     def entity_ids(self) -> list[str]:
-        return [
-            e
-            for e in (
-                self.soil_moisture,
-                self.soil_temperature,
-                self.air_temperature,
-                self.air_humidity,
-                self.light,
-                self.rain,
-            )
-            if e
-        ]
+        return [e for e in (getattr(self, k) for k in SENSOR_KEYS) if e]
+
+
+SENSOR_KEYS = (
+    "soil_moisture",
+    "soil_temperature",
+    "air_temperature",
+    "air_humidity",
+    "light",
+    "rain",
+    "par",
+    "ec",
+    "npk_n",
+    "npk_p",
+    "npk_k",
+    "leaf_wetness",
+)
 
 
 @dataclass(slots=True)
@@ -353,6 +410,10 @@ class Microclimate:
     shade_pct: int = 0
     wind: WindExposure = WindExposure.MODERATE
     heated: bool = False
+    # Against a sun-facing wall (re-radiates heat at night).
+    wall_heat: bool = False
+    # Water barrels / stone floor in an enclosure buffer night temperatures.
+    thermal_mass: bool = False
     min_heating_temp_c: float | None = None
     # Night-time buffering of an enclosure versus outside (°C).  ``None`` means
     # "use the default for the zone type" (greenhouse +3, cold frame +2).
@@ -373,6 +434,9 @@ class Zone:
     microclimate: Microclimate = field(default_factory=Microclimate)
     sensors: SensorMapping = field(default_factory=SensorMapping)
     vent_entity: str | None = None
+    shade_entity: str | None = None
+    # off = ignore, advise = tasks only, auto = drive vent/shade entities
+    climate_control: Literal["off", "advise", "auto"] = "advise"
 
     @property
     def is_enclosed(self) -> bool:
@@ -427,6 +491,20 @@ class Planting:
     finished_on: date | None = None
     succession_group: str | None = None
     succession_index: int = 0
+    notes: str = ""
+
+
+@dataclass(slots=True)
+class Feature:
+    """Non-growing garden element: path, compost bin, water butt, shed, tree ..."""
+
+    id: str
+    name: str
+    type: FeatureType = FeatureType.PATH
+    x_cm: float = 0
+    y_cm: float = 0
+    width_cm: float = 60
+    length_cm: float = 200
     notes: str = ""
 
 
@@ -511,6 +589,35 @@ class NotificationSettings:
 
 
 @dataclass(slots=True)
+class IrrigationSettings:
+    """Hardware actuation for watering, with safety limits."""
+
+    mode: Literal["off", "advise", "auto"] = "advise"
+    pump_entity: str | None = None
+    start_time: str = "06:00"
+    max_runtime_min: float = 30.0
+    # Outdoor valves are locked when the plant-level minimum in the next
+    # 12 h - or the current outdoor temperature - is at or below this value.
+    frost_lockout_c: float = 2.0
+    rain_skip_mm: float = 3.0
+    pump_lead_s: float = 3.0
+
+
+@dataclass(slots=True)
+class GardenResources:
+    """What the gardener has - remembered for the auto-planner."""
+
+    household_size: int = 2
+    hours_per_week: float = 3.0
+    water_liters_per_week: float | None = None  # None = unlimited (mains)
+    compost_kg: float | None = None
+    irrigation: bool = False
+    goals: list[str] = field(default_factory=lambda: ["fresh", "herbs"])
+    wanted: list[str] = field(default_factory=list)
+    excluded: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class GardenSettings:
     region: RegionProfile = field(default_factory=RegionProfile)
     weather_entity: str | None = None
@@ -523,6 +630,13 @@ class GardenSettings:
     max_irrigation_mm: float = 20.0
     gdd_base_c: float = 10.0
     snap_cm: int = 10
+    irrigation: IrrigationSettings = field(default_factory=IrrigationSettings)
+    resources: GardenResources = field(default_factory=GardenResources)
+    # Optional extra forecast source (no API key, opt-in, needs internet).
+    open_meteo: bool = False
+    elevation_m: float | None = None
+    # Seasonal maintenance tasks (soil prep, greenhouse cleaning, winter rest ...)
+    maintenance_tasks: bool = True
 
 
 @dataclass(slots=True)
@@ -543,6 +657,24 @@ class ClimateDay:
 
 
 @dataclass(slots=True)
+class WaterBalance:
+    """Root-zone depletion bucket per bed (used when no moisture sensor)."""
+
+    day: date | None = None
+    depletion_mm: float = 0.0
+
+
+@dataclass(slots=True)
+class IrrigationEvent:
+    bed_id: str
+    at: datetime
+    mm: float
+    liters: float = 0.0
+    minutes: float = 0.0
+    source: Literal["auto", "manual", "service", "task"] = "manual"
+
+
+@dataclass(slots=True)
 class GardenData:
     """Root document persisted with ``homeassistant.helpers.storage.Store``."""
 
@@ -558,6 +690,9 @@ class GardenData:
     climate_log: list[ClimateDay] = field(default_factory=list)
     # Dedupe keys of notifications already sent -> ISO date sent.
     notified: dict[str, str] = field(default_factory=dict)
+    features: list[Feature] = field(default_factory=list)
+    water_balance: dict[str, WaterBalance] = field(default_factory=dict)
+    irrigation_log: list[IrrigationEvent] = field(default_factory=list)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:
@@ -597,6 +732,9 @@ class ForecastPoint:
     wind_speed: float | None = None  # km/h, HA default for metric
     cloud_coverage: float | None = None
     condition: str | None = None
+    dew_point: float | None = None
+    # Daily sums from Open-Meteo (optional): MJ/m²/day
+    shortwave_radiation: float | None = None
 
 
 @dataclass(slots=True)
@@ -633,6 +771,12 @@ class SensorSnapshot:
     air_humidity: SensorReading | None = None
     light: SensorReading | None = None
     rain: SensorReading | None = None
+    par: SensorReading | None = None
+    ec: SensorReading | None = None
+    npk_n: SensorReading | None = None
+    npk_p: SensorReading | None = None
+    npk_k: SensorReading | None = None
+    leaf_wetness: SensorReading | None = None
 
     @staticmethod
     def value(reading: SensorReading | None) -> float | None:
