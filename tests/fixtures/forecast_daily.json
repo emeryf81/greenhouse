@@ -1,0 +1,76 @@
+{
+ "weather.home": {
+  "forecast": [
+   {
+    "datetime": "2026-04-25T10:00:00+00:00",
+    "condition": "sunny",
+    "temperature": 14,
+    "templow": 4,
+    "precipitation": 0,
+    "precipitation_probability": 10,
+    "humidity": 65,
+    "wind_speed": 9.0
+   },
+   {
+    "datetime": "2026-04-26T10:00:00+00:00",
+    "condition": "clear-night",
+    "temperature": 12,
+    "templow": -1,
+    "precipitation": 0,
+    "precipitation_probability": 5,
+    "humidity": 65,
+    "wind_speed": 9.0
+   },
+   {
+    "datetime": "2026-04-27T10:00:00+00:00",
+    "condition": "rainy",
+    "temperature": 15,
+    "templow": 3,
+    "precipitation": 2.5,
+    "precipitation_probability": 60,
+    "humidity": 65,
+    "wind_speed": 9.0
+   },
+   {
+    "datetime": "2026-04-28T10:00:00+00:00",
+    "condition": "partlycloudy",
+    "temperature": 17,
+    "templow": 6,
+    "precipitation": 0,
+    "precipitation_probability": 10,
+    "humidity": 65,
+    "wind_speed": 9.0
+   },
+   {
+    "datetime": "2026-04-29T10:00:00+00:00",
+    "condition": "sunny",
+    "temperature": 19,
+    "templow": 8,
+    "precipitation": 0,
+    "precipitation_probability": 0,
+    "humidity": 65,
+    "wind_speed": 9.0
+   },
+   {
+    "datetime": "2026-04-30T10:00:00+00:00",
+    "condition": "sunny",
+    "temperature": 21,
+    "templow": 9,
+    "precipitation": 0,
+    "precipitation_probability": 0,
+    "humidity": 65,
+    "wind_speed": 9.0
+   },
+   {
+    "datetime": "2026-05-01T10:00:00+00:00",
+    "condition": "rainy",
+    "temperature": 18,
+    "templow": 7,
+    "precipitation": 5,
+    "precipitation_probability": 80,
+    "humidity": 65,
+    "wind_speed": 9.0
+   }
+  ]
+ }
+}

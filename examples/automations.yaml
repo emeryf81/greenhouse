@@ -1,0 +1,274 @@
+# Hortulus example automations (Home Assistant 2025.10+ syntax).
+# Entity ids assume an English-language install with the example garden
+# ("Bed 1", "Greenhouse Zone A"). Adjust ids/valves to your own setup.
+
+# 1) Irrigate Bed 1 in the morning when Hortulus recommends it.
+#    run_irrigation_plan opens the valve through Hortulus' controller: pump interlock,
+#    maximum runtime, frost lockout and a guaranteed shut-off even if this automation
+#    is reloaded or stopped halfway (a plain open/delay/close would leave the valve open).
+- id: hortulus_irrigate_bed_1
+  alias: "Hortulus · Irrigate Bed 1 when recommended"
+  mode: single
+  triggers:
+    - trigger: time
+      at: "06:30:00"
+    - trigger: state
+      entity_id: binary_sensor.bed_1_needs_water
+      to: "on"
+      for: "00:15:00"
+  conditions:
+    - condition: state
+      entity_id: binary_sensor.bed_1_needs_water
+      state: "on"
+    - condition: time
+      after: "05:30:00"
+      before: "10:00:00"
+    # never water right before a frost night
+    - condition: state
+      entity_id: binary_sensor.hortulus_frost_warning
+      state: "off"
+  actions:
+    - action: garden_manager.run_irrigation_plan
+      data:
+        beds: ["Bed 1"]
+      response_variable: run
+    - action: logbook.log
+      data:
+        name: Hortulus
+        message: "Irrigation Bed 1: {{ run.runs | map(attribute='minutes') | sum | round(0) }} min"
+
+# 2) Generic version: one automation for every bed, driven by the
+#    garden_manager_irrigation_recommended event (fired once per bed per day).
+#    The bed needs an irrigation entity (Planner → bed → Irrigation); Hortulus then
+#    runs it safely with the same limits as above.
+- id: hortulus_irrigate_any_bed
+  alias: "Hortulus · Irrigate any bed with a mapped valve"
+  mode: queued
+  triggers:
+    - trigger: event
+      event_type: garden_manager_irrigation_recommended
+  conditions:
+    - condition: time
+      after: "05:00:00"
+      before: "10:00:00"
+  actions:
+    - action: garden_manager.run_irrigation_plan
+      data:
+        beds: ["{{ trigger.event.data.bed_id }}"]
+
+# 3) Frost night: push notification with the plants at risk + close the greenhouse.
+- id: hortulus_frost_night
+  alias: "Hortulus · Frost night routine"
+  triggers:
+    - trigger: event
+      event_type: garden_manager_frost_warning
+  actions:
+    - action: notify.mobile_app_phone
+      data:
+        title: "❄ Frost {{ trigger.event.data.when | replace('when.', '') | replace('_', ' ') }} ({{ trigger.event.data.temp }} °C)"
+        message: >-
+          Protect: {{ (trigger.event.data.plants or ['tender crops']) | join(', ') }}.
+          Risk level: {{ trigger.event.data.level }}.
+        data:
+          tag: hortulus_frost
+          url: /hortulus
+    - action: cover.close_cover
+      target:
+        entity_id: cover.greenhouse_vent
+
+# 4) Greenhouse climate: follow Hortulus' ventilation / shading advice.
+- id: hortulus_greenhouse_climate
+  alias: "Hortulus · Greenhouse vent follows advice"
+  mode: restart
+  triggers:
+    - trigger: state
+      entity_id: sensor.greenhouse_zone_a_greenhouse_advice
+  actions:
+    - choose:
+        - conditions:
+            - condition: state
+              entity_id: sensor.greenhouse_zone_a_greenhouse_advice
+              state: ["ventilate", "shade"]
+          sequence:
+            - action: cover.open_cover
+              target:
+                entity_id: cover.greenhouse_vent
+        - conditions:
+            - condition: state
+              entity_id: sensor.greenhouse_zone_a_greenhouse_advice
+              state: ["close_up", "heat"]
+          sequence:
+            - action: cover.close_cover
+              target:
+                entity_id: cover.greenhouse_vent
+    # The shade screen follows the advice both ways: closed while shading is advised,
+    # open again as soon as it is not.
+    - if:
+        - condition: state
+          entity_id: sensor.greenhouse_zone_a_greenhouse_advice
+          state: "shade"
+      then:
+        - action: cover.close_cover
+          target:
+            entity_id: cover.greenhouse_shade_cloth
+      else:
+        - action: cover.open_cover
+          target:
+            entity_id: cover.greenhouse_shade_cloth
+
+# 5) Actionable notification for urgent tasks; "Done" completes the task.
+- id: hortulus_urgent_task_push
+  alias: "Hortulus · Push urgent tasks"
+  mode: queued
+  triggers:
+    - trigger: event
+      event_type: garden_manager_task_due
+      event_data:
+        priority: urgent
+  actions:
+    - action: notify.mobile_app_phone
+      data:
+        title: "🌱 {{ trigger.event.data.title }}"
+        message: "Due {{ trigger.event.data.due }}"
+        data:
+          tag: "hortulus_{{ trigger.event.data.task_id }}"
+          actions:
+            - action: "HORTULUS_DONE_{{ trigger.event.data.task_id }}"
+              title: "Done"
+            - action: "HORTULUS_LATER_{{ trigger.event.data.task_id }}"
+              title: "Tomorrow"
+
+- id: hortulus_task_push_reply
+  alias: "Hortulus · Handle task notification buttons"
+  mode: queued
+  triggers:
+    - trigger: event
+      event_type: mobile_app_notification_action
+  conditions:
+    - "{{ trigger.event.data.action is match('HORTULUS_(DONE|LATER)_') }}"
+  actions:
+    - variables:
+        task_id: "{{ trigger.event.data.action.split('_')[-1] }}"
+    - if: "{{ trigger.event.data.action.startswith('HORTULUS_DONE_') }}"
+      then:
+        - action: garden_manager.complete_task
+          data:
+            task_id: "{{ task_id }}"
+      else:
+        - action: garden_manager.postpone_task
+          data:
+            task_id: "{{ task_id }}"
+            days: 1
+            reason: "Snoozed from phone"
+
+# 6) Weekly pest round as a recurring user task (created once).
+- id: hortulus_create_pest_round
+  alias: "Hortulus · Create a weekly slug patrol in spring"
+  triggers:
+    - trigger: time
+      at: "08:00:00"
+  conditions:
+    - condition: template
+      value_template: "{{ now().month == 4 and now().day == 1 }}"
+  actions:
+    - action: garden_manager.add_task
+      data:
+        title: "Slug patrol after dusk"
+        type: pest_check
+        priority: normal
+        estimated_minutes: 15
+        recurrence_days: 7
+        until: "{{ now().year }}-06-30"
+      response_variable: created
+    - action: persistent_notification.create
+      data:
+        message: "Created recurring task {{ created.task_id }}"
+
+# 7) Weekly backup of the plan as a persistent notification (JSON response).
+- id: hortulus_plan_backup_summary
+  alias: "Hortulus · Weekly plan summary"
+  triggers:
+    - trigger: time
+      at: "20:00:00"
+  conditions:
+    - condition: time
+      weekday: sun
+  actions:
+    - action: garden_manager.export_plan
+      data: {}
+      response_variable: plan
+    - action: persistent_notification.create
+      data:
+        title: "Garden plan this week"
+        message: >-
+          {{ plan.beds | count }} beds, {{ plan.plantings | count }} plantings
+          ({{ plan.plantings | map(attribute='plant_id') | unique | join(', ') }}).
+
+# 8) Monday morning: this week's checklist as a PDF for the reMarkable Paper Pro.
+#    The file lands in /config/hortulus/exports/ and is linked in a notification.
+- id: hortulus_weekly_remarkable_checklist
+  alias: "Hortulus · Weekly checklist for the reMarkable"
+  triggers:
+    - trigger: time
+      at: "07:00:00"
+  conditions:
+    - condition: time
+      weekday: mon
+  actions:
+    - action: garden_manager.export_pdf
+      data:
+        document: tasks
+        page: remarkable
+        color_mode: eink
+        days: 7
+      response_variable: pdf
+    - action: persistent_notification.create
+      data:
+        title: "Garden checklist ready"
+        message: "[{{ pdf.filename }}]({{ pdf.url }}) – open it and send it to your reMarkable."
+
+# 9) Water the vegetable beds early in the morning, but only when Hortulus agrees.
+#    (Automatic mode does this by itself; this shows the service with a dry run first.)
+- id: hortulus_morning_watering_check
+  alias: "Hortulus · Morning watering"
+  triggers:
+    - trigger: time
+      at: "05:45:00"
+  actions:
+    - action: garden_manager.run_irrigation_plan
+      data:
+        dry_run: true
+      response_variable: plan
+    - if:
+        - condition: template
+          value_template: "{{ plan.runs | count > 0 and not plan.lockout }}"
+      then:
+        - action: garden_manager.run_irrigation_plan
+          data: {}
+
+# 10) Close the shade screen on hot afternoons when nobody is home, open it in the evening.
+- id: hortulus_shading_evening
+  alias: "Hortulus · Shade screen back to automatic in the evening"
+  triggers:
+    - trigger: sun
+      event: sunset
+  actions:
+    - action: garden_manager.set_shading_mode
+      data:
+        zone: Greenhouse Zone A
+        mode: auto
+
+# 11) Disease warning: blight weather for the tomatoes.
+- id: hortulus_blight_warning
+  alias: "Hortulus · Blight weather"
+  triggers:
+    - trigger: state
+      entity_id: sensor.greenhouse_zone_a_disease_risk
+      to: high
+  actions:
+    - action: notify.mobile_app_phone
+      data:
+        title: "Blight weather"
+        message: >-
+          Humid and warm for two days ({{ state_attr('sensor.greenhouse_zone_a_disease_risk', 'wet_hours_48h') }} wet hours).
+          Ventilate, water at the base and check the tomatoes.

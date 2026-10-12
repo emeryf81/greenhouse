@@ -1,0 +1,1071 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Welcome to Hortulus",
+        "description": "Let's set up your vegetable garden. First: how should Hortulus know your frost dates? Sowing windows are calculated relative to the average last spring frost and first autumn frost.",
+        "data": {
+          "region_mode": "Climate profile"
+        },
+        "data_description": {
+          "region_mode": "Regional preset (e.g. Netherlands/Flanders), USDA hardiness zone, or your own frost dates."
+        }
+      },
+      "region": {
+        "title": "Your climate",
+        "description": "Hemisphere and frost dates drive every sowing, planting and harvest window.",
+        "data": {
+          "hemisphere": "Hemisphere",
+          "preset": "Region",
+          "hardiness_zone": "USDA hardiness zone",
+          "last_frost": "Average last spring frost (MM-DD)",
+          "first_frost": "Average first autumn frost (MM-DD)"
+        },
+        "data_description": {
+          "last_frost": "For example 04-20. Ask local gardeners or your weather service.",
+          "first_frost": "For example 10-25."
+        }
+      },
+      "weather": {
+        "title": "Weather",
+        "description": "The forecast is used for frost and heat warnings, rain-aware watering and timing advice. Everything keeps working (with less precision) without it.",
+        "data": {
+          "weather_entity": "Weather entity",
+          "outdoor_temperature": "Outdoor temperature sensor (optional)",
+          "rain_sensor": "Rain sensor (optional)"
+        },
+        "data_description": {
+          "weather_entity": "Must provide an hourly and/or daily forecast, e.g. weather.home.",
+          "outdoor_temperature": "Used for growing degree days; falls back to the weather entity.",
+          "rain_sensor": "A daily rain total (mm) or a binary rain detector."
+        }
+      },
+      "area": {
+        "title": "Add a bed, greenhouse or container",
+        "description": "{count} added so far. You can draw and fine-tune everything later in the planner.",
+        "data": {
+          "name": "Name",
+          "type": "Type",
+          "width_m": "Width",
+          "length_m": "Length",
+          "soil": "Soil type",
+          "shade_pct": "Shade",
+          "wind": "Wind exposure"
+        }
+      },
+      "area_sensors": {
+        "title": "Sensors for {name}",
+        "description": "Map existing Home Assistant sensors. All fields are optional - missing sensors simply lower the precision of the advice.",
+        "data": {
+          "soil_moisture": "Soil moisture",
+          "soil_temperature": "Soil temperature",
+          "air_temperature": "Air temperature",
+          "air_humidity": "Air humidity",
+          "light": "Light (illuminance)",
+          "irrigation": "Irrigation switch or valve",
+          "flow_lpm": "Irrigation flow rate"
+        },
+        "data_description": {
+          "flow_lpm": "Litres per minute; used to turn mm of water into watering minutes."
+        }
+      },
+      "area_menu": {
+        "title": "Your garden",
+        "description": "Added: {areas}",
+        "menu_options": {
+          "area": "Add another bed, greenhouse or container",
+          "notifications": "Continue"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "How should Hortulus tell you about frost, heat and today's tasks?",
+        "data": {
+          "persistent_notifications": "Persistent notifications in Home Assistant",
+          "notify_services": "Mobile push (notify services)",
+          "tts_entity": "Text-to-speech engine (optional)",
+          "tts_media_players": "Speakers for announcements",
+          "digest_time": "Daily task digest at"
+        }
+      },
+      "summary": {
+        "title": "Ready to grow",
+        "description": "**Climate**: {hemisphere} hemisphere, last frost {last_frost}, first frost {first_frost}\n**Weather**: {weather}\n**Areas**:\n{areas}\n\nThe built-in plant database (230+ vegetables, herbs, fruit and flowers) is installed automatically. Open **Hortulus** in the sidebar to start planning.",
+        "data": {
+          "import_example_plan": "Add a small example plan (tomato + basil + marigold, carrots + onions, succession lettuce)"
+        }
+      }
+    },
+    "error": {
+      "invalid_frost_date": "Use the format MM-DD, for example 04-20.",
+      "invalid_zone": "Unknown hardiness zone.",
+      "duplicate_name": "This name is already used.",
+      "invalid_dimensions": "Dimensions must be between 0.1 and 100 m."
+    },
+    "abort": {
+      "single_instance_allowed": "Hortulus is already set up. Add more beds in the Hortulus panel."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hortulus options",
+        "description": "Beds, zones and sensor mappings are edited in the Hortulus panel (Settings tab).",
+        "menu_options": {
+          "region_mode": "Climate & frost dates",
+          "weather": "Weather & outdoor sensors",
+          "notifications": "Notifications",
+          "advanced": "Advanced tuning"
+        }
+      },
+      "region_mode": {
+        "title": "Climate profile",
+        "data": {
+          "region_mode": "Climate profile"
+        }
+      },
+      "region": {
+        "title": "Your climate",
+        "data": {
+          "hemisphere": "Hemisphere",
+          "preset": "Region",
+          "hardiness_zone": "USDA hardiness zone",
+          "last_frost": "Average last spring frost (MM-DD)",
+          "first_frost": "Average first autumn frost (MM-DD)"
+        }
+      },
+      "weather": {
+        "title": "Weather",
+        "data": {
+          "weather_entity": "Weather entity",
+          "outdoor_temperature": "Outdoor temperature sensor",
+          "rain_sensor": "Rain sensor"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "data": {
+          "persistent_notifications": "Persistent notifications in Home Assistant",
+          "notify_services": "Mobile push (notify services)",
+          "tts_entity": "Text-to-speech engine",
+          "tts_media_players": "Speakers for announcements",
+          "digest_time": "Daily task digest at",
+          "frost_alerts": "Frost alerts",
+          "heat_alerts": "Greenhouse heat alerts",
+          "tts_frost_announcement": "Announce frost alerts on speakers"
+        }
+      },
+      "advanced": {
+        "title": "Advanced tuning",
+        "data": {
+          "language": "Language of generated tasks",
+          "companion_radius_cm": "Companion interaction radius",
+          "sensor_stale_minutes": "Treat sensors as stale after",
+          "root_zone_depth_mm": "Root zone depth",
+          "max_irrigation_mm": "Maximum irrigation per session"
+        }
+      }
+    },
+    "error": {
+      "invalid_frost_date": "Use the format MM-DD, for example 04-20.",
+      "invalid_zone": "Unknown hardiness zone."
+    }
+  },
+  "selector": {
+    "region_mode": {
+      "options": {
+        "preset": "Regional preset",
+        "usda": "USDA hardiness zone",
+        "custom": "Custom frost dates"
+      }
+    },
+    "hemisphere": {
+      "options": {
+        "north": "Northern",
+        "south": "Southern"
+      }
+    },
+    "preset": {
+      "options": {
+        "nl_be": "Netherlands / Flanders",
+        "uk_south": "United Kingdom (south)",
+        "uk_north": "United Kingdom (north)",
+        "de_central": "Germany (central)",
+        "fr_north": "France (north)",
+        "scandinavia_south": "Southern Scandinavia",
+        "mediterranean": "Mediterranean",
+        "au_melbourne": "Australia (Melbourne)",
+        "nz_christchurch": "New Zealand (Christchurch)",
+        "za_highveld": "South Africa (Highveld)"
+      }
+    },
+    "area_type": {
+      "options": {
+        "outdoor": "Outdoor bed",
+        "greenhouse": "Greenhouse",
+        "container": "Container / pot"
+      }
+    },
+    "soil": {
+      "options": {
+        "sandy": "Sandy",
+        "loam": "Loam",
+        "clay": "Clay",
+        "silt": "Silt",
+        "peat": "Peat",
+        "chalk": "Chalk",
+        "potting_mix": "Potting mix"
+      }
+    },
+    "wind": {
+      "options": {
+        "sheltered": "Sheltered",
+        "moderate": "Moderate",
+        "exposed": "Exposed"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Follow Home Assistant",
+        "en": "English",
+        "nl": "Nederlands"
+      }
+    },
+    "task_type": {
+      "options": {
+        "custom": "Custom",
+        "sow_indoor": "Sow indoors",
+        "sow_direct": "Sow outdoors",
+        "harden_off": "Harden off",
+        "transplant": "Plant out",
+        "thin": "Thin",
+        "stake": "Stake / support",
+        "prune": "Prune",
+        "pinch": "Pinch",
+        "earth_up": "Earth up",
+        "feed": "Feed",
+        "water": "Water",
+        "weed": "Weed",
+        "pest_check": "Pest check",
+        "harvest": "Harvest",
+        "ventilate": "Ventilate",
+        "shade": "Shade",
+        "frost_protect": "Frost protection",
+        "soil_prep": "Prepare soil",
+        "compost": "Compost",
+        "green_manure": "Green manure",
+        "mulch": "Mulch",
+        "clean_greenhouse": "Clean greenhouse",
+        "winter_prep": "Winter preparation",
+        "plan_season": "Plan season",
+        "tool_care": "Tool care",
+        "soil_test": "Soil test",
+        "cut_back": "Cut back",
+        "divide": "Divide",
+        "protect": "Protect",
+        "clean": "Clean up",
+        "tie_in": "Tie in",
+        "thin_fruit": "Thin fruit",
+        "pollinate": "Pollinate",
+        "check": "Check",
+        "make_feed": "Make plant feed"
+      }
+    },
+    "priority": {
+      "options": {
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "urgent": "Urgent"
+      }
+    },
+    "import_mode": {
+      "options": {
+        "merge": "Merge (add/update)",
+        "replace": "Replace layout and plantings"
+      }
+    },
+    "journal_kind": {
+      "options": {
+        "note": "Note",
+        "observation": "Observation",
+        "problem": "Problem",
+        "milestone": "Milestone"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "frost_risk_next_48h": {
+        "name": "Frost risk next 48h",
+        "state": {
+          "none": "None",
+          "low": "Low",
+          "moderate": "Moderate",
+          "high": "High",
+          "unknown": "Unknown"
+        }
+      },
+      "growing_degree_days": {
+        "name": "Growing degree days"
+      },
+      "tasks_due_today": {
+        "name": "Tasks due today"
+      },
+      "next_task": {
+        "name": "Next task"
+      },
+      "moisture_status": {
+        "name": "Moisture status",
+        "state": {
+          "dry": "Dry",
+          "slightly_dry": "Slightly dry",
+          "optimal": "Optimal",
+          "wet": "Wet",
+          "unknown": "Unknown"
+        }
+      },
+      "irrigation_recommendation": {
+        "name": "Irrigation recommendation"
+      },
+      "companion_score": {
+        "name": "Companion score"
+      },
+      "greenhouse_advice": {
+        "name": "Greenhouse advice",
+        "state": {
+          "none": "No action",
+          "ventilate": "Ventilate",
+          "shade": "Shade",
+          "close_up": "Close up",
+          "heat": "Heat"
+        }
+      },
+      "et0_today": {
+        "name": "Reference evapotranspiration today"
+      },
+      "gdd_today": {
+        "name": "Degree days today"
+      },
+      "nutrient_balance": {
+        "name": "Nutrient balance"
+      },
+      "water_deficit": {
+        "name": "Soil water deficit"
+      },
+      "disease_risk": {
+        "name": "Disease risk",
+        "state": {
+          "none": "None",
+          "low": "Low",
+          "moderate": "Moderate",
+          "high": "High",
+          "unknown": "Unknown"
+        }
+      },
+      "gdd_season": {
+        "name": "Degree days this season"
+      },
+      "harvest_season": {
+        "name": "Harvest this season"
+      },
+      "water_week": {
+        "name": "Garden water (7 days)"
+      },
+      "rain_water": {
+        "name": "Rain water available"
+      }
+    },
+    "binary_sensor": {
+      "frost_warning": {
+        "name": "Frost warning"
+      },
+      "needs_water": {
+        "name": "Needs water"
+      },
+      "heat_stress": {
+        "name": "Heat stress"
+      },
+      "frost_risk_48h": {
+        "name": "Frost risk 48h"
+      },
+      "irrigation_lockout": {
+        "name": "Irrigation frost lockout"
+      },
+      "irrigation_running": {
+        "name": "Irrigation running"
+      }
+    },
+    "button": {
+      "generate_tasks": {
+        "name": "Generate tasks"
+      },
+      "refresh_forecast": {
+        "name": "Refresh forecast"
+      },
+      "run_irrigation": {
+        "name": "Water now"
+      },
+      "stop_irrigation": {
+        "name": "Stop watering"
+      }
+    },
+    "calendar": {
+      "tasks": {
+        "name": "Garden tasks"
+      }
+    },
+    "todo": {
+      "this_week": {
+        "name": "This week"
+      }
+    },
+    "number": {
+      "irrigation_max_runtime": {
+        "name": "Irrigation max runtime"
+      },
+      "irrigation_frost_lockout": {
+        "name": "Irrigation frost lockout temperature"
+      },
+      "irrigation_rain_skip": {
+        "name": "Skip irrigation above rain"
+      }
+    },
+    "select": {
+      "irrigation_mode": {
+        "name": "Irrigation mode",
+        "state": {
+          "off": "Off",
+          "advise": "Advise (tasks)",
+          "auto": "Automatic"
+        }
+      },
+      "shading_mode": {
+        "name": "Shading",
+        "state": {
+          "auto": "Automatic",
+          "on": "Shade on",
+          "off": "Shade off"
+        }
+      }
+    },
+    "switch": {
+      "auto_irrigation": {
+        "name": "Automatic irrigation"
+      }
+    }
+  },
+  "services": {
+    "add_task": {
+      "name": "Add task",
+      "description": "Adds a garden task (optionally recurring).",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "What needs to be done."
+        },
+        "due_date": {
+          "name": "Due date",
+          "description": "Defaults to today."
+        },
+        "type": {
+          "name": "Type",
+          "description": "Task category (affects icon and statistics)."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Details or instructions."
+        },
+        "priority": {
+          "name": "Priority",
+          "description": "Low, normal, high or urgent."
+        },
+        "estimated_minutes": {
+          "name": "Estimated duration",
+          "description": "Minutes the task takes."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Bed id or name."
+        },
+        "planting_id": {
+          "name": "Planting",
+          "description": "Link the task to a planting."
+        },
+        "recurrence_days": {
+          "name": "Repeat every",
+          "description": "Repeat the task every N days after completion."
+        },
+        "until": {
+          "name": "Repeat until",
+          "description": "Last date for the recurrence."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Complete task",
+      "description": "Marks a task as done, updates the planting and schedules the next occurrence of recurring tasks.",
+      "fields": {
+        "task_id": {
+          "name": "Task",
+          "description": "Task id."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Optional note (e.g. harvest weight)."
+        },
+        "photos": {
+          "name": "Photos",
+          "description": "Image ids or URLs."
+        },
+        "skipped": {
+          "name": "Skipped",
+          "description": "Mark as skipped instead of done."
+        }
+      }
+    },
+    "postpone_task": {
+      "name": "Postpone task",
+      "description": "Moves a task; dependent tasks of the same planting move along.",
+      "fields": {
+        "task_id": {
+          "name": "Task",
+          "description": "Task id."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Number of days to move (negative = earlier)."
+        },
+        "to_date": {
+          "name": "New date",
+          "description": "Explicit new due date."
+        },
+        "reason": {
+          "name": "Reason",
+          "description": "Stored as a note on the task."
+        },
+        "cascade": {
+          "name": "Move dependants",
+          "description": "Also move e.g. 'plant out' when 'sow' is postponed."
+        }
+      }
+    },
+    "delete_task": {
+      "name": "Delete task",
+      "description": "Deletes a user task; generated tasks are marked skipped.",
+      "fields": {
+        "task_id": {
+          "name": "Task",
+          "description": "Task id."
+        }
+      }
+    },
+    "generate_tasks": {
+      "name": "Generate tasks",
+      "description": "Regenerates tasks from the plan, plant database, sensors and forecast. Idempotent."
+    },
+    "recalculate_plan": {
+      "name": "Recalculate plan",
+      "description": "Refreshes the forecast and recalculates all windows, warnings and recommendations."
+    },
+    "export_plan": {
+      "name": "Export plan",
+      "description": "Returns the garden plan as a JSON-compatible response.",
+      "fields": {
+        "include_tasks": {
+          "name": "Include tasks",
+          "description": "Also export tasks."
+        },
+        "seasons": {
+          "name": "Seasons",
+          "description": "Only export plantings of these seasons."
+        }
+      }
+    },
+    "import_plan": {
+      "name": "Import plan",
+      "description": "Imports a plan created by export_plan or the panel.",
+      "fields": {
+        "plan": {
+          "name": "Plan",
+          "description": "The plan document."
+        },
+        "mode": {
+          "name": "Mode",
+          "description": "Merge or replace."
+        }
+      }
+    },
+    "add_planting": {
+      "name": "Add planting",
+      "description": "Adds a crop to a bed; tasks are generated automatically.",
+      "fields": {
+        "plant_id": {
+          "name": "Plant",
+          "description": "Plant id from the database (e.g. tomato, basil)."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Bed id or name."
+        },
+        "season": {
+          "name": "Season",
+          "description": "Year of the season (defaults to this year)."
+        },
+        "layout": {
+          "name": "Layout",
+          "description": "single, row or block."
+        },
+        "x_cm": {
+          "name": "X",
+          "description": "Distance from the bed's west edge in cm."
+        },
+        "y_cm": {
+          "name": "Y",
+          "description": "Distance from the bed's north edge in cm."
+        },
+        "width_cm": {
+          "name": "Width",
+          "description": "Footprint width in cm (defaults to the bed width)."
+        },
+        "length_cm": {
+          "name": "Length",
+          "description": "Footprint length in cm (defaults to one row)."
+        },
+        "count": {
+          "name": "Plants",
+          "description": "Number of plants (otherwise derived from spacing)."
+        },
+        "method": {
+          "name": "Method",
+          "description": "indoor_sow, direct_sow or transplant."
+        },
+        "status": {
+          "name": "Status",
+          "description": "planned, sown, transplanted, harvesting, finished, failed ..."
+        },
+        "sow_date": {
+          "name": "Planned sowing date",
+          "description": "Override the scheduler."
+        },
+        "transplant_date": {
+          "name": "Planned planting date",
+          "description": "Override the scheduler."
+        },
+        "sown_on": {
+          "name": "Sown on",
+          "description": "When it was actually sown."
+        },
+        "transplanted_on": {
+          "name": "Planted on",
+          "description": "When it was actually planted out."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Free text."
+        }
+      }
+    },
+    "update_planting": {
+      "name": "Update planting",
+      "description": "Changes a planting (position, dates, status ...).",
+      "fields": {
+        "plant_id": {
+          "name": "Plant",
+          "description": "Plant id from the database (e.g. tomato, basil)."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Bed id or name."
+        },
+        "season": {
+          "name": "Season",
+          "description": "Year of the season (defaults to this year)."
+        },
+        "layout": {
+          "name": "Layout",
+          "description": "single, row or block."
+        },
+        "x_cm": {
+          "name": "X",
+          "description": "Distance from the bed's west edge in cm."
+        },
+        "y_cm": {
+          "name": "Y",
+          "description": "Distance from the bed's north edge in cm."
+        },
+        "width_cm": {
+          "name": "Width",
+          "description": "Footprint width in cm (defaults to the bed width)."
+        },
+        "length_cm": {
+          "name": "Length",
+          "description": "Footprint length in cm (defaults to one row)."
+        },
+        "count": {
+          "name": "Plants",
+          "description": "Number of plants (otherwise derived from spacing)."
+        },
+        "method": {
+          "name": "Method",
+          "description": "indoor_sow, direct_sow or transplant."
+        },
+        "status": {
+          "name": "Status",
+          "description": "planned, sown, transplanted, harvesting, finished, failed ..."
+        },
+        "sow_date": {
+          "name": "Planned sowing date",
+          "description": "Override the scheduler."
+        },
+        "transplant_date": {
+          "name": "Planned planting date",
+          "description": "Override the scheduler."
+        },
+        "sown_on": {
+          "name": "Sown on",
+          "description": "When it was actually sown."
+        },
+        "transplanted_on": {
+          "name": "Planted on",
+          "description": "When it was actually planted out."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Free text."
+        },
+        "planting_id": {
+          "name": "Planting",
+          "description": "Id of the planting."
+        }
+      }
+    },
+    "remove_planting": {
+      "name": "Remove planting",
+      "description": "Removes a planting and its open tasks.",
+      "fields": {
+        "planting_id": {
+          "name": "Planting",
+          "description": "Id of the planting."
+        }
+      }
+    },
+    "run_irrigation_plan": {
+      "name": "Run irrigation plan",
+      "description": "Waters the beds that need it now. Frost lockout, rain skip and max runtime always apply.",
+      "fields": {
+        "dry_run": {
+          "name": "Dry run",
+          "description": "Only return the plan, open no valves."
+        },
+        "beds": {
+          "name": "Beds",
+          "description": "Limit to these beds (ids or names)."
+        },
+        "amount_mm": {
+          "name": "Amount",
+          "description": "Water this depth (mm) instead of the recommendation."
+        }
+      }
+    },
+    "stop_irrigation": {
+      "name": "Stop irrigation",
+      "description": "Stops a running irrigation and closes all valves and the pump."
+    },
+    "set_shading_mode": {
+      "name": "Set shading mode",
+      "description": "Shade screen of a greenhouse: auto, on or off.",
+      "fields": {
+        "zone": {
+          "name": "Zone",
+          "description": "Greenhouse zone id or name."
+        },
+        "mode": {
+          "name": "Mode",
+          "description": "auto, on or off."
+        }
+      }
+    },
+    "autofill_plan": {
+      "name": "Autofill plan",
+      "description": "Proposes crops and placement from the available beds and resources; optionally applies it.",
+      "fields": {
+        "season": {
+          "name": "Season",
+          "description": "Season to plan."
+        },
+        "beds": {
+          "name": "Beds",
+          "description": "Beds to fill (default: all empty beds)."
+        },
+        "replace": {
+          "name": "Replace",
+          "description": "Re-plan the selected beds even if they already have crops."
+        },
+        "apply": {
+          "name": "Apply",
+          "description": "Store the proposal in the plan."
+        },
+        "household_size": {
+          "name": "Household",
+          "description": "Number of people."
+        },
+        "hours_per_week": {
+          "name": "Hours per week",
+          "description": "Time available for the garden."
+        },
+        "water_liters_per_week": {
+          "name": "Water per week",
+          "description": "Litres available in a peak week (empty = unlimited)."
+        },
+        "compost_kg": {
+          "name": "Compost",
+          "description": "Compost available (kg)."
+        },
+        "goals": {
+          "name": "Goals",
+          "description": "fresh, storage, herbs, pollinators, winter, perennials, easy."
+        },
+        "wanted": {
+          "name": "Wanted crops",
+          "description": "Plant ids that must be included."
+        },
+        "excluded": {
+          "name": "Excluded crops",
+          "description": "Plant ids never to use."
+        },
+        "max_crops": {
+          "name": "Max crops",
+          "description": "Upper limit of different crops."
+        }
+      }
+    },
+    "export_pdf": {
+      "name": "Export PDF",
+      "description": "Writes a printable PDF (garden map, bed sheets, checklist ...) to /config/hortulus/exports.",
+      "fields": {
+        "document": {
+          "name": "Document",
+          "description": "garden, zone, beds, tasks, season, blank or plants."
+        },
+        "page": {
+          "name": "Page size",
+          "description": "a4, a3, a5, letter or remarkable (Paper Pro)."
+        },
+        "landscape": {
+          "name": "Landscape",
+          "description": "Rotate the page."
+        },
+        "color_mode": {
+          "name": "Colours",
+          "description": "color, eink or grayscale."
+        },
+        "season": {
+          "name": "Season",
+          "description": "Season to print."
+        },
+        "zone_id": {
+          "name": "Zone",
+          "description": "Only this zone (zone document)."
+        },
+        "bed_ids": {
+          "name": "Beds",
+          "description": "Only these beds (bed sheets)."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Days ahead for the checklist."
+        },
+        "notes": {
+          "name": "Notes area",
+          "description": "Add a dotted area to draw and write on."
+        },
+        "grid": {
+          "name": "Grid",
+          "description": "10 cm grid on bed sheets."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Custom title."
+        }
+      }
+    },
+    "log_harvest": {
+      "name": "Log harvest",
+      "description": "Record what you picked: kg and/or a count, per planting or plant. Learned yields improve Autofill.",
+      "fields": {
+        "planting_id": {
+          "name": "Planting",
+          "description": "Planting id (optional)."
+        },
+        "plant_id": {
+          "name": "Plant",
+          "description": "Plant id when there is no planting."
+        },
+        "kg": {
+          "name": "Weight",
+          "description": "Kilograms harvested."
+        },
+        "count": {
+          "name": "Count",
+          "description": "Number of fruits / heads."
+        },
+        "quality": {
+          "name": "Quality",
+          "description": "1 (poor) to 5 (excellent)."
+        },
+        "day": {
+          "name": "Date",
+          "description": "Defaults to today."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Free text."
+        }
+      }
+    },
+    "add_journal_entry": {
+      "name": "Add diary entry",
+      "description": "Add a note (and photos) to the garden diary.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "What you saw or did."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Note, observation, problem or milestone."
+        },
+        "planting_id": {
+          "name": "Planting",
+          "description": "Link to a planting (optional)."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Bed name or id (optional)."
+        },
+        "photos": {
+          "name": "Photos",
+          "description": "Image ids from the image upload."
+        }
+      }
+    },
+    "assign_task": {
+      "name": "Assign task",
+      "description": "Give a task to a household member (person) or clear it.",
+      "fields": {
+        "task_id": {
+          "name": "Task",
+          "description": "Task id."
+        },
+        "assignee": {
+          "name": "Person",
+          "description": "person.* entity; empty = anyone."
+        }
+      }
+    },
+    "save_soil_test": {
+      "name": "Save soil test",
+      "description": "Store a soil analysis for a bed; fertiliser and lime advice use it.",
+      "fields": {
+        "bed": {
+          "name": "Bed",
+          "description": "Bed name or id."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Sampling date."
+        },
+        "ph": {
+          "name": "pH",
+          "description": "Soil pH."
+        },
+        "organic_matter_pct": {
+          "name": "Organic matter",
+          "description": "Percent."
+        },
+        "p_mg": {
+          "name": "Phosphate",
+          "description": "mg P2O5 per 100 g."
+        },
+        "k_mg": {
+          "name": "Potassium",
+          "description": "mg K2O per 100 g."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Lab or kit remarks."
+        }
+      }
+    },
+    "install_voice_sentences": {
+      "name": "Install voice sentences",
+      "description": "Copy the Hortulus sentences for Assist to /config/custom_sentences (EN and NL).",
+      "fields": {
+        "overwrite": {
+          "name": "Overwrite",
+          "description": "Replace files you changed yourself."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Hortulus is not set up or not loaded."
+    },
+    "unknown_task": {
+      "message": "Task {task} does not exist."
+    },
+    "unknown_bed": {
+      "message": "Bed {bed} does not exist."
+    },
+    "unknown_planting": {
+      "message": "Planting {planting} does not exist."
+    },
+    "unknown_plant": {
+      "message": "Plant {plant} does not exist."
+    },
+    "plant_in_use": {
+      "message": "Plant {plant} is used in the plan and cannot be deleted."
+    },
+    "invalid_plan": {
+      "message": "Invalid plan: {reason}"
+    },
+    "invalid_plant": {
+      "message": "Invalid plant: {reason}"
+    },
+    "invalid_settings": {
+      "message": "Invalid settings: {reason}"
+    },
+    "unknown_zone": {
+      "message": "Unknown zone: {zone}"
+    },
+    "not_enclosed": {
+      "message": "{zone} is not a greenhouse or cold frame."
+    },
+    "irrigation_running": {
+      "message": "An irrigation run is already in progress."
+    },
+    "invalid_print": {
+      "message": "Invalid print options: {reason}"
+    },
+    "invalid_harvest": {
+      "message": "Give a weight (kg) or a count for the harvest."
+    },
+    "invalid_record": {
+      "message": "Unknown record type {kind}."
+    },
+    "unknown_record": {
+      "message": "Record {record} does not exist."
+    },
+    "invalid_journal": {
+      "message": "A diary entry needs text or a photo (and a valid kind)."
+    },
+    "invalid_seed": {
+      "message": "Invalid seed packet: {reason}"
+    },
+    "invalid_soil_test": {
+      "message": "Invalid soil test: {reason}"
+    }
+  }
+}

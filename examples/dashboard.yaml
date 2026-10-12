@@ -1,0 +1,123 @@
+# Example Lovelace view for Hortulus (Dashboard → ⋮ → Edit → Raw configuration editor,
+# then paste this as one of the `views:`). Uses built-in cards plus the Hortulus task card,
+# which the integration loads by itself (no resource to add).
+title: Garden
+path: garden
+icon: mdi:sprout
+type: sections
+sections:
+  - title: Today
+    cards:
+      - type: tile
+        entity: sensor.hortulus_tasks_due_today
+        name: Tasks today
+        icon: mdi:clipboard-check-outline
+      - type: tile
+        entity: sensor.hortulus_frost_risk_next_48h
+        name: Frost risk (48 h)
+        color: blue
+      - type: tile
+        entity: sensor.hortulus_next_task
+        name: Next task
+      - type: custom:hortulus-tasks-card
+        title: Garden today
+        days: 0
+      - type: custom:hortulus-tasks-card
+        title: My tasks this week
+        days: 7
+        assignee: me
+        max: 6
+      - type: todo-list
+        entity: todo.hortulus_this_week
+        title: This week in the garden
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: binary_sensor.hortulus_frost_warning
+            state: "on"
+        card:
+          type: markdown
+          content: >-
+            ### ❄ Frost expected
+            Lowest **{{ state_attr('sensor.hortulus_frost_risk_next_48h', 'plant_level_min_temperature') }} °C**
+            around {{ as_timestamp(state_attr('sensor.hortulus_frost_risk_next_48h', 'min_at')) | timestamp_custom('%a %H:%M') }}.
+            Protect: {{ state_attr('binary_sensor.hortulus_frost_warning', 'plants_at_risk') | join(', ') or 'tender crops' }}.
+  - title: Beds
+    cards:
+      - type: tile
+        entity: sensor.bed_1_moisture_status
+        name: Bed 1
+        icon: mdi:water-percent
+      - type: entities
+        title: Bed 1
+        entities:
+          - entity: sensor.soil_moisture_bed_1
+            name: Soil moisture
+          - entity: sensor.soil_temp_bed_1
+            name: Soil temperature
+          - entity: sensor.bed_1_irrigation_recommendation
+            name: Irrigation advice
+            secondary_info: last-changed
+          - entity: binary_sensor.bed_1_needs_water
+            name: Needs water
+      - type: gauge
+        entity: sensor.soil_moisture_bed_1
+        name: Bed 1 moisture
+        min: 0
+        max: 70
+        severity:
+          red: 0
+          yellow: 25
+          green: 30
+  - title: Greenhouse
+    cards:
+      - type: tile
+        entity: sensor.greenhouse_zone_a_greenhouse_advice
+        name: Advice
+        icon: mdi:greenhouse
+      - type: history-graph
+        title: Greenhouse temperature
+        hours_to_show: 48
+        entities:
+          - entity: sensor.greenhouse_temp
+      - type: tile
+        entity: binary_sensor.greenhouse_zone_a_heat_stress
+  - title: Season
+    cards:
+      - type: calendar
+        entities:
+          - calendar.hortulus_garden_tasks
+        initial_view: dayGridMonth
+      - type: tile
+        entity: sensor.hortulus_growing_degree_days
+        name: Growing degree days
+      - type: horizontal-stack
+        cards:
+          - type: button
+            entity: button.hortulus_generate_tasks
+            name: Regenerate tasks
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.hortulus_generate_tasks
+          - type: button
+            name: Open planner
+            icon: mdi:floor-plan
+            tap_action:
+              action: navigate
+              navigation_path: /hortulus/planner
+  - title: Records
+    cards:
+      - type: tile
+        entity: sensor.hortulus_harvest_this_season
+        name: Harvest this season
+        icon: mdi:basket-outline
+      - type: tile
+        entity: sensor.hortulus_garden_water_7_days
+        name: Garden water (7 days)
+        icon: mdi:water-pump
+      - type: tile
+        entity: sensor.hortulus_rain_water_available
+        name: Rain water available
+        icon: mdi:barrel-outline

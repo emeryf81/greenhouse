@@ -1,0 +1,34 @@
+# Hortulus - sentences for Assist (Home Assistant voice assistant).
+# Installed with the service garden_manager.install_voice_sentences.
+language: en
+intents:
+  HortulusTasksToday:
+    data:
+      - sentences:
+          - "what [do I need to|should I|must I] do in the (garden|vegetable garden|greenhouse) [today]"
+          - "(what are|any) [my] garden tasks [for] [today]"
+  HortulusHarvest:
+    data:
+      - sentences:
+          - "what can I harvest [today]"
+          - "what is ready (to harvest|to pick)"
+  HortulusGreenhouse:
+    data:
+      - sentences:
+          - "how (warm|hot|cold) is [it in] the greenhouse"
+          - "(what's|what is) the greenhouse temperature"
+  HortulusWater:
+    data:
+      - sentences:
+          - "(do I need to|should I) water the (garden|plants|beds) [today]"
+          - "does the garden need water"
+  HortulusFrost:
+    data:
+      - sentences:
+          - "is [there] frost (coming|forecast|expected)"
+          - "will it freeze [tonight]"
+  HortulusOverdue:
+    data:
+      - sentences:
+          - "(which|what) [garden] tasks are overdue"
+          - "what did I forget in the garden"

@@ -1,0 +1,230 @@
+import { LitElement, css, html, nothing, type TemplateResult } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import type { Translate } from "../i18n";
+import { shared } from "../styles/tokens";
+import type { FamilyInfo, Plant, Snapshot, Task } from "../types";
+import { addDays, familyColor, formatDate, plantName, sortTasks } from "../util/garden";
+import { renderTaskRow, taskRowStyles, type TaskCtx } from "../components/task-ui";
+import "../components/info";
+
+const RISK_CHIP: Record<string, string> = { none: "ok", low: "cold", moderate: "warn", high: "bad", unknown: "" };
+const ALERT_ICON: Record<string, string> = {
+  frost: "mdi:snowflake-alert",
+  heat: "mdi:thermometer-alert",
+  dry: "mdi:water-alert",
+  sensor_stale: "mdi:access-point-network-off",
+  forecast: "mdi:weather-cloudy-alert",
+  disease: "mdi:mushroom-outline",
+  nutrients: "mdi:flask-outline",
+};
+
+@customElement("hl-dashboard-view")
+export class DashboardView extends LitElement {
+  @property({ attribute: false }) snapshot!: Snapshot;
+  @property({ attribute: false }) plants: Map<string, Plant> = new Map();
+  @property({ attribute: false }) families: Record<string, FamilyInfo> = {};
+  @property({ attribute: false }) t!: Translate;
+  @property() lang = "en";
+  @property({ type: Boolean }) admin = true;
+
+  static styles = [
+    shared,
+    taskRowStyles,
+    css`
+      .hero { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--hl-s4); margin-bottom: var(--hl-s4); }
+      .hero h1 { font-size: var(--hl-fs-2xl); }
+      .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--hl-s4); }
+      .span-8 { grid-column: span 8; }
+      .span-4 { grid-column: span 4; }
+      .span-12 { grid-column: span 12; }
+      @media (max-width: 1100px) { .span-8, .span-4 { grid-column: span 12; } }
+      .alerts { display: flex; flex-direction: column; gap: var(--hl-s2); margin-bottom: var(--hl-s4); }
+      .alert { display: flex; gap: var(--hl-s3); align-items: center; padding: var(--hl-s3) var(--hl-s4); border-radius: var(--hl-r-md); border: 1px solid var(--hl-border); background: var(--hl-surface); }
+      .alert.critical { background: var(--hl-tomato-100); border-color: color-mix(in srgb, var(--hl-danger) 35%, transparent); }
+      .alert.warning { background: var(--hl-sun-100); border-color: color-mix(in srgb, var(--hl-warning) 35%, transparent); }
+      .alert.frost { background: var(--hl-frost-100); border-color: color-mix(in srgb, var(--hl-info) 35%, transparent); }
+      .alert ha-icon { --mdc-icon-size: 24px; }
+      .beds { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--hl-s3); }
+      .bed { border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); padding: var(--hl-s3); background: var(--hl-surface-2); display: flex; flex-direction: column; gap: var(--hl-s2); }
+      .gauge { height: 8px; border-radius: 4px; background: var(--hl-surface-3); position: relative; overflow: hidden; }
+      .gauge .target { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--hl-leaf-500) 30%, transparent); }
+      .gauge .value { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--hl-text); border-radius: 2px; }
+      .avatars { display: flex; flex-wrap: wrap; gap: 4px; }
+      .avatar { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
+      .days { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--hl-s2); }
+      .day { text-align: center; padding: var(--hl-s2); border-radius: var(--hl-r-md); background: var(--hl-surface-2); }
+      .day .temp { font-size: var(--hl-fs-lg); font-weight: 600; }
+      .big { font-size: var(--hl-fs-3xl); font-weight: 700; line-height: 1; }
+      .kv { display: flex; justify-content: space-between; gap: var(--hl-s2); font-size: var(--hl-fs-sm); }
+    `,
+  ];
+
+  private emit(name: string, detail: unknown): void {
+    this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
+  }
+
+  private get ctx(): TaskCtx {
+    return {
+      t: this.t,
+      lang: this.lang,
+      today: this.snapshot.analysis?.today ?? "",
+      onOpen: (task: Task) => this.emit("open-task", task),
+      onComplete: (task: Task) => this.emit("complete-task", task),
+      onPostpone: (task: Task, days: number) => this.emit("postpone-task", { task, days }),
+    };
+  }
+
+  private greeting(): string {
+    const h = new Date().getHours();
+    return this.t(h < 12 ? "dash.greeting_morning" : h < 18 ? "dash.greeting_afternoon" : "dash.greeting_evening");
+  }
+
+  render(): TemplateResult {
+    const snap = this.snapshot;
+    const a = snap.analysis;
+    if (!a) return html`<p class="empty">${this.t("common.loading")}</p>`;
+    const today = a.today;
+    const due = sortTasks(snap.tasks.filter((t) => t.status === "open" && t.due <= today));
+    const upcoming = sortTasks(snap.tasks.filter((t) => t.status === "open" && t.due > today && t.due <= addDays(today, 7)));
+    const minutes = due.reduce((s, t) => s + t.estimated_minutes, 0);
+    const greenhouses = snap.zones.filter((z) => z.type !== "outdoor");
+    return html`
+      <section class="hero">
+        <div class="stack" style="gap:4px">
+          <span class="muted small">${formatDate(today, this.lang, { weekday: "long", day: "numeric", month: "long" })} · ${this.t("common.season", { year: a.season })}</span>
+          <h1>${this.greeting()} 🌱</h1>
+        </div>
+        <span class="spacer"></span>
+        <span class="chip ${RISK_CHIP[a.frost.level]}"><ha-icon icon="mdi:snowflake"></ha-icon>${this.t("dash.frost_risk")}: ${this.t(`risk.${a.frost.level}`)}</span>
+        <span class="chip"><ha-icon icon="mdi:thermometer-plus"></ha-icon>${Math.round(a.gdd.season_total)} GDD</span>
+      </section>
+
+      ${a.alerts.length ? html`<section class="alerts" aria-label="Alerts">
+        ${a.alerts.map((al) => html`<div class="alert ${al.kind === "frost" ? "frost" : al.severity}" role=${al.severity === "critical" ? "alert" : "status"}>
+          <ha-icon icon=${ALERT_ICON[al.kind] ?? "mdi:information-outline"}></ha-icon>
+          <div><b>${this.t(al.message_key, al.params)}</b>
+            ${Array.isArray(al.params.plants) && al.params.plants.length ? html`<div class="small">${(al.params.plants as string[]).join(", ")}</div>` : nothing}</div>
+        </div>`)}
+      </section>` : nothing}
+
+      <div class="grid">
+        <section class="card span-8" aria-labelledby="today-h">
+          <header><h2 id="today-h">${this.t("dash.today_tasks")}</h2><span class="spacer"></span>
+            ${due.length ? html`<span class="small muted">${this.t("dash.total_time", { minutes })}</span>` : nothing}</header>
+          ${due.length ? html`<ul class="tasks">${due.slice(0, 10).map((task) => renderTaskRow(task, this.ctx))}</ul>` : html`<p class="empty">${this.t("dash.no_tasks")}</p>`}
+          ${due.length > 10 ? html`<button class="btn small ghost" @click=${() => this.emit("navigate", "calendar")}>${this.t("dash.show_all", { n: due.length })}</button>` : nothing}
+        </section>
+
+        <section class="card span-4" aria-labelledby="weather-h">
+          <header><h2 id="weather-h">${this.t("dash.weather")}</h2></header>
+          ${a.weather_available ? html`
+            <div class="days">${a.outlook.slice(0, 3).map((o) => html`
+              <div class="day">
+                <div class="small muted">${o.day === today ? this.t("common.today") : formatDate(o.day, this.lang, { weekday: "short" })}</div>
+                <div class="temp">${o.tmax != null ? Math.round(o.tmax) : "–"}° <span class="muted small">${o.tmin != null ? Math.round(o.tmin) : "–"}°</span></div>
+                <div class="xs muted">💧 ${o.rain_mm} mm${o.et0_mm != null ? html` · ET₀ ${o.et0_mm}` : nothing}</div>
+              </div>`)}</div>
+            <div class="divider"></div>
+            <div class="kv"><span>${this.t("dash.frost_risk")}</span><span class="chip ${RISK_CHIP[a.frost.level]}">${this.t(`risk.${a.frost.level}`)}</span></div>
+            ${a.frost.plant_level_min_c != null ? html`<div class="kv"><span></span><span class="muted">${this.t("dash.min_temp", { temp: a.frost.plant_level_min_c })}${a.frost.min_at ? ` · ${new Date(a.frost.min_at).toLocaleString(this.lang === "nl" ? "nl-NL" : "en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : ""}</span></div>` : nothing}
+          ` : html`<p class="small muted">${this.t("dash.forecast_missing")}</p>`}
+          <div class="divider"></div>
+          ${a.et0_today != null ? html`<div class="kv"><span>ET₀ ${this.t("common.today").toLowerCase()} <hl-info term="et0" .t=${this.t}></hl-info></span>
+            <span><b>${a.et0_today.toFixed(1)} mm</b> <span class="muted xs">${a.et0_method === "penman_monteith" ? "Penman-Monteith" : a.et0_method === "hargreaves" ? "Hargreaves" : ""}</span></span></div>` : nothing}
+          ${a.gdd_today != null ? html`<div class="kv"><span>${this.t("dash.gdd_today")}</span><span><b>${a.gdd_today.toFixed(1)}</b></span></div>` : nothing}
+          <div class="kv"><span>${this.t("dash.gdd")} <hl-info term="gdd" .t=${this.t}></hl-info></span><span><b>${Math.round(a.gdd.season_total)}</b> <span class="muted xs">${this.t("dash.gdd_since", { date: formatDate(a.gdd.since, this.lang) })}</span></span></div>
+        </section>
+
+        <section class="card span-8" aria-labelledby="beds-h">
+          <header><h2 id="beds-h">${this.t("dash.beds")}</h2></header>
+          <div class="beds">${snap.beds.map((bed) => this.renderBed(bed.id))}</div>
+        </section>
+
+        ${this.renderWaterClimate()}
+
+        <section class="card span-4" aria-labelledby="up-h">
+          ${greenhouses.map((z) => {
+            const gh = a.zones[z.id]?.greenhouse;
+            return html`<header><h2>${z.name}</h2><span class="spacer"></span>
+                <span class="chip ${gh?.action === "none" || !gh ? "ok" : gh.action === "shade" || gh.action === "heat" ? "bad" : "warn"}">${this.t(`gh.${gh?.action ?? "none"}`)}</span></header>
+              ${a.zones[z.id]?.air_temperature != null ? html`<div class="big">${a.zones[z.id].air_temperature?.toFixed(1)}°</div>` : html`<p class="small muted">${this.t("dash.no_sensor")}</p>`}
+              ${gh?.limit_max_c != null && gh.limiting_plants.length ? html`<p class="small muted">${this.t("dash.limits", { min: gh.limit_min_c, max: gh.limit_max_c })} (${gh.limiting_plants.join(", ")})</p>` : nothing}
+              ${gh?.forecast_max_c != null ? html`<p class="xs muted">↑ ${gh.forecast_max_c}° · ↓ ${gh.forecast_min_c ?? "–"}°</p>` : nothing}
+              <div class="divider"></div>`;
+          })}
+          <header><h2 id="up-h">${this.t("dash.coming_up")}</h2></header>
+          ${upcoming.length ? html`<ul class="tasks">${upcoming.slice(0, 8).map((task) => renderTaskRow(task, this.ctx))}</ul>` : html`<p class="small muted">–</p>`}
+        </section>
+      </div>
+    `;
+  }
+
+  private renderWaterClimate(): TemplateResult {
+    const snap = this.snapshot;
+    const a = snap.analysis!;
+    const status = snap.irrigation_status;
+    const cfg = snap.settings.irrigation;
+    const valves = snap.beds.filter((b) => b.irrigation_entity).length;
+    const zones = snap.zones.filter((z) => a.zones[z.id]?.disease && a.zones[z.id].disease!.level !== "unknown");
+    const needWater = snap.beds.filter((b) => a.beds[b.id]?.irrigation.action === "water");
+    const bedName = (id: string | null) => snap.beds.find((b) => b.id === id)?.name ?? "";
+    return html`<section class="card span-4" aria-labelledby="wc-h">
+      <header><h2 id="wc-h">${this.t("dash.water_climate")}</h2></header>
+      <div class="kv"><span>${this.t("dash.irrigation_mode")}</span><span class="chip">${this.t(`settings.irrigation_mode.${cfg?.mode ?? "advise"}`)}</span></div>
+      ${status?.running ? html`<div class="kv"><span class="chip ok"><ha-icon icon="mdi:sprinkler"></ha-icon>${this.t("dash.watering_now", { bed: bedName(status.bed_id) })}</span>
+        <button class="btn small danger" @click=${() => this.emit("irrigation", "stop")}>${this.t("dash.stop")}</button></div>` : nothing}
+      ${status?.last_error ? html`<p class="xs" style="color:var(--hl-danger)">⚠ ${status.last_error}</p>` : nothing}
+      <div class="kv"><span>${this.t("dash.beds_need_water")}</span><b>${needWater.length ? needWater.map((b) => b.name).join(", ") : "–"}</b></div>
+      ${valves && this.admin && !status?.running ? html`<button class="btn small" @click=${() => this.emit("irrigation", "run")}>
+        <ha-icon icon="mdi:sprinkler"></ha-icon>${this.t("dash.water_now")}</button>
+        <p class="xs muted">${this.t("dash.safety_note")} <hl-info term="frost_lockout" .t=${this.t}></hl-info></p>` : nothing}
+      ${zones.length ? html`<div class="divider"></div>
+        <div class="kv"><span><b>${this.t("dash.disease_risk")}</b> <hl-info term="leaf_wetness" .t=${this.t}></hl-info></span></div>
+        ${zones.map((z) => {
+          const d = a.zones[z.id].disease!;
+          return html`<div class="kv"><span>${z.name}</span><span class="chip ${RISK_CHIP[d.level]}">${this.t(`risk.${d.level}`)}${d.wet_hours ? ` · ${Math.round(d.wet_hours)} h` : ""}</span></div>`;
+        })}` : nothing}
+    </section>`;
+  }
+
+  private renderBed(bedId: string): TemplateResult {
+    const snap = this.snapshot;
+    const bed = snap.beds.find((b) => b.id === bedId)!;
+    const ba = snap.analysis?.beds[bedId];
+    const irr = ba?.irrigation;
+    const status = ba?.moisture_status ?? "unknown";
+    const soilT = ba?.sensors?.soil_temperature?.value;
+    const active = (ba?.active_plantings ?? []).map((id) => snap.plantings.find((p) => p.id === id)).filter(Boolean);
+    const chip = status === "optimal" ? "ok" : status === "dry" ? "bad" : status === "unknown" ? "" : status === "wet" ? "cold" : "warn";
+    const pct = (v: number) => Math.max(0, Math.min(100, v));
+    return html`
+      <article class="bed" aria-label=${bed.name}>
+        <div class="row"><h3>${bed.name}</h3><span class="spacer"></span><span class="chip ${chip}">${this.t(`moisture.${status}`)}</span></div>
+        ${irr?.moisture != null ? html`
+          <div class="gauge" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${Math.round(irr.moisture)} aria-label=${this.t("settings.sensor.soil_moisture")}>
+            ${irr.target_low != null && irr.target_high != null ? html`<div class="target" style=${`left:${pct(irr.target_low)}%;width:${pct(irr.target_high) - pct(irr.target_low)}%`}></div>` : nothing}
+            <div class="value" style=${`left:${pct(irr.moisture)}%`}></div>
+          </div>
+          <div class="kv"><span>💧 ${Math.round(irr.moisture)}%</span>${soilT != null ? html`<span>🌡 ${soilT.toFixed(1)} °C</span>` : nothing}</div>` : html`<p class="xs muted">${this.t("dash.no_sensor")}</p>`}
+        ${irr ? html`<p class="small"><ha-icon icon="mdi:watering-can-outline" style="--mdc-icon-size:16px"></ha-icon>
+          ${this.t(`irrigation.${irr.action}`, { mm: irr.amount_mm, liters: Math.round(irr.liters) })}${irr.duration_min ? ` · ${Math.round(irr.duration_min)} min` : ""}</p>` : nothing}
+        ${ba?.nutrients?.index != null ? html`<div class="kv"><span>${this.t("dash.nutrients")} <hl-info term="nutrient_index" .t=${this.t}></hl-info></span>
+          <span class="chip ${ba.nutrients.status === "balanced" ? "ok" : "warn"}">${ba.nutrients.index}/100</span></div>` : nothing}
+        ${ba?.depletion_mm != null && ba.taw_mm ? html`<div class="kv xs muted"><span>${this.t("dash.water_balance")} <hl-info term="water_balance" .t=${this.t}></hl-info></span>
+          <span>${Math.round(ba.depletion_mm)} / ${Math.round(ba.taw_mm)} mm</span></div>` : nothing}
+        <div class="avatars" aria-label=${this.t("dash.active_crops", { n: active.length })}>
+          ${active.map((p) => {
+            const plant = this.plants.get(p!.plant_id);
+            const name = plantName(plant, this.lang);
+            return html`<span class="avatar" title=${name} style=${`background:${familyColor(this.families, plant?.family)}`}>${name.slice(0, 2)}</span>`;
+          })}
+        </div>
+      </article>`;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "hl-dashboard-view": DashboardView;
+  }
+}

@@ -1,0 +1,398 @@
+{
+ "et0": {
+  "chapter": "watering",
+  "en": {
+   "term": "ET0 (reference evapotranspiration)",
+   "text": "Water a short, well-watered lawn loses per day (mm). Calculated with FAO-56 Penman-Monteith from the forecast; Hargreaves when humidity or wind are missing."
+  },
+  "nl": {
+   "term": "ET0 (referentieverdamping)",
+   "text": "Water dat een kort, goed bewaterd grasveld per dag verdampt (mm). Berekend met FAO-56 Penman-Monteith uit de voorspelling; Hargreaves als vocht of wind ontbreken."
+  }
+ },
+ "kc": {
+  "chapter": "watering",
+  "en": {
+   "term": "Kc (crop coefficient)",
+   "text": "Multiplier on ET0 for a crop in its current growth stage: low after planting, highest in full growth, lower again while ripening."
+  },
+  "nl": {
+   "term": "Kc (gewascoëfficiënt)",
+   "text": "Vermenigvuldiger op ET0 voor een gewas in zijn huidige groeistadium: laag na het planten, hoogst in volle groei, lager bij afrijping."
+  }
+ },
+ "water_balance": {
+  "chapter": "watering",
+  "en": {
+   "term": "Water balance",
+   "text": "Without a moisture sensor Hortulus tracks the root-zone water per bed: crop evaporation out, rain and irrigation in. Water when half the available water is used."
+  },
+  "nl": {
+   "term": "Waterbalans",
+   "text": "Zonder vochtsensor volgt Hortulus het water in de wortelzone per bed: verdamping eruit, regen en gietwater erin. Gieten als de helft van het beschikbare water op is."
+  }
+ },
+ "taw": {
+  "chapter": "soil",
+  "en": {
+   "term": "Available water (TAW)",
+   "text": "How much water the root zone holds between field capacity and wilting point. Sand about 80 mm per metre of soil, loam 160, clay 180."
+  },
+  "nl": {
+   "term": "Beschikbaar water (TAW)",
+   "text": "Hoeveel water de wortelzone vasthoudt tussen veldcapaciteit en verwelkingspunt. Zand ongeveer 80 mm per meter grond, leem 160, klei 180."
+  }
+ },
+ "gdd": {
+  "chapter": "harvest",
+  "en": {
+   "term": "Growing degree days",
+   "text": "Sum of daily warmth above a crop's base temperature. A warm spring collects degree days faster and brings the harvest forward."
+  },
+  "nl": {
+   "term": "Graaddagen",
+   "text": "Som van de dagelijkse warmte boven de basistemperatuur van een gewas. Een warme lente verzamelt sneller graaddagen en vervroegt de oogst."
+  }
+ },
+ "frost_dates": {
+  "chapter": "sowing",
+  "en": {
+   "term": "Frost dates",
+   "text": "Average last spring frost and first autumn frost of your region. All sowing windows are counted in weeks from these dates."
+  },
+  "nl": {
+   "term": "Vorstdata",
+   "text": "Gemiddelde laatste lentevorst en eerste herfstvorst van je regio. Alle zaaivensters worden in weken vanaf deze data geteld."
+  }
+ },
+ "hardening_off": {
+  "chapter": "sowing",
+  "en": {
+   "term": "Hardening off",
+   "text": "Getting indoor-raised plants used to outdoor conditions over 7-10 days before planting out."
+  },
+  "nl": {
+   "term": "Afharden",
+   "text": "Binnen opgekweekte planten in 7-10 dagen laten wennen aan buiten, vóór het uitplanten."
+  }
+ },
+ "succession": {
+  "chapter": "sowing",
+  "en": {
+   "term": "Succession sowing",
+   "text": "Sowing a little every 2-3 weeks instead of all at once, for a steady harvest."
+  },
+  "nl": {
+   "term": "Successiezaai",
+   "text": "Elke 2-3 weken een beetje zaaien in plaats van alles tegelijk, voor een gespreide oogst."
+  }
+ },
+ "rotation": {
+  "chapter": "rotation",
+  "en": {
+   "term": "Crop rotation",
+   "text": "Changing the plant family in each bed every year so soil-borne pests and diseases don't build up. Most families need 3-4 years away."
+  },
+  "nl": {
+   "term": "Vruchtwisseling",
+   "text": "Elk jaar een andere plantenfamilie per bed, zodat bodemziekten en plagen zich niet ophopen. De meeste families 3-4 jaar niet terug."
+  }
+ },
+ "companion": {
+  "chapter": "companions",
+  "en": {
+   "term": "Companion planting",
+   "text": "Placing plants that help each other (scent, pest deterrence, support, nitrogen) close together and keeping rivals apart."
+  },
+  "nl": {
+   "term": "Combinatieteelt",
+   "text": "Planten die elkaar helpen (geur, plaagwering, steun, stikstof) dicht bij elkaar zetten en concurrenten uit elkaar houden."
+  }
+ },
+ "allelopathy": {
+  "chapter": "companions",
+  "en": {
+   "term": "Allelopathy",
+   "text": "A plant suppressing the growth of neighbours with substances from its roots or leaves (fennel, wormwood, sunflower)."
+  },
+  "nl": {
+   "term": "Allelopathie",
+   "text": "Een plant die met stoffen uit wortels of blad de groei van buren remt (venkel, alsem, zonnebloem)."
+  }
+ },
+ "trap_crop": {
+  "chapter": "companions",
+  "en": {
+   "term": "Trap crop",
+   "text": "A plant that lures a pest away from the main crop, such as nasturtium for aphids."
+  },
+  "nl": {
+   "term": "Vangplant",
+   "text": "Een plant die een plaag weglokt van de hoofdteelt, zoals Oost-Indische kers voor bladluis."
+  }
+ },
+ "green_manure": {
+  "chapter": "soil",
+  "en": {
+   "term": "Green manure",
+   "text": "A crop sown to cover and feed bare soil (phacelia, clover, rye). Cut before flowering and leave as mulch or dig in shallowly."
+  },
+  "nl": {
+   "term": "Groenbemester",
+   "text": "Een gewas gezaaid om kale grond te bedekken en te voeden (phacelia, klaver, rogge). Maaien vóór de bloei en als mulch laten liggen of ondiep inwerken."
+  }
+ },
+ "mulch": {
+  "chapter": "nodig",
+  "en": {
+   "term": "Mulch",
+   "text": "A layer of organic material on the soil. Halves evaporation, suppresses weeds and feeds soil life."
+  },
+  "nl": {
+   "term": "Mulch",
+   "text": "Een laag organisch materiaal op de grond. Halveert de verdamping, onderdrukt onkruid en voedt het bodemleven."
+  }
+ },
+ "no_dig": {
+  "chapter": "nodig",
+  "en": {
+   "term": "No-dig",
+   "text": "Leaving soil structure intact and adding compost on top instead of digging."
+  },
+  "nl": {
+   "term": "Niet spitten",
+   "text": "De bodemstructuur intact laten en compost bovenop leggen in plaats van te spitten."
+  }
+ },
+ "npk": {
+  "chapter": "fertilizing",
+  "en": {
+   "term": "NPK",
+   "text": "Nitrogen (leaves), phosphorus (roots, flowers) and potassium (fruit, resilience): the three main plant nutrients."
+  },
+  "nl": {
+   "term": "NPK",
+   "text": "Stikstof (blad), fosfor (wortels, bloei) en kalium (vruchten, weerstand): de drie hoofdvoedingsstoffen."
+  }
+ },
+ "ec": {
+  "chapter": "fertilizing",
+  "en": {
+   "term": "EC (electrical conductivity)",
+   "text": "Salt content of the soil moisture in mS/cm. Too low means hunger, above 2.5-3 means salt stress."
+  },
+  "nl": {
+   "term": "EC (geleidbaarheid)",
+   "text": "Zoutgehalte van het bodemvocht in mS/cm. Te laag betekent honger, boven 2,5-3 zoutstress."
+  }
+ },
+ "nutrient_index": {
+  "chapter": "fertilizing",
+  "en": {
+   "term": "Nutrient balance index",
+   "text": "0-100: how well the NPK or EC readings match what the crops in the bed need. 100 = everything within range."
+  },
+  "nl": {
+   "term": "Voedingsbalans-index",
+   "text": "0-100: hoe goed de NPK- of EC-metingen passen bij wat de gewassen in het bed nodig hebben. 100 = alles binnen bereik."
+  }
+ },
+ "compost": {
+  "chapter": "soil",
+  "en": {
+   "term": "Compost",
+   "text": "Decomposed organic matter. 5 kg/m² for hungry crops, 3 for moderate, 1.5 for light feeders."
+  },
+  "nl": {
+   "term": "Compost",
+   "text": "Verteerd organisch materiaal. 5 kg/m² voor sterke teren, 3 voor matige, 1,5 voor zwakke teren."
+  }
+ },
+ "hutton": {
+  "chapter": "diseases",
+  "en": {
+   "term": "Hutton period",
+   "text": "Two consecutive days with a minimum of 10 °C or more and 6+ hours of humidity above 90 %: high late-blight risk."
+  },
+  "nl": {
+   "term": "Hutton-periode",
+   "text": "Twee opeenvolgende dagen met minimum 10 °C of meer en 6+ uur luchtvochtigheid boven 90 %: hoog risico op phytophthora."
+  }
+ },
+ "leaf_wetness": {
+  "chapter": "diseases",
+  "en": {
+   "term": "Leaf wetness",
+   "text": "Fungal spores only germinate on a wet leaf. Hours of high humidity at 10-25 °C drive the disease risk."
+  },
+  "nl": {
+   "term": "Bladnat",
+   "text": "Schimmelsporen kiemen alleen op een nat blad. Uren met hoge luchtvochtigheid bij 10-25 °C bepalen het ziekterisico."
+  }
+ },
+ "frost_lockout": {
+  "chapter": "watering",
+  "en": {
+   "term": "Frost lockout",
+   "text": "Outdoor valves stay closed when frost is forecast within 12 hours or it is too cold now, so drip lines can't freeze and burst."
+  },
+  "nl": {
+   "term": "Vorstvergrendeling",
+   "text": "Buitenkleppen blijven dicht bij vorst in de komende 12 uur of als het nu te koud is, zodat druppelleidingen niet bevriezen en barsten."
+  }
+ },
+ "pump_interlock": {
+  "chapter": "watering",
+  "en": {
+   "term": "Pump interlock",
+   "text": "The pump starts only after a valve is open and stops before the valve closes, so it never runs against a closed system."
+  },
+  "nl": {
+   "term": "Pompvergrendeling",
+   "text": "De pomp start pas als een klep open is en stopt vóór de klep sluit, zodat ze nooit tegen een gesloten systeem draait."
+  }
+ },
+ "microclimate": {
+  "chapter": "greenhouse",
+  "en": {
+   "term": "Microclimate",
+   "text": "Local conditions of a zone: shelter, a warm south wall or thermal mass (water barrels, stone) keep nights a degree or two warmer."
+  },
+  "nl": {
+   "term": "Microklimaat",
+   "text": "Lokale omstandigheden van een zone: beschutting, een warme zuidmuur of thermische massa (watervaten, steen) houden de nacht een graad of twee warmer."
+  }
+ },
+ "ventilation": {
+  "chapter": "greenhouse",
+  "en": {
+   "term": "Ventilation",
+   "text": "Opening greenhouse vents from 22-25 °C removes heat and humid air - the main defence against mould."
+  },
+  "nl": {
+   "term": "Luchten",
+   "text": "Serreramen openen vanaf 22-25 °C voert warmte en vochtige lucht af - de belangrijkste verdediging tegen schimmels."
+  }
+ },
+ "shading": {
+  "chapter": "greenhouse",
+  "en": {
+   "term": "Shading",
+   "text": "Shade paint or 30-40 % netting from late spring to early autumn keeps a greenhouse below the crops' maximum temperature."
+  },
+  "nl": {
+   "term": "Schaduwen",
+   "text": "Krijtverf of 30-40 % schaduwdoek van late lente tot vroege herfst houdt de serre onder de maximumtemperatuur van de gewassen."
+  }
+ },
+ "winter_rest": {
+  "chapter": "seasons",
+  "en": {
+   "term": "Winter rest",
+   "text": "In winter the soil rests under green manure or mulch; no digging, hollow stems left for insects."
+  },
+  "nl": {
+   "term": "Winterrust",
+   "text": "In de winter rust de bodem onder groenbemester of mulch; niet spitten, holle stengels blijven staan voor insecten."
+  }
+ },
+ "soil_prep": {
+  "chapter": "soil",
+  "en": {
+   "term": "Soil preparation",
+   "text": "Two weeks before planting: loosen without turning, remove weeds and spread the compost the coming crops need."
+  },
+  "nl": {
+   "term": "Bodem klaarmaken",
+   "text": "Twee weken voor het planten: losmaken zonder te keren, onkruid verwijderen en de compost strooien die de volgende gewassen nodig hebben."
+  }
+ },
+ "family": {
+  "chapter": "rotation",
+  "en": {
+   "term": "Plant family",
+   "text": "Botanical family (nightshades, brassicas, legumes...). Family members share pests and diseases, so rotation works per family."
+  },
+  "nl": {
+   "term": "Plantenfamilie",
+   "text": "Botanische familie (nachtschade, kolen, vlinderbloemigen...). Familieleden delen plagen en ziekten, dus vruchtwisseling werkt per familie."
+  }
+ },
+ "autofill": {
+  "chapter": "planning",
+  "en": {
+   "term": "Autofill",
+   "text": "Proposes crops, amounts and placement from your beds, household size, time, water and compost - respecting rotation, companions and sun."
+  },
+  "nl": {
+   "term": "Automatisch invullen",
+   "text": "Stelt gewassen, hoeveelheden en plaatsing voor op basis van je bedden, gezin, tijd, water en compost - met vruchtwisseling, combinaties en zon."
+  }
+ },
+ "spacing": {
+  "chapter": "sowing",
+  "en": {
+   "term": "Spacing",
+   "text": "Distance between plants in the row and between rows. Too close means more disease and smaller harvests."
+  },
+  "nl": {
+   "term": "Plantafstand",
+   "text": "Afstand tussen planten in de rij en tussen de rijen. Te dicht betekent meer ziekte en kleinere oogst."
+  }
+ },
+ "zones": {
+  "chapter": "planning",
+  "en": {
+   "term": "Zones",
+   "text": "Parts of the garden with their own character - vegetable garden, greenhouse, orchard, soft fruit, herb or flower garden. Each zone has its own map and suits its own plants."
+  },
+  "nl": {
+   "term": "Zones",
+   "text": "Delen van de tuin met een eigen karakter - moestuin, serre, boomgaard, kleinfruit, kruiden- of bloementuin. Elke zone heeft een eigen kaart en past bij eigen planten."
+  }
+ },
+ "perennial": {
+  "chapter": "fruit",
+  "en": {
+   "term": "Perennial",
+   "text": "A plant that lives for years (fruit trees, berries, asparagus, many herbs). It stays in your plan every season until you remove it explicitly."
+  },
+  "nl": {
+   "term": "Meerjarig",
+   "text": "Een plant die jaren leeft (fruitbomen, bessen, asperge, veel kruiden). Hij blijft elk seizoen in je plan tot je hem uitdrukkelijk verwijdert."
+  }
+ },
+ "pollination": {
+  "chapter": "fruit",
+  "en": {
+   "term": "Pollination",
+   "text": "Pollen must reach the flower to set fruit: by insects, wind, or from a second variety (partner) for self-sterile fruit."
+  },
+  "nl": {
+   "term": "Bestuiving",
+   "text": "Stuifmeel moet de bloem bereiken om vruchten te zetten: via insecten, wind, of van een tweede ras (partner) bij zelfonvruchtbaar fruit."
+  }
+ },
+ "weather_scheduling": {
+  "chapter": "seasons",
+  "en": {
+   "term": "Weather-aware scheduling",
+   "text": "Sowing, planting out, pruning and similar jobs move to the closest dry, frost-free and not-too-hot day inside their window."
+  },
+  "nl": {
+   "term": "Plannen volgens het weer",
+   "text": "Zaaien, uitplanten, snoeien en dergelijke schuiven naar de dichtstbijzijnde droge, vorstvrije en niet te hete dag binnen hun venster."
+  }
+ },
+ "home_remedies": {
+  "chapter": "home_remedies",
+  "en": {
+   "term": "Home remedies",
+   "text": "Mild, homemade solutions: soft soap, nettle and comfrey feed, milk spray, beer traps, mesh - always after prevention and natural enemies."
+  },
+  "nl": {
+   "term": "Huis-tuin-en-keukenmiddeltjes",
+   "text": "Milde, zelfgemaakte oplossingen: zachte zeep, brandnetel- en smeerwortelgier, melkspray, biervallen, gaas - altijd na preventie en natuurlijke vijanden."
+  }
+ }
+}

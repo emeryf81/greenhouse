@@ -1,0 +1,541 @@
+add_task:
+  fields:
+    title:
+      required: true
+      example: "Check slug traps"
+      selector:
+        text:
+    due_date:
+      example: "2026-05-01"
+      selector:
+        date:
+    type:
+      default: custom
+      selector:
+        select:
+          translation_key: task_type
+          options:
+            - custom
+            - sow_indoor
+            - sow_direct
+            - harden_off
+            - transplant
+            - thin
+            - stake
+            - prune
+            - pinch
+            - earth_up
+            - feed
+            - water
+            - weed
+            - pest_check
+            - harvest
+            - ventilate
+            - shade
+            - frost_protect
+            - soil_prep
+            - compost
+            - green_manure
+            - mulch
+            - clean_greenhouse
+            - winter_prep
+            - plan_season
+            - tool_care
+            - soil_test
+            - cut_back
+            - divide
+            - protect
+            - clean
+            - tie_in
+            - thin_fruit
+            - pollinate
+            - check
+            - make_feed
+    description:
+      selector:
+        text:
+          multiline: true
+    priority:
+      default: normal
+      selector:
+        select:
+          translation_key: priority
+          options:
+            - low
+            - normal
+            - high
+            - urgent
+    estimated_minutes:
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
+    bed:
+      example: "Bed 1"
+      selector:
+        text:
+    planting_id:
+      selector:
+        text:
+    recurrence_days:
+      selector:
+        number:
+          min: 1
+          max: 365
+          unit_of_measurement: d
+    until:
+      selector:
+        date:
+
+complete_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+    note:
+      selector:
+        text:
+          multiline: true
+    photos:
+      selector:
+        text:
+          multiple: true
+    skipped:
+      default: false
+      selector:
+        boolean:
+
+postpone_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+    days:
+      selector:
+        number:
+          min: -365
+          max: 365
+          unit_of_measurement: d
+    to_date:
+      selector:
+        date:
+    reason:
+      selector:
+        text:
+    cascade:
+      default: true
+      selector:
+        boolean:
+
+delete_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+
+generate_tasks:
+
+recalculate_plan:
+
+export_plan:
+  fields:
+    include_tasks:
+      default: false
+      selector:
+        boolean:
+    seasons:
+      selector:
+        object:
+
+import_plan:
+  fields:
+    plan:
+      required: true
+      selector:
+        object:
+    mode:
+      default: merge
+      selector:
+        select:
+          translation_key: import_mode
+          options:
+            - merge
+            - replace
+
+add_planting:
+  fields:
+    plant_id:
+      required: true
+      example: tomato
+      selector:
+        text:
+    bed:
+      required: true
+      example: "Bed 1"
+      selector:
+        text:
+    season:
+      example: 2026
+      selector:
+        number:
+          min: 2000
+          max: 2200
+          mode: box
+    layout:
+      selector:
+        select:
+          options: [single, row, block]
+    x_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    y_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    width_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    length_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    count:
+      selector:
+        number: {min: 1, max: 10000, mode: box}
+    method:
+      selector:
+        select:
+          options: [indoor_sow, direct_sow, transplant]
+    status:
+      selector:
+        select:
+          options: [planned, sown_indoors, sown, transplanted, harvesting, finished, failed]
+    sow_date:
+      selector:
+        date:
+    transplant_date:
+      selector:
+        date:
+    sown_on:
+      selector:
+        date:
+    transplanted_on:
+      selector:
+        date:
+    notes:
+      selector:
+        text:
+          multiline: true
+
+update_planting:
+  fields:
+    planting_id:
+      required: true
+      selector:
+        text:
+    plant_id:
+      selector:
+        text:
+    bed:
+      selector:
+        text:
+    season:
+      example: 2026
+      selector:
+        number:
+          min: 2000
+          max: 2200
+          mode: box
+    layout:
+      selector:
+        select:
+          options: [single, row, block]
+    x_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    y_cm:
+      selector:
+        number: {min: 0, max: 10000, unit_of_measurement: cm, mode: box}
+    width_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    length_cm:
+      selector:
+        number: {min: 1, max: 10000, unit_of_measurement: cm, mode: box}
+    count:
+      selector:
+        number: {min: 1, max: 10000, mode: box}
+    method:
+      selector:
+        select:
+          options: [indoor_sow, direct_sow, transplant]
+    status:
+      selector:
+        select:
+          options: [planned, sown_indoors, sown, transplanted, harvesting, finished, failed]
+    sow_date:
+      selector:
+        date:
+    transplant_date:
+      selector:
+        date:
+    sown_on:
+      selector:
+        date:
+    transplanted_on:
+      selector:
+        date:
+    notes:
+      selector:
+        text:
+          multiline: true
+
+remove_planting:
+  fields:
+    planting_id:
+      required: true
+      selector:
+        text:
+
+run_irrigation_plan:
+  fields:
+    dry_run:
+      default: false
+      selector:
+        boolean:
+    beds:
+      example: "Bed 1"
+      selector:
+        text:
+          multiple: true
+    amount_mm:
+      selector:
+        number: {min: 0.5, max: 50, step: 0.5, unit_of_measurement: mm}
+
+stop_irrigation:
+
+set_shading_mode:
+  fields:
+    zone:
+      required: true
+      example: "Greenhouse"
+      selector:
+        text:
+    mode:
+      required: true
+      selector:
+        select:
+          options: [auto, "on", "off"]
+
+autofill_plan:
+  fields:
+    season:
+      selector:
+        number: {min: 2000, max: 2200, mode: box}
+    beds:
+      selector:
+        text:
+          multiple: true
+    replace:
+      default: false
+      selector:
+        boolean:
+    apply:
+      default: false
+      selector:
+        boolean:
+    household_size:
+      selector:
+        number: {min: 1, max: 20, mode: box}
+    hours_per_week:
+      selector:
+        number: {min: 0, max: 80, step: 0.5, unit_of_measurement: h}
+    water_liters_per_week:
+      selector:
+        number: {min: 0, max: 100000, mode: box, unit_of_measurement: L}
+    compost_kg:
+      selector:
+        number: {min: 0, max: 100000, mode: box, unit_of_measurement: kg}
+    goals:
+      selector:
+        select:
+          multiple: true
+          options: [fresh, storage, herbs, pollinators, winter, perennials, easy]
+    wanted:
+      selector:
+        text:
+          multiple: true
+    excluded:
+      selector:
+        text:
+          multiple: true
+    max_crops:
+      default: 16
+      selector:
+        number: {min: 1, max: 60, mode: box}
+
+export_pdf:
+  fields:
+    document:
+      default: garden
+      selector:
+        select:
+          options: [garden, zone, beds, tasks, season, year, blank, plants]
+    page:
+      default: a4
+      selector:
+        select:
+          options: [a4, a3, a5, letter, remarkable]
+    landscape:
+      default: false
+      selector:
+        boolean:
+    color_mode:
+      default: color
+      selector:
+        select:
+          options: [color, eink, grayscale]
+    season:
+      selector:
+        number: {min: 2000, max: 2200, mode: box}
+    zone_id:
+      selector:
+        text:
+    bed_ids:
+      selector:
+        text:
+          multiple: true
+    days:
+      default: 28
+      selector:
+        number: {min: 1, max: 120}
+    notes:
+      default: true
+      selector:
+        boolean:
+    grid:
+      default: true
+      selector:
+        boolean:
+    title:
+      selector:
+        text:
+
+log_harvest:
+  fields:
+    planting_id:
+      selector:
+        text:
+    plant_id:
+      example: tomato
+      selector:
+        text:
+    kg:
+      example: 1.2
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 0.05
+          unit_of_measurement: kg
+    count:
+      selector:
+        number:
+          min: 0
+          max: 10000
+    quality:
+      selector:
+        number:
+          min: 1
+          max: 5
+    day:
+      selector:
+        date:
+    note:
+      selector:
+        text:
+
+add_journal_entry:
+  fields:
+    text:
+      required: true
+      selector:
+        text:
+          multiline: true
+    kind:
+      default: note
+      selector:
+        select:
+          translation_key: journal_kind
+          options:
+            - note
+            - observation
+            - problem
+            - milestone
+    planting_id:
+      selector:
+        text:
+    bed:
+      selector:
+        text:
+    photos:
+      selector:
+        text:
+          multiple: true
+
+assign_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+    assignee:
+      selector:
+        entity:
+          domain: person
+
+save_soil_test:
+  fields:
+    bed:
+      required: true
+      selector:
+        text:
+    date:
+      required: true
+      selector:
+        date:
+    ph:
+      selector:
+        number:
+          min: 3
+          max: 10
+          step: 0.1
+    organic_matter_pct:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.1
+          unit_of_measurement: "%"
+    p_mg:
+      selector:
+        number:
+          min: 0
+          max: 500
+    k_mg:
+      selector:
+        number:
+          min: 0
+          max: 500
+    notes:
+      selector:
+        text:
+
+install_voice_sentences:
+  fields:
+    overwrite:
+      default: false
+      selector:
+        boolean:

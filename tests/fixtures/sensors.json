@@ -1,0 +1,48 @@
+{
+ "sensor.soil_moisture_bed_1": {
+  "state": "22.5",
+  "attributes": {
+   "unit_of_measurement": "%",
+   "device_class": "moisture"
+  }
+ },
+ "sensor.soil_temp_bed_1": {
+  "state": "9.5",
+  "attributes": {
+   "unit_of_measurement": "\u00b0C",
+   "device_class": "temperature"
+  }
+ },
+ "sensor.greenhouse_temp": {
+  "state": "31.2",
+  "attributes": {
+   "unit_of_measurement": "\u00b0C",
+   "device_class": "temperature"
+  }
+ },
+ "sensor.greenhouse_humidity": {
+  "state": "78",
+  "attributes": {
+   "unit_of_measurement": "%",
+   "device_class": "humidity"
+  }
+ },
+ "sensor.outdoor_temp": {
+  "state": "54.5",
+  "attributes": {
+   "unit_of_measurement": "\u00b0F",
+   "device_class": "temperature"
+  }
+ },
+ "weather.home": {
+  "state": "sunny",
+  "attributes": {
+   "temperature": 12.0,
+   "temperature_unit": "\u00b0C",
+   "humidity": 60,
+   "precipitation_unit": "mm",
+   "wind_speed_unit": "km/h",
+   "supported_features": 3
+  }
+ }
+}

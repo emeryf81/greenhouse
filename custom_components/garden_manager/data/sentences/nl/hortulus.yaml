@@ -1,0 +1,36 @@
+# Hortulus - zinnen voor Assist (Home Assistant spraakassistent).
+# Geïnstalleerd met de dienst garden_manager.install_voice_sentences.
+language: nl
+intents:
+  HortulusTasksToday:
+    data:
+      - sentences:
+          - "wat moet ik [vandaag] (in|met) de (tuin|moestuin|serre) doen"
+          - "welke (tuintaken|taken in de tuin) (zijn er|staan er) [vandaag]"
+          - "[wat is er] (te doen|werk) in de (tuin|moestuin) [vandaag]"
+  HortulusHarvest:
+    data:
+      - sentences:
+          - "wat kan ik [vandaag] oogsten"
+          - "wat (is|valt er) te oogsten [in de (tuin|moestuin|serre)]"
+  HortulusGreenhouse:
+    data:
+      - sentences:
+          - "hoe (warm|koud) is het in de serre"
+          - "(wat is de temperatuur in de|hoeveel graden is het in de) serre"
+          - "hoe staat [het met] de serre"
+  HortulusWater:
+    data:
+      - sentences:
+          - "moet ik [vandaag] (water geven|gieten|sproeien)"
+          - "(hebben|heeft) (de tuin|de planten|de moestuin) water nodig"
+  HortulusFrost:
+    data:
+      - sentences:
+          - "(komt|is) er (vorst|nachtvorst) [op komst|voorspeld]"
+          - "gaat het vriezen [vannacht]"
+  HortulusOverdue:
+    data:
+      - sentences:
+          - "(welke|wat zijn de) (achterstallige|vergeten) (taken|tuintaken)"
+          - "wat ben ik vergeten in de tuin"
