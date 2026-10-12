@@ -324,7 +324,9 @@ def planting_specs(
     # -- harvest --------------------------------------------------------- #
     desc = t("desc.harvest", lang, start=tl.harvest_start.isoformat(), end=tl.harvest_end.isoformat())
     harvest_deps = [f"p:{pid}:transplant" if tl.method is not SowMethod.DIRECT_SOW else f"p:{pid}:sow_direct"]
-    if plant.continuous_harvest and plant.harvest_interval_days:
+    if not plant.harvestable:
+        pass  # companion flowers etc.
+    elif plant.continuous_harvest and plant.harvest_interval_days:
         specs.append(
             common(
                 "harvest",
@@ -559,11 +561,38 @@ def generate_specs(ctx: TaskContext) -> list[TaskSpec]:
         specs.extend(planting_specs(ctx, planting, plant, bed, data.zone(bed.zone_id)))
     for bed in data.beds:
         specs.extend(bed_specs(ctx, bed, per_bed.get(bed.id, [])))
+    _apply_dependency_lag(specs, ctx.today)
     specs = [s for s in specs if s.due <= horizon]
     specs.extend(live_specs(ctx))
     for spec in specs:
         spec.priority = escalate(spec.priority, spec.due, spec.window_end, ctx.today)
     return specs
+
+
+def _apply_dependency_lag(specs: list[TaskSpec], today: date) -> None:
+    """Push dependants back while a prerequisite is still overdue.
+
+    If "sow lettuce" is 10 days overdue, "thin lettuce" cannot be due before
+    its own offset after the (future) sowing - so it moves 10 days too.
+    Specs are emitted in lifecycle order, so one pass handles chains
+    (sow -> harden off -> plant out -> care).
+    """
+    by_key = {s.key: s for s in specs}
+    for spec in specs:
+        lag = 0
+        for dep_key in spec.depends_on:
+            dep = by_key.get(dep_key)
+            if dep is not None and dep.due < today:
+                lag = max(lag, (today - dep.due).days)
+            elif dep is not None and dep.due > spec.due:
+                lag = max(lag, (dep.due - spec.due).days)
+        if lag:
+            delta = timedelta(days=lag)
+            spec.due += delta
+            if spec.window_start:
+                spec.window_start += delta
+            if spec.window_end and spec.recurrence is None:
+                spec.window_end += delta
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,226 @@
+/**
+ * Hortulus panel - entry point registered by the integration as
+ * <hortulus-panel> (see custom_components/garden_manager/panel.py).
+ *
+ * Why Lit: Home Assistant's own frontend is built with Lit web components,
+ * so the panel shares the runtime model (the `hass` property is pushed on every
+ * state change), theming via CSS custom properties, `ha-icon`, and a small
+ * bundle (~55 kB gzipped incl. Lit) without a second framework runtime.
+ */
+import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { GardenApi } from "./api";
+import { emblem } from "./brand";
+import { makeTranslator, normalizeLang, type Translate } from "./i18n";
+import { shared, tokens } from "./styles/tokens";
+import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "./types";
+import "./views/dashboard-view";
+import "./views/planner-view";
+import "./views/library-view";
+import "./views/calendar-view";
+import "./views/settings-view";
+import "./components/task-ui";
+
+type Tab = "dashboard" | "planner" | "library" | "calendar" | "settings";
+const TABS: { id: Tab; icon: string }[] = [
+  { id: "dashboard", icon: "mdi:home-variant-outline" },
+  { id: "planner", icon: "mdi:floor-plan" },
+  { id: "library", icon: "mdi:sprout-outline" },
+  { id: "calendar", icon: "mdi:calendar-month-outline" },
+  { id: "settings", icon: "mdi:cog-outline" },
+];
+
+@customElement("hortulus-panel")
+export class HortulusPanel extends LitElement {
+  @property({ attribute: false }) hass!: HomeAssistant;
+  @property({ type: Boolean, reflect: true }) narrow = false;
+  @property({ attribute: false }) route?: { prefix: string; path: string };
+  @property({ attribute: false }) panel?: unknown;
+
+  @state() private snapshot: Snapshot | null = null;
+  @state() private plants: Plant[] = [];
+  @state() private families: Record<string, FamilyInfo> = {};
+  @state() private tab: Tab = "dashboard";
+  @state() private toastMsg = "";
+  @state() private openTask: Task | null = null;
+  @state() private creatingTask = false;
+  @state() private error = "";
+
+  private api?: GardenApi;
+  private unsubscribe?: () => Promise<void>;
+  private toastTimer?: number;
+  private t: Translate = makeTranslator("en");
+  private uiLang = "en";
+
+  static styles = [
+    tokens,
+    shared,
+    css`
+      :host { display: block; min-height: 100vh; background: var(--hl-bg); }
+      .appbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: var(--hl-s3);
+        padding: 0 var(--hl-s4); height: 56px; background: color-mix(in srgb, var(--hl-surface) 92%, transparent);
+        backdrop-filter: blur(8px); border-bottom: 1px solid var(--hl-border); }
+      .brand { display: flex; align-items: center; gap: var(--hl-s2); font-weight: 700; font-size: var(--hl-fs-lg); letter-spacing: 0.01em; }
+      .brand small { font-weight: 400; color: var(--hl-text-muted); font-size: var(--hl-fs-xs); }
+      nav { display: flex; gap: 2px; margin-left: var(--hl-s4); overflow-x: auto; }
+      nav a { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 40px; border-radius: var(--hl-r-pill);
+        color: var(--hl-text-muted); text-decoration: none; font-weight: 500; white-space: nowrap; --mdc-icon-size: 18px; }
+      nav a:hover { background: var(--hl-surface-2); color: var(--hl-text); }
+      nav a[aria-current="page"] { background: var(--hl-leaf-100); color: var(--hl-chip-active-fg); }
+      nav a:focus-visible { outline: 2px solid var(--hl-focus); outline-offset: 2px; }
+      main { padding: var(--hl-s4); max-width: 1680px; margin: 0 auto; }
+      .bottom-nav { display: none; }
+      :host([narrow]) nav.top { display: none; }
+      :host([narrow]) .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 4; background: var(--hl-surface);
+        border-top: 1px solid var(--hl-border); justify-content: space-around; padding: 4px 0 calc(4px + env(safe-area-inset-bottom)); }
+      :host([narrow]) .bottom-nav a { flex-direction: column; height: auto; padding: 4px 6px; font-size: 11px; gap: 2px; margin: 0; }
+      :host([narrow]) main { padding: var(--hl-s3) var(--hl-s3) 88px; }
+      .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; background: var(--hl-soil-900); color: #fff;
+        padding: 10px 18px; border-radius: var(--hl-r-pill); box-shadow: var(--hl-shadow-3); font-size: var(--hl-fs-sm); max-width: calc(100vw - 32px); }
+      :host([narrow]) .toast { bottom: 84px; }
+      .error { margin: var(--hl-s6) auto; max-width: 560px; text-align: center; }
+    `,
+  ];
+
+  // ---------------------------------------------------------------------- //
+  protected willUpdate(changed: PropertyValues): void {
+    if (changed.has("hass") && this.hass) {
+      const lang = normalizeLang(this.snapshot?.lang ?? this.hass.locale?.language ?? this.hass.language);
+      if (lang !== this.uiLang) {
+        this.uiLang = lang;
+        this.t = makeTranslator(lang);
+      }
+      this.toggleAttribute("dark", Boolean(this.hass.themes?.darkMode));
+      if (!this.api) {
+        this.api = new GardenApi(this.hass);
+        void this.connect();
+      } else {
+        this.api.setHass(this.hass);
+      }
+    }
+    if (changed.has("route") && this.route) {
+      const seg = this.route.path.replace(/^\//, "").split("/")[0] as Tab;
+      this.tab = TABS.some((t) => t.id === seg) ? seg : "dashboard";
+    }
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    void this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    this.api = undefined;
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    if (this.hass && !this.api) {
+      this.api = new GardenApi(this.hass);
+      void this.connect();
+    }
+  }
+
+  private async connect(): Promise<void> {
+    try {
+      await this.loadPlants();
+      this.unsubscribe = await this.api!.subscribe((snap) => {
+        this.snapshot = snap;
+        const lang = normalizeLang(snap.lang);
+        if (lang !== this.uiLang) {
+          this.uiLang = lang;
+          this.t = makeTranslator(lang);
+        }
+        if (this.openTask) this.openTask = snap.tasks.find((t) => t.id === this.openTask!.id) ?? null;
+      });
+    } catch (err) {
+      this.error = (err as { code?: string }).code === "not_loaded" ? this.t("common.not_loaded") : String((err as Error).message ?? err);
+    }
+  }
+
+  private async loadPlants(): Promise<void> {
+    const res = await this.api!.plants();
+    this.plants = res.plants;
+    this.families = res.families;
+  }
+
+  private navigate(tab: Tab, ev?: Event): void {
+    ev?.preventDefault();
+    const path = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/${tab === "dashboard" ? "" : tab}`.replace(/\/$/, "");
+    history.pushState(null, "", path);
+    window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
+    this.tab = tab;
+  }
+
+  private toast(message: string): void {
+    this.toastMsg = message;
+    window.clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => (this.toastMsg = ""), 4500);
+  }
+
+  private async completeTask(task: Task): Promise<void> {
+    try {
+      await this.api!.taskAction(task.id, "complete");
+      this.toast(this.t("task.completed", { title: task.title }));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
+  // ---------------------------------------------------------------------- //
+  private renderTab(): TemplateResult {
+    const snap = this.snapshot!;
+    const admin = this.hass.user?.is_admin ?? true;
+    const plantMap = new Map(this.plants.map((p) => [p.id, p]));
+    switch (this.tab) {
+      case "planner":
+        return html`<hl-planner-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow}></hl-planner-view>`;
+      case "library":
+        return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
+      case "calendar":
+        return html`<hl-calendar-view .snapshot=${snap} .t=${this.t} .lang=${this.uiLang}></hl-calendar-view>`;
+      case "settings":
+        return html`<hl-settings-view .snapshot=${snap} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
+      default:
+        return html`<hl-dashboard-view .snapshot=${snap} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang}></hl-dashboard-view>`;
+    }
+  }
+
+  private renderNav(cls: string): TemplateResult {
+    return html`<nav class=${cls} aria-label="Hortulus">
+      ${TABS.map((tab) => html`<a href="#" aria-current=${tab.id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(tab.id, e)}>
+        <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${tab.id}`)}</a>`)}
+    </nav>`;
+  }
+
+  render(): TemplateResult {
+    return html`
+      <header class="appbar">
+        ${this.narrow ? html`<button class="icon-btn" aria-label="Menu" @click=${() => this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }))}>
+          <ha-icon icon="mdi:menu"></ha-icon></button>` : nothing}
+        <div class="brand">${emblem(30)}<span>Hortulus</span>${this.narrow ? nothing : html`<small>${this.t("app.tagline")}</small>`}</div>
+        ${this.renderNav("top")}
+      </header>
+      <main @open-task=${(e: CustomEvent<Task>) => (this.openTask = e.detail)}
+        @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}
+        @new-task=${() => (this.creatingTask = true)}
+        @navigate=${(e: CustomEvent<Tab>) => this.navigate(e.detail)}
+        @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}>
+        ${this.error ? html`<div class="card error">${emblem(56)}<p>${this.error}</p></div>`
+          : this.snapshot ? this.renderTab() : html`<p class="empty">${this.t("common.loading")}</p>`}
+      </main>
+      ${this.renderNav("bottom-nav")}
+      ${this.snapshot && (this.openTask || this.creatingTask) ? html`<hl-task-dialog .task=${this.openTask} .create=${this.creatingTask}
+        .beds=${this.snapshot.beds} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .today=${this.snapshot.analysis?.today ?? ""}
+        @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}
+        @closed=${() => { this.openTask = null; this.creatingTask = false; }}></hl-task-dialog>` : nothing}
+      ${this.toastMsg ? html`<div class="toast" role="status" aria-live="polite">${this.toastMsg}</div>` : nothing}
+    `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "hortulus-panel": HortulusPanel;
+  }
+}

@@ -227,3 +227,23 @@ def test_southern_hemisphere_schedule(garden, db, make_planting):
     assert tl.sow_date.month in (7, 8)
     assert tl.transplant_date.month == 10
     assert tl.harvest_start.year == 2026 and tl.harvest_end.year in (2026, 2027)
+
+
+def test_dependants_wait_for_an_overdue_prerequisite(garden, db, make_planting):
+    """Thinning cannot be due while the sowing itself has not happened yet."""
+    garden.plantings = [make_planting("lettuce", "bed_1", sow_date=date(2026, 4, 1), width_cm=60, length_cm=30)]
+    now = datetime(2026, 5, 1, 9, tzinfo=TZ)
+    run(garden, db, now)
+    sow = by_key(garden.tasks, ":sow_direct")
+    thin = by_key(garden.tasks, ":thin")
+    assert sow.due == date(2026, 4, 1)  # explicit user date -> shown as overdue
+    lag = (now.date() - sow.due).days
+    assert thin.due == date(2026, 4, 1) + timedelta(days=10 + 7 + lag)
+    assert thin.due > now.date()
+
+
+def test_companion_flowers_get_no_harvest_task(garden, db, make_planting):
+    garden.plantings = [make_planting("marigold", "gh_bed", method=SowMethod.INDOOR_SOW)]
+    _, merge = run(garden, db, datetime(2026, 2, 15, 9, tzinfo=TZ))
+    assert not any(t.type is TaskType.HARVEST for t in merge.created)
+    assert any(t.type is TaskType.SOW_INDOOR for t in merge.created)

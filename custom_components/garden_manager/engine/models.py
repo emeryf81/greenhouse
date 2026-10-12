@@ -278,6 +278,8 @@ class Plant:
     days_to_maturity: list[int] = field(default_factory=lambda: [60, 80])
     maturity_from: Literal["sow", "transplant"] = "sow"
     harvest_duration_days: int = 14
+    # False for companion flowers / green manures: no harvest tasks.
+    harvestable: bool = True
     continuous_harvest: bool = False
     harvest_interval_days: int | None = None
     transplant_age_days: list[int] = field(default_factory=lambda: [35, 49])

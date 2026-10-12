@@ -679,7 +679,7 @@
       "spacing_cm": 25, "row_spacing_cm": 25, "sowing_depth_cm": 0.5,
       "germination_days": [5, 10], "min_soil_temp_c": 15, "optimal_soil_temp_c": 22,
       "days_to_maturity": [50, 60], "maturity_from": "sow",
-      "harvest_duration_days": 90,
+      "harvest_duration_days": 90, "harvestable": false,
       "transplant_age_days": [35, 49],
       "sowing": {
         "indoor_sow": [{"start_week": -8, "end_week": -4}],

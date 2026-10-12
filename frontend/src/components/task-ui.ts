@@ -1,0 +1,245 @@
+import { LitElement, css, html, nothing, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { photoUrl, type GardenApi } from "../api";
+import type { Translate } from "../i18n";
+import { shared } from "../styles/tokens";
+import type { Bed, Priority, Task, TaskType } from "../types";
+import { TASK_COLORS, TASK_ICONS, addDays, formatDate } from "../util/garden";
+
+export interface TaskCtx {
+  t: Translate;
+  lang: string;
+  today: string;
+  onOpen: (task: Task) => void;
+  onComplete: (task: Task) => void;
+}
+
+/** Compact, accessible task row used on the dashboard and in list views. */
+export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
+  const overdue = task.status === "open" && task.due < ctx.today;
+  const done = task.status !== "open";
+  const color = TASK_COLORS[task.type] ?? "var(--hl-soil-500)";
+  return html`
+    <li class="task-row ${done ? "done" : ""} prio-${task.priority}">
+      <button class="check" role="checkbox" aria-checked=${String(done)} aria-label=${`${ctx.t("task.complete")}: ${task.title}`}
+        ?disabled=${done} @click=${() => ctx.onComplete(task)}>
+        <ha-icon icon=${done ? "mdi:check-circle" : "mdi:checkbox-blank-circle-outline"}></ha-icon>
+      </button>
+      <button class="task-main" @click=${() => ctx.onOpen(task)}>
+        <span class="type-icon" style=${`color:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span>
+        <span class="task-text">
+          <span class="task-title">${task.title}</span>
+          <span class="task-meta">
+            ${overdue ? html`<span class="chip bad">${ctx.t("common.overdue")} · ${formatDate(task.due, ctx.lang)}</span>` : html`<span>${formatDate(task.due, ctx.lang, { weekday: "short", day: "numeric", month: "short" })}</span>`}
+            <span>· ${ctx.t("common.minutes", { n: task.estimated_minutes })}</span>
+            ${task.recurrence ? html`<span title=${ctx.t("task.repeat", { n: task.recurrence.interval_days })}>· ↻ ${task.recurrence.interval_days}d</span>` : nothing}
+            ${task.priority === "urgent" || task.priority === "high" ? html`<span class="chip ${task.priority === "urgent" ? "bad" : "warn"}">${ctx.t(`priority.${task.priority}`)}</span>` : nothing}
+          </span>
+        </span>
+      </button>
+    </li>`;
+}
+
+export const taskRowStyles = css`
+  ul.tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .task-row { display: flex; align-items: center; gap: var(--hl-s1); border-radius: var(--hl-r-md); }
+  .task-row:hover { background: var(--hl-surface-2); }
+  .task-row.done .task-title { text-decoration: line-through; color: var(--hl-text-muted); }
+  .task-row.prio-urgent { box-shadow: inset 3px 0 0 var(--hl-danger); }
+  .task-row.prio-high { box-shadow: inset 3px 0 0 var(--hl-warning); }
+  .check { border: 0; background: transparent; color: var(--hl-primary); cursor: pointer; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; --mdc-icon-size: 22px; }
+  .check:hover:not([disabled]) { background: var(--hl-leaf-100); }
+  .task-main { flex: 1; display: flex; align-items: center; gap: var(--hl-s2); border: 0; background: transparent; text-align: left; cursor: pointer; padding: 6px 4px; color: var(--hl-text); min-width: 0; }
+  .type-icon { --mdc-icon-size: 20px; flex: none; }
+  .task-text { display: flex; flex-direction: column; min-width: 0; }
+  .task-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+  .task-meta { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
+`;
+
+/** Modal dialog to complete / postpone / annotate a task, or create a new one. */
+@customElement("hl-task-dialog")
+export class TaskDialog extends LitElement {
+  @property({ attribute: false }) task: Task | null = null;
+  @property({ attribute: false }) beds: Bed[] = [];
+  @property({ attribute: false }) api!: GardenApi;
+  @property({ attribute: false }) t!: Translate;
+  @property() lang = "en";
+  @property() today = "";
+  @property({ type: Boolean }) create = false;
+  @state() private note = "";
+  @state() private photos: string[] = [];
+  @state() private busy = false;
+  @state() private error = "";
+
+  static styles = [
+    shared,
+    css`
+      dialog { border: none; border-radius: var(--hl-r-lg); padding: 0; width: min(560px, calc(100vw - 32px)); background: var(--hl-surface); color: var(--hl-text); box-shadow: var(--hl-shadow-3); }
+      dialog::backdrop { background: rgba(20, 24, 18, 0.45); }
+      .head { padding: var(--hl-s4) var(--hl-s5); border-bottom: 1px solid var(--hl-border); display: flex; gap: var(--hl-s3); align-items: flex-start; }
+      .body { padding: var(--hl-s4) var(--hl-s5); display: flex; flex-direction: column; gap: var(--hl-s3); max-height: 60vh; overflow: auto; }
+      .foot { padding: var(--hl-s3) var(--hl-s5); border-top: 1px solid var(--hl-border); display: flex; gap: var(--hl-s2); flex-wrap: wrap; justify-content: flex-end; }
+      .photos { display: flex; gap: var(--hl-s2); flex-wrap: wrap; }
+      .photos img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--hl-r-sm); border: 1px solid var(--hl-border); }
+      .note { font-size: var(--hl-fs-sm); padding: 6px 8px; background: var(--hl-surface-2); border-radius: var(--hl-r-sm); }
+      .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hl-s2) var(--hl-s3); }
+      .form-grid .full { grid-column: 1 / -1; }
+      .big-icon { --mdc-icon-size: 28px; }
+    `,
+  ];
+
+  protected updated(): void {
+    const dialog = this.renderRoot.querySelector("dialog");
+    if (dialog && !dialog.open && (this.task || this.create)) dialog.showModal();
+  }
+
+  private close(changed = false): void {
+    this.note = "";
+    this.photos = [];
+    this.error = "";
+    this.dispatchEvent(new CustomEvent("closed", { detail: { changed } }));
+  }
+
+  private async run(fn: () => Promise<unknown>, message?: string): Promise<void> {
+    this.busy = true;
+    try {
+      await fn();
+      if (message) this.dispatchEvent(new CustomEvent("hl-toast", { detail: { message }, bubbles: true, composed: true }));
+      this.close(true);
+    } catch (err) {
+      this.error = (err as Error).message ?? String(err);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private async onPhoto(ev: Event): Promise<void> {
+    const file = (ev.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.busy = true;
+    try {
+      this.photos = [...this.photos, await this.api.uploadPhoto(file)];
+    } catch (err) {
+      this.error = (err as Error).message;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private submitNew(ev: Event): void {
+    ev.preventDefault();
+    const f = ev.target as HTMLFormElement;
+    const val = (name: string) => (f.elements.namedItem(name) as HTMLInputElement).value;
+    this.run(
+      () => this.api.addTask({
+        title: val("title"),
+        due: val("due") || null,
+        task_type: val("type"),
+        description: val("description"),
+        priority: val("priority"),
+        estimated_minutes: Number(val("minutes")) || null,
+        bed_id: val("bed") || null,
+        recurrence_days: Number(val("repeat")) || null,
+      }),
+    );
+  }
+
+  private renderCreate(): TemplateResult {
+    const types: TaskType[] = ["custom", "water", "weed", "feed", "pest_check", "harvest", "prune", "stake", "sow_direct", "transplant", "ventilate", "frost_protect"];
+    return html`<form @submit=${this.submitNew}>
+      <div class="head"><ha-icon class="big-icon" icon="mdi:clipboard-plus-outline"></ha-icon><h2>${this.t("cal.add_task")}</h2></div>
+      <div class="body">
+        <div class="form-grid">
+          <label class="field full">${this.t("task.title")}<input name="title" required autofocus /></label>
+          <label class="field">${this.t("task.due")}<input name="due" type="date" .value=${this.today} /></label>
+          <label class="field">${this.t("task.type")}<select name="type">${types.map((ty) => html`<option value=${ty}>${this.t(`type.${ty}`)}</option>`)}</select></label>
+          <label class="field">${this.t("task.priority")}<select name="priority">${(["low", "normal", "high", "urgent"] as Priority[]).map((p) => html`<option value=${p} ?selected=${p === "normal"}>${this.t(`priority.${p}`)}</option>`)}</select></label>
+          <label class="field">${this.t("task.duration")}<input name="minutes" type="number" min="1" value="15" /></label>
+          <label class="field">${this.t("task.bed")}<select name="bed"><option value="">–</option>${this.beds.map((b) => html`<option value=${b.id}>${b.name}</option>`)}</select></label>
+          <label class="field">${this.t("task.repeat_days")}<input name="repeat" type="number" min="1" max="365" /></label>
+          <label class="field full">${this.t("task.description")}<textarea name="description" rows="3"></textarea></label>
+        </div>
+        ${this.error ? html`<p class="field-error">${this.error}</p>` : nothing}
+      </div>
+      <div class="foot">
+        <button type="button" class="btn ghost" @click=${() => this.close()}>${this.t("common.cancel")}</button>
+        <button class="btn primary" type="submit" ?disabled=${this.busy}>${this.t("common.add")}</button>
+      </div>
+    </form>`;
+  }
+
+  private renderTask(task: Task): TemplateResult {
+    const open = task.status === "open";
+    const act = (action: "complete" | "skip" | "reopen" | "delete", message?: string) =>
+      this.run(() => this.api.taskAction(task.id, action, { note: this.note || undefined, photos: this.photos.length ? [...task.photos, ...this.photos] : undefined }), message);
+    const postpone = (days?: number, to?: string) =>
+      this.run(async () => {
+        const res = await this.api.taskAction(task.id, "postpone", { days, to, note: this.note || undefined });
+        const msgs = [];
+        if (res.shifted?.length) msgs.push(this.t("task.shifted", { n: res.shifted.length }));
+        if (res.warnings?.includes("beyond_window")) msgs.push(this.t("task.beyond_window"));
+        if (msgs.length) this.dispatchEvent(new CustomEvent("hl-toast", { detail: { message: msgs.join(" ") }, bubbles: true, composed: true }));
+      });
+    return html`
+      <div class="head">
+        <ha-icon class="big-icon" icon=${TASK_ICONS[task.type]} style=${`color:${TASK_COLORS[task.type] ?? "inherit"}`}></ha-icon>
+        <div class="stack" style="gap:4px">
+          <h2>${task.title}</h2>
+          <div class="row wrap small muted">
+            <span>${this.t("task.due")}: <b>${formatDate(task.due, this.lang, { weekday: "long", day: "numeric", month: "long" })}</b></span>
+            <span class="chip">${this.t(`type.${task.type}`)}</span>
+            <span class="chip">${this.t(`task.source.${task.source}`)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="body">
+        ${task.description ? html`<p>${task.description}</p>` : nothing}
+        ${task.window_start && task.window_end && task.window_start !== task.window_end
+          ? html`<p class="small muted">${this.t("task.window", { start: formatDate(task.window_start, this.lang), end: formatDate(task.window_end, this.lang) })}</p>` : nothing}
+        ${task.recurrence ? html`<p class="small muted">↻ ${this.t("task.repeat", { n: task.recurrence.interval_days })}</p>` : nothing}
+        <div class="row wrap small">
+          <span>${this.t("task.priority")}:</span>
+          ${(["low", "normal", "high", "urgent"] as Priority[]).map((p) => html`
+            <button class="chip" aria-pressed=${String(task.priority === p)}
+              @click=${() => this.run(() => this.api.taskAction(task.id, "update", { changes: { priority: p } }))}>${this.t(`priority.${p}`)}</button>`)}
+        </div>
+        ${task.notes.length ? html`<h4>${this.t("task.notes")}</h4>${task.notes.map((n) => html`<p class="note"><span class="xs muted">${formatDate(n.at.slice(0, 10), this.lang)}</span> ${n.text}</p>`)}` : nothing}
+        ${task.photos.length || this.photos.length ? html`<h4>${this.t("task.photos")}</h4>
+          <div class="photos">${[...task.photos, ...this.photos].map((id) => html`<a href=${photoUrl(id, "original")} target="_blank" rel="noopener"><img src=${photoUrl(id)} alt=${this.t("task.photos")} loading="lazy" /></a>`)}</div>` : nothing}
+        <label class="field">${this.t("task.note")}<textarea rows="2" .value=${this.note} @input=${(e: Event) => (this.note = (e.target as HTMLTextAreaElement).value)}></textarea></label>
+        <label class="btn small" style="align-self:flex-start"><ha-icon icon="mdi:camera-plus-outline"></ha-icon>${this.t("task.add_photo")}
+          <input type="file" accept="image/*" capture="environment" class="visually-hidden" @change=${this.onPhoto} /></label>
+        ${open ? html`
+          <div class="row wrap">
+            <span class="small">${this.t("task.postpone")}:</span>
+            <button class="btn small" ?disabled=${this.busy} @click=${() => postpone(1)}>${this.t("task.postpone_1")}</button>
+            <button class="btn small" ?disabled=${this.busy} @click=${() => postpone(3)}>${this.t("task.postpone_3")}</button>
+            <button class="btn small" ?disabled=${this.busy} @click=${() => postpone(7)}>${this.t("task.postpone_7")}</button>
+            <input type="date" style="width:auto" aria-label=${this.t("task.postpone_to")} .min=${addDays(this.today, 1)}
+              @change=${(e: Event) => postpone(undefined, (e.target as HTMLInputElement).value)} />
+          </div>` : nothing}
+        ${this.error ? html`<p class="field-error" role="alert">${this.error}</p>` : nothing}
+      </div>
+      <div class="foot">
+        ${task.source === "user" ? html`<button class="btn danger" ?disabled=${this.busy} @click=${() => act("delete")}>${this.t("common.delete")}</button>` : nothing}
+        <span class="spacer"></span>
+        <button class="btn ghost" @click=${() => this.close()}>${this.t("common.close")}</button>
+        ${open
+          ? html`<button class="btn" ?disabled=${this.busy} @click=${() => act("skip")}>${this.t("task.skip")}</button>
+              <button class="btn primary" ?disabled=${this.busy} @click=${() => act("complete", this.t("task.completed", { title: task.title }))}>
+                <ha-icon icon="mdi:check"></ha-icon>${this.t("task.complete")}</button>`
+          : html`<button class="btn" ?disabled=${this.busy} @click=${() => act("reopen")}>${this.t("task.reopen")}</button>`}
+      </div>`;
+  }
+
+  render() {
+    if (!this.task && !this.create) return nothing;
+    return html`<dialog @close=${() => this.close()}>${this.create ? this.renderCreate() : this.renderTask(this.task!)}</dialog>`;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "hl-task-dialog": TaskDialog;
+  }
+}

@@ -20,6 +20,7 @@ from .engine.serde import from_dict, to_dict
 _LOGGER = logging.getLogger(__name__)
 
 DONE_TASK_RETENTION = timedelta(days=400)
+PLAN_REASONS = frozenset({"plan", "import"})
 
 
 class GardenStore(Store[dict[str, Any]]):
@@ -93,7 +94,9 @@ class GardenRepository:
     @callback
     def async_changed(self, reason: str, *, bump_revision: bool = True) -> None:
         """Persist and notify.  ``reason`` is e.g. ``plan``, ``tasks``, ``settings``."""
-        if bump_revision:
+        # The revision guards the *plan* (optimistic concurrency for the
+        # planner); ticking off a task must not invalidate an open editor.
+        if bump_revision and reason in PLAN_REASONS:
             self.data.revision += 1
         if reason in ("plants", "plan", "import"):
             self.invalidate_db()

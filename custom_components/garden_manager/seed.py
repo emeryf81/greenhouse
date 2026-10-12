@@ -175,7 +175,8 @@ def build_initial_data(
         data.beds.append(
             GardenBed(
                 id=_id("bed"),
-                name=area[CONF_AREA_NAME],
+                # Distinct from the zone name so devices/entities are unambiguous.
+                name=f"{area[CONF_AREA_NAME]} bed",
                 zone_id=zone.id,
                 kind=BedKind.IN_GROUND,
                 x_cm=cursor_x + 20,

@@ -155,4 +155,6 @@ def t(key: str, lang: str | None = "en", **params: Any) -> str:
     """Translate ``key``; unknown placeholders are left visible, never raise."""
     catalog = MESSAGES[normalize_lang(lang)]
     template = catalog.get(key) or MESSAGES["en"].get(key) or key
-    return template.format_map(_SafeDict(params))
+    # 30.0 cm -> 30 cm, 0.5 stays 0.5
+    clean = {k: int(v) if isinstance(v, float) and v.is_integer() else v for k, v in params.items()}
+    return template.format_map(_SafeDict(clean))
