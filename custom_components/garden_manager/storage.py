@@ -193,6 +193,25 @@ class GardenRepository:
         if seasons.adopt(self.data, season_for_date(self.data.settings.region, dt_util.now().date()), self.db):
             self.async_schedule_save()
 
+    @callback
+    def record_error(self, action: str, code: str, message: str, context: dict[str, Any] | None = None) -> None:
+        """Log a failed action (refused plan, conflict, crash) so it can be analysed later."""
+        entry = {
+            "id": f"err_{uuid.uuid4().hex[:12]}",
+            "at": dt_util.now().isoformat(timespec="seconds"),
+            "reason": action,
+            "source": "error",
+            "user": current_user.get(),
+            "undo_of": None,
+            "undone_by": None,
+            "summary": [{"col": "error", "op": "error", "key": code, "name": message[:500]}],
+            "changes": [],
+            "size": len(message) + len(str(context or {})),
+            "context": context or {},
+        }
+        self.syslog = syslog.append(self.syslog, entry)
+        self.syslog_store.async_delay_save(lambda: {"entries": self.syslog}, SYSLOG_SAVE_DELAY_SECONDS)
+
     def syslog_entry(self, entry_id: str) -> dict[str, Any] | None:
         return next((e for e in self.syslog if e["id"] == entry_id), None)
 

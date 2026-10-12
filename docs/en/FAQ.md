@@ -189,3 +189,26 @@ Every plant, suggestion and handbook chapter has an illustration drawn by Hortul
 In **Garden plan** you shape the garden without plants: zones (open ground, greenhouse, cold frame, planters & pots, orchard …), beds and elements such as driveway, house, water butt, hedge, lawn, shed or a path in the greenhouse. That plan holds for one season. In the **Planner** you plant that season on its plan; zones and beds are fixed there.
 
 Nothing moves into a new year by itself, perennials included. At the end of the year open the **Year-end transition** (button in Garden plan and Planner; in January Advice reminds you). Choose which zones and elements go along (or use the plan you already drew for next year), which perennials and overwintering crops (garlic, winter leeks …) move over, and whether the new year becomes your active garden right away. The old plan is archived; everything is in the system log and can be undone.
+
+## Can I start over with a new garden plan?
+
+Yes. In **Garden plan → Plans** choose **Start a new plan**: completely empty (from scratch), with the same zones but no beds or crops, or with zones and beds but no crops. The current plan becomes **inactive**: it is kept with its name, beds and crops, and **Activate** brings it back later (the plan active at that moment becomes inactive in turn). An inactive plan you no longer need can be deleted. Everything is in the system log.
+
+## Autofill places almost nothing. Why?
+
+Usually it is simply too late in the season: in October the sowing or planting window of nearly every crop has passed for this year. The Autofill dialog now says per plant why it was not placed (too late, wrong zone type, not under glass, frost before harvest, crop rotation, bad neighbour, no room left) and offers to fill the **next season** instead. If that season has no garden plan yet, Hortulus fills in on the latest plan and copies it when you apply.
+
+For a single plant, **Analysis → Why not?** shows per bed whether it fits and, if not, why - with the same rules as dragging and autofill.
+
+## Where do I find errors and unexpected things?
+
+In the **Analysis** tab:
+
+- **Check** compares garden plans, crops and seasons and reports what does not add up: a year with crops but no garden plan, crops whose bed is not on the plan (invisible in the planner), beds outside their zone, crops on top of each other or planned too late, a missed year-end transition …, with a button to the right place.
+- **Why not?** explains why a plant does not fit somewhere.
+- **Errors** lists every action Hortulus refused, with the reason.
+- **System log** is the same log as **Journal → System log**.
+
+## Can I change my crops' dates without dragging?
+
+Yes, the **Crops** tab lists every crop of a season (by bed, by crop or by date). Change method, status, count, planned and actual sowing, planting-out, harvest and end dates and notes right there. Leave a planned date empty and Hortulus computes it (in grey below). Click a plant for all details.

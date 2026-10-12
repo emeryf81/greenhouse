@@ -20,6 +20,7 @@ History
      carry-over (``plantings[].last_season``); the season-dependent part
      (which year the plan is, which perennials stay this year) needs today's
      date and is done by :func:`.seasons.adopt` after loading
+1.7  ``archived_plans`` (plans set aside with "start a new plan")
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ import copy
 from typing import Any
 
 STORAGE_VERSION = 1
-STORAGE_MINOR_VERSION = 6
+STORAGE_MINOR_VERSION = 7
 
 Doc = dict[str, Any]
 
@@ -88,12 +89,18 @@ def _v1_5_to_1_6(doc: Doc) -> Doc:
     return doc
 
 
+def _v1_6_to_1_7(doc: Doc) -> Doc:
+    doc.setdefault("archived_plans", [])
+    return doc
+
+
 MIGRATIONS: dict[int, Callable[[Doc], Doc]] = {
     1: _v1_1_to_1_2,
     2: _v1_2_to_1_3,
     3: _v1_3_to_1_4,
     4: _v1_4_to_1_5,
     5: _v1_5_to_1_6,
+    6: _v1_6_to_1_7,
 }
 
 

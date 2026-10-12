@@ -614,6 +614,20 @@ class Feature:
 
 
 @dataclass(slots=True)
+class ArchivedPlan:
+    """A garden plan set aside ("not active"): its layout and the crops it held, restorable."""
+
+    id: str
+    name: str
+    season: int
+    archived_at: datetime | None = None
+    zones: list[Zone] = field(default_factory=list)
+    beds: list[GardenBed] = field(default_factory=list)
+    features: list[Feature] = field(default_factory=list)
+    plantings: list[Planting] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class GardenLayout:
     """The garden plan of one season: zones, beds and elements - no plants."""
 
@@ -906,6 +920,8 @@ class GardenData:
     # designing it); None = not yet adopted (set on first load).
     layout_season: int | None = None
     layouts: dict[str, GardenLayout] = field(default_factory=dict)
+    # Plans set aside with "start a new plan"; one can be made active again.
+    archived_plans: list[ArchivedPlan] = field(default_factory=list)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:

@@ -142,3 +142,26 @@ Elke plant, elk advies en elk handboekhoofdstuk heeft een tekening die Hortulus 
 In **Tuinplan** geef je de tuin vorm, zonder planten: zones (volle grond, serre, koude bak, bloembakken & potten, boomgaard …), bedden en elementen zoals oprit, huis, watervat, haag, gras, tuinhuis of een pad in de serre. Dat plan geldt voor één seizoen. In de **Planner** beplant je dat seizoen op zijn tuinplan; zones en bedden liggen daar vast.
 
 Niets gaat vanzelf naar een nieuw jaar, ook vaste planten niet. Op het einde van het jaar open je de **Jaarovergang** (knop in Tuinplan en Planner; in januari herinnert Advies je eraan). Daar kies je welke zones en elementen meegaan (of je gebruikt het plan dat je al voor volgend jaar tekende), welke vaste planten en welke overwinterende gewassen (knoflook, winterprei …) je overzet, en of het nieuwe jaar meteen je actieve tuin wordt. Het oude plan wordt gearchiveerd; alles staat in het systeemlogboek en kan je terugdraaien.
+
+## Kan ik opnieuw beginnen met een nieuw tuinplan?
+
+Ja. In **Tuinplan → Plannen** kies je **Nieuw plan beginnen**: volledig leeg (vanaf nul), met dezelfde zones maar zonder bedden en gewassen, of met zones en bedden maar zonder gewassen. Het huidige plan wordt dan **niet-actief**: het blijft bewaard met zijn naam, bedden en gewassen, en met **Activeren** zet je het later terug (het plan dat op dat moment actief is, wordt dan zelf niet-actief). Een niet-actief plan dat je niet meer nodig hebt, kan je verwijderen. Alles staat in het systeemlogboek.
+
+## Automatisch invullen plaatst bijna niets. Waarom?
+
+Meestal is het gewoon te laat in het seizoen: in oktober is het zaai- of plantvenster van bijna alle gewassen voor dit jaar voorbij. Het venster van Automatisch invullen zegt nu per plant waarom hij niet geplaatst werd (te laat, verkeerd zonetype, niet onder glas, vorst vóór de oogst, vruchtwisseling, slechte buur, geen plaats meer) en stelt voor om het **volgende seizoen** in te vullen. Heeft dat seizoen nog geen tuinplan, dan vult Hortulus in op het laatste plan en kopieert het mee bij het toepassen.
+
+Voor één plant kan je in **Analyse → Waarom niet?** per bed zien of hij past, en zo niet, waarom - met dezelfde regels als bij slepen en automatisch invullen.
+
+## Waar vind ik fouten en onverwachte dingen terug?
+
+In het tabblad **Analyse**:
+
+- **Controle** legt tuinplannen, gewassen en seizoenen naast elkaar en meldt wat niet klopt: een jaar met gewassen maar zonder tuinplan, gewassen waarvan het bed niet op het plan staat (onzichtbaar in de planner), bedden buiten hun zone, gewassen die over elkaar liggen of te laat gepland staan, een vergeten jaarovergang …, met een knop naar de juiste plek.
+- **Waarom niet?** verklaart waarom een plant ergens niet past.
+- **Fouten** toont elke actie die Hortulus weigerde, met de reden.
+- **Systeemlogboek** is hetzelfde logboek als in **Logboek → Systeemlogboek**.
+
+## Kan ik de datums van mijn gewassen aanpassen zonder te slepen?
+
+Ja, in het tabblad **Teelten** staan alle gewassen van een seizoen op één lijst (per bed, per gewas of op datum). Daar pas je methode, status, aantal, geplande en echte zaai-, uitplant-, oogst- en einddatums en notities rechtstreeks aan. Een lege geplande datum rekent Hortulus zelf uit (grijs eronder). Klik op een plant voor alle details.

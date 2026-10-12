@@ -10,8 +10,10 @@ import type {
 } from "../types";
 import { ZONE_CATEGORIES, addDays, daysBetween, download, familyColor, formatDate, layoutOf, plantName, presentIn, uid } from "../util/garden";
 import "../components/year-transition";
+import { summarizeReasons } from "../util/reasons";
 import "../planner/garden-canvas";
 import { FEATURE_STYLE, ZONE_STYLE, type DrawTool, type GardenCanvas, type ItemChangeDetail, type Selection } from "../planner/garden-canvas";
+import "../components/plant-image";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { alignRects, bedAt, clampInto, defaultFootprint, extents, findFreeSpot, plantCount, snap, type AlignMode, type Rect } from "../planner/geometry";
 import "../components/info";
@@ -92,6 +94,7 @@ export class PlannerView extends LitElement {
   @state() private autofillReplace = false;
   @state() private autofillBeds: string[] = [];
   @state() private autofillResources: Resources | null = null;
+  @state() private autofillSeason = 0;
   @state() private season = new Date().getFullYear();
   @state() private saveState: SaveState = "saved";
   @state() private reports: Record<string, CompatibilityReport> = {};
@@ -106,7 +109,11 @@ export class PlannerView extends LitElement {
   @state() private familyFilter = "";
   @state() private paletteDrag: PaletteDrag | null = null;
   @state() private ghostReport: CompatibilityReport | null = null;
-  @state() private dialog: "shortcuts" | "succession" | "import" | "autofill" | "transition" | null = null;
+  @state() private dialog: "shortcuts" | "succession" | "import" | "autofill" | "transition" | "plans" | null = null;
+  @state() private newPlanStart: "empty" | "zones" | "zones_beds" = "zones";
+  @state() private planBusy = false;
+  /** Details popup of the clicked item. */
+  @state() private popupOpen = false;
   @state() private announcement = "";
   @state() private paletteOpen = true;
   @state() private step: Step = "plant";
@@ -129,7 +136,11 @@ export class PlannerView extends LitElement {
     shared,
     css`
       :host { display: block; height: 100%; }
-      .layout { display: grid; grid-template-columns: 260px 1fr 320px; gap: var(--hl-s3); height: calc(100vh - 150px); min-height: 520px; }
+      /* The map gets all the width and a fixed height; details open in a popup. */
+      .layout { display: grid; grid-template-columns: 260px 1fr; gap: var(--hl-s3); height: max(640px, 78vh); }
+      dialog.inspector { width: min(460px, 94vw); padding: 0; }
+      dialog.inspector .pane { border: 0; max-height: 82vh; }
+      dialog.inspector header .spacer { flex: 1; }
       .layout.narrow { grid-template-columns: 1fr; height: auto; }
       .layout.narrow hl-garden-canvas { height: 58vh; }
       /* Mobile: canvas first, palette becomes a horizontal strip, inspector last. */
@@ -138,7 +149,7 @@ export class PlannerView extends LitElement {
       .layout.narrow .plant-card { min-width: 168px; scroll-snap-align: start; }
       .layout.narrow .family-chips { flex-wrap: nowrap; overflow-x: auto; }
       .layout.narrow .legend-block { display: none; }
-      .layout.palette-closed { grid-template-columns: 0 1fr 320px; }
+      .layout.palette-closed { grid-template-columns: 0 1fr; }
       .pane { background: var(--hl-surface); border: 1px solid var(--hl-border); border-radius: var(--hl-r-lg); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
       .pane > header { padding: var(--hl-s3) var(--hl-s4); border-bottom: 1px solid var(--hl-border); display: flex; align-items: center; gap: var(--hl-s2); }
       .pane-body { padding: var(--hl-s3) var(--hl-s4); overflow: auto; flex: 1; }
@@ -195,6 +206,10 @@ export class PlannerView extends LitElement {
       .step.active .num { background: var(--hl-leaf-600); color: #fff; }
       .step-sep { color: var(--hl-text-muted); }
       .crumbs { display: inline-flex; gap: 6px; align-items: center; }
+      label.plan-start { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); cursor: pointer; }
+      label.plan-start.on { border-color: var(--hl-leaf-500); background: var(--hl-leaf-100); }
+      details.skipped ul.why { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 6px; max-height: 26vh; overflow: auto; }
+      details.skipped li { display: flex; gap: 8px; align-items: flex-start; }
       .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 6px; }
       details.elements > summary { cursor: pointer; padding: 6px 0; }
       details.elements[open] > summary { margin-bottom: 4px; }
@@ -721,6 +736,11 @@ export class PlannerView extends LitElement {
     this.autofillResources = r ? clone(r) : { household_size: 2, hours_per_week: 3, water_liters_per_week: null, compost_kg: null, irrigation: false, goals: ["fresh", "herbs"], wanted: [], excluded: [] };
     this.autofill = null;
     this.autofillBeds = beds;
+    // Late in the year most crops are too late for this season: propose next year.
+    const a = this.snapshot.analysis;
+    const lateInYear = !!a && this.season === a.season && !!a.anchors?.first_frost && !!a.today
+      && daysBetween(a.today, a.anchors.first_frost) < 60;
+    this.autofillSeason = lateInYear ? this.season + 1 : this.season;
     this.dialog = "autofill";
   }
 
@@ -730,7 +750,7 @@ export class PlannerView extends LitElement {
     try {
       if (this.saveState !== "saved") await this.save();
       this.autofill = await this.api.autofill({
-        season: this.season,
+        season: this.autofillSeason || this.season,
         bed_ids: this.autofillBeds.length ? this.autofillBeds : undefined,
         replace: this.autofillReplace,
         resources: this.autofillResources,
@@ -746,13 +766,19 @@ export class PlannerView extends LitElement {
     const res = this.autofill;
     if (!res) return;
     try {
-      const out = await this.api.autofillApply(res.plantings, this.autofillReplace ? res.beds : [], this.baseRevision);
+      const out = await this.api.autofillApply(res.plantings, this.autofillReplace ? res.beds : [], this.baseRevision, res.plan_from);
       this.baseRevision = out.revision;
-      this.history = null;
       this.saveState = "saved";
       this.dialog = null;
       this.autofill = null;
       this.toast(this.t("autofill.applied", { n: res.summary.plantings }));
+      if (res.season !== this.season) {
+        // Show the year that was just filled.
+        this.seasonChosen = true;
+        this.season = res.season;
+        this.dispatchEvent(new CustomEvent("season-changed", { detail: res.season, bubbles: true, composed: true }));
+      }
+      this.history = null;
     } catch (err) {
       this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
     }
@@ -1085,6 +1111,7 @@ export class PlannerView extends LitElement {
             .focusZone=${this.focusZone}
             .drawTool=${this.tool ? this.toolInfo(this.tool) : null}
             @select=${(e: CustomEvent<Selection | null>) => this.onSelect(e.detail)}
+            @item-click=${(e: CustomEvent<Selection>) => { this.onSelect(e.detail); this.popupOpen = true; }}
             @item-change=${this.onItemChange}
             @draw-rect=${this.onDrawRect}
             @zone-open=${(e: CustomEvent<string>) => this.openZone(e.detail)}
@@ -1094,9 +1121,10 @@ export class PlannerView extends LitElement {
             <button class="btn small ghost" @click=${() => (this.tool = null)}>${this.t("common.done")}</button></div>` : nothing}
           ${drag ? html`<div class="drag-ghost-hint" role="status">${ghost ? ghost.label : plantName(drag.plant, this.lang)}</div>` : nothing}
         </div>
-        ${this.renderInspector()}
       </div>
       <div class="visually-hidden" role="status" aria-live="polite">${this.announcement}</div>
+      ${this.popupOpen && this.selection && !this.dialog && !this.removing && this.findItem(this.selection)
+        ? html`<dialog class="inspector" @close=${() => (this.popupOpen = false)}>${this.renderInspector()}</dialog>` : nothing}
       ${this.renderDialog()}
     `;
   }
@@ -1156,6 +1184,8 @@ export class PlannerView extends LitElement {
           <button class="btn small primary" @click=${() => this.openAutofill()}><ha-icon icon="mdi:auto-fix"></ha-icon>${this.t("autofill.title")}</button>` : nothing}
         ${this.admin && !plantMode && this.hasLayout ? html`
           <button class="btn small" @click=${() => this.addBed()}><ha-icon icon="mdi:plus"></ha-icon>${this.t("planner.add_bed")}</button>` : nothing}
+        ${!plantMode ? html`<button class="btn small" @click=${() => (this.dialog = "plans")}><ha-icon icon="mdi:file-tree-outline"></ha-icon>${this.t("plans.button")}
+          ${this.snapshot.archived_plans?.length ? html`<span class="chip">${this.snapshot.archived_plans.length}</span>` : nothing}</button>` : nothing}
         <button class="btn small" @click=${() => this.go(plantMode ? "layout" : "planner")}>
           <ha-icon icon=${plantMode ? "mdi:floor-plan" : "mdi:sprout"}></ha-icon>${this.t(plantMode ? "layout.edit" : "layout.to_planner")}</button>
         <button class="btn small ${this.snapshot.transition_due ? "primary" : ""}" @click=${() => (this.dialog = "transition")}>
@@ -1461,6 +1491,30 @@ export class PlannerView extends LitElement {
     </div>`;
   }
 
+  /** Crops autofill left out, each with the plain reason (and a shortcut when the season is too late). */
+  private renderSkipped(res: AutofillResult): TemplateResult | typeof nothing {
+    if (!res.skipped.length) return nothing;
+    const late = res.skipped.filter((s) => s.reason === "too_late").length;
+    const glyph = (id: string) => {
+      const p = this.plantMap.get(id);
+      return p ? glyphIcon(glyphFor(p), p.color || familyColor(this.families, p.family), 22) : nothing;
+    };
+    return html`
+      ${late >= Math.max(2, res.skipped.length / 2) ? html`<div class="finding warning"><ha-icon icon="mdi:calendar-alert"></ha-icon>
+        <span>${this.t("autofill.mostly_late", { season: res.season, next: res.season + 1, n: late })}
+        <button class="btn small" @click=${() => { this.autofillSeason = res.season + 1; void this.runAutofill(); }}>${this.t("autofill.fill_next", { season: res.season + 1 })}</button></span></div>` : nothing}
+      <details class="skipped" ?open=${res.skipped.length <= 6}>
+        <summary class="small"><b>${this.t("autofill.skipped")} (${res.skipped.length})</b> – ${this.t("autofill.skipped_why")}</summary>
+        <ul class="why">${res.skipped.map((sk) => {
+          const lines = sk.beds && Object.keys(sk.beds).length
+            ? summarizeReasons(sk.beds, this.t, this.lang, this.plantMap)
+            : [this.t(`reason.${sk.reason}`)];
+          return html`<li>${glyph(sk.plant_id)}<span><b>${plantName(this.plantMap.get(sk.plant_id), this.lang)}</b><br />
+            <span class="xs">${lines.slice(0, 3).join(" · ")}</span></span></li>`;
+        })}</ul>
+      </details>`;
+  }
+
   private renderAutofill(): TemplateResult {
     const r = this.autofillResources!;
     const set = (patch: Partial<Resources>) => (this.autofillResources = { ...r, ...patch });
@@ -1470,7 +1524,12 @@ export class PlannerView extends LitElement {
     const bedName = (id: string) => this.draft.beds.find((b) => b.id === id)?.name ?? id;
     return html`<div class="stack">
       <h2><ha-icon icon="mdi:auto-fix"></ha-icon> ${this.t("autofill.title")} <hl-info term="autofill" .t=${this.t}></hl-info></h2>
-      <p class="small muted">${this.t("autofill.intro", { season: this.season })}</p>
+      <label class="row small">${this.t("planner.season")}
+        <select style="width:auto" @change=${(e: Event) => { this.autofillSeason = Number((e.target as HTMLSelectElement).value); this.autofill = null; }}>
+          ${[this.season, this.season + 1].map((s) => html`<option value=${s} ?selected=${s === (this.autofillSeason || this.season)}>${this.t("common.season", { year: s })}${
+            layoutOf(this.snapshot, s) ? "" : ` · ${this.t("layout.no_plan")}`}</option>`)}
+        </select></label>
+      <p class="small muted">${this.t("autofill.intro", { season: this.autofillSeason || this.season })}</p>
       <div class="form-grid">
         <label class="field">${this.t("autofill.household")}<input type="number" min="1" max="20" .value=${String(r.household_size)}
           @change=${(e: Event) => set({ household_size: Number((e.target as HTMLInputElement).value) })} /></label>
@@ -1532,7 +1591,7 @@ export class PlannerView extends LitElement {
             ${plantName(this.plantMap.get(pl.plant_id), this.lang)}${pl.sowings > 1 ? html` <span class="xs muted">×${pl.sowings}</span>` : nothing}</td>
             <td>${bedName(pl.bed_id)}</td><td align="right">${pl.count}</td><td align="right">${pl.area_m2.toFixed(1)}</td><td align="right">${pl.yield_kg.toFixed(1)}</td></tr>`)}
         </table></div>
-        ${res.skipped.length ? html`<p class="xs muted">${this.t("autofill.skipped")}: ${res.skipped.map((sk) => `${plantName(this.plantMap.get(sk.plant_id), this.lang)} (${this.t(`autofill.reason.${sk.reason}`)})`).join(", ")}</p>` : nothing}
+        ${this.renderSkipped(res)}
       ` : nothing}
       <div class="row" style="justify-content:flex-end">
         <button class="btn ghost" @click=${close}>${this.t("common.cancel")}</button>
@@ -1657,7 +1716,8 @@ export class PlannerView extends LitElement {
       const advice = this.snapshot.analysis?.advice[p.id];
       body = html`
         <div class="row">
-          <span class="family-dot" style=${`background:${familyColor(this.families, plant?.family)};width:14px;height:14px`}></span>
+          ${plant ? html`<hl-plant-image .plant=${plant} color=${familyColor(this.families, plant.family)} lang=${this.lang} size="thumb"></hl-plant-image>`
+            : html`<span class="family-dot" style="width:14px;height:14px"></span>`}
           <h3>${plantName(plant, this.lang)}</h3>
         </div>
         <p class="xs muted">${plant?.scientific_name} · ${this.families[plant?.family ?? ""]?.[this.lang as "en" | "nl"] ?? plant?.family} · ${bed?.name}</p>
@@ -1779,7 +1839,8 @@ export class PlannerView extends LitElement {
       `;
     }
     return html`<aside class="pane" aria-label=${this.t("planner.inspector")}>
-      <header><h3>${this.t("planner.inspector")}</h3></header>
+      <header><h3>${this.t("planner.inspector")}</h3><span class="spacer"></span>
+        <button class="icon-btn" aria-label=${this.t("common.close")} @click=${() => (this.popupOpen = false)}><ha-icon icon="mdi:close"></ha-icon></button></header>
       <div class="pane-body stack">${body}</div>
     </aside>`;
   }
@@ -1803,6 +1864,58 @@ export class PlannerView extends LitElement {
       </div>
       <p class="xs muted">${this.t("layout.none_hint")}</p>
     </section>`;
+  }
+
+  /** Start a fresh plan for this season (the current one is set aside) or bring back an old one. */
+  private renderPlans(close: () => void): TemplateResult {
+    const plans = [...(this.snapshot.archived_plans ?? [])].sort((a, b) => b.season - a.season || (b.archived_at ?? "").localeCompare(a.archived_at ?? ""));
+    const starts: ["empty" | "zones" | "zones_beds", string][] = [["empty", "mdi:file-outline"], ["zones", "mdi:texture-box"], ["zones_beds", "mdi:view-grid-outline"]];
+    const run = async (fn: () => Promise<unknown>, ok: string) => {
+      this.planBusy = true;
+      try {
+        window.clearTimeout(this.saveTimer);
+        if (this.saveState === "dirty") await this.save();
+        await fn();
+        this.toast(ok);
+        this.saveState = "saved";
+        this.history = null; // reload from the next snapshot
+        this.dialog = null;
+      } catch (err) {
+        this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
+      } finally {
+        this.planBusy = false;
+      }
+    };
+    const startNew = (form: HTMLFormElement) => {
+      const name = (form.elements.namedItem("old_name") as HTMLInputElement).value;
+      if (!confirm(this.t("plans.confirm_new", { season: this.season }))) return;
+      void run(() => this.api.newPlan(this.season, this.newPlanStart, name || undefined), this.t("plans.started", { season: this.season }));
+    };
+    return html`<div class="stack">
+      <h2><ha-icon icon="mdi:file-tree-outline"></ha-icon> ${this.t("plans.title", { season: this.season })}</h2>
+      <p class="small">${this.t("plans.intro")}</p>
+      <form class="stack" @submit=${(e: Event) => { e.preventDefault(); startNew(e.target as HTMLFormElement); }}>
+        <h3>${this.t("plans.new")}</h3>
+        <div class="stack" style="gap:6px">${starts.map(([id, icon]) => html`
+          <label class="plan-start ${this.newPlanStart === id ? "on" : ""}"><input type="radio" name="start" .checked=${this.newPlanStart === id}
+            @change=${() => (this.newPlanStart = id)} /><ha-icon icon=${icon}></ha-icon>
+            <span><b>${this.t(`plans.start.${id}`)}</b><br /><span class="xs muted">${this.t(`plans.start.${id}.hint`)}</span></span></label>`)}</div>
+        <label class="field">${this.t("plans.old_name")}<input name="old_name" maxlength="80" placeholder=${this.t("plans.old_name_hint", { season: this.season })} /></label>
+        <div class="row"><button class="btn primary" type="submit" ?disabled=${this.planBusy || !this.admin}><ha-icon icon="mdi:file-plus-outline"></ha-icon>${this.t("plans.start_button")}</button></div>
+      </form>
+      <div class="divider"></div>
+      <h3>${this.t("plans.inactive")} (${plans.length})</h3>
+      ${plans.length ? html`<div class="stack" style="gap:6px">${plans.map((p) => html`<div class="zone-row">
+        <ha-icon icon="mdi:file-hidden"></ha-icon>
+        <span class="grow"><b>${p.name}</b><br /><span class="xs muted">${this.t("common.season", { year: p.season })} ·
+          ${this.t("plans.counts", { zones: p.zones, beds: p.beds, plantings: p.plantings })}${p.archived_at ? ` · ${formatDate(p.archived_at.slice(0, 10), this.lang)}` : ""}</span></span>
+        <button class="btn small" ?disabled=${this.planBusy || !this.admin}
+          @click=${() => confirm(this.t("plans.confirm_activate", { name: p.name, season: p.season })) && run(() => this.api.activatePlan(p.id), this.t("plans.activated", { name: p.name }))}>${this.t("plans.activate")}</button>
+        <button class="btn small ghost danger" ?disabled=${this.planBusy || !this.admin}
+          @click=${() => confirm(this.t("plans.confirm_delete", { name: p.name })) && run(() => this.api.deletePlan(p.id), this.t("plans.deleted", { name: p.name }))}>${this.t("common.delete")}</button>
+      </div>`)}</div>` : html`<p class="small muted">${this.t("plans.none")}</p>`}
+      <div class="row" style="justify-content:flex-end"><button class="btn" @click=${close}>${this.t("common.close")}</button></div>
+    </div>`;
   }
 
   private onTransitionDone(ev: CustomEvent<{ season: number; carried: string[]; skipped: string[]; activated: boolean }>): void {
@@ -1844,6 +1957,8 @@ export class PlannerView extends LitElement {
       content = html`<h2>${this.t("planner.shortcuts")}</h2>
         <table class="shortcuts">${rows.map(([k, l]) => html`<tr><td><kbd>${k}</kbd></td><td>${this.t(l)}</td></tr>`)}</table>
         <div class="row" style="justify-content:flex-end"><button class="btn" @click=${close}>${this.t("common.close")}</button></div>`;
+    } else if (this.dialog === "plans") {
+      content = this.renderPlans(close);
     } else if (this.dialog === "transition") {
       content = html`<hl-year-transition .api=${this.api} .t=${this.t} .snapshot=${this.snapshot} .plants=${this.plants}
         .families=${this.families} lang=${this.lang} ?admin=${this.admin}

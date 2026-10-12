@@ -23,20 +23,24 @@ import "./views/handbook-view";
 import "./views/print-view";
 import "./views/advice-view";
 import "./views/journal-view";
+import "./views/analysis-view";
+import "./views/crops-view";
 import { setPersons } from "./util/people";
 import { setSupplies } from "./util/tools";
 import "./components/task-ui";
 import { setGlossary } from "./components/info";
 
-type Tab = "dashboard" | "layout" | "planner" | "library" | "calendar" | "journal" | "advice" | "handbook" | "print" | "settings";
+type Tab = "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
   { id: "dashboard", icon: "mdi:home-variant-outline", mobile: true },
   { id: "layout", icon: "mdi:floor-plan", mobile: false },
   { id: "planner", icon: "mdi:sprout", mobile: true },
+  { id: "crops", icon: "mdi:format-list-bulleted-square", mobile: true },
   { id: "library", icon: "mdi:sprout-outline", mobile: true },
   { id: "calendar", icon: "mdi:calendar-month-outline", mobile: true },
   { id: "journal", icon: "mdi:notebook-outline", mobile: false },
   { id: "advice", icon: "mdi:chat-question-outline", mobile: true },
+  { id: "analysis", icon: "mdi:stethoscope", mobile: false },
   { id: "handbook", icon: "mdi:book-open-page-variant-outline", mobile: true },
   { id: "print", icon: "mdi:printer-outline", mobile: false },
   { id: "settings", icon: "mdi:cog-outline", mobile: false },
@@ -236,6 +240,12 @@ export class HortulusPanel extends LitElement {
         return html`<hl-planner-view mode="layout" .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow} .initialSeason=${this.plannerSeason}
           .transitionRequest=${this.transitionRequest}></hl-planner-view>`;
+      case "crops":
+        return html`<hl-crops-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin} .initialSeason=${this.plannerSeason}></hl-crops-view>`;
+      case "analysis":
+        return html`<hl-analysis-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
+          .lang=${this.uiLang} .admin=${admin}></hl-analysis-view>`;
       case "planner":
         return html`<hl-planner-view mode="plant" .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} .narrow=${this.narrow} .initialSeason=${this.plannerSeason}></hl-planner-view>`;

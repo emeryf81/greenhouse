@@ -4,7 +4,9 @@ import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Snapshot, Task } from "../types";
 import { addDays, familyColor, formatDate, plantName, sortTasks } from "../util/garden";
-import { renderTaskRow, taskRowStyles, type TaskCtx } from "../components/task-ui";
+import { tileColor } from "../components/plant-image";
+import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
+import { renderTaskRow, taskPlantResolver, taskRowStyles, type TaskCtx } from "../components/task-ui";
 import "../components/info";
 
 const RISK_CHIP: Record<string, string> = { none: "ok", low: "cold", moderate: "warn", high: "bad", unknown: "" };
@@ -50,7 +52,7 @@ export class DashboardView extends LitElement {
       .gauge .target { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--hl-leaf-500) 30%, transparent); }
       .gauge .value { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--hl-text); border-radius: 2px; }
       .avatars { display: flex; flex-wrap: wrap; gap: 4px; }
-      .avatar { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
+      .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
       .days { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--hl-s2); }
       .day { text-align: center; padding: var(--hl-s2); border-radius: var(--hl-r-md); background: var(--hl-surface-2); }
       .day .temp { font-size: var(--hl-fs-lg); font-weight: 600; }
@@ -71,6 +73,7 @@ export class DashboardView extends LitElement {
       onOpen: (task: Task) => this.emit("open-task", task),
       onComplete: (task: Task) => this.emit("complete-task", task),
       onPostpone: (task: Task, days: number) => this.emit("postpone-task", { task, days }),
+      plantOf: taskPlantResolver(this.snapshot, this.plants, this.families),
     };
   }
 
@@ -216,7 +219,8 @@ export class DashboardView extends LitElement {
           ${active.map((p) => {
             const plant = this.plants.get(p!.plant_id);
             const name = plantName(plant, this.lang);
-            return html`<span class="avatar" title=${name} style=${`background:${familyColor(this.families, plant?.family)}`}>${name.slice(0, 2)}</span>`;
+            const color = plant?.color || familyColor(this.families, plant?.family);
+            return html`<span class="avatar" title=${name} style=${`background:${tileColor(color)}`}>${plant ? glyphIcon(glyphFor(plant), color, 22) : name.slice(0, 2)}</span>`;
           })}
         </div>
       </article>`;

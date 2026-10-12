@@ -3,6 +3,21 @@
 ## Unreleased
 
 ### Added
+- **Start over with a new plan** (*Garden plan → Plans*): from scratch, with the same zones
+  but empty, or with zones and beds but no crops. The current plan becomes **inactive** and is
+  kept with its beds and crops; activate it again later (swapping places with the active one)
+  or delete it. Websocket `plan/new`, `plan/activate`, `plan/delete`.
+- **Analysis** tab: *Check* explains inconsistencies (a year with crops but no plan, crops
+  whose bed is not on their season's plan, beds outside their zone, overlapping or late crops,
+  a missed year-end transition …) with a link to the right place; *Why not?* shows per bed why
+  a plant does or does not fit; *Errors* lists every refused action with its reason (refused
+  actions are now written to the system log); *System log* is the journal's log. Websocket
+  `analysis`, `analysis/explain`.
+- **Crops** tab: every crop of a season on one list, with method, status, count, notes and
+  planned/actual dates editable in place – nothing to drag. Websocket `plantings/season`,
+  `planting/update`.
+- Plant icons on dashboard tasks and crop avatars, calendar tasks, the planner's details
+  popup, the crops list and the analysis.
 - **Garden plan per year** (new tab *Garden plan*): shape the garden without plants – zones
   (open ground, greenhouse, cold frame, planters & pots, orchard …), beds and elements
   (driveway, house, water butt, hedge, lawn, shed, paths – also inside the greenhouse). The
@@ -43,12 +58,19 @@
   small round thumbnails always use the illustration.
 
 ### Changed
+- **Planner**: larger map at a fixed height; clicking a bed, crop or element opens its details
+  in a popup instead of a side column.
+- **Autofill** says per plant why it was not placed (too late, zone type, glass, frost,
+  rotation, bad neighbour, no room) and offers to fill the next season; it uses the plan of
+  the season it fills (or the latest earlier plan, copied on apply).
 - **Perennials no longer stay in the plan automatically**: a planting belongs to its own season
   and to the seasons it was moved into at a year-end transition (`last_season`). On upgrade,
   perennials growing now are kept for the current season once. Storage version 1.6.
 - Printouts use the garden plan of the chosen season.
 
 ### Fixed
+- Autofill could hardly assign anything for another season: it proposed on today's beds, and
+  applying refused beds of next year's plan as "unknown bed".
 - Beds in orchards, herb, flower and the new garden zones now use the outdoor sensors (only
   greenhouses and cold frames have their own climate).
 - **Companion check showed crops that are not in the plan you look at.** The planner also

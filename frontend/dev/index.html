@@ -42,6 +42,14 @@
         }
         if (type === "plan/save") { data.snapshot.revision += 1; return { revision: data.snapshot.revision }; }
         if (type === "plans/windows") return {};
+        if (type === "plantings/season") return { season: msg.season, rows: (data.extras || {}).crop_rows || [] };
+        if (type === "planting/update") {
+          const row = ((data.extras || {}).crop_rows || []).find((r) => r.planting.id === msg.planting_id);
+          if (row) Object.assign(row.planting, msg.changes);
+          return { planting: row && row.planting, row, revision: data.snapshot.revision };
+        }
+        if (type === "analysis") return (data.extras || {}).analysis;
+        if (type === "analysis/explain") return { ...(data.extras || {}).explain, plant_id: msg.plant_id };
         if (type === "year/preview") return (data.extras || {}).year_preview;
         if (type === "year/apply") return { season: msg.from_season + 1, carried: msg.planting_ids, skipped: [], activated: msg.activate, revision: data.snapshot.revision };
         const x = data.extras || {};
