@@ -313,9 +313,13 @@ export class PlannerView extends LitElement {
   }
 
   /** After a drop: say right away when the crop does not belong there. */
+  private dropCheck = 0;
+
   private async checkDrop(planting: Planting): Promise<void> {
+    const check = ++this.dropCheck;
     try {
       const res = await this.api.explain(planting.plant_id, this.season);
+      if (check !== this.dropCheck) return; // a later drop is being checked
       const verdict = res.beds.find((b) => b.bed_id === planting.bed_id);
       if (verdict && !verdict.ok) {
         this.dropWarning = { plantingId: planting.id, text: verdict.reasons.map((r) => explainReason(r, this.t, this.lang, this.plantMap)) };
@@ -1979,8 +1983,14 @@ export class PlannerView extends LitElement {
     const season = this.season;
     this.stillPossibleFor = season;
     this.api.stillPossible(season).then((r) => (this.stillPossible = r)).catch(() => {
-      if (this.stillPossibleFor === season) this.stillPossibleFor = null;
+      // keep the marker (no retry loop); try once more in a minute
       this.stillPossible = { season, plants: [] };
+      window.setTimeout(() => {
+        if (this.stillPossibleFor === season) {
+          this.stillPossibleFor = null;
+          this.requestUpdate();
+        }
+      }, 60_000);
     });
   }
 

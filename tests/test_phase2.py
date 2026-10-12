@@ -767,3 +767,30 @@ async def test_valve_test_never_runs_the_pump_against_a_closed_valve(
     assert valve in runtime.irrigation.stuck
     hass.states.async_set(valve, "closing")
     assert await runtime.irrigation.async_close(valve) == "closing" and valve in runtime.irrigation.stuck
+
+
+async def test_pump_is_never_tested_alone_and_close_stops_a_run(
+    hass: HomeAssistant, garden, hass_ws_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    runtime.repo.data.settings.irrigation.pump_entity = "switch.pump"
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/test", "entity_id": "switch.pump"})
+    assert not (await _result(client))["success"]
+    with pytest.raises(Exception, match="bed valve"):
+        await runtime.irrigation.async_test("switch.pump")
+
+    stopped: list[bool] = []
+
+    async def fake_stop() -> None:
+        stopped.append(True)
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(runtime.irrigation, "async_stop", fake_stop)
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(type(runtime.irrigation), "running", property(lambda self: not stopped))
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    assert await runtime.irrigation.async_close(valve) == "off" and stopped == [True]

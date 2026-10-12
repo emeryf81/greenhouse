@@ -270,7 +270,7 @@ export class SettingsView extends LitElement {
             ${(["off", "advise", "auto"] as const).map((m) => html`<option value=${m} ?selected=${cfg.mode === m}>${this.t(`settings.irrigation_mode.${m}`)}</option>`)}
           </select></label>
         ${this.entityInput("pump", "pump", cfg.pump_entity, (v) => set({ pump_entity: v }), this.t("settings.pump"))}
-        ${this.valveTest(cfg.pump_entity, false)}
+        ${cfg.pump_entity ? html`<p class="xs muted">${this.t("valve.pump_test_hint")}</p>` : nothing}
         <label class="field">${this.t("settings.start_time")}<input type="time" .value=${cfg.start_time}
           @change=${(e: Event) => set({ start_time: (e.target as HTMLInputElement).value })} /></label>
         ${num("max_runtime_min", this.t("settings.max_runtime"), 1, 1, 180)}

@@ -3,8 +3,9 @@
 ## Unreleased
 
 ### Added
-- **Valve test** (*Settings*, next to every bed valve and the pump): opens it for 5 s in the
-  safe order and checks it reports open and closed again. Websocket `irrigation/test`.
+- **Valve test** (*Settings*, next to every bed valve): opens it for 5 s with the pump in the
+  safe order (the pump only after the valve reports open, never on its own) and checks it
+  reports open and closed again. Websocket `irrigation/test`.
 - **Valve left open**: after every run Hortulus checks the valve reports closed; a valve or
   the pump open far longer than any run (max runtime + 10 min) while Hortulus is not
   watering is reported – system log, notification, and a red banner on the dashboard with

@@ -189,7 +189,7 @@ Ja. Bij **Instellingen → Bewateringshardware** kan je als pomp en als bedkraan
 
 ## Hoe test ik mijn kraan of pomp?
 
-In **Instellingen → Bewateringshardware** staat naast elke bedkraan en de pomp **Test (5 s)**. Hortulus opent de kraan 5 seconden (met de pomp erbij, in de veilige volgorde), sluit hem weer en zegt of de kraan meldde dat hij open en dicht ging. Sla de instellingen eerst op: alleen gekoppelde kranen worden getest. Na elke beregeningsbeurt controleert Hortulus ook of de kraan dicht meldt. Staat een kraan of de pomp veel langer open dan een beurt kan duren (maximale looptijd + 10 minuten) terwijl Hortulus niet beregent, dan krijg je een melding en een rode balk op **Vandaag** met **Kraan sluiten**.
+In **Instellingen → Bewateringshardware** staat naast elke bedkraan **Test (5 s)**. Hortulus opent de kraan 5 seconden (met de pomp erbij, in de veilige volgorde; de pomp test je zo mee, nooit alleen), sluit hem weer en zegt of de kraan meldde dat hij open en dicht ging. Sla de instellingen eerst op: alleen gekoppelde kranen worden getest. Na elke beregeningsbeurt controleert Hortulus ook of de kraan dicht meldt. Staat een kraan of de pomp veel langer open dan een beurt kan duren (maximale looptijd + 10 minuten) terwijl Hortulus niet beregent, dan krijg je een melding en een rode balk op **Vandaag** met **Kraan sluiten**.
 
 Let op bij slimme kranen met een eigen timer (zoals een kraan met *Watering Duration*): de kraan sluit zelf na zijn eigen duur. Zet die duur langer dan de maximale looptijd in Hortulus, anders stopt de kraan vroeger dan gepland.
 

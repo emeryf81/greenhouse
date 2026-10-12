@@ -73,6 +73,7 @@ export class PlanCompare extends LitElement {
       // a slower answer for an earlier choice must not overwrite the current one
       if (left === this.left && right === this.right) this.result = res;
     } catch (err) {
+      if (left !== this.left || right !== this.right) return; // a failure for an earlier choice
       this.result = null;
       this.error = (err as Error).message ?? String(err);
     }

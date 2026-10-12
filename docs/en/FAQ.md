@@ -236,7 +236,7 @@ Yes. In **Settings → Irrigation hardware** the pump and bed valve pickers also
 
 ## How do I test my valve or pump?
 
-In **Settings → Irrigation hardware** every bed valve and the pump has **Test (5 s)**. Hortulus opens the valve for 5 seconds (with the pump, in the safe order), closes it again and tells you whether the valve reported open and closed. Save the settings first: only linked valves are tested. After every watering run Hortulus also checks the valve reports closed. A valve or the pump open far longer than any run can last (max runtime + 10 minutes) while Hortulus is not watering triggers a notification and a red banner on **Today** with **Close valve**.
+In **Settings → Irrigation hardware** every bed valve has **Test (5 s)**. Hortulus opens the valve for 5 seconds (with the pump, in the safe order; the pump is tested this way, never on its own), closes it again and tells you whether the valve reported open and closed. Save the settings first: only linked valves are tested. After every watering run Hortulus also checks the valve reports closed. A valve or the pump open far longer than any run can last (max runtime + 10 minutes) while Hortulus is not watering triggers a notification and a red banner on **Today** with **Close valve**.
 
 Smart taps with their own timer (such as a *Watering Duration* setting) close by themselves after that time. Set it longer than Hortulus' max runtime, or the tap stops earlier than planned.
 

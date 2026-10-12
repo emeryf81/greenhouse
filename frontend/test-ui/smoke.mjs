@@ -82,8 +82,11 @@ await step("plants: popup, arrow keys, neighbour, close", async () => {
   await modalOpen();
   const first = await modalTitle();
   await page.keyboard.press("ArrowRight");
-  await page.waitForFunction((was) => document.querySelector("hortulus-panel")?.shadowRoot?.querySelector("hl-library-view")
-    ?.shadowRoot?.querySelector("hl-modal")?.shadowRoot?.querySelector("h2")?.textContent !== was, first);
+  await page.waitForFunction((was) => {
+    const title = document.querySelector("hortulus-panel")?.shadowRoot?.querySelector("hl-library-view")
+      ?.shadowRoot?.querySelector("hl-modal")?.shadowRoot?.querySelector("h2")?.textContent;
+    return !!title && title !== was;
+  }, first);
   await page.keyboard.press("Escape");
   await modal().first().waitFor({ state: "detached" });
 });

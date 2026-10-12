@@ -272,8 +272,11 @@ class IrrigationController:
         if self.running:
             raise HomeAssistantError("irrigation is running")
         seconds = max(1.0, min(float(seconds), TEST_MAX_S))
-        pump = self.coordinator.repo.data.settings.irrigation.pump_entity if with_pump else None
-        if pump == entity_id:
+        pump = self.coordinator.repo.data.settings.irrigation.pump_entity
+        if entity_id == pump:
+            # a pump must never run on its own against closed valves: test it through a bed valve
+            raise HomeAssistantError("the pump is tested together with a bed valve")
+        if not with_pump:
             pump = None
         result: dict[str, Any] = {"entity_id": entity_id, "seconds": seconds, "before": self._state(entity_id)}
         async with self._lock:
@@ -309,6 +312,9 @@ class IrrigationController:
 
     async def async_close(self, entity_id: str) -> str | None:
         """Close a valve that stayed open (button in the panel)."""
+        if self.running:
+            # stop the run first: it switches the pump off before closing its valve
+            await self.async_stop()
         await _switch(self.hass, entity_id, False)
         state = await self._wait_for(entity_id, False)
         if _is_open(state) is False:  # only a valve that reports closed is cleared

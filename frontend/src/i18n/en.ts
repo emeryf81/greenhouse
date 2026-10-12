@@ -1174,6 +1174,7 @@ export const en: Record<string, string> = {
   "valve.close": "Close valve",
   "valve.closed": "Valve closed.",
   "valve.still_open": "The valve still reports: {state}. Please check it.",
+  "valve.pump_test_hint": "The pump is tested together with a bed valve (button at the bed), so it never runs against a closed valve.",
   "valve.test": "Test (5 s)",
   "valve.testing": "Testing…",
   "valve.test_confirm": "Open {entity} for 5 seconds to test it? (the pump runs too when one is set)",

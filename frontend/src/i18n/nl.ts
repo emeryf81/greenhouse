@@ -1172,6 +1172,7 @@ export const nl: Record<string, string> = {
   "valve.close": "Kraan sluiten",
   "valve.closed": "Kraan is dicht.",
   "valve.still_open": "De kraan meldt nog steeds: {state}. Kijk hem na.",
+  "valve.pump_test_hint": "De pomp test je samen met een bedkraan (knop bij het bed): zo draait hij nooit tegen een gesloten kraan.",
   "valve.test": "Test (5 s)",
   "valve.testing": "Bezig met testen…",
   "valve.test_confirm": "{entity} 5 seconden openen om te testen? (de pomp draait mee als die ingesteld is)",

@@ -1466,7 +1466,8 @@ async def ws_irrigation_test(
     runtime = _require_runtime(hass, connection, msg)
     if runtime is None:
         return
-    if msg["entity_id"] not in runtime.irrigation.valve_entities():
+    valves = runtime.irrigation.valve_entities()
+    if msg["entity_id"] not in valves or valves[msg["entity_id"]] == "pump":
         connection.send_error(msg["id"], "unknown_entity", msg["entity_id"])
         return
     try:

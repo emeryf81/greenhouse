@@ -77,6 +77,10 @@ export class DateInput extends LitElement {
       this.setInvalid(true);
       return;
     }
+    if (parsed && this.min && parsed < this.min) {
+      this.setInvalid(true); // also when it is the value already there
+      return;
+    }
     this.setInvalid(false);
     el.value = displayDate(parsed, this.lang);
     if ((parsed ?? "") !== (this.value ?? "")) this.emit(parsed);
