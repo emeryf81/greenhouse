@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from .models import GardenData, Plant, PlantingStatus, SeedPacket, SowMethod, WaterReading, present_in
 from .plantdb import PlantDatabase
+from .region import season_for_date
 
 if TYPE_CHECKING:
     from .analysis import GardenAnalysis
@@ -54,11 +55,12 @@ class CropHarvest:
 
 
 def harvest_summary(data: GardenData, season: int | None = None) -> dict[str, CropHarvest]:
-    """Totals per crop (optionally one calendar season)."""
+    """Totals per crop (optionally one season; hemisphere aware like the rest of the plan)."""
     out: dict[str, CropHarvest] = {}
     areas: dict[str, set[str]] = defaultdict(set)
+    region = data.settings.region
     for e in data.harvest_log:
-        if season is not None and e.day.year != season:
+        if season is not None and season_for_date(region, e.day) != season:
             continue
         crop = out.setdefault(e.plant_id, CropHarvest(e.plant_id))
         crop.kg += e.kg
@@ -79,7 +81,7 @@ def harvest_summary(data: GardenData, season: int | None = None) -> dict[str, Cr
 def learned_yields(data: GardenData) -> dict[str, float]:
     """kg/m² per crop from your own harvests (average over seasons with data)."""
     per_season: dict[str, list[float]] = defaultdict(list)
-    seasons = {e.day.year for e in data.harvest_log}
+    seasons = {season_for_date(data.settings.region, e.day) for e in data.harvest_log}
     for season in seasons:
         for pid, crop in harvest_summary(data, season).items():
             if crop.kg_m2 is not None:
@@ -229,6 +231,7 @@ def year_overview(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis)
 
 
 def year_matrix(data: GardenData, db: PlantDatabase, timelines: Mapping[str, Any], season: int) -> dict[str, Any]:
+    region = data.settings.region
     rows: dict[str, dict[str, Any]] = {}
     for p in data.plantings:
         plant = db.get(p.plant_id)
@@ -247,7 +250,7 @@ def year_matrix(data: GardenData, db: PlantDatabase, timelines: Mapping[str, Any
                 return
             day = date(start.year, start.month, 1)
             while day <= end:
-                if day.year == season and what not in row["months"][str(day.month)]:
+                if season_for_date(region, day) == season and what not in row["months"][str(day.month)]:
                     row["months"][str(day.month)].append(what)
                 day = date(day.year + (day.month == 12), day.month % 12 + 1, 1)
 
@@ -263,7 +266,7 @@ def year_matrix(data: GardenData, db: PlantDatabase, timelines: Mapping[str, Any
     tasks = [0] * 12
     minutes = [0] * 12
     for task in data.tasks:
-        if task.due.year == season:
+        if season_for_date(region, task.due) == season:
             tasks[task.due.month - 1] += 1
             minutes[task.due.month - 1] += task.estimated_minutes
     return {

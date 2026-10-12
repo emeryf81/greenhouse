@@ -166,6 +166,22 @@ def test_export_import_roundtrip(garden, make_planting):
         import_plan(GardenData(), doc, "replace")
 
 
+def test_import_without_soil_tests_keeps_stored_ones(garden):
+    from datetime import date, datetime
+
+    from custom_components.garden_manager.engine.models import SoilTest
+
+    doc = export_plan(garden, now=datetime(2026, 1, 1))
+    for bed in doc["beds"]:
+        bed.pop("soil_tests", None)  # an older or hand-written plan file
+    garden.beds[0].soil_tests = [SoilTest(date(2026, 3, 1), ph=6.2)]
+    import_plan(garden, doc, "replace")
+    assert garden.beds[0].soil_tests[0].ph == 6.2
+    doc["beds"][0]["soil_tests"] = []  # an explicit empty list does replace them
+    import_plan(garden, doc, "replace")
+    assert garden.beds[0].soil_tests == []
+
+
 def test_succession_splits_bed_and_stays_in_window(garden, db, make_planting):
     base = make_planting("lettuce", width_cm=150, length_cm=30, sow_date=date(2026, 7, 1))
     anchors = season_anchors(garden.settings.region, 2026)

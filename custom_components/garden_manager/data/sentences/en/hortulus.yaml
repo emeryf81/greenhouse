@@ -30,5 +30,5 @@ intents:
   HortulusOverdue:
     data:
       - sentences:
-          - "(which|what) (garden )?tasks are overdue"
+          - "(which|what) [garden] tasks are overdue"
           - "what did I forget in the garden"

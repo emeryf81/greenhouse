@@ -80,6 +80,11 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
             by_id[item.id] = item
         return list(by_id.values())
 
+    # Soil tests are records: a plan file without them keeps the ones already stored.
+    stored_tests = {b.id: b.soil_tests for b in data.beds}
+    for raw, bed in zip(upgraded.get("beds", []), beds, strict=True):
+        if "soil_tests" not in raw and bed.id in stored_tests:
+            bed.soil_tests = stored_tests[bed.id]
     data.zones = upsert(data.zones, zones)
     data.beds = upsert(data.beds, beds)
     data.plantings = upsert(data.plantings, plantings)

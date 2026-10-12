@@ -94,3 +94,16 @@ def test_year_overview_marks_months(garden, db, make_planting):
     assert row["plant_id"] == "tomato"
     assert any("harvest" in row["months"][str(m)] for m in (7, 8, 9))
     assert len(year["tasks"]) == 12
+
+
+def test_harvest_season_is_hemisphere_aware(garden):
+    from custom_components.garden_manager.engine.models import Hemisphere
+
+    garden.settings.region.hemisphere = Hemisphere.SOUTH
+    garden.harvest_log = [
+        HarvestEntry("h1", date(2026, 12, 20), "tomato", kg=1.0),
+        HarvestEntry("h2", date(2027, 2, 10), "tomato", kg=2.0),  # same southern season 2026
+        HarvestEntry("h3", date(2026, 3, 1), "tomato", kg=0.5),  # season 2025
+    ]
+    assert harvest_summary(garden, 2026)["tomato"].kg == 3.0
+    assert harvest_summary(garden, 2025)["tomato"].kg == 0.5

@@ -73,14 +73,19 @@ export class JournalView extends LitElement {
     void this.load();
   }
 
-  private loadedFor = "";
+  private reloadTimer?: number;
 
   protected updated(changed: Map<string, unknown>): void {
-    // Refresh the derived overview only when the records themselves changed.
-    if (!changed.has("snapshot") || !this.snapshot) return;
-    const key = `${this.snapshot.harvest_log?.length ?? 0}:${this.snapshot.seed_stock?.length ?? 0}:${this.snapshot.analysis?.today ?? ""}`;
-    if (key !== this.loadedFor && this.loadedFor) void this.load();
-    this.loadedFor = key;
+    // Every pushed snapshot can change the overview (harvests, seeds, water readings from
+    // any client): reload it, debounced so a burst of pushes costs one request.
+    if (!changed.has("snapshot") || !this.snapshot || changed.get("snapshot") === undefined) return;
+    window.clearTimeout(this.reloadTimer);
+    this.reloadTimer = window.setTimeout(() => void this.load(), 800);
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.clearTimeout(this.reloadTimer);
   }
 
   private async load(): Promise<void> {

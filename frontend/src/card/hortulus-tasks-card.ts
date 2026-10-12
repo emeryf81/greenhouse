@@ -22,8 +22,8 @@ export interface CardConfig {
 }
 
 const STRINGS = {
-  en: { title: "Garden today", none: "Nothing to do - enjoy the garden.", overdue: "overdue", more: "+{n} more", open: "Open Hortulus", min: "min", error: "Hortulus is not available" },
-  nl: { title: "Tuin vandaag", none: "Niets te doen - geniet van de tuin.", overdue: "achterstallig", more: "+{n} meer", open: "Open Hortulus", min: "min", error: "Hortulus is niet beschikbaar" },
+  en: { title: "Garden today", none: "Nothing to do - enjoy the garden.", overdue: "overdue", more: "+{n} more", open: "Open Hortulus", min: "min", error: "Hortulus is not available", failed: "Could not complete the task - try again or open Hortulus." },
+  nl: { title: "Tuin vandaag", none: "Niets te doen - geniet van de tuin.", overdue: "achterstallig", more: "+{n} meer", open: "Open Hortulus", min: "min", error: "Hortulus is niet beschikbaar", failed: "Taak afronden lukte niet - probeer opnieuw of open Hortulus." },
 };
 
 interface SnapshotLite { tasks: Task[] }
@@ -34,6 +34,7 @@ export class HortulusTasksCard extends LitElement {
   @state() private config: CardConfig = { type: "custom:hortulus-tasks-card" };
   @state() private tasks: Task[] | null = null;
   @state() private error = false;
+  @state() private failed = false;
   @state() private busy = new Set<string>();
   private unsub?: Promise<() => Promise<void>>;
 
@@ -97,6 +98,9 @@ export class HortulusTasksCard extends LitElement {
     this.busy = new Set(this.busy).add(task.id);
     try {
       await this.hass!.connection.sendMessagePromise({ type: `${DOMAIN}/tasks/action`, task_id: task.id, action: "complete" });
+      this.failed = false;
+    } catch {
+      this.failed = true;
     } finally {
       const next = new Set(this.busy);
       next.delete(task.id);
@@ -128,6 +132,7 @@ export class HortulusTasksCard extends LitElement {
             <span class="meta">${t.due < today ? html`<b>${s.overdue}</b> · ` : t.due > today ? html`${new Date(`${t.due}T12:00`).toLocaleDateString(s.lang === "nl" ? "nl-BE" : "en-GB", { weekday: "short" })} · ` : nothing}${t.estimated_minutes} ${s.min}</span></span>
         </li>`)}
       </ul>`}
+      ${this.failed ? html`<p class="failed" role="alert">${s.failed}</p>` : nothing}
       ${hidden ? html`<p class="more"><button class="link" @click=${() => this.open()}>${s.more.replace("{n}", String(hidden))}</button></p>` : nothing}
     </ha-card>`;
   }
@@ -147,6 +152,7 @@ export class HortulusTasksCard extends LitElement {
     .meta { font-size: 0.8rem; color: var(--secondary-text-color); }
     li.late .meta b { color: var(--error-color, #c62828); font-weight: 600; }
     .empty { color: var(--secondary-text-color); margin: 8px 0; }
+    .failed { color: var(--error-color, #c62828); font-size: 0.9rem; margin: 4px 0; }
     .more { margin: 4px 0 0; text-align: right; }
     .more .link { border-radius: 4px; font-size: 0.9rem; }
   `;
