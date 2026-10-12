@@ -1,0 +1,708 @@
+{
+  "schema": 1,
+  "description": "Hortulus starter plant database. Sowing windows are expressed in weeks relative to the average last spring frost (last_frost) or first autumn frost (first_frost) so the data works on both hemispheres and in every climate zone.",
+  "plants": [
+    {
+      "id": "tomato",
+      "names": {"en": "Tomato", "nl": "Tomaat"},
+      "scientific_name": "Solanum lycopersicum",
+      "variety": "Indeterminate (cordon)",
+      "family": "Solanaceae",
+      "habit": "vine",
+      "spacing_cm": 50, "row_spacing_cm": 75, "sowing_depth_cm": 0.5,
+      "germination_days": [6, 10], "min_soil_temp_c": 15, "optimal_soil_temp_c": 25,
+      "days_to_maturity": [60, 85], "maturity_from": "transplant",
+      "harvest_duration_days": 70, "continuous_harvest": true, "harvest_interval_days": 3,
+      "transplant_age_days": [42, 56],
+      "sowing": {
+        "indoor_sow": [{"start_week": -8, "end_week": -6}],
+        "transplant": [{"start_week": 3, "end_week": 6}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": 10, "max_day_c": 32, "season_extension_weeks": 4,
+        "notes": {"en": "Ideal under glass. Above 32 °C pollen becomes sterile and flowers drop - ventilate and shade.",
+                  "nl": "Ideaal onder glas. Boven 32 °C wordt stuifmeel steriel en vallen bloemen af - ventileer en schaduw."}},
+      "frost_tolerance": "tender", "min_temp_c": 5, "max_temp_c": 32,
+      "companions": [
+        {"plant": "basil", "relation": "friend", "strength": 2, "reason": {"en": "Basil deters thrips and whitefly.", "nl": "Basilicum weert trips en witte vlieg."}},
+        {"plant": "marigold", "relation": "friend", "strength": 3, "reason": {"en": "Tagetes suppresses root-knot nematodes and lures whitefly away.", "nl": "Tagetes onderdrukt wortelknobbelaaltjes en lokt witte vlieg weg."}},
+        {"plant": "parsley", "relation": "friend", "strength": 1, "reason": {"en": "Parsley flowers attract hoverflies that eat aphids.", "nl": "Peterseliebloemen trekken zweefvliegen aan die bladluis eten."}},
+        {"plant": "garlic", "relation": "friend", "strength": 1, "reason": {"en": "Garlic may deter red spider mite.", "nl": "Knoflook kan spint weren."}},
+        {"plant": "kale", "relation": "enemy", "strength": 2, "reason": {"en": "Brassicas compete heavily for nutrients and stunt tomatoes.", "nl": "Koolsoorten concurreren sterk om voeding en remmen tomaten."}},
+        {"plant": "cabbage", "relation": "enemy", "strength": 2, "reason": {"en": "Brassicas compete heavily for nutrients and stunt tomatoes.", "nl": "Koolsoorten concurreren sterk om voeding en remmen tomaten."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["aphids", "whitefly", "red_spider_mite"],
+      "diseases": ["late_blight", "early_blight", "blossom_end_rot", "botrytis"],
+      "water_needs": "high", "nutrient_needs": "high", "feeding_interval_days": 14,
+      "care": [
+        {"task": "stake", "start_day": 0, "anchor": "transplant", "minutes": 10,
+         "notes": {"en": "Insert a cane or string support at planting time.", "nl": "Plaats een stok of touw bij het uitplanten."}},
+        {"task": "prune", "start_day": 14, "interval_days": 7, "end_day": 100, "anchor": "transplant", "minutes": 10,
+         "notes": {"en": "Pinch out side shoots in the leaf axils (cordon types).", "nl": "Dief de zijscheuten in de bladoksels (trostomaten)."}},
+        {"task": "feed", "start_day": 35, "interval_days": 14, "end_day": 120, "anchor": "transplant", "minutes": 10,
+         "notes": {"en": "Potassium-rich feed once the first truss sets.", "nl": "Kaliumrijke voeding zodra de eerste tros zet."}},
+        {"task": "pinch", "start_day": 90, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "Outdoors: stop the plant after 4-5 trusses so fruit can ripen.", "nl": "Buiten: top de plant na 4-5 trossen zodat vruchten kunnen rijpen."}}
+      ],
+      "pruning_notes": {"en": "Cordon tomatoes: single stem, remove side shoots weekly, remove leaves below the lowest ripening truss. Bush types need no pruning.",
+                        "nl": "Trostomaten: één stengel, wekelijks dieven, blad onder de laagste rijpende tros verwijderen. Struiktomaten niet snoeien."},
+      "gdd_base_c": 10, "gdd_to_maturity": 1100,
+      "tags": ["fruiting", "greenhouse"]
+    },
+    {
+      "id": "sweet_pepper",
+      "names": {"en": "Sweet pepper", "nl": "Paprika"},
+      "scientific_name": "Capsicum annuum",
+      "family": "Solanaceae",
+      "habit": "bush",
+      "spacing_cm": 45, "row_spacing_cm": 60, "sowing_depth_cm": 0.5,
+      "germination_days": [8, 14], "min_soil_temp_c": 18, "optimal_soil_temp_c": 27,
+      "days_to_maturity": [70, 90], "maturity_from": "transplant",
+      "harvest_duration_days": 60, "continuous_harvest": true, "harvest_interval_days": 5,
+      "transplant_age_days": [56, 70],
+      "sowing": {
+        "indoor_sow": [{"start_week": -10, "end_week": -8}],
+        "transplant": [{"start_week": 3, "end_week": 6}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": 12, "max_day_c": 32, "season_extension_weeks": 4,
+        "notes": {"en": "Best under glass in cool climates.", "nl": "In koele klimaten het best onder glas."}},
+      "frost_tolerance": "tender", "min_temp_c": 7, "max_temp_c": 33,
+      "companions": [
+        {"plant": "basil", "relation": "friend", "strength": 2, "reason": {"en": "Basil deters aphids and thrips.", "nl": "Basilicum weert bladluis en trips."}},
+        {"plant": "onion", "relation": "friend", "strength": 1, "reason": {"en": "Onion scent confuses aphids.", "nl": "Uiengeur verwart bladluizen."}},
+        {"plant": "carrot", "relation": "friend", "strength": 1, "reason": {"en": "Different root depths share the bed well.", "nl": "Verschillende worteldieptes delen het bed goed."}},
+        {"plant": "kale", "relation": "enemy", "strength": 1, "reason": {"en": "Brassicas compete for nutrients.", "nl": "Koolsoorten concurreren om voeding."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["aphids", "red_spider_mite", "thrips"],
+      "diseases": ["blossom_end_rot", "botrytis"],
+      "water_needs": "medium", "nutrient_needs": "high", "feeding_interval_days": 14,
+      "care": [
+        {"task": "stake", "start_day": 21, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "Support heavy-fruiting plants.", "nl": "Ondersteun zwaar dragende planten."}},
+        {"task": "feed", "start_day": 30, "interval_days": 14, "end_day": 120, "anchor": "transplant", "minutes": 10,
+         "notes": {"en": "Tomato feed once flowers appear.", "nl": "Tomatenvoeding zodra bloemen verschijnen."}}
+      ],
+      "pruning_notes": {"en": "Remove the first (king) flower to encourage a bigger plant.", "nl": "Verwijder de eerste (koning)bloem voor een sterkere plant."},
+      "gdd_base_c": 10, "gdd_to_maturity": 1250,
+      "tags": ["fruiting", "greenhouse"]
+    },
+    {
+      "id": "courgette",
+      "names": {"en": "Courgette / Zucchini", "nl": "Courgette"},
+      "scientific_name": "Cucurbita pepo",
+      "family": "Cucurbitaceae",
+      "habit": "bush",
+      "spacing_cm": 90, "row_spacing_cm": 100, "sowing_depth_cm": 2.5,
+      "germination_days": [5, 10], "min_soil_temp_c": 15, "optimal_soil_temp_c": 25,
+      "days_to_maturity": [45, 55], "maturity_from": "transplant",
+      "harvest_duration_days": 60, "continuous_harvest": true, "harvest_interval_days": 2,
+      "transplant_age_days": [21, 30],
+      "sowing": {
+        "indoor_sow": [{"start_week": -4, "end_week": -2}],
+        "direct_sow": [{"start_week": 2, "end_week": 6}],
+        "transplant": [{"start_week": 2, "end_week": 5}]
+      },
+      "greenhouse": {"suitability": "conditional", "min_night_c": 10, "max_day_c": 32, "season_extension_weeks": 2,
+        "notes": {"en": "Possible but very large; hand-pollinate under glass.", "nl": "Kan, maar wordt erg groot; bestuif onder glas met de hand."}},
+      "frost_tolerance": "tender", "min_temp_c": 5, "max_temp_c": 32,
+      "companions": [
+        {"plant": "bush_bean", "relation": "friend", "strength": 2, "reason": {"en": "Beans fix nitrogen for the hungry courgette.", "nl": "Bonen binden stikstof voor de hongerige courgette."}},
+        {"plant": "pea", "relation": "friend", "strength": 1, "reason": {"en": "Legumes improve soil nitrogen.", "nl": "Peulvruchten verbeteren de stikstof in de bodem."}},
+        {"plant": "marigold", "relation": "friend", "strength": 2, "reason": {"en": "Attracts pollinators and deters aphids.", "nl": "Trekt bestuivers aan en weert bladluis."}},
+        {"plant": "radish", "relation": "friend", "strength": 1, "reason": {"en": "Radish is said to deter cucumber beetles.", "nl": "Radijs zou komkommerkevers weren."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["slugs", "aphids"],
+      "diseases": ["powdery_mildew", "cucumber_mosaic_virus"],
+      "water_needs": "high", "nutrient_needs": "high", "feeding_interval_days": 14,
+      "care": [
+        {"task": "feed", "start_day": 28, "interval_days": 14, "end_day": 110, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "Liquid feed once fruiting starts.", "nl": "Vloeibare voeding zodra de vruchtzetting begint."}}
+      ],
+      "pruning_notes": {"en": "Remove old leaves with mildew to improve airflow.", "nl": "Verwijder oude bladeren met meeldauw voor betere luchtcirculatie."},
+      "gdd_base_c": 10, "gdd_to_maturity": 700,
+      "tags": ["fruiting"]
+    },
+    {
+      "id": "cucumber",
+      "names": {"en": "Cucumber", "nl": "Komkommer"},
+      "scientific_name": "Cucumis sativus",
+      "family": "Cucurbitaceae",
+      "habit": "climbing",
+      "spacing_cm": 45, "row_spacing_cm": 90, "sowing_depth_cm": 1.5,
+      "germination_days": [4, 10], "min_soil_temp_c": 16, "optimal_soil_temp_c": 27,
+      "days_to_maturity": [50, 70], "maturity_from": "transplant",
+      "harvest_duration_days": 50, "continuous_harvest": true, "harvest_interval_days": 2,
+      "transplant_age_days": [21, 30],
+      "sowing": {
+        "indoor_sow": [{"start_week": -4, "end_week": -2}],
+        "direct_sow": [{"start_week": 3, "end_week": 6}],
+        "transplant": [{"start_week": 3, "end_week": 6}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": 15, "max_day_c": 32, "season_extension_weeks": 4,
+        "notes": {"en": "Thrives in greenhouse humidity; keep nights above 15 °C.", "nl": "Gedijt in kasvochtigheid; houd nachten boven 15 °C."}},
+      "frost_tolerance": "tender", "min_temp_c": 10, "max_temp_c": 32,
+      "companions": [
+        {"plant": "bush_bean", "relation": "friend", "strength": 2, "reason": {"en": "Beans add nitrogen.", "nl": "Bonen voegen stikstof toe."}},
+        {"plant": "pea", "relation": "friend", "strength": 1, "reason": {"en": "Legumes add nitrogen.", "nl": "Peulvruchten voegen stikstof toe."}},
+        {"plant": "radish", "relation": "friend", "strength": 1, "reason": {"en": "Fast radishes use space before vines spread.", "nl": "Snelle radijs benut de ruimte voordat ranken uitgroeien."}},
+        {"plant": "lettuce", "relation": "friend", "strength": 1, "reason": {"en": "Lettuce enjoys the shade of cucumber vines.", "nl": "Sla geniet van de schaduw van de komkommerranken."}},
+        {"plant": "marigold", "relation": "friend", "strength": 2, "reason": {"en": "Deters aphids and beetles.", "nl": "Weert bladluis en kevers."}},
+        {"plant": "basil", "relation": "enemy", "strength": 1, "reason": {"en": "Strong aromatic herbs are said to affect cucumber flavour.", "nl": "Sterk aromatische kruiden zouden de smaak van komkommer beïnvloeden."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["red_spider_mite", "aphids", "slugs", "thrips"],
+      "diseases": ["powdery_mildew", "cucumber_mosaic_virus", "botrytis"],
+      "water_needs": "high", "nutrient_needs": "high", "feeding_interval_days": 10,
+      "care": [
+        {"task": "stake", "start_day": 0, "anchor": "transplant", "minutes": 10,
+         "notes": {"en": "Train up a string or trellis.", "nl": "Leid langs een touw of rek omhoog."}},
+        {"task": "prune", "start_day": 21, "interval_days": 7, "end_day": 90, "anchor": "transplant", "minutes": 10,
+         "notes": {"en": "Stop side shoots two leaves after a female flower.", "nl": "Top zijscheuten twee bladeren na een vrouwelijke bloem."}},
+        {"task": "feed", "start_day": 28, "interval_days": 10, "end_day": 100, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "High-potash feed.", "nl": "Kaliumrijke voeding."}}
+      ],
+      "pruning_notes": {"en": "All-female greenhouse varieties: remove any male flowers to avoid bitter fruit.", "nl": "Vrouwelijke kasrassen: verwijder mannelijke bloemen om bittere vruchten te voorkomen."},
+      "gdd_base_c": 12, "gdd_to_maturity": 800,
+      "tags": ["fruiting", "greenhouse"]
+    },
+    {
+      "id": "lettuce",
+      "names": {"en": "Lettuce", "nl": "Sla"},
+      "scientific_name": "Lactuca sativa",
+      "variety": "Butterhead",
+      "family": "Asteraceae",
+      "habit": "rosette",
+      "spacing_cm": 25, "row_spacing_cm": 30, "sowing_depth_cm": 0.5,
+      "germination_days": [4, 10], "min_soil_temp_c": 4, "optimal_soil_temp_c": 18, "max_soil_temp_c": 25,
+      "days_to_maturity": [45, 65], "maturity_from": "sow",
+      "harvest_duration_days": 14,
+      "transplant_age_days": [21, 35],
+      "sowing": {
+        "indoor_sow": [{"start_week": -8, "end_week": -3}],
+        "direct_sow": [{"start_week": -4, "end_week": 10}, {"start_week": -10, "end_week": -6, "anchor": "first_frost"}],
+        "transplant": [{"start_week": -3, "end_week": 2}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": 2, "max_day_c": 24, "season_extension_weeks": 6,
+        "notes": {"en": "Great winter crop under glass; bolts in heat.", "nl": "Prima wintergewas onder glas; schiet door bij hitte."}},
+      "frost_tolerance": "half_hardy", "min_temp_c": -2, "max_temp_c": 26,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 2, "reason": {"en": "Shallow and deep roots use different soil layers.", "nl": "Ondiepe en diepe wortels benutten verschillende bodemlagen."}},
+        {"plant": "radish", "relation": "friend", "strength": 2, "reason": {"en": "Classic intercrop; radish is harvested before lettuce spreads.", "nl": "Klassieke tussenteelt; radijs is geoogst voordat sla uitgroeit."}},
+        {"plant": "onion", "relation": "friend", "strength": 1, "reason": {"en": "Onion scent deters aphids.", "nl": "Uiengeur weert bladluis."}},
+        {"plant": "beetroot", "relation": "friend", "strength": 1, "reason": {"en": "Compatible spacing and needs.", "nl": "Passende plantafstand en behoeften."}},
+        {"plant": "parsley", "relation": "enemy", "strength": 1, "reason": {"en": "Parsley is said to make lettuce bolt.", "nl": "Peterselie zou sla doen doorschieten."}}
+      ],
+      "rotation_years": 2,
+      "pests": ["slugs", "aphids"],
+      "diseases": ["downy_mildew", "botrytis"],
+      "water_needs": "medium", "nutrient_needs": "low",
+      "care": [],
+      "thinning": true,
+      "succession_interval_days": 21,
+      "gdd_base_c": 4, "gdd_to_maturity": 900,
+      "tags": ["leafy", "quick", "succession"]
+    },
+    {
+      "id": "spinach",
+      "names": {"en": "Spinach", "nl": "Spinazie"},
+      "scientific_name": "Spinacia oleracea",
+      "family": "Amaranthaceae",
+      "habit": "rosette",
+      "spacing_cm": 15, "row_spacing_cm": 30, "sowing_depth_cm": 2,
+      "germination_days": [7, 14], "min_soil_temp_c": 2, "optimal_soil_temp_c": 10, "max_soil_temp_c": 24,
+      "days_to_maturity": [40, 50], "maturity_from": "sow",
+      "harvest_duration_days": 21,
+      "sowing": {
+        "direct_sow": [{"start_week": -6, "end_week": 2}, {"start_week": -8, "end_week": -4, "anchor": "first_frost"}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": -5, "max_day_c": 24, "season_extension_weeks": 6,
+        "notes": {"en": "Excellent winter crop in an unheated greenhouse.", "nl": "Uitstekend wintergewas in een onverwarmde kas."}},
+      "frost_tolerance": "hardy", "min_temp_c": -9, "max_temp_c": 25,
+      "companions": [
+        {"plant": "pea", "relation": "friend", "strength": 1, "reason": {"en": "Peas provide light shade and nitrogen.", "nl": "Erwten geven lichte schaduw en stikstof."}},
+        {"plant": "radish", "relation": "friend", "strength": 1, "reason": {"en": "Radish lures leaf miners away.", "nl": "Radijs lokt bladmineerders weg."}},
+        {"plant": "cabbage", "relation": "friend", "strength": 1, "reason": {"en": "Quick spinach uses space between slow brassicas.", "nl": "Snelle spinazie benut de ruimte tussen trage koolsoorten."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["slugs", "aphids"],
+      "diseases": ["downy_mildew"],
+      "water_needs": "medium", "nutrient_needs": "medium",
+      "care": [],
+      "thinning": true,
+      "succession_interval_days": 21,
+      "gdd_base_c": 4, "gdd_to_maturity": 700,
+      "tags": ["leafy", "quick", "succession", "winter"]
+    },
+    {
+      "id": "carrot",
+      "names": {"en": "Carrot", "nl": "Wortel"},
+      "scientific_name": "Daucus carota subsp. sativus",
+      "family": "Apiaceae",
+      "habit": "root",
+      "spacing_cm": 5, "row_spacing_cm": 25, "sowing_depth_cm": 1,
+      "germination_days": [10, 21], "min_soil_temp_c": 7, "optimal_soil_temp_c": 20,
+      "days_to_maturity": [70, 85], "maturity_from": "sow",
+      "harvest_duration_days": 45,
+      "sowing": {
+        "direct_sow": [{"start_week": -3, "end_week": 10}]
+      },
+      "greenhouse": {"suitability": "conditional", "min_night_c": 0, "max_day_c": 28, "season_extension_weeks": 4,
+        "notes": {"en": "Early bunching carrots in a cold greenhouse border.", "nl": "Vroege bospeen in de grond van een koude kas."}},
+      "frost_tolerance": "hardy", "min_temp_c": -5, "max_temp_c": 30,
+      "companions": [
+        {"plant": "onion", "relation": "friend", "strength": 3, "reason": {"en": "Onion scent masks carrots from carrot fly; carrots mask onions from onion fly.", "nl": "Uiengeur verbergt wortels voor de wortelvlieg en omgekeerd voor de uienvlieg."}},
+        {"plant": "leek", "relation": "friend", "strength": 3, "reason": {"en": "Leek deters carrot fly; carrot deters leek moth.", "nl": "Prei weert wortelvlieg; wortel weert preimot."}},
+        {"plant": "lettuce", "relation": "friend", "strength": 1, "reason": {"en": "Different root depths.", "nl": "Verschillende worteldieptes."}},
+        {"plant": "pea", "relation": "friend", "strength": 1, "reason": {"en": "Peas add nitrogen.", "nl": "Erwten voegen stikstof toe."}},
+        {"plant": "radish", "relation": "friend", "strength": 2, "reason": {"en": "Fast radish marks the slow carrot row and loosens soil.", "nl": "Snelle radijs markeert de trage wortelrij en maakt de grond los."}},
+        {"plant": "parsley", "relation": "enemy", "strength": 1, "reason": {"en": "Same family: shares carrot fly and diseases.", "nl": "Zelfde familie: deelt wortelvlieg en ziektes."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["carrot_fly", "aphids"],
+      "diseases": ["alternaria"],
+      "water_needs": "medium", "nutrient_needs": "low",
+      "care": [],
+      "thinning": true,
+      "succession_interval_days": 28,
+      "pruning_notes": {"en": "Thin in the evening and firm the soil afterwards to hide the scent from carrot fly.", "nl": "Dun 's avonds uit en druk de grond aan om de geur voor de wortelvlieg te verbergen."},
+      "gdd_base_c": 4, "gdd_to_maturity": 1300,
+      "tags": ["root", "succession"]
+    },
+    {
+      "id": "beetroot",
+      "names": {"en": "Beetroot", "nl": "Rode biet"},
+      "scientific_name": "Beta vulgaris",
+      "family": "Amaranthaceae",
+      "habit": "root",
+      "spacing_cm": 10, "row_spacing_cm": 30, "sowing_depth_cm": 2.5,
+      "germination_days": [7, 14], "min_soil_temp_c": 7, "optimal_soil_temp_c": 20,
+      "days_to_maturity": [55, 70], "maturity_from": "sow",
+      "harvest_duration_days": 30,
+      "transplant_age_days": [21, 28],
+      "sowing": {
+        "indoor_sow": [{"start_week": -6, "end_week": -3}],
+        "direct_sow": [{"start_week": -2, "end_week": 12}],
+        "transplant": [{"start_week": -2, "end_week": 2}]
+      },
+      "greenhouse": {"suitability": "conditional", "min_night_c": 2, "max_day_c": 28, "season_extension_weeks": 3},
+      "frost_tolerance": "half_hardy", "min_temp_c": -3, "max_temp_c": 30,
+      "companions": [
+        {"plant": "onion", "relation": "friend", "strength": 2, "reason": {"en": "Classic pairing; onions deter pests.", "nl": "Klassieke combinatie; uien weren plagen."}},
+        {"plant": "lettuce", "relation": "friend", "strength": 1, "reason": {"en": "Compatible spacing.", "nl": "Passende plantafstand."}},
+        {"plant": "kale", "relation": "friend", "strength": 1, "reason": {"en": "Beet leaves add minerals; different nutrient demands.", "nl": "Bietenblad voegt mineralen toe; andere voedingsbehoefte."}},
+        {"plant": "garlic", "relation": "friend", "strength": 1, "reason": {"en": "Garlic deters pests and is said to improve beet growth.", "nl": "Knoflook weert plagen en zou bieten beter laten groeien."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["leaf_miner", "slugs"],
+      "diseases": ["leaf_spot"],
+      "water_needs": "medium", "nutrient_needs": "medium",
+      "care": [],
+      "thinning": true,
+      "succession_interval_days": 21,
+      "gdd_base_c": 4, "gdd_to_maturity": 1000,
+      "tags": ["root", "succession"]
+    },
+    {
+      "id": "radish",
+      "names": {"en": "Radish", "nl": "Radijs"},
+      "scientific_name": "Raphanus sativus",
+      "family": "Brassicaceae",
+      "habit": "root",
+      "spacing_cm": 3, "row_spacing_cm": 15, "sowing_depth_cm": 1,
+      "germination_days": [3, 7], "min_soil_temp_c": 5, "optimal_soil_temp_c": 18,
+      "days_to_maturity": [25, 30], "maturity_from": "sow",
+      "harvest_duration_days": 10,
+      "sowing": {
+        "direct_sow": [{"start_week": -5, "end_week": 4}, {"start_week": -8, "end_week": -3, "anchor": "first_frost"}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": 0, "max_day_c": 25, "season_extension_weeks": 6},
+      "frost_tolerance": "hardy", "min_temp_c": -4, "max_temp_c": 27,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 2, "reason": {"en": "Marks and loosens carrot rows.", "nl": "Markeert wortelrijen en maakt de grond los."}},
+        {"plant": "lettuce", "relation": "friend", "strength": 2, "reason": {"en": "Fast intercrop.", "nl": "Snelle tussenteelt."}},
+        {"plant": "pea", "relation": "friend", "strength": 1, "reason": {"en": "Compatible cool-season crops.", "nl": "Passende gewassen voor koel weer."}},
+        {"plant": "cucumber", "relation": "friend", "strength": 1, "reason": {"en": "Said to deter cucumber beetles.", "nl": "Zou komkommerkevers weren."}},
+        {"plant": "spinach", "relation": "friend", "strength": 1, "reason": {"en": "Lures leaf miners from spinach.", "nl": "Lokt bladmineerders weg van spinazie."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["flea_beetle", "cabbage_root_fly"],
+      "diseases": ["clubroot"],
+      "water_needs": "medium", "nutrient_needs": "low",
+      "care": [],
+      "thinning": true,
+      "succession_interval_days": 14,
+      "gdd_base_c": 4, "gdd_to_maturity": 400,
+      "tags": ["root", "quick", "succession"]
+    },
+    {
+      "id": "onion",
+      "names": {"en": "Onion", "nl": "Ui"},
+      "scientific_name": "Allium cepa",
+      "variety": "From sets",
+      "family": "Amaryllidaceae",
+      "habit": "bulb",
+      "spacing_cm": 10, "row_spacing_cm": 25, "sowing_depth_cm": 2,
+      "germination_days": [7, 14], "min_soil_temp_c": 7, "optimal_soil_temp_c": 20,
+      "days_to_maturity": [100, 120], "maturity_from": "transplant",
+      "harvest_duration_days": 21,
+      "transplant_age_days": [56, 70],
+      "sowing": {
+        "indoor_sow": [{"start_week": -12, "end_week": -10}],
+        "transplant": [{"start_week": -4, "end_week": 2}]
+      },
+      "greenhouse": {"suitability": "no", "min_night_c": -5, "max_day_c": 30},
+      "frost_tolerance": "hardy", "min_temp_c": -6, "max_temp_c": 32,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 3, "reason": {"en": "Mutual pest masking (onion fly / carrot fly).", "nl": "Wederzijdse plaagmaskering (uienvlieg / wortelvlieg)."}},
+        {"plant": "beetroot", "relation": "friend", "strength": 2, "reason": {"en": "Classic pairing.", "nl": "Klassieke combinatie."}},
+        {"plant": "lettuce", "relation": "friend", "strength": 1, "reason": {"en": "Deters aphids on lettuce.", "nl": "Weert bladluis op sla."}},
+        {"plant": "pea", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit nitrogen-fixing bacteria of legumes.", "nl": "Uiachtigen remmen de stikstofbindende bacteriën van peulvruchten."}},
+        {"plant": "bush_bean", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit nitrogen-fixing bacteria of legumes.", "nl": "Uiachtigen remmen de stikstofbindende bacteriën van peulvruchten."}},
+        {"plant": "broad_bean", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit nitrogen-fixing bacteria of legumes.", "nl": "Uiachtigen remmen de stikstofbindende bacteriën van peulvruchten."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["onion_fly", "thrips"],
+      "diseases": ["white_rot", "downy_mildew"],
+      "water_needs": "low", "nutrient_needs": "medium",
+      "care": [],
+      "pruning_notes": {"en": "Stop watering when the tops start to fall over; let bulbs cure in the sun.", "nl": "Stop met water geven als het loof omvalt; laat de bollen drogen in de zon."},
+      "gdd_base_c": 5, "gdd_to_maturity": 1600,
+      "tags": ["allium", "storage"]
+    },
+    {
+      "id": "garlic",
+      "names": {"en": "Garlic", "nl": "Knoflook"},
+      "scientific_name": "Allium sativum",
+      "family": "Amaryllidaceae",
+      "habit": "bulb",
+      "spacing_cm": 15, "row_spacing_cm": 30, "sowing_depth_cm": 5,
+      "germination_days": [14, 28], "min_soil_temp_c": 0, "optimal_soil_temp_c": 13,
+      "days_to_maturity": [210, 270], "maturity_from": "transplant",
+      "harvest_duration_days": 21,
+      "sowing": {
+        "transplant": [{"start_week": -4, "end_week": 2, "anchor": "first_frost"}, {"start_week": -6, "end_week": -2}]
+      },
+      "greenhouse": {"suitability": "no", "min_night_c": -15, "max_day_c": 30},
+      "frost_tolerance": "very_hardy", "min_temp_c": -15, "max_temp_c": 30,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 1, "reason": {"en": "Deters carrot fly.", "nl": "Weert wortelvlieg."}},
+        {"plant": "beetroot", "relation": "friend", "strength": 1, "reason": {"en": "Compatible needs.", "nl": "Passende behoeften."}},
+        {"plant": "tomato", "relation": "friend", "strength": 1, "reason": {"en": "May deter red spider mite.", "nl": "Kan spint weren."}},
+        {"plant": "pea", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit legume growth.", "nl": "Uiachtigen remmen de groei van peulvruchten."}},
+        {"plant": "bush_bean", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit legume growth.", "nl": "Uiachtigen remmen de groei van peulvruchten."}},
+        {"plant": "broad_bean", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit legume growth.", "nl": "Uiachtigen remmen de groei van peulvruchten."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["onion_fly", "leek_moth"],
+      "diseases": ["white_rot", "rust"],
+      "water_needs": "low", "nutrient_needs": "medium",
+      "care": [
+        {"task": "pinch", "start_day": 200, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "Hardneck types: snap off flower scapes for bigger bulbs.", "nl": "Hardneck-rassen: breek de bloemstengels af voor grotere bollen."}}
+      ],
+      "pruning_notes": {"en": "Plant cloves pointy end up before the ground freezes; a cold spell is needed to form bulbs.", "nl": "Plant de teentjes met de punt omhoog voordat de grond bevriest; koude is nodig voor bolvorming."},
+      "tags": ["allium", "storage", "overwinter"]
+    },
+    {
+      "id": "leek",
+      "names": {"en": "Leek", "nl": "Prei"},
+      "scientific_name": "Allium ampeloprasum var. porrum",
+      "family": "Amaryllidaceae",
+      "habit": "upright",
+      "spacing_cm": 15, "row_spacing_cm": 30, "sowing_depth_cm": 1,
+      "germination_days": [10, 18], "min_soil_temp_c": 7, "optimal_soil_temp_c": 18,
+      "days_to_maturity": [100, 150], "maturity_from": "transplant",
+      "harvest_duration_days": 90,
+      "transplant_age_days": [56, 84],
+      "sowing": {
+        "indoor_sow": [{"start_week": -12, "end_week": -6}],
+        "transplant": [{"start_week": 2, "end_week": 10}]
+      },
+      "greenhouse": {"suitability": "no", "min_night_c": -10, "max_day_c": 28},
+      "frost_tolerance": "very_hardy", "min_temp_c": -12, "max_temp_c": 30,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 3, "reason": {"en": "Leek deters carrot fly; carrot deters leek moth.", "nl": "Prei weert wortelvlieg; wortel weert preimot."}},
+        {"plant": "pea", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit legumes.", "nl": "Uiachtigen remmen peulvruchten."}},
+        {"plant": "bush_bean", "relation": "enemy", "strength": 2, "reason": {"en": "Alliums inhibit legumes.", "nl": "Uiachtigen remmen peulvruchten."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["leek_moth", "onion_fly", "thrips"],
+      "diseases": ["rust", "white_rot"],
+      "water_needs": "medium", "nutrient_needs": "high", "feeding_interval_days": 28,
+      "care": [
+        {"task": "earth_up", "start_day": 30, "interval_days": 21, "end_day": 120, "anchor": "transplant", "minutes": 15,
+         "notes": {"en": "Draw soil up around stems to blanch them.", "nl": "Aanaarden om de stelen te bleken."}}
+      ],
+      "pruning_notes": {"en": "Trim roots and leaf tips when transplanting and drop into 15 cm dibber holes; water in, don't backfill.", "nl": "Knip wortels en bladpunten bij in, plant in pootgaten van 15 cm; aangieten, niet aanvullen."},
+      "tags": ["allium", "winter"]
+    },
+    {
+      "id": "pea",
+      "names": {"en": "Garden pea", "nl": "Doperwt"},
+      "scientific_name": "Pisum sativum",
+      "family": "Fabaceae",
+      "habit": "climbing",
+      "spacing_cm": 5, "row_spacing_cm": 60, "sowing_depth_cm": 4,
+      "germination_days": [7, 14], "min_soil_temp_c": 5, "optimal_soil_temp_c": 16,
+      "days_to_maturity": [60, 75], "maturity_from": "sow",
+      "harvest_duration_days": 21, "continuous_harvest": true, "harvest_interval_days": 3,
+      "sowing": {
+        "direct_sow": [{"start_week": -6, "end_week": 2}]
+      },
+      "greenhouse": {"suitability": "conditional", "min_night_c": 0, "max_day_c": 25, "season_extension_weeks": 4},
+      "frost_tolerance": "hardy", "min_temp_c": -4, "max_temp_c": 27,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 1, "reason": {"en": "Nitrogen for carrots.", "nl": "Stikstof voor wortels."}},
+        {"plant": "radish", "relation": "friend", "strength": 1, "reason": {"en": "Compatible cool-season crops.", "nl": "Passende gewassen voor koel weer."}},
+        {"plant": "cucumber", "relation": "friend", "strength": 1, "reason": {"en": "Nitrogen for cucumbers.", "nl": "Stikstof voor komkommers."}},
+        {"plant": "spinach", "relation": "friend", "strength": 1, "reason": {"en": "Light shade for spinach.", "nl": "Lichte schaduw voor spinazie."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["pea_moth", "slugs", "birds"],
+      "diseases": ["powdery_mildew", "root_rot"],
+      "water_needs": "medium", "nutrient_needs": "low",
+      "care": [
+        {"task": "stake", "start_day": 14, "anchor": "sow", "minutes": 20,
+         "notes": {"en": "Provide pea sticks or netting when plants reach 8 cm.", "nl": "Plaats erwtenrijs of gaas als de planten 8 cm zijn."}}
+      ],
+      "succession_interval_days": 21,
+      "gdd_base_c": 4, "gdd_to_maturity": 1200,
+      "tags": ["legume", "nitrogen_fixer"]
+    },
+    {
+      "id": "bush_bean",
+      "names": {"en": "French bean (bush)", "nl": "Stamboon"},
+      "scientific_name": "Phaseolus vulgaris",
+      "family": "Fabaceae",
+      "habit": "bush",
+      "spacing_cm": 10, "row_spacing_cm": 45, "sowing_depth_cm": 4,
+      "germination_days": [7, 10], "min_soil_temp_c": 12, "optimal_soil_temp_c": 25,
+      "days_to_maturity": [50, 60], "maturity_from": "sow",
+      "harvest_duration_days": 28, "continuous_harvest": true, "harvest_interval_days": 3,
+      "transplant_age_days": [14, 21],
+      "sowing": {
+        "indoor_sow": [{"start_week": -2, "end_week": 0}],
+        "direct_sow": [{"start_week": 2, "end_week": 10}],
+        "transplant": [{"start_week": 2, "end_week": 5}]
+      },
+      "greenhouse": {"suitability": "conditional", "min_night_c": 10, "max_day_c": 30, "season_extension_weeks": 3},
+      "frost_tolerance": "tender", "min_temp_c": 4, "max_temp_c": 30,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 1, "reason": {"en": "Nitrogen for carrots.", "nl": "Stikstof voor wortels."}},
+        {"plant": "cucumber", "relation": "friend", "strength": 2, "reason": {"en": "Nitrogen for cucumbers.", "nl": "Stikstof voor komkommers."}},
+        {"plant": "courgette", "relation": "friend", "strength": 2, "reason": {"en": "Nitrogen for courgettes.", "nl": "Stikstof voor courgettes."}},
+        {"plant": "marigold", "relation": "friend", "strength": 2, "reason": {"en": "Deters Mexican bean beetle and aphids.", "nl": "Weert bonenkevers en bladluis."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["black_bean_aphid", "slugs"],
+      "diseases": ["anthracnose", "halo_blight"],
+      "water_needs": "medium", "nutrient_needs": "low",
+      "care": [],
+      "succession_interval_days": 21,
+      "gdd_base_c": 10, "gdd_to_maturity": 1000,
+      "tags": ["legume", "nitrogen_fixer", "succession"]
+    },
+    {
+      "id": "broad_bean",
+      "names": {"en": "Broad bean / Fava", "nl": "Tuinboon"},
+      "scientific_name": "Vicia faba",
+      "family": "Fabaceae",
+      "habit": "upright",
+      "spacing_cm": 20, "row_spacing_cm": 45, "sowing_depth_cm": 5,
+      "germination_days": [7, 14], "min_soil_temp_c": 5, "optimal_soil_temp_c": 15,
+      "days_to_maturity": [80, 100], "maturity_from": "sow",
+      "harvest_duration_days": 21, "continuous_harvest": true, "harvest_interval_days": 4,
+      "sowing": {
+        "direct_sow": [{"start_week": -8, "end_week": -2}, {"start_week": -6, "end_week": -3, "anchor": "first_frost"}]
+      },
+      "greenhouse": {"suitability": "no", "min_night_c": -8, "max_day_c": 25},
+      "frost_tolerance": "hardy", "min_temp_c": -8, "max_temp_c": 27,
+      "companions": [
+        {"plant": "carrot", "relation": "friend", "strength": 1, "reason": {"en": "Nitrogen for carrots.", "nl": "Stikstof voor wortels."}},
+        {"plant": "lettuce", "relation": "friend", "strength": 1, "reason": {"en": "Lettuce grows in the shade of the beans.", "nl": "Sla groeit in de schaduw van de bonen."}},
+        {"plant": "spinach", "relation": "friend", "strength": 1, "reason": {"en": "Compatible cool-season crops.", "nl": "Passende gewassen voor koel weer."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["black_bean_aphid", "bean_weevil"],
+      "diseases": ["chocolate_spot", "rust"],
+      "water_needs": "medium", "nutrient_needs": "low",
+      "care": [
+        {"task": "stake", "start_day": 45, "anchor": "sow", "minutes": 15,
+         "notes": {"en": "String along the rows to stop plants flopping.", "nl": "Span touw langs de rijen zodat planten niet omvallen."}},
+        {"task": "pinch", "start_day": 70, "anchor": "sow", "minutes": 10,
+         "notes": {"en": "Pinch the tops once the first pods set - removes black bean aphid.", "nl": "Top de planten zodra de eerste peulen zetten - voorkomt zwarte bonenluis."}}
+      ],
+      "gdd_base_c": 4, "gdd_to_maturity": 1400,
+      "tags": ["legume", "nitrogen_fixer", "overwinter"]
+    },
+    {
+      "id": "kale",
+      "names": {"en": "Kale", "nl": "Boerenkool"},
+      "scientific_name": "Brassica oleracea var. sabellica",
+      "family": "Brassicaceae",
+      "habit": "upright",
+      "spacing_cm": 45, "row_spacing_cm": 60, "sowing_depth_cm": 1,
+      "germination_days": [5, 10], "min_soil_temp_c": 7, "optimal_soil_temp_c": 22,
+      "days_to_maturity": [55, 75], "maturity_from": "transplant",
+      "harvest_duration_days": 120, "continuous_harvest": true, "harvest_interval_days": 7,
+      "transplant_age_days": [35, 49],
+      "sowing": {
+        "indoor_sow": [{"start_week": -6, "end_week": 6}],
+        "transplant": [{"start_week": 0, "end_week": 12}]
+      },
+      "greenhouse": {"suitability": "no", "min_night_c": -15, "max_day_c": 27},
+      "frost_tolerance": "very_hardy", "min_temp_c": -15, "max_temp_c": 28,
+      "companions": [
+        {"plant": "onion", "relation": "friend", "strength": 1, "reason": {"en": "Onion scent deters cabbage pests.", "nl": "Uiengeur weert koolplagen."}},
+        {"plant": "beetroot", "relation": "friend", "strength": 1, "reason": {"en": "Different nutrient demands.", "nl": "Andere voedingsbehoefte."}},
+        {"plant": "marigold", "relation": "friend", "strength": 1, "reason": {"en": "Attracts predatory insects.", "nl": "Trekt nuttige roofinsecten aan."}},
+        {"plant": "tomato", "relation": "enemy", "strength": 2, "reason": {"en": "Heavy feeders stunting each other.", "nl": "Zware eters die elkaar remmen."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["cabbage_white", "cabbage_root_fly", "flea_beetle", "whitefly", "pigeons"],
+      "diseases": ["clubroot"],
+      "water_needs": "medium", "nutrient_needs": "high", "feeding_interval_days": 28,
+      "care": [
+        {"task": "pest_check", "start_day": 0, "interval_days": 7, "end_day": 120, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "Check under leaves for caterpillar eggs; keep netting closed.", "nl": "Controleer de bladonderkant op rupseneitjes; houd het net gesloten."}},
+        {"task": "stake", "start_day": 90, "anchor": "transplant", "minutes": 10,
+         "notes": {"en": "Stake tall plants before autumn storms.", "nl": "Steun hoge planten voor de herfststormen."}}
+      ],
+      "pruning_notes": {"en": "Harvest lower leaves first; flavour improves after frost.", "nl": "Oogst eerst de onderste bladeren; smaak verbetert na vorst."},
+      "tags": ["leafy", "winter", "brassica"]
+    },
+    {
+      "id": "cabbage",
+      "names": {"en": "Cabbage", "nl": "Kool (sluitkool)"},
+      "scientific_name": "Brassica oleracea var. capitata",
+      "family": "Brassicaceae",
+      "habit": "rosette",
+      "spacing_cm": 45, "row_spacing_cm": 60, "sowing_depth_cm": 1,
+      "germination_days": [5, 10], "min_soil_temp_c": 7, "optimal_soil_temp_c": 22,
+      "days_to_maturity": [70, 100], "maturity_from": "transplant",
+      "harvest_duration_days": 21,
+      "transplant_age_days": [35, 49],
+      "sowing": {
+        "indoor_sow": [{"start_week": -8, "end_week": -5}],
+        "transplant": [{"start_week": -2, "end_week": 3}]
+      },
+      "greenhouse": {"suitability": "no", "min_night_c": -6, "max_day_c": 26},
+      "frost_tolerance": "hardy", "min_temp_c": -6, "max_temp_c": 27,
+      "companions": [
+        {"plant": "onion", "relation": "friend", "strength": 1, "reason": {"en": "Deters cabbage pests.", "nl": "Weert koolplagen."}},
+        {"plant": "spinach", "relation": "friend", "strength": 1, "reason": {"en": "Quick intercrop.", "nl": "Snelle tussenteelt."}},
+        {"plant": "marigold", "relation": "friend", "strength": 1, "reason": {"en": "Attracts predatory insects.", "nl": "Trekt nuttige roofinsecten aan."}},
+        {"plant": "tomato", "relation": "enemy", "strength": 2, "reason": {"en": "Heavy feeders stunting each other.", "nl": "Zware eters die elkaar remmen."}}
+      ],
+      "rotation_years": 4,
+      "pests": ["cabbage_white", "cabbage_root_fly", "slugs", "pigeons"],
+      "diseases": ["clubroot"],
+      "water_needs": "high", "nutrient_needs": "high", "feeding_interval_days": 21,
+      "care": [
+        {"task": "pest_check", "start_day": 0, "interval_days": 7, "end_day": 100, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "Check for caterpillars and place collars against root fly.", "nl": "Controleer op rupsen en plaats kraagjes tegen koolvlieg."}}
+      ],
+      "tags": ["leafy", "brassica"]
+    },
+    {
+      "id": "basil",
+      "names": {"en": "Basil", "nl": "Basilicum"},
+      "scientific_name": "Ocimum basilicum",
+      "variety": "Genovese",
+      "family": "Lamiaceae",
+      "habit": "bush",
+      "spacing_cm": 25, "row_spacing_cm": 30, "sowing_depth_cm": 0.5,
+      "germination_days": [5, 10], "min_soil_temp_c": 18, "optimal_soil_temp_c": 24,
+      "days_to_maturity": [30, 60], "maturity_from": "transplant",
+      "harvest_duration_days": 90, "continuous_harvest": true, "harvest_interval_days": 7,
+      "transplant_age_days": [28, 42],
+      "sowing": {
+        "indoor_sow": [{"start_week": -6, "end_week": 2}],
+        "transplant": [{"start_week": 3, "end_week": 8}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": 12, "max_day_c": 35, "season_extension_weeks": 4,
+        "notes": {"en": "Loves the greenhouse; plant next to tomatoes.", "nl": "Houdt van de kas; plant naast tomaten."}},
+      "frost_tolerance": "tender", "min_temp_c": 10, "max_temp_c": 35,
+      "companions": [
+        {"plant": "tomato", "relation": "friend", "strength": 2, "reason": {"en": "Classic pairing; deters thrips and whitefly.", "nl": "Klassieke combinatie; weert trips en witte vlieg."}},
+        {"plant": "sweet_pepper", "relation": "friend", "strength": 2, "reason": {"en": "Deters aphids.", "nl": "Weert bladluis."}}
+      ],
+      "rotation_years": 2,
+      "pests": ["slugs", "aphids", "whitefly"],
+      "diseases": ["downy_mildew", "damping_off"],
+      "water_needs": "medium", "nutrient_needs": "medium",
+      "care": [
+        {"task": "pinch", "start_day": 21, "interval_days": 7, "end_day": 90, "anchor": "transplant", "minutes": 5,
+         "notes": {"en": "Pinch growing tips above a leaf pair and remove flower buds.", "nl": "Knip de toppen boven een bladpaar en verwijder bloemknoppen."}}
+      ],
+      "pruning_notes": {"en": "Water in the morning, never over the leaves.", "nl": "Geef 's ochtends water, nooit over de bladeren."},
+      "tags": ["herb", "greenhouse"]
+    },
+    {
+      "id": "parsley",
+      "names": {"en": "Parsley", "nl": "Peterselie"},
+      "scientific_name": "Petroselinum crispum",
+      "family": "Apiaceae",
+      "habit": "rosette",
+      "spacing_cm": 20, "row_spacing_cm": 30, "sowing_depth_cm": 1,
+      "germination_days": [14, 28], "min_soil_temp_c": 10, "optimal_soil_temp_c": 22,
+      "days_to_maturity": [70, 90], "maturity_from": "sow",
+      "harvest_duration_days": 150, "continuous_harvest": true, "harvest_interval_days": 7,
+      "transplant_age_days": [42, 56],
+      "sowing": {
+        "indoor_sow": [{"start_week": -10, "end_week": -6}],
+        "direct_sow": [{"start_week": -3, "end_week": 8}],
+        "transplant": [{"start_week": -1, "end_week": 4}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": -5, "max_day_c": 28, "season_extension_weeks": 4},
+      "frost_tolerance": "hardy", "min_temp_c": -10, "max_temp_c": 30,
+      "companions": [
+        {"plant": "tomato", "relation": "friend", "strength": 1, "reason": {"en": "Flowers attract hoverflies.", "nl": "Bloemen trekken zweefvliegen aan."}}
+      ],
+      "rotation_years": 3,
+      "pests": ["carrot_fly", "aphids"],
+      "diseases": ["leaf_spot"],
+      "water_needs": "medium", "nutrient_needs": "medium",
+      "care": [],
+      "thinning": true,
+      "pruning_notes": {"en": "Soak seed overnight - germination is slow and erratic.", "nl": "Week het zaad een nacht - kieming is traag en grillig."},
+      "tags": ["herb", "biennial"]
+    },
+    {
+      "id": "marigold",
+      "names": {"en": "French marigold", "nl": "Afrikaantje"},
+      "scientific_name": "Tagetes patula",
+      "family": "Asteraceae",
+      "habit": "bush",
+      "spacing_cm": 25, "row_spacing_cm": 25, "sowing_depth_cm": 0.5,
+      "germination_days": [5, 10], "min_soil_temp_c": 15, "optimal_soil_temp_c": 22,
+      "days_to_maturity": [50, 60], "maturity_from": "sow",
+      "harvest_duration_days": 90,
+      "transplant_age_days": [35, 49],
+      "sowing": {
+        "indoor_sow": [{"start_week": -8, "end_week": -4}],
+        "direct_sow": [{"start_week": 2, "end_week": 6}],
+        "transplant": [{"start_week": 2, "end_week": 6}]
+      },
+      "greenhouse": {"suitability": "yes", "min_night_c": 5, "max_day_c": 35, "season_extension_weeks": 4,
+        "notes": {"en": "Plant between tomatoes against whitefly.", "nl": "Plant tussen tomaten tegen witte vlieg."}},
+      "frost_tolerance": "tender", "min_temp_c": 2, "max_temp_c": 35,
+      "companions": [
+        {"plant": "tomato", "relation": "friend", "strength": 3, "reason": {"en": "Root exudates suppress nematodes.", "nl": "Wortelafscheidingen onderdrukken aaltjes."}},
+        {"plant": "cucumber", "relation": "friend", "strength": 2, "reason": {"en": "Deters aphids and beetles.", "nl": "Weert bladluis en kevers."}},
+        {"plant": "courgette", "relation": "friend", "strength": 2, "reason": {"en": "Attracts pollinators.", "nl": "Trekt bestuivers aan."}},
+        {"plant": "bush_bean", "relation": "friend", "strength": 2, "reason": {"en": "Deters bean beetles.", "nl": "Weert bonenkevers."}},
+        {"plant": "kale", "relation": "friend", "strength": 1, "reason": {"en": "Attracts predatory insects.", "nl": "Trekt nuttige roofinsecten aan."}},
+        {"plant": "cabbage", "relation": "friend", "strength": 1, "reason": {"en": "Attracts predatory insects.", "nl": "Trekt nuttige roofinsecten aan."}}
+      ],
+      "rotation_years": 1,
+      "pests": ["slugs"],
+      "diseases": [],
+      "water_needs": "low", "nutrient_needs": "low",
+      "care": [],
+      "tags": ["flower", "companion"]
+    }
+  ]
+}

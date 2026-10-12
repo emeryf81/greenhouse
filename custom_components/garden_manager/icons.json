@@ -1,0 +1,42 @@
+{
+  "entity": {
+    "sensor": {
+      "frost_risk_next_48h": {
+        "default": "mdi:snowflake-check",
+        "state": { "low": "mdi:snowflake-thermometer", "moderate": "mdi:snowflake-alert", "high": "mdi:snowflake-alert", "unknown": "mdi:snowflake-off" }
+      },
+      "growing_degree_days": { "default": "mdi:thermometer-plus" },
+      "tasks_due_today": { "default": "mdi:clipboard-check-outline" },
+      "next_task": { "default": "mdi:shovel" },
+      "moisture_status": {
+        "default": "mdi:water-percent",
+        "state": { "dry": "mdi:water-off", "slightly_dry": "mdi:water-minus", "optimal": "mdi:water-check", "wet": "mdi:water-plus", "unknown": "mdi:water-alert-outline" }
+      },
+      "irrigation_recommendation": { "default": "mdi:watering-can" },
+      "companion_score": { "default": "mdi:handshake-outline" },
+      "greenhouse_advice": {
+        "default": "mdi:greenhouse",
+        "state": { "ventilate": "mdi:window-open-variant", "shade": "mdi:sun-angle", "close_up": "mdi:window-closed-variant", "heat": "mdi:radiator" }
+      }
+    },
+    "binary_sensor": {
+      "needs_water": { "default": "mdi:water-check", "state": { "on": "mdi:water-alert" } }
+    },
+    "button": {
+      "generate_tasks": { "default": "mdi:auto-fix" },
+      "refresh_forecast": { "default": "mdi:weather-cloudy-clock" }
+    },
+    "calendar": { "tasks": { "default": "mdi:calendar-check" } },
+    "todo": { "this_week": { "default": "mdi:sprout" } }
+  },
+  "services": {
+    "add_task": { "service": "mdi:clipboard-plus-outline" },
+    "complete_task": { "service": "mdi:check-circle-outline" },
+    "postpone_task": { "service": "mdi:calendar-arrow-right" },
+    "delete_task": { "service": "mdi:delete-outline" },
+    "generate_tasks": { "service": "mdi:auto-fix" },
+    "recalculate_plan": { "service": "mdi:calculator-variant-outline" },
+    "export_plan": { "service": "mdi:file-export-outline" },
+    "import_plan": { "service": "mdi:file-import-outline" }
+  }
+}

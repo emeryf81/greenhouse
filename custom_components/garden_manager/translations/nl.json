@@ -1,0 +1,318 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Welkom bij Hortulus",
+        "description": "We richten je moestuin in. Eerst: hoe bepaalt Hortulus jouw vorstdata? Zaai- en plantvensters worden berekend ten opzichte van de gemiddelde laatste voorjaarsvorst en eerste najaarsvorst.",
+        "data": { "region_mode": "Klimaatprofiel" },
+        "data_description": { "region_mode": "Regionale voorinstelling (bv. Nederland/Vlaanderen), USDA-winterhardheidszone of je eigen vorstdata." }
+      },
+      "region": {
+        "title": "Jouw klimaat",
+        "description": "Halfrond en vorstdata bepalen elk zaai-, plant- en oogstvenster.",
+        "data": {
+          "hemisphere": "Halfrond",
+          "preset": "Regio",
+          "hardiness_zone": "USDA-winterhardheidszone",
+          "last_frost": "Gemiddelde laatste voorjaarsvorst (MM-DD)",
+          "first_frost": "Gemiddelde eerste najaarsvorst (MM-DD)"
+        },
+        "data_description": {
+          "last_frost": "Bijvoorbeeld 04-20. Vraag het lokale tuinders of je weerdienst.",
+          "first_frost": "Bijvoorbeeld 10-25."
+        }
+      },
+      "weather": {
+        "title": "Weer",
+        "description": "De weersverwachting wordt gebruikt voor vorst- en hittewaarschuwingen, regenbewust water geven en timingadvies. Zonder verwachting werkt alles nog steeds (minder nauwkeurig).",
+        "data": {
+          "weather_entity": "Weerentiteit",
+          "outdoor_temperature": "Buitentemperatuursensor (optioneel)",
+          "rain_sensor": "Regensensor (optioneel)"
+        },
+        "data_description": {
+          "weather_entity": "Moet een uur- en/of dagverwachting leveren, bv. weather.home.",
+          "outdoor_temperature": "Gebruikt voor graaddagen; valt terug op de weerentiteit.",
+          "rain_sensor": "Een dagtotaal regen (mm) of een binaire regendetector."
+        }
+      },
+      "area": {
+        "title": "Bed, kas of bak toevoegen",
+        "description": "Tot nu toe {count} toegevoegd. Je kunt alles later in de planner tekenen en verfijnen.",
+        "data": {
+          "name": "Naam",
+          "type": "Type",
+          "width_m": "Breedte",
+          "length_m": "Lengte",
+          "soil": "Grondsoort",
+          "shade_pct": "Schaduw",
+          "wind": "Windblootstelling"
+        }
+      },
+      "area_sensors": {
+        "title": "Sensoren voor {name}",
+        "description": "Koppel bestaande Home Assistant-sensoren. Alle velden zijn optioneel - ontbrekende sensoren maken het advies alleen minder nauwkeurig.",
+        "data": {
+          "soil_moisture": "Bodemvocht",
+          "soil_temperature": "Bodemtemperatuur",
+          "air_temperature": "Luchttemperatuur",
+          "air_humidity": "Luchtvochtigheid",
+          "light": "Licht (verlichtingssterkte)",
+          "irrigation": "Beregeningsschakelaar of -klep",
+          "flow_lpm": "Debiet beregening"
+        },
+        "data_description": {
+          "flow_lpm": "Liter per minuut; zet mm water om in beregeningsminuten."
+        }
+      },
+      "area_menu": {
+        "title": "Jouw tuin",
+        "description": "Toegevoegd: {areas}",
+        "menu_options": {
+          "area": "Nog een bed, kas of bak toevoegen",
+          "notifications": "Verder"
+        }
+      },
+      "notifications": {
+        "title": "Meldingen",
+        "description": "Hoe moet Hortulus je informeren over vorst, hitte en de taken van vandaag?",
+        "data": {
+          "persistent_notifications": "Blijvende meldingen in Home Assistant",
+          "notify_services": "Pushmeldingen (notify-diensten)",
+          "tts_entity": "Tekst-naar-spraak (optioneel)",
+          "tts_media_players": "Speakers voor omroepen",
+          "digest_time": "Dagelijks takenoverzicht om"
+        }
+      },
+      "summary": {
+        "title": "Klaar om te groeien",
+        "description": "**Klimaat**: {hemisphere} halfrond, laatste vorst {last_frost}, eerste vorst {first_frost}\n**Weer**: {weather}\n**Tuindelen**:\n{areas}\n\nDe ingebouwde plantendatabase (20 groenten en kruiden) wordt automatisch geïnstalleerd. Open **Hortulus** in de zijbalk om te beginnen met plannen.",
+        "data": { "import_example_plan": "Voeg een klein voorbeeldplan toe (tomaat + basilicum + afrikaantje, wortel + ui, sla in opeenvolging)" }
+      }
+    },
+    "error": {
+      "invalid_frost_date": "Gebruik het formaat MM-DD, bijvoorbeeld 04-20.",
+      "invalid_zone": "Onbekende winterhardheidszone.",
+      "duplicate_name": "Deze naam is al in gebruik.",
+      "invalid_dimensions": "Afmetingen moeten tussen 0,1 en 100 m liggen."
+    },
+    "abort": {
+      "single_instance_allowed": "Hortulus is al ingesteld. Voeg extra bedden toe in het Hortulus-paneel."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hortulus-opties",
+        "description": "Bedden, zones en sensorkoppelingen bewerk je in het Hortulus-paneel (tabblad Instellingen).",
+        "menu_options": {
+          "region_mode": "Klimaat en vorstdata",
+          "weather": "Weer en buitensensoren",
+          "notifications": "Meldingen",
+          "advanced": "Geavanceerd"
+        }
+      },
+      "region_mode": {
+        "title": "Klimaatprofiel",
+        "data": { "region_mode": "Klimaatprofiel" }
+      },
+      "region": {
+        "title": "Jouw klimaat",
+        "data": {
+          "hemisphere": "Halfrond",
+          "preset": "Regio",
+          "hardiness_zone": "USDA-winterhardheidszone",
+          "last_frost": "Gemiddelde laatste voorjaarsvorst (MM-DD)",
+          "first_frost": "Gemiddelde eerste najaarsvorst (MM-DD)"
+        }
+      },
+      "weather": {
+        "title": "Weer",
+        "data": {
+          "weather_entity": "Weerentiteit",
+          "outdoor_temperature": "Buitentemperatuursensor",
+          "rain_sensor": "Regensensor"
+        }
+      },
+      "notifications": {
+        "title": "Meldingen",
+        "data": {
+          "persistent_notifications": "Blijvende meldingen in Home Assistant",
+          "notify_services": "Pushmeldingen (notify-diensten)",
+          "tts_entity": "Tekst-naar-spraak",
+          "tts_media_players": "Speakers voor omroepen",
+          "digest_time": "Dagelijks takenoverzicht om",
+          "frost_alerts": "Vorstwaarschuwingen",
+          "heat_alerts": "Hittewaarschuwingen kas",
+          "tts_frost_announcement": "Vorstwaarschuwing omroepen via speakers"
+        }
+      },
+      "advanced": {
+        "title": "Geavanceerd",
+        "data": {
+          "language": "Taal van gegenereerde taken",
+          "companion_radius_cm": "Bereik van buurplanten",
+          "sensor_stale_minutes": "Sensor verouderd na",
+          "root_zone_depth_mm": "Diepte wortelzone",
+          "max_irrigation_mm": "Maximale beregening per keer"
+        }
+      }
+    },
+    "error": {
+      "invalid_frost_date": "Gebruik het formaat MM-DD, bijvoorbeeld 04-20.",
+      "invalid_zone": "Onbekende winterhardheidszone."
+    }
+  },
+  "selector": {
+    "region_mode": { "options": { "preset": "Regionale voorinstelling", "usda": "USDA-winterhardheidszone", "custom": "Eigen vorstdata" } },
+    "hemisphere": { "options": { "north": "Noordelijk", "south": "Zuidelijk" } },
+    "preset": {
+      "options": {
+        "nl_be": "Nederland / Vlaanderen",
+        "uk_south": "Verenigd Koninkrijk (zuid)",
+        "uk_north": "Verenigd Koninkrijk (noord)",
+        "de_central": "Duitsland (midden)",
+        "fr_north": "Frankrijk (noord)",
+        "scandinavia_south": "Zuid-Scandinavië",
+        "mediterranean": "Middellandse Zee",
+        "au_melbourne": "Australië (Melbourne)",
+        "nz_christchurch": "Nieuw-Zeeland (Christchurch)",
+        "za_highveld": "Zuid-Afrika (Highveld)"
+      }
+    },
+    "area_type": { "options": { "outdoor": "Bed buiten", "greenhouse": "Kas", "container": "Bak / pot" } },
+    "soil": {
+      "options": {
+        "sandy": "Zand", "loam": "Leem", "clay": "Klei", "silt": "Löss / slib",
+        "peat": "Veen", "chalk": "Kalk", "potting_mix": "Potgrond"
+      }
+    },
+    "wind": { "options": { "sheltered": "Beschut", "moderate": "Gemiddeld", "exposed": "Winderig" } },
+    "language": { "options": { "auto": "Volg Home Assistant", "en": "English", "nl": "Nederlands" } },
+    "task_type": {
+      "options": {
+        "custom": "Eigen taak", "sow_indoor": "Binnen zaaien", "sow_direct": "Buiten zaaien", "harden_off": "Afharden",
+        "transplant": "Uitplanten", "thin": "Uitdunnen", "stake": "Ondersteunen", "prune": "Snoeien / dieven", "pinch": "Toppen",
+        "earth_up": "Aanaarden", "feed": "Bemesten", "water": "Water geven", "weed": "Wieden", "pest_check": "Plaagcontrole",
+        "harvest": "Oogsten", "ventilate": "Luchten", "shade": "Schaduwen", "frost_protect": "Vorstbescherming"
+      }
+    },
+    "priority": { "options": { "low": "Laag", "normal": "Normaal", "high": "Hoog", "urgent": "Dringend" } },
+    "import_mode": { "options": { "merge": "Samenvoegen (toevoegen/bijwerken)", "replace": "Indeling en beplanting vervangen" } }
+  },
+  "entity": {
+    "sensor": {
+      "frost_risk_next_48h": {
+        "name": "Vorstrisico komende 48 uur",
+        "state": { "none": "Geen", "low": "Laag", "moderate": "Matig", "high": "Hoog", "unknown": "Onbekend" }
+      },
+      "growing_degree_days": { "name": "Graaddagen" },
+      "tasks_due_today": { "name": "Taken vandaag" },
+      "next_task": { "name": "Volgende taak" },
+      "moisture_status": {
+        "name": "Vochtstatus",
+        "state": { "dry": "Droog", "slightly_dry": "Iets droog", "optimal": "Optimaal", "wet": "Nat", "unknown": "Onbekend" }
+      },
+      "irrigation_recommendation": { "name": "Beregeningsadvies" },
+      "companion_score": { "name": "Buurplantenscore" },
+      "greenhouse_advice": {
+        "name": "Kasadvies",
+        "state": { "none": "Geen actie", "ventilate": "Luchten", "shade": "Schaduwen", "close_up": "Sluiten", "heat": "Verwarmen" }
+      }
+    },
+    "binary_sensor": {
+      "frost_warning": { "name": "Vorstwaarschuwing" },
+      "needs_water": { "name": "Heeft water nodig" },
+      "heat_stress": { "name": "Hittestress" }
+    },
+    "button": {
+      "generate_tasks": { "name": "Taken genereren" },
+      "refresh_forecast": { "name": "Verwachting verversen" }
+    },
+    "calendar": {
+      "tasks": { "name": "Tuintaken" }
+    },
+    "todo": {
+      "this_week": { "name": "Deze week" }
+    }
+  },
+  "services": {
+    "add_task": {
+      "name": "Taak toevoegen",
+      "description": "Voegt een tuintaak toe (optioneel herhalend).",
+      "fields": {
+        "title": { "name": "Titel", "description": "Wat er moet gebeuren." },
+        "due_date": { "name": "Datum", "description": "Standaard vandaag." },
+        "type": { "name": "Soort", "description": "Taakcategorie (bepaalt icoon en statistiek)." },
+        "description": { "name": "Omschrijving", "description": "Details of instructies." },
+        "priority": { "name": "Prioriteit", "description": "Laag, normaal, hoog of dringend." },
+        "estimated_minutes": { "name": "Geschatte duur", "description": "Aantal minuten." },
+        "bed": { "name": "Bed", "description": "Id of naam van het bed." },
+        "planting_id": { "name": "Beplanting", "description": "Koppel de taak aan een beplanting." },
+        "recurrence_days": { "name": "Herhaal elke", "description": "Herhaal de taak N dagen na afronden." },
+        "until": { "name": "Herhaal tot", "description": "Laatste datum van de herhaling." }
+      }
+    },
+    "complete_task": {
+      "name": "Taak afronden",
+      "description": "Markeert een taak als gedaan, werkt de beplanting bij en plant de volgende herhaling in.",
+      "fields": {
+        "task_id": { "name": "Taak", "description": "Id van de taak." },
+        "note": { "name": "Notitie", "description": "Optionele notitie (bv. oogstgewicht)." },
+        "photos": { "name": "Foto's", "description": "Afbeelding-id's of URL's." },
+        "skipped": { "name": "Overgeslagen", "description": "Markeer als overgeslagen in plaats van gedaan." }
+      }
+    },
+    "postpone_task": {
+      "name": "Taak uitstellen",
+      "description": "Verplaatst een taak; afhankelijke taken van dezelfde beplanting schuiven mee.",
+      "fields": {
+        "task_id": { "name": "Taak", "description": "Id van de taak." },
+        "days": { "name": "Dagen", "description": "Aantal dagen verschuiven (negatief = eerder)." },
+        "to_date": { "name": "Nieuwe datum", "description": "Expliciete nieuwe datum." },
+        "reason": { "name": "Reden", "description": "Wordt als notitie bewaard." },
+        "cascade": { "name": "Afhankelijke taken meenemen", "description": "Verplaats bv. ook 'uitplanten' als 'zaaien' wordt uitgesteld." }
+      }
+    },
+    "delete_task": {
+      "name": "Taak verwijderen",
+      "description": "Verwijdert een eigen taak; gegenereerde taken worden als overgeslagen gemarkeerd.",
+      "fields": { "task_id": { "name": "Taak", "description": "Id van de taak." } }
+    },
+    "generate_tasks": {
+      "name": "Taken genereren",
+      "description": "Genereert taken opnieuw uit plan, plantendatabase, sensoren en verwachting. Veilig om vaak te draaien."
+    },
+    "recalculate_plan": {
+      "name": "Plan herberekenen",
+      "description": "Ververst de weersverwachting en herberekent alle vensters, waarschuwingen en adviezen."
+    },
+    "export_plan": {
+      "name": "Plan exporteren",
+      "description": "Geeft het tuinplan terug als JSON-compatibel antwoord.",
+      "fields": {
+        "include_tasks": { "name": "Inclusief taken", "description": "Exporteer ook de taken." },
+        "seasons": { "name": "Seizoenen", "description": "Alleen beplanting van deze seizoenen." }
+      }
+    },
+    "import_plan": {
+      "name": "Plan importeren",
+      "description": "Importeert een plan uit export_plan of het paneel.",
+      "fields": {
+        "plan": { "name": "Plan", "description": "Het plandocument." },
+        "mode": { "name": "Modus", "description": "Samenvoegen of vervangen." }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": { "message": "Hortulus is niet ingesteld of niet geladen." },
+    "unknown_task": { "message": "Taak {task} bestaat niet." },
+    "unknown_bed": { "message": "Bed {bed} bestaat niet." },
+    "unknown_planting": { "message": "Beplanting {planting} bestaat niet." },
+    "unknown_plant": { "message": "Plant {plant} bestaat niet." },
+    "plant_in_use": { "message": "Plant {plant} wordt gebruikt in het plan en kan niet verwijderd worden." },
+    "invalid_plan": { "message": "Ongeldig plan: {reason}" },
+    "invalid_plant": { "message": "Ongeldige plant: {reason}" },
+    "invalid_settings": { "message": "Ongeldige instellingen: {reason}" }
+  }
+}

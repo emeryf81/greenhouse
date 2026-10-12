@@ -1,0 +1,500 @@
+"""Websocket API consumed by the Hortulus panel.
+
+All commands live under ``garden_manager/``.  Reads are available to every
+authenticated user; layout, plant database and settings writes require an
+admin.  Task actions are allowed for everyone - family members tick off
+chores too.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+import json
+from typing import TYPE_CHECKING, Any
+
+from homeassistant.components import websocket_api
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import dt as dt_util, yaml as yaml_util
+import voluptuous as vol
+
+from .const import DOMAIN
+from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
+from .engine.models import GardenBed, Planting
+from .engine.planio import PlanImportError, export_plan, import_plan
+from .engine.plantdb import FAMILIES
+from .engine.region import season_anchors, season_for_date
+from .engine.schedule import plant_windows, planting_timeline
+from .engine.serde import from_dict, to_dict
+from .engine.succession import expand_succession
+from .operations import (
+    RevisionConflict,
+    op_add_task,
+    op_complete_task,
+    op_delete_plant,
+    op_delete_task,
+    op_postpone_task,
+    op_save_plan,
+    op_save_plant,
+    op_save_settings,
+    op_update_task,
+)
+
+if TYPE_CHECKING:
+    from . import GardenRuntime
+
+DONE_TASK_WINDOW_DAYS = 60
+
+
+@callback
+def async_setup_websocket(hass: HomeAssistant) -> None:
+    for command in (
+        ws_subscribe,
+        ws_plants,
+        ws_plant_save,
+        ws_plant_delete,
+        ws_plant_windows,
+        ws_plan_save,
+        ws_plan_check,
+        ws_plan_succession,
+        ws_plan_export,
+        ws_plan_import,
+        ws_task_add,
+        ws_task_action,
+        ws_settings_save,
+    ):
+        websocket_api.async_register_command(hass, command)
+
+
+def _runtime(hass: HomeAssistant) -> GardenRuntime | None:
+    entries = hass.config_entries.async_loaded_entries(DOMAIN)
+    return entries[0].runtime_data if entries else None
+
+
+def _require_runtime(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> GardenRuntime | None:
+    runtime = _runtime(hass)
+    if runtime is None:
+        connection.send_error(msg["id"], "not_loaded", "Hortulus is not set up")
+    return runtime
+
+
+def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
+    """Everything the panel renders, in one JSON document."""
+    data = runtime.repo.data
+    coordinator = runtime.coordinator
+    cutoff = dt_util.now().date().toordinal() - DONE_TASK_WINDOW_DAYS
+    tasks = [t for t in data.tasks if t.is_open or t.due.toordinal() >= cutoff]
+    weather = coordinator.weather
+    return {
+        "revision": data.revision,
+        "lang": coordinator.lang,
+        "settings": to_dict(data.settings),
+        "zones": [to_dict(z) for z in data.zones],
+        "beds": [to_dict(b) for b in data.beds],
+        "plantings": [to_dict(p) for p in data.plantings],
+        "tasks": [to_dict(t) for t in tasks],
+        "rotation_history": [to_dict(r) for r in data.rotation_history],
+        "analysis": coordinator.data.to_dict() if coordinator.data else None,
+        "weather": {
+            "available": weather.available,
+            "temperature": weather.temperature,
+            "condition": weather.condition,
+            "fetched_at": weather.fetched_at.isoformat() if weather.fetched_at else None,
+            "daily": [to_dict(p) for p in weather.daily[:7]],
+            "hourly": [to_dict(p) for p in weather.hourly[:48]],
+            "error": weather.error,
+        },
+    }
+
+
+# --------------------------------------------------------------------------- #
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
+@callback
+def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Push a full snapshot now and after every coordinator update."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+
+    @callback
+    def push() -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], build_snapshot(runtime)))
+
+    unsub = runtime.coordinator.async_add_listener(push)
+    connection.subscriptions[msg["id"]] = unsub
+    connection.send_result(msg["id"])
+    push()
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plants"})
+@callback
+def ws_plants(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    db = runtime.repo.db
+    connection.send_result(
+        msg["id"],
+        {
+            "plants": db.as_dicts(),
+            "families": FAMILIES,
+            "overrides": runtime.repo.data.plant_overrides,
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plants/save",
+        vol.Required("plant"): dict,
+        vol.Optional("mode", default="custom"): vol.In(["custom", "override"]),
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_plant_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    try:
+        plant = op_save_plant(runtime, msg["plant"], msg["mode"])
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "invalid_plant", str(err))
+        return
+    connection.send_result(msg["id"], {"plant": to_dict(plant)})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plants/delete", vol.Required("plant_id"): str})
+@websocket_api.require_admin
+@callback
+def ws_plant_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    try:
+        op_delete_plant(runtime, msg["plant_id"])
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "plant_in_use", str(err))
+        return
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plants/windows",
+        vol.Required("plant_id"): str,
+        vol.Optional("zone_id"): vol.Any(str, None),
+        vol.Optional("season"): vol.Any(int, None),
+    }
+)
+@callback
+def ws_plant_windows(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Absolute sowing windows of a plant (library + planner tooltips)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    db = runtime.repo.db
+    plant = db.get(msg["plant_id"])
+    if plant is None:
+        connection.send_error(msg["id"], "unknown_plant", msg["plant_id"])
+        return
+    region = data.settings.region
+    season = msg.get("season") or season_for_date(region, dt_util.now().date())
+    anchors = season_anchors(region, season)
+    windows = plant_windows(plant, anchors, data.zone(msg.get("zone_id")))
+    connection.send_result(
+        msg["id"],
+        {
+            "season": season,
+            "windows": windows.to_dict(),
+            "companions": [{"plant_id": pid, "strength": s} for pid, s in suggest_companions(plant.id, db)],
+            "enemies": db.enemies_of(plant.id),
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/save",
+        vol.Optional("base_revision"): vol.Any(int, None),
+        vol.Required("zones"): list,
+        vol.Required("beds"): list,
+        vol.Required("plantings"): list,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_plan_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    try:
+        revision = op_save_plan(
+            hass,
+            runtime,
+            base_revision=msg.get("base_revision"),
+            zones=msg["zones"],
+            beds=msg["beds"],
+            plantings=msg["plantings"],
+        )
+    except RevisionConflict as err:
+        connection.send_error(msg["id"], "revision_conflict", str(err))
+        return
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "invalid_plan", str(err))
+        return
+    connection.send_result(msg["id"], {"revision": revision})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/check",
+        vol.Required("bed"): dict,
+        vol.Required("plantings"): list,
+    }
+)
+@callback
+def ws_plan_check(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Live feedback for a *draft* bed while dragging (nothing is saved)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    db = runtime.repo.db
+    lang = runtime.coordinator.lang
+    try:
+        bed = from_dict(GardenBed, msg["bed"])
+        plantings = [from_dict(Planting, p) for p in msg["plantings"]]
+    except (TypeError, ValueError, KeyError) as err:
+        connection.send_error(msg["id"], "invalid_format", str(err))
+        return
+    today = dt_util.now().date()
+    zone = data.zone(bed.zone_id)
+    timelines = {}
+    for p in plantings:
+        plant = db.get(p.plant_id)
+        if plant is not None:
+            timelines[p.id] = planting_timeline(p, plant, season_anchors(data.settings.region, p.season), zone, today)
+    report = check_bed(
+        bed,
+        plantings,
+        db,
+        timelines={k: v.occupancy for k, v in timelines.items()},
+        radius_cm=data.settings.companion_radius_cm,
+        lang=lang,
+    )
+    others = [p for p in data.plantings if p.id not in {d.id for d in plantings}]
+    history = rotation_history(data.rotation_history, others, db)
+    rotation = [f.to_dict() for p in plantings for f in check_rotation(p, bed, history, db, lang=lang)]
+    connection.send_result(
+        msg["id"],
+        {
+            **report.to_dict(),
+            "rotation": rotation,
+            "timelines": {k: v.to_dict() for k, v in timelines.items()},
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/succession",
+        vol.Required("planting"): dict,
+        vol.Required("count"): vol.All(int, vol.Range(min=1, max=20)),
+        vol.Optional("interval_days"): vol.Any(None, vol.All(int, vol.Range(min=1, max=120))),
+        vol.Optional("placement", default="split"): vol.In(["split", "stack"]),
+    }
+)
+@callback
+def ws_plan_succession(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    try:
+        base = from_dict(Planting, msg["planting"])
+    except (TypeError, ValueError, KeyError) as err:
+        connection.send_error(msg["id"], "invalid_format", str(err))
+        return
+    plant = runtime.repo.db.get(base.plant_id)
+    bed = data.bed(base.bed_id)
+    if plant is None:
+        connection.send_error(msg["id"], "unknown_plant", base.plant_id)
+        return
+    zone = data.zone(bed.zone_id) if bed else None
+    plantings, dropped = expand_succession(
+        base,
+        plant,
+        season_anchors(data.settings.region, base.season),
+        zone,
+        count=msg["count"],
+        interval_days=msg.get("interval_days"),
+        placement=msg["placement"],
+    )
+    connection.send_result(msg["id"], {"plantings": [to_dict(p) for p in plantings], "dropped": dropped})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/export",
+        vol.Optional("format", default="json"): vol.In(["json", "yaml"]),
+        vol.Optional("include_tasks", default=False): bool,
+    }
+)
+@callback
+def ws_plan_export(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    doc = export_plan(runtime.repo.data, now=dt_util.now(), include_tasks=msg["include_tasks"])
+    stamp = date.today().isoformat()
+    if msg["format"] == "yaml":
+        content = yaml_util.dump(doc)
+        filename = f"hortulus-plan-{stamp}.yaml"
+    else:
+        content = json.dumps(doc, indent=2, ensure_ascii=False)
+        filename = f"hortulus-plan-{stamp}.json"
+    connection.send_result(msg["id"], {"filename": filename, "content": content})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/import",
+        vol.Required("content"): str,
+        vol.Optional("mode", default="merge"): vol.In(["merge", "replace"]),
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_plan_import(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    text = msg["content"].strip()
+    try:
+        doc = json.loads(text) if text.startswith("{") else yaml_util.parse_yaml(text)
+        if not isinstance(doc, dict):
+            raise PlanImportError("Plan must be a mapping")
+        counts = import_plan(runtime.repo.data, doc, msg["mode"])
+    except (PlanImportError, ValueError, HomeAssistantError) as err:
+        connection.send_error(msg["id"], "invalid_plan", str(err))
+        return
+    runtime.repo.async_changed("import", bump_revision=False)
+    connection.send_result(msg["id"], {"counts": counts, "revision": runtime.repo.data.revision})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/tasks/add",
+        vol.Required("title"): str,
+        vol.Optional("due"): vol.Any(str, None),
+        vol.Optional("task_type", default="custom"): str,
+        vol.Optional("description", default=""): str,
+        vol.Optional("priority", default="normal"): vol.In(["low", "normal", "high", "urgent"]),
+        vol.Optional("estimated_minutes"): vol.Any(int, None),
+        vol.Optional("bed_id"): vol.Any(str, None),
+        vol.Optional("planting_id"): vol.Any(str, None),
+        vol.Optional("recurrence_days"): vol.Any(int, None),
+        vol.Optional("until"): vol.Any(str, None),
+    }
+)
+@callback
+def ws_task_add(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    try:
+        task_id = op_add_task(
+            runtime,
+            title=msg["title"],
+            due=date.fromisoformat(msg["due"]) if msg.get("due") else None,
+            task_type=msg["task_type"],
+            description=msg["description"],
+            priority=msg["priority"],
+            minutes=msg.get("estimated_minutes"),
+            bed=msg.get("bed_id"),
+            planting_id=msg.get("planting_id"),
+            recurrence_days=msg.get("recurrence_days"),
+            until=date.fromisoformat(msg["until"]) if msg.get("until") else None,
+        )
+    except (HomeAssistantError, ValueError) as err:
+        connection.send_error(msg["id"], "invalid_task", str(err))
+        return
+    connection.send_result(msg["id"], {"task_id": task_id})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/tasks/action",
+        vol.Required("task_id"): str,
+        vol.Required("action"): vol.In(["complete", "skip", "postpone", "update", "delete", "reopen"]),
+        vol.Optional("note"): vol.Any(str, None),
+        vol.Optional("photos"): [str],
+        vol.Optional("days"): vol.Any(int, None),
+        vol.Optional("to"): vol.Any(str, None),
+        vol.Optional("cascade", default=True): bool,
+        vol.Optional("changes"): dict,
+    }
+)
+@callback
+def ws_task_action(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    task_id, action = msg["task_id"], msg["action"]
+    result: dict[str, Any] = {}
+    try:
+        if action in ("complete", "skip"):
+            res = op_complete_task(
+                hass,
+                runtime,
+                task_id,
+                note=msg.get("note"),
+                photos=msg.get("photos", []),
+                skipped=action == "skip",
+                user_id=connection.user.id,
+            )
+            result = {"next_task_id": res.next_task.id if res.next_task else None}
+        elif action == "postpone":
+            res_p = op_postpone_task(
+                runtime,
+                task_id,
+                days=msg.get("days"),
+                to=date.fromisoformat(msg["to"]) if msg.get("to") else None,
+                reason=msg.get("note"),
+                cascade=msg["cascade"],
+            )
+            result = {"shifted": [t.id for t in res_p.shifted], "warnings": res_p.warnings}
+        elif action == "delete":
+            op_delete_task(runtime, task_id)
+        else:
+            changes = dict(msg.get("changes") or {})
+            if action == "reopen":
+                changes["reopen"] = True
+            if msg.get("note"):
+                changes["note"] = msg["note"]
+            if "photos" in msg:
+                changes["photos"] = msg["photos"]
+            op_update_task(runtime, task_id, changes)
+    except (HomeAssistantError, ValueError) as err:
+        connection.send_error(msg["id"], "task_error", str(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/save", vol.Required("settings"): dict})
+@websocket_api.require_admin
+@callback
+def ws_settings_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    try:
+        settings = op_save_settings(runtime, msg["settings"])
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "invalid_settings", str(err))
+        return
+    connection.send_result(msg["id"], {"settings": to_dict(settings)})

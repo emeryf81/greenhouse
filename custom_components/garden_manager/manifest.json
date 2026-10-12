@@ -1,0 +1,15 @@
+{
+  "domain": "garden_manager",
+  "name": "Hortulus Garden Manager",
+  "after_dependencies": ["weather", "notify", "tts", "switch", "valve"],
+  "codeowners": ["@emeryf81"],
+  "config_flow": true,
+  "dependencies": ["http", "frontend", "panel_custom", "websocket_api", "persistent_notification", "image_upload"],
+  "documentation": "https://github.com/emeryf81/greenhouse",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/emeryf81/greenhouse/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

@@ -1,0 +1,149 @@
+add_task:
+  fields:
+    title:
+      required: true
+      example: "Check slug traps"
+      selector:
+        text:
+    due_date:
+      example: "2026-05-01"
+      selector:
+        date:
+    type:
+      default: custom
+      selector:
+        select:
+          translation_key: task_type
+          options:
+            - custom
+            - sow_indoor
+            - sow_direct
+            - harden_off
+            - transplant
+            - thin
+            - stake
+            - prune
+            - pinch
+            - earth_up
+            - feed
+            - water
+            - weed
+            - pest_check
+            - harvest
+            - ventilate
+            - shade
+            - frost_protect
+    description:
+      selector:
+        text:
+          multiline: true
+    priority:
+      default: normal
+      selector:
+        select:
+          translation_key: priority
+          options:
+            - low
+            - normal
+            - high
+            - urgent
+    estimated_minutes:
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
+    bed:
+      example: "Bed 1"
+      selector:
+        text:
+    planting_id:
+      selector:
+        text:
+    recurrence_days:
+      selector:
+        number:
+          min: 1
+          max: 365
+          unit_of_measurement: d
+    until:
+      selector:
+        date:
+
+complete_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+    note:
+      selector:
+        text:
+          multiline: true
+    photos:
+      selector:
+        text:
+          multiple: true
+    skipped:
+      default: false
+      selector:
+        boolean:
+
+postpone_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+    days:
+      selector:
+        number:
+          min: -365
+          max: 365
+          unit_of_measurement: d
+    to_date:
+      selector:
+        date:
+    reason:
+      selector:
+        text:
+    cascade:
+      default: true
+      selector:
+        boolean:
+
+delete_task:
+  fields:
+    task_id:
+      required: true
+      selector:
+        text:
+
+generate_tasks:
+
+recalculate_plan:
+
+export_plan:
+  fields:
+    include_tasks:
+      default: false
+      selector:
+        boolean:
+    seasons:
+      selector:
+        object:
+
+import_plan:
+  fields:
+    plan:
+      required: true
+      selector:
+        object:
+    mode:
+      default: merge
+      selector:
+        select:
+          translation_key: import_mode
+          options:
+            - merge
+            - replace
