@@ -262,6 +262,15 @@ export class HortulusPanel extends LitElement {
     }
   }
 
+  private async closeValve(entityId: string): Promise<void> {
+    try {
+      const res = await this.api!.irrigationClose(entityId);
+      this.toast(res.state === "off" || res.state === "closed" ? this.t("valve.closed") : this.t("valve.still_open", { state: res.state ?? "?" }));
+    } catch (err) {
+      this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
   private async postponeTask(task: Task, days: number): Promise<void> {
     try {
       await this.api!.taskAction(task.id, "postpone", { days });
@@ -345,6 +354,7 @@ export class HortulusPanel extends LitElement {
         @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}
         @postpone-task=${(e: CustomEvent<{ task: Task; days: number }>) => this.postponeTask(e.detail.task, e.detail.days)}
         @irrigation=${(e: CustomEvent<"run" | "stop">) => this.irrigation(e.detail)}
+        @close-valve=${(e: CustomEvent<string>) => this.closeValve(e.detail)}
         @new-task=${() => (this.creatingTask = true)}
         @navigate=${(e: CustomEvent<Tab>) => this.navigate(e.detail)}
         @season-changed=${(e: CustomEvent<number>) => (this.plannerSeason = e.detail)}

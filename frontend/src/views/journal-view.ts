@@ -9,6 +9,7 @@ import type { FamilyInfo, JournalEntry, Plant, Planting, RecordsOverview, SeedPa
 import { familyColor, formatDate, plantName, presentIn } from "../util/garden";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import "../components/date-input";
+import "../components/water-chart";
 
 type Section = "diary" | "harvest" | "seeds" | "water" | "system";
 const SYSLOG_PAGE = 50;
@@ -33,6 +34,8 @@ export class JournalView extends LitElement {
   /** Show only the system log (used by the Analysis tab). */
   @property({ type: Boolean }) systemOnly = false;
 
+  @state() private waterBed = "";
+  @state() private waterDays = 14;
   @state() private overview: RecordsOverview | null = null;
   @state() private filter = "";
   @state() private draftPhotos: string[] = [];
@@ -409,6 +412,24 @@ export class JournalView extends LitElement {
       ${w?.per_day.length ? html`<h3>${this.t("journal.per_day")}</h3><div class="days" role="img" aria-label=${this.t("journal.per_day")}>
         ${w.per_day.map((d) => html`<div title=${`${d.day}: ${d.liters} L`} style=${`height:${(d.liters / max) * 100}%`}></div>`)}</div>` : nothing}
       <p class="xs muted">${this.t("journal.water_hint")}</p>
+    </section>
+    ${this.renderBedWater()}`;
+  }
+
+  /** Per bed: moisture, water given and rain over the last two weeks. */
+  private renderBedWater(): TemplateResult | typeof nothing {
+    const beds = this.snapshot.beds.filter((b) => b.irrigation_entity || b.sensors?.soil_moisture);
+    if (!beds.length) return nothing;
+    const bed = beds.find((b) => b.id === this.waterBed) ?? beds[0];
+    return html`<section class="card stack" aria-labelledby="wb-h">
+      <h2 id="wb-h"><ha-icon icon="mdi:chart-bell-curve"></ha-icon> ${this.t("water.per_bed")}</h2>
+      <div class="row wrap">
+        <select style="width:auto" aria-label=${this.t("task.bed")} @change=${(e: Event) => (this.waterBed = (e.target as HTMLSelectElement).value)}>
+          ${beds.map((b) => html`<option value=${b.id} ?selected=${b.id === bed.id}>${b.name}</option>`)}</select>
+        ${[7, 14, 30].map((n) => html`<button class="chip" aria-pressed=${String(this.waterDays === n)} @click=${() => (this.waterDays = n)}>${this.t("water.days", { n })}</button>`)}
+      </div>
+      <hl-water-chart .bed=${bed} .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} days=${this.waterDays}></hl-water-chart>
+      <p class="xs muted">${this.t("water.chart_hint")}</p>
     </section>`;
   }
 

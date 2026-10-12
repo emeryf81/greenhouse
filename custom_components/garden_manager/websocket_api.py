@@ -129,6 +129,8 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_analysis_fix,
         ws_plan_compare,
         ws_still_possible,
+        ws_irrigation_test,
+        ws_irrigation_close,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -199,7 +201,7 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
         "transition_due": seasons.pending_transition(
             data, coordinator.data.season if coordinator.data else data.layout_season or 0
         ),
-        "irrigation_log": [to_dict(e) for e in data.irrigation_log[-50:]],
+        "irrigation_log": [to_dict(e) for e in data.irrigation_log[-300:]],
         "harvest_log": [to_dict(e) for e in data.harvest_log[-300:]],
         "journal": [to_dict(e) for e in data.journal[-200:]],
         "seed_stock": [to_dict(e) for e in data.seed_stock],
@@ -208,6 +210,10 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
             "bed_id": runtime.irrigation.status.bed_id,
             "ends_at": runtime.irrigation.status.ends_at.isoformat() if runtime.irrigation.status.ends_at else None,
             "last_error": runtime.irrigation.status.last_error,
+            "stuck": [
+                {"entity_id": e, "since": since.isoformat(), "what": runtime.irrigation.valve_entities().get(e, e)}
+                for e, since in runtime.irrigation.stuck.items()
+            ],
         },
         "analysis": coordinator.data.to_dict() if coordinator.data else None,
         "weather": {
@@ -1423,3 +1429,56 @@ def ws_still_possible(hass: HomeAssistant, connection: websocket_api.ActiveConne
             runtime.repo.data, runtime.repo.db, msg["season"], today=today, lang=runtime.coordinator.lang
         )
         connection.send_result(msg["id"], {"season": msg["season"], "plants": rows})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/irrigation/test",
+        vol.Required("entity_id"): str,
+        vol.Optional("seconds", default=5): vol.All(vol.Coerce(float), vol.Range(min=1, max=60)),
+        vol.Optional("with_pump", default=True): bool,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_irrigation_test(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Open a valve for a few seconds and check it reports open and closed again."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    if msg["entity_id"] not in runtime.irrigation.valve_entities():
+        connection.send_error(msg["id"], "unknown_entity", msg["entity_id"])
+        return
+    try:
+        result = await runtime.irrigation.async_test(
+            msg["entity_id"], seconds=msg["seconds"], with_pump=msg["with_pump"]
+        )
+    except HomeAssistantError as err:
+        _log_error(hass, msg, "irrigation_test", err)
+        connection.send_error(msg["id"], "irrigation_test", str(err))
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/close", vol.Required("entity_id"): str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_irrigation_close(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Close a valve (or stop the pump) that stayed open."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    if msg["entity_id"] not in runtime.irrigation.valve_entities():
+        connection.send_error(msg["id"], "unknown_entity", msg["entity_id"])
+        return
+    try:
+        state = await runtime.irrigation.async_close(msg["entity_id"])
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "irrigation_close", str(err))
+        return
+    runtime.coordinator.async_update_listeners()
+    connection.send_result(msg["id"], {"state": state})

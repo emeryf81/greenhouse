@@ -576,7 +576,11 @@ export interface Snapshot {
   journal?: JournalEntry[];
   seed_stock?: SeedPacket[];
   irrigation_log?: { bed_id: string; at: ISODateTime; mm: number; liters: number; minutes: number; source: string }[];
-  irrigation_status?: { running: boolean; bed_id: string | null; ends_at: ISODateTime | null; last_error: string | null };
+  irrigation_status?: {
+    running: boolean; bed_id: string | null; ends_at: ISODateTime | null; last_error: string | null;
+    /** Valves or the pump open far longer than any run could last. */
+    stuck?: { entity_id: string; since: ISODateTime; what: string }[];
+  };
   analysis: Analysis | null;
   weather: {
     available: boolean;
@@ -600,6 +604,11 @@ export interface ArchivedPlanSummary {
 export interface Reason { code: string; params: Record<string, unknown> }
 
 export interface AnalysisIssue { code: string; severity: "error" | "warning" | "info"; params: Record<string, unknown>; refs: Record<string, string[]>; fixable?: boolean }
+
+export interface ValveTest {
+  entity_id: string; seconds: number; before: string | null; ok: boolean;
+  opened: boolean | null; open_state: string | null; closed: boolean; closed_state: string | null; pump: string | null;
+}
 
 export interface PlanRef { season?: number | null; plan_id?: string | null }
 

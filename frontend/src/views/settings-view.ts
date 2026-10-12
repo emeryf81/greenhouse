@@ -43,6 +43,8 @@ export class SettingsView extends LitElement {
   @property() lang = "en";
   @property({ type: Boolean }) admin = true;
   @state() private busy = false;
+  @state() private testing = "";
+  @state() private testResult: Record<string, string> = {};
 
   static styles = [
     shared,
@@ -114,6 +116,37 @@ export class SettingsView extends LitElement {
       this.toast(this.t("settings.saved"));
     } catch (err) {
       this.toast(this.t("common.error", { message: (err as Error).message }));
+    }
+  }
+
+  /** "Test" next to a valve or the pump: open it briefly and check it reports open and closed. */
+  private valveTest(entityId: string | null | undefined, withPump = true): TemplateResult | typeof nothing {
+    if (!entityId || !this.admin) return nothing;
+    const result = this.testResult[entityId];
+    return html`<div class="field valve-test">
+      <span>&nbsp;</span>
+      <div class="row wrap" style="gap:6px;align-items:center">
+        <button class="btn small" type="button" ?disabled=${!!this.testing} @click=${() => this.runValveTest(entityId, withPump)}>
+          <ha-icon icon="mdi:valve"></ha-icon>${this.testing === entityId ? this.t("valve.testing") : this.t("valve.test")}</button>
+        ${result ? html`<span class="small">${result}</span>` : nothing}
+      </div>
+    </div>`;
+  }
+
+  private async runValveTest(entityId: string, withPump: boolean): Promise<void> {
+    if (!confirm(this.t("valve.test_confirm", { entity: entityId }))) return;
+    this.testing = entityId;
+    try {
+      const r = await this.api.irrigationTest(entityId, 5, withPump);
+      const text = r.ok ? this.t("valve.test_ok", { open: r.open_state ?? "?", closed: r.closed_state ?? "?" })
+        : !r.opened ? this.t("valve.test_no_open", { state: r.open_state ?? "?" })
+        : this.t("valve.test_no_close", { state: r.closed_state ?? "?" });
+      this.testResult = { ...this.testResult, [entityId]: `${r.ok ? "✅" : "⚠️"} ${text}` };
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      this.testResult = { ...this.testResult, [entityId]: `⚠️ ${code === "unknown_entity" ? this.t("valve.test_save_first") : (err as Error).message}` };
+    } finally {
+      this.testing = "";
     }
   }
 
@@ -212,6 +245,7 @@ export class SettingsView extends LitElement {
           ${(["soil_moisture", "soil_temperature", "ec", "npk_n", "npk_p", "npk_k"] as SensorKey[]).map((k) =>
             this.entityInput(`${b.id}-${k}`, k, b.sensors[k], (v) => setBed(b.id, (bb) => (bb.sensors[k] = v)), this.t(`settings.sensor.${k}`)))}
           ${this.entityInput(`${b.id}-irr`, "irrigation", b.irrigation_entity, (v) => setBed(b.id, (bb) => (bb.irrigation_entity = v)), this.t("settings.irrigation"))}
+          ${this.valveTest(b.irrigation_entity)}
           <label class="field">${this.t("settings.flow")}<input type="number" min="0" step="0.1" .value=${String(b.irrigation_flow_lpm ?? "")} ?disabled=${!this.admin}
             @change=${(e: Event) => setBed(b.id, (bb) => (bb.irrigation_flow_lpm = Number((e.target as HTMLInputElement).value) || null))} /></label>
         </div>
@@ -236,6 +270,7 @@ export class SettingsView extends LitElement {
             ${(["off", "advise", "auto"] as const).map((m) => html`<option value=${m} ?selected=${cfg.mode === m}>${this.t(`settings.irrigation_mode.${m}`)}</option>`)}
           </select></label>
         ${this.entityInput("pump", "pump", cfg.pump_entity, (v) => set({ pump_entity: v }), this.t("settings.pump"))}
+        ${this.valveTest(cfg.pump_entity, false)}
         <label class="field">${this.t("settings.start_time")}<input type="time" .value=${cfg.start_time}
           @change=${(e: Event) => set({ start_time: (e.target as HTMLInputElement).value })} /></label>
         ${num("max_runtime_min", this.t("settings.max_runtime"), 1, 1, 180)}

@@ -29,6 +29,7 @@ import type {
   AnalysisResult,
   PlanComparison,
   PlanRef,
+  ValveTest,
   ExplainResult,
   TransitionPreview,
   TransitionResult,
@@ -250,6 +251,29 @@ export class GardenApi {
 
   irrigationStop(): Promise<void> {
     return this.call("irrigation/stop");
+  }
+
+  /** Open a valve for a few seconds and check it reports open and closed. */
+  irrigationTest(entityId: string, seconds = 5, withPump = true): Promise<ValveTest> {
+    return this.call("irrigation/test", { entity_id: entityId, seconds, with_pump: withPump });
+  }
+
+  irrigationClose(entityId: string): Promise<{ state: string | null }> {
+    return this.call("irrigation/close", { entity_id: entityId });
+  }
+
+  /** Home Assistant's recorder: states of a few entities over a period (minimal form). */
+  async history(entityIds: string[], start: Date, end = new Date()): Promise<Record<string, { s: string; lu: number }[]>> {
+    if (!entityIds.length) return {};
+    return this.hass.connection.sendMessagePromise({
+      type: "history/history_during_period",
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      entity_ids: entityIds,
+      minimal_response: true,
+      no_attributes: true,
+      significant_changes_only: false,
+    });
   }
 
   // -- advice, Q&A, supplies ------------------------------------------------ //

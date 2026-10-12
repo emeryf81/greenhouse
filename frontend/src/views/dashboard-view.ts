@@ -77,6 +77,19 @@ export class DashboardView extends LitElement {
     };
   }
 
+  /** A valve or the pump stayed open: say so, with a button to close it. */
+  private renderStuck(): TemplateResult | typeof nothing {
+    const stuck = this.snapshot.irrigation_status?.stuck ?? [];
+    if (!stuck.length) return nothing;
+    return html`<section class="alerts" aria-label=${this.t("valve.stuck_title")}>${stuck.map((v) => html`<div class="alert critical" role="alert">
+      <ha-icon icon="mdi:valve-open"></ha-icon>
+      <div><b>${this.t("valve.stuck", { what: v.what === "pump" ? this.t("valve.pump") : v.what, entity: v.entity_id })}</b>
+        <div class="small">${this.t("valve.stuck_since", { time: new Date(v.since).toLocaleTimeString(this.lang === "nl" ? "nl-NL" : "en-GB", { hour: "2-digit", minute: "2-digit" }) })}</div></div>
+      <span class="spacer"></span>
+      ${this.admin ? html`<button class="btn small danger" @click=${() => this.emit("close-valve", v.entity_id)}>${this.t("valve.close")}</button>` : nothing}
+    </div>`)}</section>`;
+  }
+
   private greeting(): string {
     const h = new Date().getHours();
     return this.t(h < 12 ? "dash.greeting_morning" : h < 18 ? "dash.greeting_afternoon" : "dash.greeting_evening");
@@ -102,6 +115,7 @@ export class DashboardView extends LitElement {
         <span class="chip"><ha-icon icon="mdi:thermometer-plus"></ha-icon>${Math.round(a.gdd.season_total)} GDD</span>
       </section>
 
+      ${this.renderStuck()}
       ${a.alerts.length ? html`<section class="alerts" aria-label="Alerts">
         ${a.alerts.map((al) => html`<div class="alert ${al.kind === "frost" ? "frost" : al.severity}" role=${al.severity === "critical" ? "alert" : "status"}>
           <ha-icon icon=${ALERT_ICON[al.kind] ?? "mdi:information-outline"}></ha-icon>

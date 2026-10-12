@@ -38,6 +38,24 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 VALVE_SETTLE_S = 1.0
+# How long a valve may take to report its new state.
+STATE_TIMEOUT_S = 5.0
+# A valve open this much longer than the longest allowed run (without Hortulus
+# watering) is reported as stuck.
+STUCK_MARGIN_MIN = 10
+TEST_MAX_S = 60
+
+_OPEN = {"on", "open", "opening"}
+_CLOSED = {"off", "closed", "closing"}
+
+
+def _is_open(state: str | None) -> bool | None:
+    """``True``/``False`` for a valve/switch state, ``None`` when unknown or unavailable."""
+    if state in _OPEN:
+        return True
+    if state in _CLOSED:
+        return False
+    return None
 
 
 def _on_service(entity_id: str, on: bool) -> tuple[str, str]:
@@ -73,6 +91,11 @@ class IrrigationController:
         self._lock = asyncio.Lock()
         self._task: asyncio.Task[None] | None = None
         self.status = RunStatus()
+        self.notifier: Any = None  # set by __init__ (GardenNotifier)
+        # entity_id -> since when it is open while Hortulus is not watering
+        self._open_since: dict[str, datetime] = {}
+        self.stuck: dict[str, datetime] = {}
+        self._reported: set[str] = set()
 
     @property
     def running(self) -> bool:
@@ -161,6 +184,9 @@ class IrrigationController:
                             await asyncio.sleep(settings.pump_lead_s)
                         await _switch(self.hass, run.entity_id, False)
                         touched.discard(run.entity_id)
+                        self.hass.async_create_background_task(
+                            self._verify_closed(run.entity_id, run.bed_id), "hortulus_verify_valve"
+                        )
                         # Interrupted runs book the time that really passed.
                         ran_min = minutes if completed else (dt_util.now() - started).total_seconds() / 60
                         self._log(run.bed_id, min(ran_min, minutes), run, source)
@@ -186,6 +212,126 @@ class IrrigationController:
                 self.status.bed_id = None
                 self.status.ends_at = None
                 self.coordinator.repo.async_changed("tasks", source="system")
+
+    # ------------------------------------------------------------------ #
+    # Checking the hardware
+    # ------------------------------------------------------------------ #
+    def valve_entities(self) -> dict[str, str]:
+        """Every valve/pump Hortulus drives -> what it is (bed name or ``pump``)."""
+        data = self.coordinator.repo.data
+        out = {b.irrigation_entity: b.name for b in data.beds if b.irrigation_entity}
+        if data.settings.irrigation.pump_entity:
+            out[data.settings.irrigation.pump_entity] = "pump"
+        return out
+
+    def _state(self, entity_id: str) -> str | None:
+        state = self.hass.states.get(entity_id)
+        return state.state if state else None
+
+    async def _wait_for(self, entity_id: str, want_open: bool) -> str | None:
+        """Wait until the entity reports the wanted state; returns the last state seen."""
+        for _ in range(max(1, int(STATE_TIMEOUT_S / 0.25))):
+            state = self._state(entity_id)
+            if _is_open(state) is want_open:
+                return state
+            await asyncio.sleep(0.25)
+        return self._state(entity_id)
+
+    async def _verify_closed(self, entity_id: str, bed_id: str | None) -> None:
+        state = await self._wait_for(entity_id, False)
+        if _is_open(state):
+            self._problem(entity_id, "valve_not_closed", state, bed_id=bed_id)
+
+    def _problem(self, entity_id: str, code: str, state: str | None, *, bed_id: str | None = None) -> None:
+        """Log a hardware problem and notify (once per valve until it is fine again)."""
+        what = self.valve_entities().get(entity_id, entity_id)
+        message = f"{entity_id} ({what}): {code}, state {state!r}"
+        _LOGGER.warning("Irrigation hardware: %s", message)
+        self.coordinator.repo.record_error(
+            "irrigation", code, message, {"entity_id": entity_id, "bed_id": bed_id, "state": state}
+        )
+        if entity_id in self._reported:
+            return
+        self._reported.add(entity_id)
+        if self.notifier is not None:
+            from .engine.i18n import t
+
+            lang = self.coordinator.lang
+            self.hass.async_create_task(
+                self.notifier.async_send(
+                    t("notify.valve_title", lang),
+                    t(f"notify.{code}", lang, entity=entity_id, what=what),
+                    notification_id=f"hortulus_valve_{entity_id}",
+                    tts=False,
+                )
+            )
+
+    async def async_test(self, entity_id: str, *, seconds: float = 5, with_pump: bool = True) -> dict[str, Any]:
+        """Open a valve briefly (with the pump, in the safe order) and check it reports open and closed."""
+        if self.running:
+            raise HomeAssistantError("irrigation is running")
+        seconds = max(1.0, min(float(seconds), TEST_MAX_S))
+        pump = self.coordinator.repo.data.settings.irrigation.pump_entity if with_pump else None
+        if pump == entity_id:
+            pump = None
+        result: dict[str, Any] = {"entity_id": entity_id, "seconds": seconds, "before": self._state(entity_id)}
+        async with self._lock:
+            try:
+                await _switch(self.hass, entity_id, True)
+                result["open_state"] = await self._wait_for(entity_id, True)
+                result["opened"] = _is_open(result["open_state"])
+                if pump:
+                    await asyncio.sleep(VALVE_SETTLE_S)
+                    await _switch(self.hass, pump, True)
+                await asyncio.sleep(seconds)
+            finally:
+                if pump:
+                    await _switch(self.hass, pump, False)
+                    await asyncio.sleep(self.coordinator.repo.data.settings.irrigation.pump_lead_s)
+                await _switch(self.hass, entity_id, False)
+            result["closed_state"] = await self._wait_for(entity_id, False)
+            result["closed"] = _is_open(result["closed_state"]) is False
+            result["pump"] = pump
+        ok = bool(result.get("opened")) and result["closed"]
+        result["ok"] = ok
+        if not result.get("opened"):
+            self._problem(entity_id, "valve_did_not_open", result.get("open_state"))
+        elif not result["closed"]:
+            self._problem(entity_id, "valve_not_closed", result["closed_state"])
+        return result
+
+    async def async_close(self, entity_id: str) -> str | None:
+        """Close a valve that stayed open (button in the panel)."""
+        await _switch(self.hass, entity_id, False)
+        state = await self._wait_for(entity_id, False)
+        if not _is_open(state):
+            self.stuck.pop(entity_id, None)
+            self._open_since.pop(entity_id, None)
+            self._reported.discard(entity_id)
+        return state
+
+    @callback
+    def async_watch(self, now: datetime | None = None) -> None:
+        """Every minute: a valve or pump open long after any run could last is reported."""
+        now = now or dt_util.now()
+        limit = timedelta(minutes=self.coordinator.repo.data.settings.irrigation.max_runtime_min + STUCK_MARGIN_MIN)
+        changed = False
+        for entity_id in self.valve_entities():
+            is_open = _is_open(self._state(entity_id))
+            if not is_open or self.running:
+                if entity_id in self.stuck:
+                    changed = True
+                self._open_since.pop(entity_id, None)
+                self.stuck.pop(entity_id, None)
+                self._reported.discard(entity_id)
+                continue
+            since = self._open_since.setdefault(entity_id, now)
+            if now - since >= limit and entity_id not in self.stuck:
+                self.stuck[entity_id] = since
+                changed = True
+                self._problem(entity_id, "valve_stuck", self._state(entity_id))
+        if changed:
+            self.coordinator.async_update_listeners()
 
     def _log(self, bed_id: str, minutes: float, run: Any, source: str) -> None:
         data = self.coordinator.repo.data

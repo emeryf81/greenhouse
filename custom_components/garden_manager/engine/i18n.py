@@ -369,5 +369,24 @@ def t(key: str, lang: str | None = "en", **params: Any) -> str:
     return template.format_map(_SafeDict(clean))
 
 
+# Irrigation hardware checks (valve test, valve left open).
+MESSAGES["en"].update(
+    {
+        "notify.valve_title": "Hortulus – irrigation valve",
+        "notify.valve_stuck": "{what} ({entity}) has been open far longer than any watering run. Is it stuck, or was it opened by hand?",
+        "notify.valve_not_closed": "{what} ({entity}) did not report closed after watering. Check the valve.",
+        "notify.valve_did_not_open": "{what} ({entity}) did not report open during the test. Check the connection.",
+    }
+)
+MESSAGES["nl"].update(
+    {
+        "notify.valve_title": "Hortulus – beregeningskraan",
+        "notify.valve_stuck": "{what} ({entity}) staat al veel langer open dan een beregeningsbeurt duurt. Hangt hij vast, of werd hij met de hand geopend?",
+        "notify.valve_not_closed": "{what} ({entity}) meldde na het water geven niet dat hij dicht is. Kijk de kraan na.",
+        "notify.valve_did_not_open": "{what} ({entity}) meldde tijdens de test niet dat hij open ging. Kijk de verbinding na.",
+    }
+)
+
+
 # Phase 3 texts (maintenance rules, weather episodes) - registered on import.
 from . import texts_garden  # noqa: E402,F401

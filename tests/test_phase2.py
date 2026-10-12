@@ -624,3 +624,85 @@ def test_a_valve_can_drive_the_pump_or_a_bed() -> None:
     assert controllers._on_service("valve.tuinkraan_watervalve_one", True) == ("valve", "open_valve")
     assert controllers._on_service("valve.tuinkraan_watervalve_one", False) == ("valve", "close_valve")
     assert controllers._on_service("input_boolean.pomp", True) == ("input_boolean", "turn_on")
+
+
+async def test_valve_test_reports_open_and_closed_with_the_pump_in_order(
+    hass: HomeAssistant, garden, hass_ws_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    repo.data.settings.irrigation.pump_entity = "switch.pump"
+    order: list[tuple[str, bool]] = []
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        order.append((entity_id, on))
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    valve = next(b.irrigation_entity for b in repo.data.beds if b.irrigation_entity)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/test", "entity_id": valve, "seconds": 1})
+    res = await _result(client)
+    assert res["success"], res
+    assert res["result"]["ok"] and res["result"]["opened"] and res["result"]["closed"]
+    assert order == [(valve, True), ("switch.pump", True), ("switch.pump", False), (valve, False)]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/test", "entity_id": "switch.kettle"})
+    assert not (await _result(client))["success"]  # only valves Hortulus drives
+
+
+async def test_a_valve_that_does_not_respond_or_stays_open_is_reported(
+    hass: HomeAssistant, garden, hass_ws_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    from custom_components.garden_manager.websocket_api import build_snapshot
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    monkeypatch.setattr(controllers, "STATE_TIMEOUT_S", 0.5)
+    real_sleep = asyncio.sleep
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+
+    async def dead_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        return None
+
+    monkeypatch.setattr(controllers, "_switch", dead_switch)
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    hass.states.async_set(valve, "off")
+    result = await runtime.irrigation.async_test(valve, seconds=1, with_pump=False)
+    assert not result["ok"] and result["opened"] is False
+    assert any(
+        e.get("source") == "error" and e["summary"][0]["key"] == "valve_did_not_open" for e in runtime.repo.syslog
+    )
+
+    # left open by hand / stuck: reported once it is open far longer than any run
+    hass.states.async_set(valve, "open")
+    now = dt_util.now()
+    runtime.irrigation.async_watch(now)
+    assert not runtime.irrigation.stuck
+    runtime.irrigation.async_watch(now + timedelta(minutes=runtime.repo.data.settings.irrigation.max_runtime_min + 11))
+    assert valve in runtime.irrigation.stuck
+    assert build_snapshot(runtime)["irrigation_status"]["stuck"][0]["entity_id"] == valve
+
+    async def working_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(controllers, "_switch", working_switch)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/irrigation/close", "entity_id": valve})
+    res = await _result(client)
+    assert res["success"] and res["result"]["state"] == "off"
+    assert not runtime.irrigation.stuck

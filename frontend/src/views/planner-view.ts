@@ -14,6 +14,7 @@ import { explainReason, summarizeReasons } from "../util/reasons";
 import "../components/modal";
 import "../components/date-input";
 import "../components/plan-compare";
+import "../components/water-chart";
 import "../planner/garden-canvas";
 import { FEATURE_STYLE, ZONE_STYLE, type DrawTool, type GardenCanvas, type ItemChangeDetail, type Selection } from "../planner/garden-canvas";
 import "../components/plant-image";
@@ -1839,6 +1840,8 @@ export class PlannerView extends LitElement {
       body = html`
         <h3>${b.name}</h3>
         ${this.mode === "plant" ? this.renderBedHistory(b) : nothing}
+        ${this.mode === "plant" && (b.irrigation_entity || b.sensors?.soil_moisture) ? html`<details class="water"><summary class="small">${this.t("water.per_bed")}</summary>
+          <hl-water-chart .bed=${b} .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} days="14"></hl-water-chart></details>` : nothing}
         <div class="form-grid">
           <label class="field full">${this.t("planner.bed_name")}<input .value=${b.name} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ name: (e.target as HTMLInputElement).value })} /></label>
