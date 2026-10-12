@@ -132,6 +132,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_irrigation_test,
         ws_irrigation_close,
         ws_planning,
+        ws_season_report,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -1536,3 +1537,15 @@ def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
             "harvest": planning.harvest_forecast(data, db, season, timelines),
         },
     )
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/report/season", vol.Required("season"): int})
+@callback
+def ws_season_report(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """End of season report: grown, harvested, lost, and what the journal said."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        connection.send_result(
+            msg["id"],
+            planning.season_report(runtime.repo.data, runtime.repo.db, msg["season"], today=dt_util.now().date()),
+        )

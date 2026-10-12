@@ -185,3 +185,26 @@ Ja, in **Analyse → Vergelijken** of in **Tuinplan → Plannen** (knop *Vergeli
 ## Mijn pomp is een slimme kraan (valve), kan dat?
 
 Ja. Bij **Instellingen → Bewateringshardware** kan je als pomp en als bedkraan ook `valve.*`- en `input_boolean.*`-entiteiten kiezen. Hortulus opent en sluit een `valve` met `valve.open_valve` / `valve.close_valve`, in dezelfde veilige volgorde (kraan open → pomp aan … pomp uit → kraan dicht).
+
+
+## Hoe test ik mijn kraan of pomp?
+
+In **Instellingen → Bewateringshardware** staat naast elke bedkraan en de pomp **Test (5 s)**. Hortulus opent de kraan 5 seconden (met de pomp erbij, in de veilige volgorde), sluit hem weer en zegt of de kraan meldde dat hij open en dicht ging. Sla de instellingen eerst op: alleen gekoppelde kranen worden getest. Na elke beregeningsbeurt controleert Hortulus ook of de kraan dicht meldt. Staat een kraan of de pomp veel langer open dan een beurt kan duren (maximale looptijd + 10 minuten) terwijl Hortulus niet beregent, dan krijg je een melding en een rode balk op **Vandaag** met **Kraan sluiten**.
+
+Let op bij slimme kranen met een eigen timer (zoals een kraan met *Watering Duration*): de kraan sluit zelf na zijn eigen duur. Zet die duur langer dan de maximale looptijd in Hortulus, anders stopt de kraan vroeger dan gepland.
+
+## Kan ik zien of het water geven helpt?
+
+Ja: **Logboek → Water → Bewatering per bed** toont per bed het bodemvocht (uit de geschiedenis van Home Assistant), het water dat Hortulus gaf en de regen (regensensor), over 7, 14 of 30 dagen. Dezelfde grafiek staat in de plannerpopup van een bed.
+
+## Wat moet ik deze week zaaien, en welke zaden moet ik kopen?
+
+In **Teelten** staan naast de lijst vier weergaven: **Zaaiplan** (per week wat je binnen of buiten zaait, uitplant en begint te oogsten; **Gedaan** vult de echte datum in), **Zaden** (hoeveel zaad het plan nodig heeft tegenover je zaadvoorraad), **Opvolgteelt** (welke bedden dit seizoen vrijkomen en wat daar daarna nog past) en **Oogstverwachting** (kg per week; met je eigen oogsten wordt die nauwkeuriger). Op een gsm toont de lijst één kaartje per gewas.
+
+## Kan ik snel een notitie of foto bij een gewas zetten?
+
+Ja, in de popup van een gewas of bed (planner of Teelten) onder **Notitie of foto**. Op een gsm opent de knop *Foto* meteen de camera. De notitie komt in het dagboek bij dat gewas; de laatste notities staan eronder.
+
+## Krijg ik een overzicht van het seizoen?
+
+**Logboek → Seizoensrapport** (en in de **Jaarovergang**) toont per gewas wat je plantte en oogstte tegenover wat verwacht werd, wat mislukte, de problemen uit het dagboek en hoeveel water er gegeven werd. Je kan het downloaden als Markdown.

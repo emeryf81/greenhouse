@@ -54,3 +54,23 @@ def test_harvest_forecast_spreads_the_yield_over_the_harvest_weeks(garden, db, m
     total = sum(w["kg"] for w in fc["weeks"])
     assert abs(total - db.get("lettuce").yield_kg_m2) < 0.1
     assert all(date.fromisoformat(w["week"]).weekday() == 0 for w in fc["weeks"])
+
+
+def test_season_report_compares_harvest_with_expectation(garden, db, make_planting):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from custom_components.garden_manager.engine.models import HarvestEntry, JournalEntry
+
+    garden.layout_season = 2026
+    lettuce = make_planting("lettuce", "bed_1", 2026, id="l", width_cm=100, length_cm=100)
+    beans = make_planting("bush_bean", "bed_1", 2026, id="b", status=PlantingStatus.FAILED, notes="slakken")
+    garden.plantings = [lettuce, beans]
+    garden.harvest_log = [HarvestEntry("h1", date(2026, 6, 10), "lettuce", 9.0, planting_id="l")]
+    tz = ZoneInfo("Europe/Brussels")
+    garden.journal = [JournalEntry("j1", datetime(2026, 6, 1, 9, tzinfo=tz), "bladluis op de bonen", kind="problem")]
+    report = planning.season_report(garden, db, 2026)
+    crops = {c["plant_id"]: c for c in report["crops"]}
+    assert crops["lettuce"]["kg"] == 9.0 and crops["lettuce"]["verdict"] in ("above", "as_expected")
+    assert crops["bush_bean"]["verdict"] == "failed" and report["failed"][0]["notes"] == "slakken"
+    assert report["problems"][0]["text"] == "bladluis op de bonen" and report["totals"]["failed"] == 1

@@ -197,3 +197,85 @@ def harvest_forecast(
         "totals": {k: round(v, 1) for k, v in sorted(totals.items(), key=lambda kv: -kv[1])},
         "learned": sorted(k for k in totals if k in learned),
     }
+
+
+# --------------------------------------------------------------------------- #
+# End of season report
+# --------------------------------------------------------------------------- #
+def season_report(data: GardenData, db: PlantDatabase, season: int, *, today: date | None = None) -> dict[str, Any]:
+    """What was grown, harvested and lost in a season, and what the journal said about it."""
+    from .records import harvest_summary
+    from .region import season_bounds, season_for_date
+
+    region = data.settings.region
+    running = today is not None and today <= season_bounds(region, season)[1]
+    harvests = harvest_summary(data, season)
+    crops: dict[str, dict[str, Any]] = {}
+    failed = []
+    for p in data.plantings:
+        if not present_in(p, False, season) or db.get(p.plant_id) is None:
+            continue
+        plant = db.get(p.plant_id)
+        c = crops.setdefault(
+            p.plant_id,
+            {"plant_id": p.plant_id, "plantings": 0, "area_m2": 0.0, "failed": 0, "expected_kg": 0.0},
+        )
+        c["plantings"] += 1
+        area = p.width_cm * p.length_cm / 10_000
+        c["area_m2"] += area
+        if p.status is PlantingStatus.FAILED:
+            c["failed"] += 1
+            failed.append({"planting_id": p.id, "plant_id": p.plant_id, "bed_id": p.bed_id, "notes": p.notes})
+        elif plant.harvestable and not (plant.perennial and p.season + (plant.years_to_bearing or 0) > season):
+            c["expected_kg"] += area * plant.yield_kg_m2  # young fruit trees do not crop yet
+    for pid, h in harvests.items():
+        c = crops.setdefault(pid, {"plant_id": pid, "plantings": 0, "area_m2": 0.0, "failed": 0, "expected_kg": 0.0})
+        c["kg"] = h.kg
+        c["kg_m2"] = h.kg_m2
+        c["first"] = h.first.isoformat() if h.first else None
+        c["last"] = h.last.isoformat() if h.last else None
+    for c in crops.values():
+        c["area_m2"] = round(c["area_m2"], 2)
+        c["expected_kg"] = round(c["expected_kg"], 1)
+        plant = db.get(c["plant_id"])
+        c["book_kg_m2"] = plant.yield_kg_m2 if plant else None
+        kg, exp = c.get("kg", 0.0), c["expected_kg"]
+        c["verdict"] = (
+            "failed" if c["failed"] and c["failed"] == c["plantings"]
+            else "growing" if running and not kg
+            else "no_record" if not kg and exp
+            else "above" if exp and kg >= exp * 1.2
+            else "below" if exp and kg < exp * 0.6
+            else "as_expected" if exp
+            else "ok"
+        )  # fmt: skip
+    journal = [e for e in data.journal if season_for_date(region, e.at.date()) == season]
+    water = [e for e in data.irrigation_log if season_for_date(region, e.at.date()) == season]
+    return {
+        "season": season,
+        "running": running,
+        "crops": sorted(crops.values(), key=lambda c: (-c.get("kg", 0.0), c["plant_id"])),
+        "failed": failed,
+        "problems": [
+            {
+                "at": e.at.isoformat(),
+                "text": e.text,
+                "planting_id": e.planting_id,
+                "bed_id": e.bed_id,
+                "plant_id": e.plant_id,
+            }
+            for e in journal
+            if e.kind == "problem"
+        ],
+        "milestones": [{"at": e.at.isoformat(), "text": e.text} for e in journal if e.kind == "milestone"],
+        "totals": {
+            "crops": len(crops),
+            "plantings": sum(c["plantings"] for c in crops.values()),
+            "kg": round(sum(c.get("kg", 0.0) for c in crops.values()), 1),
+            "expected_kg": round(sum(c["expected_kg"] for c in crops.values()), 1),
+            "failed": len(failed),
+            "water_l": round(sum(e.liters for e in water)),
+            "water_runs": len(water),
+            "journal": len(journal),
+        },
+    }

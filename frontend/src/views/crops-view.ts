@@ -10,6 +10,7 @@ import { familyColor, formatDate, plantName } from "../util/garden";
 import "../components/plant-image";
 import "../components/modal";
 import "../components/date-input";
+import "../components/quick-note";
 import "./crops-planning";
 import type { PlanningView } from "./crops-planning";
 
@@ -363,6 +364,8 @@ export class CropsView extends LitElement {
         <label class="field full">${this.t("crops.notes")}<textarea .value=${p.notes ?? ""} ?disabled=${!this.admin}
           @change=${(e: Event) => this.saveRow(r, { notes: (e.target as HTMLTextAreaElement).value })}></textarea></label>
       </div>
+      <details><summary class="small">${this.t("note.title")}</summary>
+        <hl-quick-note .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} plantingId=${p.id} ?admin=${this.admin}></hl-quick-note></details>
       <p class="xs muted">${this.t("crops.detail_hint")}</p>
       <div slot="actions" class="row wrap">
         ${r.bed ? html`<button class="btn small" @click=${() => this.emit("focus-planting", { planting_id: p.id, season: p.season })}>🗺 ${this.t("crops.show_on_map")}</button>` : nothing}

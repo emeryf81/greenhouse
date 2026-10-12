@@ -65,6 +65,7 @@
         if (type === "analysis") return (data.extras || {}).analysis;
         if (type === "analysis/fix") return { revision: data.snapshot.revision };
         if (type === "analysis/still_possible") return (data.extras || {}).still_possible;
+        if (type === "report/season") return { ...(data.extras || {}).report, season: msg.season };
         if (type === "planning") return (data.extras || {}).planning;
         if (type === "plan/compare") return (data.extras || {}).compare;
         if (type === "plantings/update_many") return { updated: msg.planting_ids.length, revision: data.snapshot.revision };

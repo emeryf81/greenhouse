@@ -192,6 +192,10 @@ export class GardenApi {
     return this.call("plan/compare", { a, b });
   }
 
+  seasonReport(season: number): Promise<unknown> {
+    return this.call("report/season", { season });
+  }
+
   /** Seeds to buy, what can follow a crop, expected harvest per week. */
   planning(season: number): Promise<unknown> {
     return this.call("planning", { season });

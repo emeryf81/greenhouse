@@ -327,8 +327,14 @@ def build(lang: str) -> dict:
         zone = data.zone(bed.zone_id) if bed else None
         tl = (
             season_timeline(
-                p, plant, NOW.year, lambda y: season_anchors(data.settings.region, y), zone, NOW.date(),
-                date(NOW.year, 1, 1), date(NOW.year, 12, 31),
+                p,
+                plant,
+                NOW.year,
+                lambda y: season_anchors(data.settings.region, y),
+                zone,
+                NOW.date(),
+                date(NOW.year, 1, 1),
+                date(NOW.year, 12, 31),
             ).to_dict()
             if plant
             else None
@@ -355,14 +361,20 @@ def build(lang: str) -> dict:
         if db.get(p.plant_id) and seasons.present_in(p, False, NOW.year)
     }  # fmt: skip
     extras = {
+        "report": planning.season_report(data, db, NOW.year, today=NOW.date()),
         "planning": {
             "season": NOW.year,
             "seeds": [n.to_dict() for n in planning.seed_needs(data, db, NOW.year)],
             "successions": [
                 b.to_dict()
                 for b in planning.successions(
-                    data, db, NOW.year, plan_tl, today=NOW.date(),
-                    first_frost=season_anchors(data.settings.region, NOW.year).first_frost, lang=lang,
+                    data,
+                    db,
+                    NOW.year,
+                    plan_tl,
+                    today=NOW.date(),
+                    first_frost=season_anchors(data.settings.region, NOW.year).first_frost,
+                    lang=lang,
                 )
             ],
             "harvest": planning.harvest_forecast(data, db, NOW.year, plan_tl),

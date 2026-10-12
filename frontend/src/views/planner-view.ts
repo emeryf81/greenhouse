@@ -15,6 +15,7 @@ import "../components/modal";
 import "../components/date-input";
 import "../components/plan-compare";
 import "../components/water-chart";
+import "../components/quick-note";
 import "../planner/garden-canvas";
 import { FEATURE_STYLE, ZONE_STYLE, type DrawTool, type GardenCanvas, type ItemChangeDetail, type Selection } from "../planner/garden-canvas";
 import "../components/plant-image";
@@ -1820,6 +1821,8 @@ export class PlannerView extends LitElement {
         ${advice?.reasons.length ? html`<div class="stack" style="gap:4px">${advice.reasons.filter((r) => r.key !== "reason.window_open").map((r) => html`<p class="small">${this.t(r.key, r.params)}</p>`)}</div>` : nothing}
         ${this.renderPhenology(p.id)}
         ${this.renderHarvestQuick(p)}
+        <details class="note"><summary class="small"><ha-icon icon="mdi:notebook-edit-outline"></ha-icon> ${this.t("note.title")}</summary>
+          <hl-quick-note .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} plantingId=${p.id} ?admin=${this.admin}></hl-quick-note></details>
         <h4>${this.t("planner.timeline")}</h4>
         ${this.renderTimeline(this.timelines[p.id])}
         <h4>${this.t("planner.warnings")}</h4>
@@ -1840,6 +1843,8 @@ export class PlannerView extends LitElement {
       body = html`
         <h3>${b.name}</h3>
         ${this.mode === "plant" ? this.renderBedHistory(b) : nothing}
+        ${this.mode === "plant" ? html`<details class="note"><summary class="small"><ha-icon icon="mdi:notebook-edit-outline"></ha-icon> ${this.t("note.title")}</summary>
+          <hl-quick-note .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} bedId=${b.id} ?admin=${this.admin}></hl-quick-note></details>` : nothing}
         ${this.mode === "plant" && (b.irrigation_entity || b.sensors?.soil_moisture) ? html`<details class="water"><summary class="small">${this.t("water.per_bed")}</summary>
           <hl-water-chart .bed=${b} .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} days="14"></hl-water-chart></details>` : nothing}
         <div class="form-grid">

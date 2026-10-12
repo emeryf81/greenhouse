@@ -232,3 +232,26 @@ Yes, in **Analysis → Compare** or in **Garden plan → Plans** (*Compare* next
 ## My pump is a smart tap (valve) - does that work?
 
 Yes. In **Settings → Irrigation hardware** the pump and bed valve pickers also list `valve.*` and `input_boolean.*` entities. Hortulus opens and closes a `valve` with `valve.open_valve` / `valve.close_valve`, in the same safe order (valve open → pump on … pump off → valve closed).
+
+
+## How do I test my valve or pump?
+
+In **Settings → Irrigation hardware** every bed valve and the pump has **Test (5 s)**. Hortulus opens the valve for 5 seconds (with the pump, in the safe order), closes it again and tells you whether the valve reported open and closed. Save the settings first: only linked valves are tested. After every watering run Hortulus also checks the valve reports closed. A valve or the pump open far longer than any run can last (max runtime + 10 minutes) while Hortulus is not watering triggers a notification and a red banner on **Today** with **Close valve**.
+
+Smart taps with their own timer (such as a *Watering Duration* setting) close by themselves after that time. Set it longer than Hortulus' max runtime, or the tap stops earlier than planned.
+
+## Can I see whether watering helps?
+
+Yes: **Journal → Water → Watering per bed** shows soil moisture (from Home Assistant's history), the water Hortulus gave and the rain (rain sensor) per bed over 7, 14 or 30 days. The same chart is in a bed's planner popup.
+
+## What should I sow this week, and which seeds do I need?
+
+**Crops** has four views next to the list: **Sowing plan** (week by week what to sow indoors or outdoors, plant out and start harvesting; **Done** fills in the real date), **Seeds** (seed the plan needs against your stock), **Succession** (beds that free up this season and what still fits there) and **Harvest forecast** (kg per week; it gets more accurate with your own harvests). On a phone the list shows one card per crop.
+
+## Can I quickly add a note or photo to a crop?
+
+Yes, in a crop's or bed's popup (planner or Crops) under **Note or photo**. On a phone *Photo* opens the camera. The note goes into the journal with that crop; the latest notes are shown below.
+
+## Is there a season overview?
+
+**Journal → Season report** (and the **year-end transition**) shows per crop what you planted and harvested against the expectation, what failed, problems from the journal and the water given. Download it as Markdown.

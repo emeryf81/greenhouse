@@ -3,6 +3,25 @@
 ## Unreleased
 
 ### Added
+- **Valve test** (*Settings*, next to every bed valve and the pump): opens it for 5 s in the
+  safe order and checks it reports open and closed again. Websocket `irrigation/test`.
+- **Valve left open**: after every run Hortulus checks the valve reports closed; a valve or
+  the pump open far longer than any run (max runtime + 10 min) while Hortulus is not
+  watering is reported – system log, notification, and a red banner on the dashboard with
+  *Close valve* (`irrigation/close`).
+- **Watering per bed** (*Journal → Water*, planner bed popup): soil moisture from Home
+  Assistant's history, water given from Hortulus' log and rain from the rain sensor, for
+  7, 14 or 30 days.
+- **Crops tab: sowing plan, seeds, succession, harvest forecast** – what to sow, plant out
+  and harvest week by week (*Done* fills in today's date); seeds the plan needs against the
+  seed stock; beds that free up this season and what can follow there; expected kg per
+  week. New engine module `planning`, websocket `planning`.
+- **Crops on a phone**: one card per crop with the next date to fill in.
+- **Quick note with photo** in the planner and crops popups (camera on a phone); the last
+  notes about that crop or bed are shown below it.
+- **Season report** (*Journal → Season report*, and in the year-end transition): crops,
+  harvest against expectation, failures, problems from the journal, water; download as
+  Markdown. Websocket `report/season`.
 - **Why (not) here?** in the planner popup: per crop, why its bed does or does not suit it
   and which beds would; right after dropping a crop where it does not belong a warning
   says why.
@@ -82,6 +101,8 @@
   small round thumbnails always use the illustration.
 
 ### Changed
+- Date fields in the harvest form, new task and postpone-to-date also read day-month-year.
+- *What can still go in* is sorted alphabetically in your language.
 - Dates read day-month-year in the panel's language (13-04-2026) whatever the browser's
   locale; the calendar button still opens the browser's date picker.
 - The pump (and bed valve) picker also lists `valve.*` and `input_boolean.*` entities, e.g.
@@ -99,6 +120,8 @@
 - Printouts use the garden plan of the chosen season.
 
 ### Fixed
+- Crops list and planning re-anchor perennials carried into a year on that year (an apple
+  tree planted in 2022 no longer shows as overdue for planting out).
 - Autofill could hardly assign anything for another season: it proposed on today's beds, and
   applying refused beds of next year's plan as "unknown bed".
 - Beds in orchards, herb, flower and the new garden zones now use the outdoor sensors (only

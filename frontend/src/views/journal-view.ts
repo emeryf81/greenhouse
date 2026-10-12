@@ -10,8 +10,9 @@ import { familyColor, formatDate, plantName, presentIn } from "../util/garden";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import "../components/date-input";
 import "../components/water-chart";
+import "../components/season-report";
 
-type Section = "diary" | "harvest" | "seeds" | "water" | "system";
+type Section = "diary" | "harvest" | "seeds" | "water" | "report" | "system";
 const SYSLOG_PAGE = 50;
 const SYSLOG_SHOWN_LINES = 6;
 const OP_ICON: Record<string, string> = { add: "mdi:plus-circle-outline", remove: "mdi:minus-circle-outline", change: "mdi:pencil-outline" };
@@ -177,14 +178,18 @@ export class JournalView extends LitElement {
 
   render(): TemplateResult {
     if (this.systemOnly) return this.renderSystem();
-    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["system", "mdi:history"]];
+    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["report", "mdi:file-chart-outline"], ["system", "mdi:history"]];
     return html`
       <div class="tabs" role="tablist">
         ${sections.map(([id, icon]) => html`<button class="chip" role="tab" aria-selected=${String(this.section === id)} aria-pressed=${String(this.section === id)}
           @click=${() => this.openSection(id)}><ha-icon icon=${icon}></ha-icon>${this.t(`journal.${id}`)}</button>`)}
       </div>
       ${this.section === "diary" ? this.renderDiary() : this.section === "harvest" ? this.renderHarvest() : this.section === "seeds" ? this.renderSeeds()
-        : this.section === "water" ? this.renderWater() : this.renderSystem()}
+        : this.section === "water" ? this.renderWater()
+        : this.section === "report" ? html`<section class="card stack"><h2><ha-icon icon="mdi:file-chart-outline"></ha-icon> ${this.t("journal.report")}</h2>
+            <hl-season-report .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang}
+              .plants=${new Map(this.plants.map((x) => [x.id, x]))} .families=${this.families}></hl-season-report></section>`
+        : this.renderSystem()}
     `;
   }
 

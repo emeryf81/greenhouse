@@ -714,6 +714,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
     entry.async_on_unload(coordinator.async_add_post_compute_hook(notifier.async_process))
     entry.async_on_unload(coordinator.async_add_listener(climate.async_apply))
     entry.async_on_unload(irrigation.async_stop_on_unload)
+    irrigation.notifier = notifier
+    entry.async_on_unload(async_track_time_interval(hass, irrigation.async_watch, timedelta(minutes=1)))
 
     await coordinator.async_config_entry_first_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

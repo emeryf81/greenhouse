@@ -132,6 +132,29 @@ await step("journal: date field works inside a form", async () => {
   assert.match(value, /^\d{4}-\d{2}-\d{2}$/);
 });
 
+await step("crops: sowing plan, seeds, succession, harvest", async () => {
+  await open("crops");
+  for (const label of ["Zaaiplan", "Zaden", "Opvolgteelt", "Oogstverwachting"]) {
+    await page.locator("hl-crops-view .views button", { hasText: label }).click();
+    await page.locator("hl-crops-planning section.card").first().waitFor();
+  }
+});
+
+await step("journal: watering per bed and season report", async () => {
+  await open("journal");
+  await page.locator("hl-journal-view button[role=tab]", { hasText: "Water" }).click();
+  await page.locator("hl-water-chart svg").first().waitFor();
+  await page.locator("hl-journal-view button[role=tab]", { hasText: "Seizoensrapport" }).click();
+  await page.locator("hl-season-report .tiles").waitFor();
+});
+
+await step("crops on a phone: one card per crop", async () => {
+  await page.setViewportSize({ width: 400, height: 860 });
+  await open("crops");
+  await page.locator("hl-crops-view .crop-card").first().waitFor();
+  await page.setViewportSize({ width: 1400, height: 1000 });
+});
+
 await browser.close();
 server.close();
 for (const r of results) console.log(r.join("  "));
