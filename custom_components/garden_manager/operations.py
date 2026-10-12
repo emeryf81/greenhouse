@@ -551,6 +551,51 @@ def op_update_planting(runtime: GardenRuntime, planting_id: str, changes: Mappin
 
 
 @callback
+def op_update_plantings(runtime: GardenRuntime, planting_ids: list[str], changes: Mapping[str, Any]) -> list[Planting]:
+    """The same change for several crops at once (one entry in the system log)."""
+    repo = runtime.repo
+    patch = {k: v for k, v in changes.items() if k in PLANTING_FIELDS and k not in ("bed_id", "x_cm", "y_cm")}
+    if not patch:
+        raise _err("invalid_plan", reason="nothing to change")
+    by_id = {p.id: p for p in repo.data.plantings}
+    updated: dict[str, Planting] = {}
+    for pid in planting_ids:
+        current = by_id.get(pid)
+        if current is None:
+            raise _err("unknown_planting", planting=pid)
+        try:
+            new = from_dict(Planting, {**to_dict(current), **_jsonable(patch)})
+        except (TypeError, ValueError, KeyError) as err:
+            raise _err("invalid_plan", reason=str(err)) from err
+        _check_planting(runtime, new)
+        updated[pid] = new
+    repo.data.plantings = [updated.get(p.id, p) for p in repo.data.plantings]
+    repo.async_changed("plan")
+    return list(updated.values())
+
+
+@callback
+def op_fix_issue(
+    hass: HomeAssistant, runtime: GardenRuntime, code: str, params: Mapping[str, Any], refs: Mapping[str, list[str]]
+) -> dict[str, Any]:
+    """Repair a problem the analysis found (logged, so it can be undone)."""
+    from .engine import diagnose
+    from .engine.region import season_for_date
+
+    data = runtime.repo.data
+    before = _live_layout_snapshot(data)
+    try:
+        done = diagnose.fix_issue(
+            data, code, params, refs, current_season=season_for_date(data.settings.region, dt_util.now().date())
+        )
+    except ValueError as err:
+        raise _err("invalid_plan", reason=str(err)) from err
+    runtime.repo.async_changed("plan")
+    _sync_devices(hass, runtime, before)
+    return {**done, "revision": data.revision}
+
+
+@callback
 def op_remove_planting(runtime: GardenRuntime, planting_id: str) -> None:
     repo = runtime.repo
     if repo.data.planting(planting_id) is None:

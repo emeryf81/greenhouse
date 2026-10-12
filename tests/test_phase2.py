@@ -586,3 +586,34 @@ async def test_crops_list_and_date_edits_without_the_planner(hass: HomeAssistant
 
     await client.send_json_auto_id({"type": f"{DOMAIN}/planting/update", "planting_id": "nope", "changes": {}})
     assert not (await _result(client))["success"]
+
+
+async def test_bulk_update_fix_compare_and_still_possible(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    ids = [p.id for p in repo.data.plantings[:2]]
+    log_before = len(repo.syslog)
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/plantings/update_many", "planting_ids": ids, "changes": {"notes": "samen"}}
+    )
+    res = await _result(client)
+    assert res["success"] and res["result"]["updated"] == 2
+    assert all(p.notes == "samen" for p in repo.data.plantings if p.id in ids)
+    assert len(repo.syslog) == log_before + 1  # one entry, one undo
+
+    season = repo.data.layout_season
+    await client.send_json_auto_id({"type": f"{DOMAIN}/plan/compare", "a": {"season": season}, "b": {"season": season}})
+    assert (await _result(client))["result"]["identical"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/plan/compare", "a": {"plan_id": "x"}, "b": {"season": season}})
+    assert not (await _result(client))["success"]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/analysis/still_possible", "season": season})
+    assert "plants" in (await _result(client))["result"]
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/analysis/fix", "code": "zone_without_beds"})
+    assert not (await _result(client))["success"]
+    from custom_components.garden_manager.websocket_api import build_snapshot
+
+    assert set(build_snapshot(entry.runtime_data)["diagnosis"]) == {"error", "warning", "info"}

@@ -148,3 +148,64 @@ def test_explain_gives_the_reasons_per_bed(garden, db, make_planting):
     verdicts = {v.bed_id: v for v in diagnose.explain_plant(tomato, garden, db, 2027, today=TODAY)}
     got = {r["code"] for r in verdicts["bed_1"].reasons}
     assert "no_space" in got and "bad_neighbour" in got
+
+
+# --------------------------------------------------------------------------- #
+# Repairs, comparing plans, what still fits
+# --------------------------------------------------------------------------- #
+def test_fix_copies_a_missing_plan_and_moves_orphans(garden, db, make_planting):
+    garden.layout_season = 2026
+    old = make_planting("lettuce", "bed_1", 2025, id="old")
+    stray = make_planting("lettuce", "gone_bed", 2026, id="stray", x_cm=5000)
+    garden.plantings = [old, stray]
+    issues = {
+        i.code: i for i in diagnose.check_garden(garden, db, today=TODAY, current_season=2026, seasons=[2025, 2026])
+    }
+    assert issues["season_without_plan"].to_dict()["fixable"]
+    done = diagnose.fix_issue(garden, "season_without_plan", issues["season_without_plan"].params,
+                              issues["season_without_plan"].refs, current_season=2026)  # fmt: skip
+    assert done["copied_from"] == 2026 and seasons.has_layout(garden, 2025)
+    orphan = issues["planting_not_on_plan"]
+    diagnose.fix_issue(garden, orphan.code, orphan.params, orphan.refs, current_season=2026)
+    assert stray.bed_id in {b.id for b in garden.beds} and stray.x_cm + stray.width_cm <= garden.beds[0].width_cm
+    import pytest
+
+    with pytest.raises(ValueError):  # already repaired
+        diagnose.fix_issue(garden, orphan.code, orphan.params, orphan.refs, current_season=2026)
+
+
+def test_fix_carries_a_forgotten_perennial(garden, db, make_planting):
+    garden.layout_season = 2026
+    seasons.store_layout(garden, 2025, list(garden.zones), list(garden.beds), [])
+    tree = make_planting("apple", "bed_1", 2024, id="tree", last_season=2025)
+    garden.plantings = [tree]
+    issue = next(
+        i
+        for i in diagnose.check_garden(garden, db, today=TODAY, current_season=2026)
+        if i.code == "perennial_not_carried"
+    )
+    diagnose.fix_issue(garden, issue.code, issue.params, issue.refs, current_season=2026)
+    assert present_in(tree, True, 2026)
+
+
+def test_compare_plans_lists_what_changed(garden, db, make_planting):
+    _planted(garden, make_planting)
+    seasons.start_new_plan(garden, 2026, start="zones_beds", old_name="Oud", plan_id="old")
+    garden.beds[0].x_cm += 50
+    garden.plantings.append(make_planting("carrot", "bed_1", 2026, id="wortel"))
+    diff = diagnose.compare_plans(
+        diagnose.plan_view(garden, plan_id="old"), diagnose.plan_view(garden, season=2026), db, "nl"
+    )
+    assert diff["a"] == "Oud" and not diff["identical"]
+    assert [c["id"] for c in diff["plantings"]["added"]] == ["wortel"]
+    assert {c["id"] for c in diff["plantings"]["removed"]} == {"tree", "sla"}
+    assert diff["beds"]["changed"][0]["what"] == ["moved"]
+    same = diagnose.compare_plans(diagnose.plan_view(garden, season=2026), diagnose.plan_view(garden, season=2026), db)
+    assert same["identical"]
+
+
+def test_still_possible_in_october_is_short(garden, db):
+    garden.layout_season = 2026
+    late = {r["plant_id"] for r in diagnose.still_possible(garden, db, 2026, today=TODAY)}
+    spring = {r["plant_id"] for r in diagnose.still_possible(garden, db, 2026, today=date(2026, 3, 1))}
+    assert len(late) < len(spring) and "tomato" not in late
