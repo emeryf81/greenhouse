@@ -95,10 +95,55 @@ await step("planner: crop popup and why-here", async () => {
   await open("planner");
   const label = page.locator("hl-garden-canvas text", { hasText: /Stamboon|Wortel|Sla/ }).first();
   const box = await label.boundingBox();
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // one click picks the crop
+  await page.locator("hl-planner-view .step-tip button", { hasText: "Details" }).waitFor();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // a second click opens it
   await modalOpen();
   await page.locator("hl-modal button", { hasText: "Waarom (niet) hier?" }).click();
   await page.locator("hl-planner-view .why").waitFor();
+});
+
+await step("planner: five steps, each step edits only its own kind", async () => {
+  await open("layout");
+  const steps = page.locator("hl-planner-view nav.stepper button.step");
+  assert.equal(await steps.count(), 5);
+  await steps.nth(0).click(); // terrain
+  const layers = () => page.locator("hl-garden-canvas").evaluate((c) => ({
+    kind: c.editKind,
+    editable: c.shadowRoot.querySelectorAll("g.editable").length,
+    locked: c.shadowRoot.querySelectorAll("g.locked").length,
+  }));
+  let l = await layers();
+  assert.equal(l.kind, "feature");
+  assert.ok(l.editable > 0 && l.locked > 0, JSON.stringify(l)); // elements pickable, zones and beds locked
+  await steps.nth(1).click();
+  assert.equal((await layers()).kind, "zone");
+  await steps.nth(2).click();
+  assert.equal((await layers()).kind, "bed");
+  await steps.nth(4).click(); // annuals: on to the planner tab
+  await page.waitForFunction(() => document.querySelector("hortulus-panel").shadowRoot.querySelector("hl-planner-view")?.getAttribute("mode") === "plant");
+  l = await layers();
+  assert.equal(l.kind, "planting");
+  // the "more" menu stays on the row of the other action buttons
+  const tops = await page.locator("hl-planner-view").evaluate((v) => {
+    const r = v.shadowRoot;
+    return [r.querySelector(".toolbar details.more").getBoundingClientRect().top, r.querySelector(".toolbar .actions .btn").getBoundingClientRect().top];
+  });
+  assert.ok(Math.abs(tops[0] - tops[1]) < 12, `more menu on its own line: ${tops}`);
+});
+
+await step("year transition: keep everything, or tick per element, zone and perennial", async () => {
+  await open("planner");
+  await page.locator("hl-planner-view .toolbar button", { hasText: "Jaarovergang" }).click();
+  const yt = page.locator("hl-year-transition");
+  await yt.locator("text=Alles meenemen").waitFor();
+  assert.equal(await yt.locator("input[name=keep]").first().isChecked(), true);
+  assert.equal(await yt.locator("label.item").count(), 0); // no tick lists while keeping everything
+  await yt.locator("text=Zelf kiezen").click();
+  await yt.locator("label.item").first().waitFor();
+  const toggle = yt.locator("button", { hasText: "Niets aanvinken" }).first();
+  await toggle.click();
+  await yt.locator("button", { hasText: "Alles aanvinken" }).first().waitFor();
 });
 
 await step("crops: bulk edit bar and show on map", async () => {

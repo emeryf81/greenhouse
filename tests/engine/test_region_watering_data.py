@@ -169,6 +169,41 @@ def test_export_import_roundtrip(garden, make_planting):
         import_plan(GardenData(), doc, "replace")
 
 
+def test_export_import_brings_the_whole_garden_map(garden):
+    """Paths, sheds, trees and the per-season plans come along, not only zones and beds."""
+    from datetime import datetime
+    import json
+
+    from custom_components.garden_manager.engine.models import Feature, FeatureType, GardenLayout
+
+    garden.features = [
+        Feature("ft_path", "Pad", FeatureType.PATH, 0, 300, 1210, 60),
+        Feature("ft_shed", "Schuur", FeatureType.SHED, -300, 0, 200, 150),
+    ]
+    garden.layouts = {
+        "2025": GardenLayout(zones=list(garden.zones), beds=list(garden.beds), features=garden.features[:1])
+    }
+    garden.layout_season = 2026
+    doc = json.loads(json.dumps(export_plan(garden, now=datetime(2026, 1, 1))))  # through a real file
+
+    fresh = GardenData()
+    counts = import_plan(fresh, doc, "replace")
+    assert counts["features"] == 2 and counts["layouts"] == 1
+    assert [(f.id, f.type, f.x_cm, f.y_cm, f.width_cm, f.length_cm) for f in fresh.features] == [
+        ("ft_path", FeatureType.PATH, 0, 300, 1210, 60),
+        ("ft_shed", FeatureType.SHED, -300, 0, 200, 150),
+    ]
+    assert [f.id for f in fresh.layouts["2025"].features] == ["ft_path"] and fresh.layout_season == 2026
+
+    # merge keeps elements that are not in the file; an old file without elements touches none
+    fresh.features.append(Feature("ft_tree", "Appel", FeatureType.TREE, 500, 500, 300, 300))
+    import_plan(fresh, doc, "merge")
+    assert {f.id for f in fresh.features} == {"ft_path", "ft_shed", "ft_tree"}
+    doc.pop("features")
+    import_plan(fresh, doc, "merge")
+    assert len(fresh.features) == 3
+
+
 def test_import_without_soil_tests_keeps_stored_ones(garden):
     from datetime import date, datetime
 

@@ -154,6 +154,13 @@ export class GardenCanvas extends LitElement {
   @property({ type: Boolean }) readonly = false;
   /** Planting mode: zones, beds and elements can be selected but not moved or resized. */
   @property({ type: Boolean }) lockLayout = false;
+  /**
+   * The kind of item this planning step works on (terrain elements, zones, beds or plants).
+   * Other items stay visible but cannot be picked, so a click reaches the right one.  Empty: all.
+   */
+  @property() editKind: ItemKind | "" = "";
+  /** With ``editKind`` "planting": which plants this step edits (perennials or annuals). */
+  @property({ attribute: false }) editPlanting: ((p: Planting) => boolean) | null = null;
   /** Zone being edited in "zone map" mode (others are dimmed and locked). */
   @property() focusZone = "";
   /** While set, dragging on the canvas draws a new rectangle (zone, bed, element). */
@@ -167,6 +174,7 @@ export class GardenCanvas extends LitElement {
   @query("svg") private svgEl!: SVGSVGElement;
 
   private drag: DragState | null = null;
+  private lastClick = { key: "", at: 0 };
   private pendingSelect: Selection | null = null;
   private fitted = false;
   private resizeObserver?: ResizeObserver;
@@ -179,6 +187,8 @@ export class GardenCanvas extends LitElement {
       svg.panning { cursor: grabbing; }
       svg.drawing, svg.drawing * { cursor: crosshair !important; }
       .dimmed { opacity: 0.22; pointer-events: none; filter: grayscale(0.6); }
+      .locked { pointer-events: none; opacity: 0.55; }
+      .editable { cursor: grab; }
       .zone-rect { stroke-width: 1.5; vector-effect: non-scaling-stroke; }
       .bed-rect { vector-effect: non-scaling-stroke; cursor: move; }
       .planting { cursor: move; }
@@ -385,7 +395,12 @@ export class GardenCanvas extends LitElement {
     this.pendingSelect = null;
     if (pending && !d.moved) this.dispatchEvent(new CustomEvent<Selection>("select", { detail: pending }));
     if (d.clicked && !d.moved && !(ev.shiftKey || ev.ctrlKey || ev.metaKey)) {
-      this.dispatchEvent(new CustomEvent<Selection>("item-click", { detail: { kind: d.clicked.kind, id: d.clicked.id } }));
+      // One click selects ("item-click"); a second click on the same item opens its details ("item-open").
+      const key = `${d.clicked.kind}:${d.clicked.id}`;
+      const now = Date.now();
+      const again = this.lastClick.key === key && now - this.lastClick.at < 450;
+      this.lastClick = again ? { key: "", at: 0 } : { key, at: now };
+      this.dispatchEvent(new CustomEvent<Selection>(again ? "item-open" : "item-click", { detail: { kind: d.clicked.kind, id: d.clicked.id } }));
     }
     if (!preview || !d.moved || d.mode === "pan") return;
     let targetBedId: string | undefined;
@@ -876,9 +891,21 @@ export class GardenCanvas extends LitElement {
     return !(cx >= z.x_cm && cx <= z.x_cm + z.width_cm && cy >= z.y_cm && cy <= z.y_cm + z.length_cm);
   }
 
+  /** Can this item be picked in the current planning step? */
+  private canEdit(kind: ItemKind, planting?: Planting): boolean {
+    if (!this.editKind) return true;
+    if (kind !== this.editKind) return false;
+    return kind !== "planting" || !planting || !this.editPlanting || this.editPlanting(planting);
+  }
+
   render() {
     const focus = this.focusZone;
-    const dim = (out: boolean, content: unknown) => (out ? svg`<g class="dimmed">${content}</g>` : content);
+    const tip = this.t?.("planner.item_tip") ?? "";
+    const layer = (out: boolean, editable: boolean, name: string, content: unknown) =>
+      out ? svg`<g class="dimmed">${content}</g>`
+        : !editable ? svg`<g class="locked">${content}</g>`
+        : this.editKind && !this.readonly ? svg`<g class="editable"><title>${name ? `${name} - ${tip}` : tip}</title>${content}</g>` : content;
+    const plantLabel = (p: Planting) => { const plant = this.plants.get(p.plant_id); return plant?.names[this.lang] ?? plant?.names.en ?? p.plant_id; };
     return html`
       <svg
         tabindex="0"
@@ -893,12 +920,12 @@ export class GardenCanvas extends LitElement {
         @wheel=${this.onWheel}
       >
         <g transform=${`translate(${this.tx} ${this.ty}) scale(${this.k})`}>
-          ${this.renderGrid()} ${this.showZones ? this.zones.map((z) => dim(!!focus && z.id !== focus, this.renderZone(z))) : nothing}
-          ${this.showFeatures ? this.features.map((f) => dim(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.renderFeature(f))) : nothing}
-          ${this.beds.map((b) => dim(!!focus && b.zone_id !== focus, this.renderBed(b)))}
+          ${this.renderGrid()} ${this.showZones ? this.zones.map((z) => layer(!!focus && z.id !== focus, this.canEdit("zone"), z.name, this.renderZone(z))) : nothing}
+          ${this.showFeatures ? this.features.map((f) => layer(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.canEdit("feature"), f.name, this.renderFeature(f))) : nothing}
+          ${this.beds.map((b) => layer(!!focus && b.zone_id !== focus, this.canEdit("bed"), b.name, this.renderBed(b)))}
           ${this.showPlantings ? this.plantings.map((p) => {
             const bed = this.beds.find((b) => b.id === p.bed_id);
-            return dim(!!focus && bed?.zone_id !== focus, this.renderPlanting(p));
+            return layer(!!focus && bed?.zone_id !== focus, this.canEdit("planting", p), plantLabel(p), this.renderPlanting(p));
           }) : nothing} ${this.showPlantings ? this.renderLinks() : nothing}
           ${this.renderMulti()} ${this.renderSelection()} ${this.renderGhost()} ${this.renderDrawRect()}
         </g>

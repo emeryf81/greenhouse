@@ -34,13 +34,15 @@ mode: single
 variables:
   notify_service: !input notify_service
   lamps: !input lamp
+  # one snapshot per automation, so two frost lamps never restore each other's lights
+  snapshot: "hortulus_frost_{{ this.entity_id | replace('automation.', '') }}"
 trigger:
   - platform: event
     event_type: garden_manager_frost_warning
 action:
   - service: scene.create  # remember on/off, brightness and colour
     data:
-      scene_id: hortulus_frost_flash_before
+      scene_id: "{{ snapshot }}"
       snapshot_entities: "{{ lamps }}"
   - repeat:
       count: !input flashes
@@ -58,7 +60,7 @@ action:
         - delay: {seconds: 1}
   - service: scene.turn_on
     target:
-      entity_id: scene.hortulus_frost_flash_before
+      entity_id: "scene.{{ snapshot }}"
   - if:
       - condition: template
         value_template: "{{ notify_service | length > 0 }}"

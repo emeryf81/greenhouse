@@ -57,7 +57,17 @@ const ZONE_SIZE: Record<ZoneType, [number, number]> = {
   outdoor: [600, 400], greenhouse: [300, 200], cold_frame: [150, 80], orchard: [1000, 800], fruit: [600, 300], herbs: [300, 200], flowers: [400, 150],
   garden: [800, 600], containers: [400, 200],
 };
-type Step = "site" | "zones" | "plant";
+/** The planning steps, in order: terrain, growing zones, beds, perennials, annuals. */
+type Step = "site" | "zones" | "beds" | "perennial" | "annual";
+const STEPS: [Step, string][] = [
+  ["site", "mdi:vector-square"], ["zones", "mdi:texture-box"], ["beds", "mdi:view-grid-outline"],
+  ["perennial", "mdi:tree-outline"], ["annual", "mdi:sprout"],
+];
+/** What each step lets you pick, move and edit. */
+const STEP_KIND: Record<Step, "feature" | "zone" | "bed" | "planting"> = {
+  site: "feature", zones: "zone", beds: "bed", perennial: "planting", annual: "planting",
+};
+const PLANT_STEPS: Step[] = ["perennial", "annual"];
 type Tool = { kind: "zone"; type: ZoneType } | { kind: "feature"; type: FeatureType } | { kind: "bed"; bedKind?: BedKind };
 const GOALS = ["fresh", "storage", "herbs", "pollinators", "winter", "perennials", "easy"];
 const CATEGORIES = ["vegetable", "herb", "fruit", "flower"] as const;
@@ -129,7 +139,7 @@ export class PlannerView extends LitElement {
   @state() private popupOpen = false;
   @state() private announcement = "";
   @state() private paletteOpen = true;
-  @state() private step: Step = "plant";
+  @state() private step: Step = "annual";
   @state() private tool: Tool | null = null;
   @state() private focusZone = "";
   @state() private removing: Planting | null = null;
@@ -226,6 +236,12 @@ export class PlannerView extends LitElement {
       .step.active { border-color: var(--hl-leaf-500); background: var(--hl-leaf-100); }
       .step.active .num { background: var(--hl-leaf-600); color: #fff; }
       .step-sep { color: var(--hl-text-muted); }
+      .step-tip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; padding: 8px 12px;
+        border-radius: var(--hl-r-md); background: var(--hl-sky-100, var(--hl-surface-2)); border: 1px solid var(--hl-border);
+        font-size: var(--hl-fs-sm); color: var(--hl-text); }
+      .step-tip .grow { flex: 1 1 260px; }
+      .toolbar .actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+      .zone-row.active { border-color: var(--hl-leaf-500); background: var(--hl-leaf-100); }
       .crumbs { display: inline-flex; gap: 6px; align-items: center; }
       label.plan-start { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); cursor: pointer; }
       label.plan-start.on { border-color: var(--hl-leaf-500); background: var(--hl-leaf-100); }
@@ -282,7 +298,7 @@ export class PlannerView extends LitElement {
     if (changed.has("plants")) this.plantMap = new Map(this.plants.map((p) => [p.id, p]));
     if (changed.has("snapshot") && this.snapshot) this.syncFromSnapshot();
     if (changed.has("mode")) {
-      this.step = this.mode === "plant" ? "plant" : this.draft.zones.length ? "zones" : "site";
+      if (PLANT_STEPS.includes(this.step) !== (this.mode === "plant")) this.step = this.defaultStep();
       this.tool = null;
       this.selection = null;
       this.multi = [];
@@ -338,9 +354,39 @@ export class PlannerView extends LitElement {
     return !!this.snapshot && layoutOf(this.snapshot, this.season) !== null;
   }
 
-  /** In planting mode the garden plan is fixed: zones, beds and elements are not edited here. */
-  private locked(kind: Selection["kind"] | undefined): boolean {
-    return this.mode === "plant" && kind !== "planting";
+  /** Steps 4 and 5 put plants on the plan; steps 1-3 draw the plan itself. */
+  private get plantStep(): boolean {
+    return PLANT_STEPS.includes(this.step);
+  }
+
+  /** Where a tab opens: the planner on the annuals, the garden plan where the drawing stopped. */
+  private defaultStep(): Step {
+    if (this.mode === "plant") return "annual";
+    if (!this.draft.zones.length) return this.draft.features.length ? "zones" : "site";
+    return "beds";
+  }
+
+  private isPerennial(p: Planting): boolean {
+    return !!this.plantMap.get(p.plant_id)?.perennial;
+  }
+
+  /** Each step edits one kind of item: elements, zones, beds, perennials or annuals.  The rest is locked. */
+  private locked(sel: Selection | null | undefined): boolean {
+    if (!sel || sel.kind !== STEP_KIND[this.step]) return true;
+    if (sel.kind !== "planting") return false;
+    const p = this.draft.plantings.find((i) => i.id === sel.id);
+    return !p || this.isPerennial(p) !== (this.step === "perennial");
+  }
+
+  private goStep(step: Step): void {
+    const wasPlant = this.plantStep;
+    this.step = step;
+    this.tool = null;
+    this.selection = null;
+    this.multi = [];
+    this.popupOpen = false;
+    if (step === "site" || step === "zones") this.focusZone = "";
+    if (wasPlant !== this.plantStep) this.go(this.plantStep ? "planner" : "layout");
   }
 
   private syncFromSnapshot(force = false): void {
@@ -352,7 +398,7 @@ export class PlannerView extends LitElement {
       if (today && today !== this.season && layoutOf(snap, today)) this.season = today;
       if (this.initialSeason) this.season = this.initialSeason;
       this.viewDate = snap.analysis?.today ?? "";
-      this.step = this.mode === "plant" ? "plant" : snap.zones.length ? "zones" : "site";
+      this.stepPending = true;
     }
     const unchangedLocally = this.saveState === "saved";
     if (force || !this.history || (unchangedLocally && snap.revision !== this.baseRevision)) {
@@ -364,7 +410,13 @@ export class PlannerView extends LitElement {
       this.reports = {};
       this.extraTimelines = {};
     }
+    if (this.stepPending) {
+      this.stepPending = false;
+      this.step = this.defaultStep();
+    }
   }
+
+  private stepPending = false;
 
   private get timelines(): Record<string, Timeline> {
     return { ...(this.snapshot.analysis?.timelines ?? {}), ...this.extraTimelines };
@@ -448,7 +500,7 @@ export class PlannerView extends LitElement {
     this.multi = [];
     this.focusZone = "";
     this.syncFromSnapshot(true);
-    if (this.mode === "layout") this.step = this.draft.zones.length ? this.step : "site";
+    if (!this.plantStep && !this.draft.zones.length) this.step = this.draft.features.length ? "zones" : "site";
     requestAnimationFrame(() => this.canvas?.fit());
   }
 
@@ -457,7 +509,7 @@ export class PlannerView extends LitElement {
     const src = from == null ? null : layoutOf(this.snapshot, from);
     const doc: PlanDoc = { ...clone(this.draft), zones: clone(src?.zones ?? []), beds: clone(src?.beds ?? []), features: clone(src?.features ?? []) };
     this.commit(doc, this.t("layout.started", { season: this.season }));
-    this.step = doc.zones.length ? "zones" : "site";
+    this.step = doc.zones.length ? "beds" : "site";
     requestAnimationFrame(() => this.canvas?.fit());
   }
 
@@ -515,7 +567,7 @@ export class PlannerView extends LitElement {
 
   /** Align or distribute the selected beds / plantings / elements. */
   private align(mode: AlignMode): void {
-    if (this.multi.length < 2 || !this.admin || this.locked(this.multi[0].kind)) return;
+    if (this.multi.length < 2 || !this.admin || this.multi.some((m) => this.locked(m))) return;
     const doc = clone(this.draft);
     const kind = this.multi[0].kind;
     const touched = new Set<string>();
@@ -549,7 +601,7 @@ export class PlannerView extends LitElement {
 
   private onItemChange(ev: CustomEvent<ItemChangeDetail>): void {
     const { kind, id, rect, targetBedId, dx: gdx, dy: gdy, group } = ev.detail;
-    if (this.locked(kind)) return;
+    if (this.locked({ kind, id })) return;
     const doc = clone(this.draft);
     const step = this.snapOn ? this.snapshot.settings.snap_cm : 1;
     if (group) {
@@ -611,7 +663,7 @@ export class PlannerView extends LitElement {
   }
 
   private updateSelected(patch: Record<string, unknown>, nested?: "microclimate"): void {
-    if (!this.selection || this.locked(this.selection.kind)) return;
+    if (!this.selection || this.locked(this.selection)) return;
     const doc = clone(this.draft);
     const list = (this.selection.kind === "zone" ? doc.zones : this.selection.kind === "bed" ? doc.beds
       : this.selection.kind === "feature" ? doc.features : doc.plantings) as unknown as Record<string, unknown>[];
@@ -641,7 +693,7 @@ export class PlannerView extends LitElement {
 
   private removeSelected(): void {
     const sel = this.selection;
-    if (!sel || !this.admin || this.locked(sel.kind)) return;
+    if (!sel || !this.admin || this.locked(sel)) return;
     const doc = clone(this.draft);
     let name = "";
     if (this.multi.length > 1 && (sel.kind === "planting" || sel.kind === "feature")) {
@@ -768,7 +820,7 @@ export class PlannerView extends LitElement {
 
   private openZone(zoneId: string): void {
     this.focusZone = zoneId;
-    if (this.step === "site") this.step = "zones";
+    if (this.step === "site" || this.step === "zones") this.step = "beds";
     const z = this.draft.zones.find((i) => i.id === zoneId);
     this.selection = z ? { kind: "zone", id: z.id } : null;
     this.multi = this.selection ? [this.selection] : [];
@@ -865,7 +917,7 @@ export class PlannerView extends LitElement {
 
   private nudge(dx: number, dy: number, resize = false): void {
     const sel = this.selection;
-    if (!sel || !this.admin || this.locked(sel.kind)) return;
+    if (!sel || !this.admin || this.locked(sel)) return;
     const doc = clone(this.draft);
     const touched: string[] = [];
     if (sel.kind === "planting") {
@@ -1043,6 +1095,7 @@ export class PlannerView extends LitElement {
     switch (key) {
       case "Delete":
       case "Backspace": this.removeSelected(); return handled();
+      case "Enter": if (this.selection && this.findItem(this.selection)) this.popupOpen = true; return handled();
       case "Escape": this.selection = null; this.multi = []; this.paletteDrag = null; this.dialog = null; return handled();
       case "g": this.snapOn = !this.snapOn; return handled();
       case "c": this.showCompanions = !this.showCompanions; return handled();
@@ -1058,15 +1111,17 @@ export class PlannerView extends LitElement {
   }
 
   private cycleSelection(dir: 1 | -1): void {
-    const items: Selection[] = [
+    const items: Selection[] = ([
+      ...this.draft.features.map((f) => ({ kind: "feature" as const, id: f.id })),
+      ...this.draft.zones.map((z) => ({ kind: "zone" as const, id: z.id })),
       ...this.draft.beds.map((b) => ({ kind: "bed" as const, id: b.id })),
       ...this.seasonPlantings.map((p) => ({ kind: "planting" as const, id: p.id })),
-    ];
+    ] as Selection[]).filter((i) => !this.locked(i)); // only the items of this step
     if (!items.length) return;
     const idx = this.selection ? items.findIndex((i) => i.id === this.selection!.id) : -1;
     this.selection = items[(idx + dir + items.length) % items.length];
     const item = this.findItem(this.selection);
-    const name = this.selection.kind === "planting" ? plantName(this.plantMap.get((item as Planting).plant_id), this.lang) : (item as Bed).name;
+    const name = this.selection.kind === "planting" ? plantName(this.plantMap.get((item as Planting).plant_id), this.lang) : (item as { name: string }).name;
     this.announce(name);
   }
 
@@ -1135,7 +1190,7 @@ export class PlannerView extends LitElement {
     if (!this.hasLayout && !this.draft.zones.length) {
       return html`${this.renderStepper()}${this.renderToolbar()}${this.renderNoLayout()}${this.renderDialog()}`;
     }
-    const plantMode = this.mode === "plant";
+    const plantMode = this.plantStep;
     const drag = this.paletteDrag;
     const ghost = drag?.rect
       ? { rect: drag.rect, valid: !!drag.bedId, color: familyColor(this.families, drag.plant.family), label: this.ghostLabel() }
@@ -1143,9 +1198,10 @@ export class PlannerView extends LitElement {
     return html`
       ${this.renderStepper()}
       ${this.renderToolbar()}
+      ${this.renderStepTip()}
       <div class="layout ${this.narrow ? "narrow" : ""} ${this.paletteOpen || this.narrow ? "" : "palette-closed"}" @keydown=${this.onKeyDown}>
         ${this.paletteOpen || this.narrow
-          ? plantMode ? this.renderPalette() : this.step === "zones" ? this.renderZonesPane() : this.renderSitePane()
+          ? plantMode ? this.renderPalette() : this.step === "site" ? this.renderSitePane() : this.step === "zones" ? this.renderZoneStepPane() : this.renderZonesPane()
           : html`<div></div>`}
         <div class="center">
           ${this.renderLateBanner()}
@@ -1173,13 +1229,16 @@ export class PlannerView extends LitElement {
             .showCompanions=${plantMode && this.showCompanions}
             .showMoisture=${plantMode && this.showMoisture}
             .showTemperature=${plantMode && this.showTemperature}
-            .lockLayout=${plantMode}
+            .lockLayout=${false}
+            .editKind=${STEP_KIND[this.step]}
+            .editPlanting=${plantMode ? this.stepPlantFilter : null}
             .viewDate=${this.viewDate}
             .readonly=${!this.admin}
             .focusZone=${this.focusZone}
             .drawTool=${this.tool ? this.toolInfo(this.tool) : null}
             @select=${(e: CustomEvent<Selection | null>) => this.onSelect(e.detail)}
-            @item-click=${(e: CustomEvent<Selection>) => { this.onSelect(e.detail); this.popupOpen = true; }}
+            @item-click=${(e: CustomEvent<Selection>) => this.onSelect(e.detail)}
+            @item-open=${(e: CustomEvent<Selection>) => { this.onSelect(e.detail); this.popupOpen = true; }}
             @item-change=${this.onItemChange}
             @draw-rect=${this.onDrawRect}
             @zone-open=${(e: CustomEvent<string>) => this.openZone(e.detail)}
@@ -1198,8 +1257,11 @@ export class PlannerView extends LitElement {
     `;
   }
 
+  /** Steps 4 and 5 show the plants of their kind; the other plants stay on the map, locked. */
+  private stepPlantFilter = (p: Planting): boolean => this.isPerennial(p) === (this.step === "perennial");
+
   private renderToolbar(): TemplateResult {
-    const plantMode = this.mode === "plant";
+    const plantMode = this.plantStep;
     const seasons = [this.season - 1, this.season, this.season + 1];
     const stateLabel = { saved: "common.saved", dirty: "common.unsaved", saving: "common.saving", error: "common.unsaved" }[this.saveState];
     const btn = (icon: string, label: string, action: () => void, pressed?: boolean, disabled = false) => html`
@@ -1247,17 +1309,16 @@ export class PlannerView extends LitElement {
             @date-change=${(e: CustomEvent<string | null>) => (this.viewDate = e.detail ?? this.snapshot.analysis?.today ?? "")}></hl-date-input>
         </label>` : nothing}
         <span class="spacer"></span>
+        <span class="actions">
         <span class="save-state ${this.saveState === "error" ? "error" : ""}" role="status">
           <ha-icon icon=${this.saveState === "saved" ? "mdi:cloud-check-outline" : "mdi:cloud-upload-outline"}></ha-icon>${this.t(stateLabel)}
         </span>
-        ${this.admin && plantMode && this.hasLayout ? html`
+        ${this.admin && this.step === "annual" && this.hasLayout ? html`
           <button class="btn small primary" @click=${() => this.openAutofill()}><ha-icon icon="mdi:auto-fix"></ha-icon>${this.t("autofill.title")}</button>` : nothing}
-        ${this.admin && !plantMode && this.hasLayout ? html`
+        ${this.admin && this.step === "beds" && this.hasLayout ? html`
           <button class="btn small" @click=${() => this.addBed()}><ha-icon icon="mdi:plus"></ha-icon>${this.t("planner.add_bed")}</button>` : nothing}
         ${!plantMode ? html`<button class="btn small" @click=${() => (this.dialog = "plans")}><ha-icon icon="mdi:file-tree-outline"></ha-icon>${this.t("plans.button")}
           ${this.snapshot.archived_plans?.length ? html`<span class="chip">${this.snapshot.archived_plans.length}</span>` : nothing}</button>` : nothing}
-        <button class="btn small" @click=${() => this.go(plantMode ? "layout" : "planner")}>
-          <ha-icon icon=${plantMode ? "mdi:floor-plan" : "mdi:sprout"}></ha-icon>${this.t(plantMode ? "layout.edit" : "layout.to_planner")}</button>
         <button class="btn small ${this.snapshot.transition_due ? "primary" : ""}" @click=${() => (this.dialog = "transition")}>
           <ha-icon icon="mdi:calendar-arrow-right"></ha-icon>${this.t("year.button")}</button>
         <details class="more">
@@ -1269,43 +1330,40 @@ export class PlannerView extends LitElement {
             <button role="menuitem" @click=${() => (this.dialog = "shortcuts")}><ha-icon icon="mdi:keyboard-outline"></ha-icon>${this.t("planner.shortcuts")} (?)</button>
           </div>
         </details>
+        </span>
       </div>
       ${this.admin ? nothing : html`<p class="readonly-note">${this.t("common.admin_only")}</p>`}
     `;
   }
 
   private renderStepper(): TemplateResult {
-    if (this.mode === "plant") {
-      const zone = this.draft.zones.find((z) => z.id === this.focusZone);
-      return html`<nav class="stepper" aria-label=${this.t("nav.planner")}>
-        <span class="step active"><ha-icon icon="mdi:sprout"></ha-icon>
-          <span class="txt"><b>${this.t("planner.step.plant")} · ${this.t("common.season", { year: this.season })}</b>
-          <span class="xs muted">${this.t("layout.planting_on", { season: this.season })}</span></span></span>
-        <span class="spacer"></span>
-        <span class="crumbs" aria-label=${this.t("planner.zone_map")}>
-          <button class="chip ${zone ? "" : "ok"}" @click=${() => this.closeZone()}><ha-icon icon="mdi:home-outline"></ha-icon>${this.t("planner.whole_garden")}</button>
-          ${zone ? html`<span aria-hidden="true">›</span><span class="chip ok">${ZONE_STYLE[zone.type]?.icon ?? ""} ${zone.name}</span>` : nothing}
-        </span>
-      </nav>`;
-    }
-    const steps: [Step, string, string][] = [
-      ["site", "mdi:vector-square", "planner.step.site"],
-      ["zones", "mdi:texture-box", "planner.step.zones"],
-    ];
     const zone = this.draft.zones.find((z) => z.id === this.focusZone);
     return html`<nav class="stepper" aria-label=${this.t("planner.steps")}>
-      ${steps.map(([id, icon, key], i) => html`
+      ${STEPS.map(([id, icon], i) => html`
         <button class="step ${this.step === id ? "active" : ""}" aria-current=${this.step === id ? "step" : nothing}
-          @click=${() => { this.step = id; this.tool = null; }}>
+          title=${this.t(`planner.step_tip.${id}`)} @click=${() => this.goStep(id)}>
           <span class="num">${i + 1}</span><ha-icon icon=${icon}></ha-icon>
-          <span class="txt"><b>${this.t(key)}</b><span class="xs muted">${this.t(`${key}.hint`)}</span></span>
-        </button>${i < steps.length - 1 ? html`<span class="step-sep" aria-hidden="true">›</span>` : nothing}`)}
+          <span class="txt"><b>${this.t(`planner.step.${id}`)}</b><span class="xs muted">${this.t(`planner.step.${id}.hint`)}</span></span>
+        </button>${i < STEPS.length - 1 ? html`<span class="step-sep" aria-hidden="true">›</span>` : nothing}`)}
       <span class="spacer"></span>
       <span class="crumbs" aria-label=${this.t("planner.zone_map")}>
         <button class="chip ${zone ? "" : "ok"}" @click=${() => this.closeZone()}><ha-icon icon="mdi:home-outline"></ha-icon>${this.t("planner.whole_garden")}</button>
         ${zone ? html`<span aria-hidden="true">›</span><span class="chip ok">${ZONE_STYLE[zone.type]?.icon ?? ""} ${zone.name}</span>` : nothing}
       </span>
     </nav>`;
+  }
+
+  /** What this step edits, how, and what stays locked - plus the selected item's details button. */
+  private renderStepTip(): TemplateResult {
+    const item = this.selection ? this.findItem(this.selection) : undefined;
+    const name = !item ? "" : this.selection!.kind === "planting"
+      ? plantName(this.plantMap.get((item as Planting).plant_id), this.lang) : (item as { name: string }).name;
+    return html`<div class="step-tip" role="note">
+      <ha-icon icon="mdi:information-outline"></ha-icon>
+      <span class="grow">${this.t(`planner.step_tip.${this.step}`)}</span>
+      ${item ? html`<span class="chip">${name}</span>
+        <button class="btn small" @click=${() => (this.popupOpen = true)}><ha-icon icon="mdi:tune-variant"></ha-icon>${this.t("planner.details")}</button>` : nothing}
+    </div>`;
   }
 
   private renderToolButton(tool: Tool, icon: TemplateResult | string, label: string, hint = ""): TemplateResult {
@@ -1325,35 +1383,61 @@ export class PlannerView extends LitElement {
       </div>`)}`;
   }
 
-  /** Step 1: draw the site - zones and garden elements on the 10 cm grid. */
+  /** Step 1: the terrain - house, paths, lawn, trees, shed ... on the 10 cm grid. */
   private renderSitePane(): TemplateResult {
     return html`<aside class="pane" aria-label=${this.t("planner.step.site")}>
-      <header><h3>${this.t("planner.step.site")}</h3><hl-info term="zones" .t=${this.t}></hl-info></header>
+      <header><h3>${this.t("planner.step.site")}</h3></header>
       <div class="pane-body stack">
         <p class="small muted">${this.t("planner.site_intro")}</p>
-        <h4>${this.t("planner.zones")}</h4>
+        ${this.renderFeatureGroups()}
+        <div class="divider"></div>
+        <h4>${this.t("planner.your_elements")} (${this.draft.features.length})</h4>
+        ${this.renderItemRows("feature", this.draft.features.map((f) => [f.id, FEATURE_STYLE[f.type]?.icon || "▭", f.name,
+          `${this.t(`feature.${f.type}`)} · ${(f.width_cm / 100).toFixed(1)} × ${(f.length_cm / 100).toFixed(1)} m`]))}
+        <button class="btn primary" @click=${() => this.goStep("zones")}>${this.t("planner.next")}: ${this.t("planner.step.zones")} ›</button>
+      </div>
+    </aside>`;
+  }
+
+  /** Step 2: the growing zones (vegetable garden, greenhouse, orchard ...) on the terrain. */
+  private renderZoneStepPane(): TemplateResult {
+    return html`<aside class="pane" aria-label=${this.t("planner.step.zones")}>
+      <header><h3>${this.t("planner.step.zones")}</h3><hl-info term="zones" .t=${this.t}></hl-info></header>
+      <div class="pane-body stack">
+        <p class="small muted">${this.t("planner.zones_step_intro")}</p>
         <div class="tool-grid">
           ${ZONE_TYPES.map((z) => this.renderToolButton({ kind: "zone", type: z }, ZONE_STYLE[z].icon, this.t(`settings.zone_type.${z}`), this.t(`zone_hint.${z}`)))}
         </div>
-        ${this.renderFeatureGroups()}
         <div class="divider"></div>
         <h4>${this.t("planner.your_zones")} (${this.draft.zones.length})</h4>
-        ${this.draft.zones.length ? html`<div class="stack" style="gap:6px">${this.draft.zones.map((z) => html`
-          <div class="zone-row"><span>${ZONE_STYLE[z.type]?.icon}</span>
-            <span class="grow"><b>${z.name}</b><br /><span class="xs muted">${this.t(`settings.zone_type.${z.type}`)} · ${(z.width_cm / 100).toFixed(1)} × ${(z.length_cm / 100).toFixed(1)} m</span></span>
-            <button class="btn small ghost" @click=${() => this.openZone(z.id)}>${this.t("planner.open_zone")}</button></div>`)}</div>`
+        ${this.draft.zones.length ? this.renderItemRows("zone", this.draft.zones.map((z) => [z.id, ZONE_STYLE[z.type]?.icon ?? "", z.name,
+          `${this.t(`settings.zone_type.${z.type}`)} · ${(z.width_cm / 100).toFixed(1)} × ${(z.length_cm / 100).toFixed(1)} m`]))
           : html`<p class="xs muted">${this.t("planner.no_zones")}</p>`}
-        ${this.draft.zones.length ? html`<button class="btn primary" @click=${() => { this.step = "zones"; this.tool = null; }}>${this.t("planner.next")}: ${this.t("planner.step.zones")} ›</button>` : nothing}
+        <div class="row wrap">
+          <button class="btn" @click=${() => this.goStep("site")}>‹ ${this.t("planner.step.site")}</button>
+          ${this.draft.zones.length ? html`<button class="btn primary" @click=${() => this.goStep("beds")}>${this.t("planner.next")}: ${this.t("planner.step.beds")} ›</button>` : nothing}
+        </div>
       </div>
     </aside>`;
+  }
+
+  /** A clickable list of the items of this step: select on the map, details with one more click. */
+  private renderItemRows(kind: "feature" | "zone", rows: [string, string, string, string][]): TemplateResult {
+    return html`<div class="stack" style="gap:6px">${rows.map(([id, icon, name, sub]) => {
+      const active = this.selection?.kind === kind && this.selection.id === id;
+      return html`<button class="zone-row as-btn ${active ? "active" : ""}" title=${this.t("planner.item_tip")}
+        @click=${() => { if (active) this.popupOpen = true; else this.onSelect({ kind, id }); }}>
+        <span>${icon}</span><span class="grow"><b>${name}</b><br /><span class="xs muted">${sub}</span></span>
+        <ha-icon icon=${active ? "mdi:tune-variant" : "mdi:chevron-right"}></ha-icon></button>`;
+    })}</div>`;
   }
 
   /** Step 2: name each zone and lay out its beds on its own map. */
   private renderZonesPane(): TemplateResult {
     const zone = this.draft.zones.find((z) => z.id === this.focusZone);
     if (!zone) {
-      return html`<aside class="pane" aria-label=${this.t("planner.step.zones")}>
-        <header><h3>${this.t("planner.step.zones")}</h3></header>
+      return html`<aside class="pane" aria-label=${this.t("planner.step.beds")}>
+        <header><h3>${this.t("planner.step.beds")}</h3></header>
         <div class="pane-body stack">
           <p class="small muted">${this.t("planner.zones_intro")}</p>
           ${this.draft.zones.map((z) => {
@@ -1365,7 +1449,8 @@ export class PlannerView extends LitElement {
                 ${this.t("planner.n_beds", { n: beds.length })} · ${this.t("planner.count", { n })}</span></span>
               <ha-icon icon="mdi:chevron-right"></ha-icon></button>`;
           })}
-          ${!this.draft.zones.length ? html`<button class="btn" @click=${() => (this.step = "site")}>‹ ${this.t("planner.step.site")}</button>` : nothing}
+          ${!this.draft.zones.length ? html`<button class="btn" @click=${() => this.goStep("zones")}>‹ ${this.t("planner.step.zones")}</button>`
+            : html`<button class="btn primary" @click=${() => this.goStep("perennial")}>${this.t("planner.next")}: ${this.t("planner.step.perennial")} ›</button>`}
         </div>
       </aside>`;
     }
@@ -1387,15 +1472,12 @@ export class PlannerView extends LitElement {
           ${this.renderToolButton({ kind: "bed" }, "▭", this.t("planner.draw_bed"))}
           ${this.renderToolButton({ kind: "bed", bedKind: "container" }, "🪴", this.t("planner.draw_planter"), this.t("planner.draw_planter_hint"))}
         </div>
-        <details class="elements">
-          <summary class="small"><b>${this.t("planner.elements_in_zone")}</b></summary>
-          ${this.renderFeatureGroups()}
-        </details>
         <div class="stack" style="gap:4px">${beds.map((b) => html`<button class="zone-row as-btn" @click=${() => this.onSelect({ kind: "bed", id: b.id })}>
           <span>▭</span><span class="grow"><b>${b.name}</b> <span class="xs muted">${(b.width_cm / 100).toFixed(1)} × ${(b.length_cm / 100).toFixed(1)} m · ${this.t(`kind.${b.kind}`)}</span></span></button>`)}</div>
         <div class="divider"></div>
         <div class="row wrap">
-          <button class="btn primary" @click=${() => this.go("planner")}><ha-icon icon="mdi:sprout"></ha-icon>${this.t("layout.to_planner")}</button>
+          <button class="btn" @click=${() => this.closeZone()}>‹ ${this.t("planner.whole_garden")}</button>
+          <button class="btn primary" @click=${() => this.goStep("perennial")}>${this.t("planner.next")}: ${this.t("planner.step.perennial")} ›</button>
         </div>
       </div>
     </aside>`;
@@ -1417,7 +1499,9 @@ export class PlannerView extends LitElement {
     const q = this.search.trim().toLowerCase();
     const focus = this.draft.zones.find((z) => z.id === this.focusZone);
     const allowed = focus ? ZONE_CATEGORIES[focus.type] : null;
+    const perennialStep = this.step === "perennial";
     const list = this.plants.filter((p) => {
+      if (!!p.perennial !== perennialStep) return false;
       if (allowed && !this.categoryFilter && !allowed.includes(p.category ?? "vegetable")) return false;
       if (this.familyFilter && p.family !== this.familyFilter) return false;
       if (this.categoryFilter && (p.category ?? "vegetable") !== this.categoryFilter) return false;
@@ -1428,7 +1512,7 @@ export class PlannerView extends LitElement {
     return html`
       <aside class="pane" aria-label=${this.t("planner.palette")}>
         <header>
-          <h3>${this.t("planner.palette")}</h3>
+          <h3>${this.t(perennialStep ? "planner.palette_perennial" : "planner.palette_annual")}</h3>
           <span class="spacer"></span>
           <div class="segmented" role="group" aria-label=${this.t("planner.layout")}>
             ${(["single", "block", "row"] as LayoutMode[]).map((m) => html`
@@ -1478,6 +1562,13 @@ export class PlannerView extends LitElement {
           <div class="legend">
             ${families.map((f) => html`<span><span class="family-dot" style=${`background:${familyColor(this.families, f)}`}></span>${familyName(this.families, f, this.lang) ?? f}</span>`)}
           </div>
+          </div>
+          <div class="divider"></div>
+          <div class="row wrap">
+            ${perennialStep
+              ? html`<button class="btn" @click=${() => this.goStep("beds")}>‹ ${this.t("planner.step.beds")}</button>
+                <button class="btn primary" @click=${() => this.goStep("annual")}>${this.t("planner.next")}: ${this.t("planner.step.annual")} ›</button>`
+              : html`<button class="btn" @click=${() => this.goStep("perennial")}>‹ ${this.t("planner.step.perennial")}</button>`}
           </div>
         </div>
       </aside>
@@ -1750,7 +1841,7 @@ export class PlannerView extends LitElement {
   private renderInspector(): TemplateResult {
     const sel = this.selection;
     const item = sel ? this.findItem(sel) : undefined;
-    const ro = !this.admin || this.locked(sel?.kind);
+    const ro = !this.admin || this.locked(sel);
     let body: TemplateResult;
     if (!sel || !item) {
       body = html`<p class="small muted">${this.t("planner.nothing_selected")}</p><p class="xs muted">${this.t("planner.multi_hint")}</p>`;
@@ -1847,10 +1938,10 @@ export class PlannerView extends LitElement {
       const report = this.reports[b.id] ?? ba?.compatibility;
       body = html`
         <h3>${b.name}</h3>
-        ${this.mode === "plant" ? this.renderBedHistory(b) : nothing}
-        ${this.mode === "plant" ? html`<details class="note"><summary class="small"><ha-icon icon="mdi:notebook-edit-outline"></ha-icon> ${this.t("note.title")}</summary>
+        ${this.plantStep ? this.renderBedHistory(b) : nothing}
+        ${this.plantStep ? html`<details class="note"><summary class="small"><ha-icon icon="mdi:notebook-edit-outline"></ha-icon> ${this.t("note.title")}</summary>
           <hl-quick-note .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} bedId=${b.id} ?admin=${this.admin}></hl-quick-note></details>` : nothing}
-        ${this.mode === "plant" && (b.irrigation_entity || b.sensors?.soil_moisture) ? html`<details class="water"><summary class="small">${this.t("water.per_bed")}</summary>
+        ${this.plantStep && (b.irrigation_entity || b.sensors?.soil_moisture) ? html`<details class="water"><summary class="small">${this.t("water.per_bed")}</summary>
           <hl-water-chart .bed=${b} .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} days="14"></hl-water-chart></details>` : nothing}
         <div class="form-grid">
           <label class="field full">${this.t("planner.bed_name")}<input .value=${b.name} ?disabled=${ro}
@@ -1973,7 +2064,7 @@ export class PlannerView extends LitElement {
     const snap = this.snapshot;
     const today = snap?.analysis?.today;
     const firstFrost = snap?.analysis?.anchors?.first_frost;
-    if (this.mode !== "plant" || this.lateDismissed || !today || !firstFrost) return false;
+    if (!this.plantStep || this.lateDismissed || !today || !firstFrost) return false;
     return this.season === snap.analysis?.season && daysBetween(today, firstFrost) <= 45;
   }
 
@@ -2032,10 +2123,10 @@ export class PlannerView extends LitElement {
     const snap = this.snapshot;
     const live = snap.layout_season ?? this.season;
     const sources = [...new Set([this.season - 1, live, this.season + 1])].filter((s) => s !== this.season && layoutOf(snap, s));
-    const canEdit = this.admin && this.mode === "layout";
+    const canEdit = this.admin && !this.plantStep;
     return html`<section class="card stack no-layout" aria-live="polite">
       <h2><ha-icon icon="mdi:floor-plan"></ha-icon> ${this.t("layout.none_title", { season: this.season })}</h2>
-      <p>${this.t(this.mode === "plant" ? "layout.none_plant" : "layout.none_intro", { season: this.season, live })}</p>
+      <p>${this.t(this.plantStep ? "layout.none_plant" : "layout.none_intro", { season: this.season, live })}</p>
       <div class="row wrap">
         ${canEdit ? html`
           ${sources.map((s) => html`<button class="btn primary" @click=${() => this.startLayout(s)}><ha-icon icon="mdi:content-copy"></ha-icon>${this.t("layout.copy_from", { season: s })}</button>`)}

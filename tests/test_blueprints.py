@@ -79,6 +79,7 @@ async def test_frost_lamp_returns_to_how_it_was(hass, monkeypatch):
     hass.services.async_register("light", "turn_on", light_service)
     hass.services.async_register("light", "turn_off", light_service)
     hass.states.async_set("light.porch", "on", {"brightness": 77})
+    hass.states.async_set("light.shed", "on", {"brightness": 200})
     path = next(p for p in BLUEPRINTS if p.stem == "frost_flash_light")
     blueprints = hass.config.path("blueprints", "automation", "hortulus")
     await hass.async_add_executor_job(lambda: Path(blueprints).mkdir(parents=True, exist_ok=True))
@@ -88,13 +89,21 @@ async def test_frost_lamp_returns_to_how_it_was(hass, monkeypatch):
         hass,
         "automation",
         {
-            "automation": {
-                "use_blueprint": {"path": f"hortulus/{path.name}", "input": {"lamp": ["light.porch"], "flashes": 1}}
-            }
+            "automation": [  # two frost lamps fire together: each puts back its own light
+                {"use_blueprint": {"path": f"hortulus/{path.name}", "input": {"lamp": ["light.porch"], "flashes": 1}}},
+                {"use_blueprint": {"path": f"hortulus/{path.name}", "input": {"lamp": ["light.shed"], "flashes": 1}}},
+            ]
         },
     )
     hass.bus.async_fire("garden_manager_frost_warning", {"temp": -1})
     await hass.async_block_till_done()
-    assert [c[0] for c in calls][:2] == ["turn_on", "turn_off"]  # the flash
+    flashed_off = {
+        e
+        for service, data in calls
+        if service == "turn_off"
+        for e in ([data["entity_id"]] if isinstance(data["entity_id"], str) else data["entity_id"])
+    }
+    assert flashed_off == {"light.porch", "light.shed"}  # both lamps flashed
     state = hass.states.get("light.porch")
     assert state.state == "on" and state.attributes["brightness"] == 77  # and back as it was
+    assert hass.states.get("light.shed").attributes["brightness"] == 200
