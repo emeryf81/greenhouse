@@ -44,6 +44,17 @@ STATE_TIMEOUT_S = 5.0
 # watering) is reported as stuck.
 STUCK_MARGIN_MIN = 10
 TEST_MAX_S = 60
+# Watering is held in steps so a valve that shuts by itself is noticed.
+HOLD_STEP_S = 30.0
+# The valve's own timer is left this much room before Hortulus re-opens it.
+TIMER_MARGIN_MIN = 1.0
+# A pause between closing and re-opening a valve with its own timer.
+REOPEN_PAUSE_S = 3.0
+# Flow is learned from runs of at least this long (meters update in steps).
+LEARN_MIN_MINUTES = 3.0
+# Leak: this much water within LEAK_WINDOW_MIN while every valve is closed.
+LEAK_LITERS = 5.0
+LEAK_WINDOW_MIN = 15
 
 # Only settled states count; "opening" / "closing" are still on their way.
 _OPEN = {"on", "open"}
@@ -75,6 +86,19 @@ async def _switch(hass: HomeAssistant, entity_id: str, on: bool) -> None:
     await hass.services.async_call(domain, service, {ATTR_ENTITY_ID: entity_id}, blocking=True)
 
 
+def _chunks(minutes: float, valve_max_min: float | None) -> list[float]:
+    """Split a run so each opening stays inside the valve's own timer."""
+    if not valve_max_min or valve_max_min <= TIMER_MARGIN_MIN:
+        return [minutes]
+    step = valve_max_min - TIMER_MARGIN_MIN
+    out = []
+    left = minutes
+    while left > 1e-6:
+        out.append(min(step, left))
+        left -= step
+    return out
+
+
 @dataclass(slots=True)
 class RunStatus:
     running: bool = False
@@ -97,6 +121,11 @@ class IrrigationController:
         self._open_since: dict[str, datetime] = {}
         self.stuck: dict[str, datetime] = {}
         self._reported: set[str] = set()
+        # water meter readings (time, litres) while nothing waters, and the leak being reported
+        self._meter_window: list[tuple[datetime, float]] = []
+        self._quiet_since: datetime | None = None
+        self.leak: dict[str, Any] | None = None
+        self._partial_s = 0.0  # seconds held by an opening that was interrupted
 
     @property
     def running(self) -> bool:
@@ -169,28 +198,28 @@ class IrrigationController:
                     self.status.started_at = dt_util.now()
                     self.status.ends_at = dt_util.now() + timedelta(minutes=minutes)
                     self.coordinator.async_update_listeners()
-                    touched.add(run.entity_id)
-                    await _switch(self.hass, run.entity_id, True)
-                    if pump:
-                        await asyncio.sleep(VALVE_SETTLE_S)
-                        await _switch(self.hass, pump, True)
-                    started = dt_util.now()
-                    completed = False
+                    bed = self.coordinator.repo.data.bed(run.bed_id)
+                    chunks = _chunks(minutes, bed.valve_max_min if bed else None)
+                    meter_start = self.meter_liters()
+                    ran_s = 0.0
+                    self._partial_s = 0.0
                     try:
-                        await asyncio.sleep(minutes * 60)
-                        completed = True
+                        for n, chunk in enumerate(chunks):
+                            if n:
+                                await asyncio.sleep(REOPEN_PAUSE_S)
+                            held, closed_early = await self._open_for(run.entity_id, pump, chunk * 60, touched)
+                            ran_s += held
+                            if closed_early:
+                                self._problem(run.entity_id, "valve_closed_early", self._state(run.entity_id),
+                                              bed_id=run.bed_id, minutes=round(ran_s / 60, 1))  # fmt: skip
+                                break
                     finally:
-                        if pump:
-                            await _switch(self.hass, pump, False)
-                            await asyncio.sleep(settings.pump_lead_s)
-                        await _switch(self.hass, run.entity_id, False)
-                        touched.discard(run.entity_id)
+                        # an interrupted run books the time that really passed
+                        ran_s += self._partial_s
                         self.hass.async_create_background_task(
                             self._verify_closed(run.entity_id, run.bed_id), "hortulus_verify_valve"
                         )
-                        # Interrupted runs book the time that really passed.
-                        ran_min = minutes if completed else (dt_util.now() - started).total_seconds() / 60
-                        self._log(run.bed_id, min(ran_min, minutes), run, source)
+                        self._log(run.bed_id, min(ran_s / 60, minutes), run, source, meter_start)
             except asyncio.CancelledError:
                 _LOGGER.info("Irrigation run cancelled")
                 raise
@@ -213,6 +242,96 @@ class IrrigationController:
                 self.status.bed_id = None
                 self.status.ends_at = None
                 self.coordinator.repo.async_changed("tasks", source="system")
+
+    async def _open_for(
+        self, entity_id: str, pump: str | None, seconds: float, touched: set[str]
+    ) -> tuple[float, bool]:
+        """Open a valve (then the pump), hold, close in the safe order.
+
+        Returns the seconds it was held and whether the valve shut by itself
+        (it reported open, then closed while Hortulus still wanted water).
+        """
+        touched.add(entity_id)
+        await _switch(self.hass, entity_id, True)
+        if pump:
+            await asyncio.sleep(VALVE_SETTLE_S)
+            await _switch(self.hass, pump, True)
+        started = dt_util.now()
+        held = 0.0
+        seen_open = False
+        closed_early = False
+        done = False
+        try:
+            while held < seconds:
+                step = min(HOLD_STEP_S, seconds - held)
+                await asyncio.sleep(step)
+                held += step
+                is_open = _is_open(self._state(entity_id))
+                seen_open = seen_open or is_open is True
+                if seen_open and is_open is False and held < seconds:
+                    closed_early = True
+                    break
+            done = True
+        finally:
+            if not done:
+                self._partial_s = min(seconds, (dt_util.now() - started).total_seconds())
+            if pump:
+                await _switch(self.hass, pump, False)
+                await asyncio.sleep(self.coordinator.repo.data.settings.irrigation.pump_lead_s)
+            await _switch(self.hass, entity_id, False)
+            touched.discard(entity_id)
+        return held, closed_early
+
+    # ------------------------------------------------------------------ #
+    # The water meter: measured flow and leaks
+    # ------------------------------------------------------------------ #
+    def meter_liters(self) -> float | None:
+        """The garden water meter in litres (meters report m³ or L)."""
+        entity_id = self.coordinator.repo.data.settings.water.meter_entity
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is None:
+            return None
+        try:
+            value = float(state.state)
+        except (TypeError, ValueError):
+            return None
+        unit = str(state.attributes.get("unit_of_measurement", "")).lower()
+        return value if unit in ("l", "liter", "litre", "liters", "litres") else value * 1000
+
+    def _learn_flow(self, bed: Any, minutes: float, liters: float) -> None:
+        if minutes < LEARN_MIN_MINUTES or liters <= 0:
+            return
+        measured = liters / minutes
+        old = bed.measured_flow_lpm
+        bed.measured_flow_lpm = round(measured if not old else old * 0.7 + measured * 0.3, 2)
+
+    @callback
+    def _watch_meter(self, now: datetime, any_open: bool) -> bool:
+        """Water counted while every valve is closed (and nothing runs) -> a leak notification."""
+        water = self.coordinator.repo.data.settings.water
+        liters = self.meter_liters() if water.meter_entity and water.leak_alerts else None
+        if liters is None or self.running or any_open:
+            self._meter_window.clear()
+            self._quiet_since = None
+            return False
+        self._quiet_since = self._quiet_since or now
+        window = timedelta(minutes=LEAK_WINDOW_MIN)
+        self._meter_window.append((now, liters))
+        self._meter_window = [(t, v) for t, v in self._meter_window if now - t <= window]
+        if now - self._quiet_since < window or len(self._meter_window) < 2:
+            return False  # a run just ended: the meter may still be catching up
+        used = liters - self._meter_window[0][1]
+        if used >= LEAK_LITERS and self.leak is None:
+            minutes = round((now - self._meter_window[0][0]).total_seconds() / 60)
+            self.leak = {"entity_id": water.meter_entity, "since": self._meter_window[0][0].isoformat(),
+                         "liters": round(used, 1), "minutes": minutes}  # fmt: skip
+            self._problem(water.meter_entity, "water_leak", None, liters=round(used, 1), minutes=minutes)  # type: ignore[arg-type]
+            return True
+        if used < 0.5 and self.leak is not None:
+            self.leak = None
+            self._reported.discard(water.meter_entity)  # type: ignore[arg-type]
+            return True
+        return False
 
     # ------------------------------------------------------------------ #
     # Checking the hardware
@@ -243,7 +362,9 @@ class IrrigationController:
         if _is_open(state) is not False:  # still open, stuck closing, or not reporting
             self._problem(entity_id, "valve_not_closed", state, bed_id=bed_id)
 
-    def _problem(self, entity_id: str, code: str, state: str | None, *, bed_id: str | None = None) -> None:
+    def _problem(
+        self, entity_id: str, code: str, state: str | None, *, bed_id: str | None = None, **params: Any
+    ) -> None:
         """Log a hardware problem and notify (once per valve until it is fine again)."""
         what = self.valve_entities().get(entity_id, entity_id)
         message = f"{entity_id} ({what}): {code}, state {state!r}"
@@ -261,7 +382,7 @@ class IrrigationController:
             self.hass.async_create_task(
                 self.notifier.async_send(
                     t("notify.valve_title", lang),
-                    t(f"notify.{code}", lang, entity=entity_id, what=what),
+                    t(f"notify.{code}", lang, entity=entity_id, what=what, **params),
                     notification_id=f"hortulus_valve_{entity_id}",
                     tts=False,
                 )
@@ -329,8 +450,10 @@ class IrrigationController:
         now = now or dt_util.now()
         limit = timedelta(minutes=self.coordinator.repo.data.settings.irrigation.max_runtime_min + STUCK_MARGIN_MIN)
         changed = False
+        any_open = False
         for entity_id in self.valve_entities():
             is_open = _is_open(self._state(entity_id))
+            any_open = any_open or is_open is not False
             if self.running or is_open is None:
                 # watering, moving, or not reporting: keep what we know until it settles
                 continue
@@ -346,15 +469,22 @@ class IrrigationController:
                 self.stuck[entity_id] = since
                 changed = True
                 self._problem(entity_id, "valve_stuck", self._state(entity_id))
+        changed = self._watch_meter(now, any_open) or changed
         if changed:
             self.coordinator.async_update_listeners()
 
-    def _log(self, bed_id: str, minutes: float, run: Any, source: str) -> None:
+    def _log(self, bed_id: str, minutes: float, run: Any, source: str, meter_start: float | None = None) -> None:
         data = self.coordinator.repo.data
         bed = data.bed(bed_id)
         if bed is None or minutes <= 0:
             return
-        liters = round(minutes * (bed.irrigation_flow_lpm or 0), 1)
+        meter_end = self.meter_liters() if meter_start is not None else None
+        measured = meter_end - meter_start if meter_end is not None and meter_start is not None else None
+        if measured is not None and measured > 0:
+            liters = round(measured, 1)  # what really went through
+            self._learn_flow(bed, minutes, measured)
+        else:
+            liters = round(minutes * (bed.flow_lpm or 0), 1)
         mm = round(liters / bed.area_m2, 1) if bed.area_m2 else 0.0
         now = dt_util.now()
         data.irrigation_log.append(IrrigationEvent(bed_id, now, mm, liters, round(minutes, 1), source))  # type: ignore[arg-type]

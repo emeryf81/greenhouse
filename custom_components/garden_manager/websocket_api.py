@@ -234,6 +234,7 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
                 {"entity_id": e, "since": since.isoformat(), "what": runtime.irrigation.valve_entities().get(e, e)}
                 for e, since in runtime.irrigation.stuck.items()
             ],
+            "leak": runtime.irrigation.leak,
         },
         "analysis": coordinator.data.to_dict() if coordinator.data else None,
         "weather": {

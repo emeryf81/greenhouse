@@ -80,8 +80,13 @@ export class DashboardView extends LitElement {
   /** A valve or the pump stayed open: say so, with a button to close it. */
   private renderStuck(): TemplateResult | typeof nothing {
     const stuck = this.snapshot.irrigation_status?.stuck ?? [];
-    if (!stuck.length) return nothing;
-    return html`<section class="alerts" aria-label=${this.t("valve.stuck_title")}>${stuck.map((v) => html`<div class="alert critical" role="alert">
+    const leak = this.snapshot.irrigation_status?.leak;
+    if (!stuck.length && !leak) return nothing;
+    return html`<section class="alerts" aria-label=${this.t("valve.stuck_title")}>
+      ${leak ? html`<div class="alert critical" role="alert"><ha-icon icon="mdi:water-alert"></ha-icon>
+        <div><b>${this.t("valve.leak", { liters: leak.liters, minutes: leak.minutes })}</b>
+        <div class="small">${this.t("valve.leak_hint", { entity: leak.entity_id })}</div></div></div>` : nothing}
+      ${stuck.map((v) => html`<div class="alert critical" role="alert">
       <ha-icon icon="mdi:valve-open"></ha-icon>
       <div><b>${this.t("valve.stuck", { what: v.what === "pump" ? this.t("valve.pump") : v.what, entity: v.entity_id })}</b>
         <div class="small">${this.t("valve.stuck_since", { time: new Date(v.since).toLocaleTimeString(this.lang === "nl" ? "nl-NL" : "en-GB", { hour: "2-digit", minute: "2-digit" }) })}</div></div>

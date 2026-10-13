@@ -247,7 +247,12 @@ export class SettingsView extends LitElement {
           ${this.entityInput(`${b.id}-irr`, "irrigation", b.irrigation_entity, (v) => setBed(b.id, (bb) => (bb.irrigation_entity = v)), this.t("settings.irrigation"))}
           ${this.valveTest(b.irrigation_entity)}
           <label class="field">${this.t("settings.flow")}<input type="number" min="0" step="0.1" .value=${String(b.irrigation_flow_lpm ?? "")} ?disabled=${!this.admin}
-            @change=${(e: Event) => setBed(b.id, (bb) => (bb.irrigation_flow_lpm = Number((e.target as HTMLInputElement).value) || null))} /></label>
+            placeholder=${b.measured_flow_lpm ? this.t("settings.flow_measured", { lpm: b.measured_flow_lpm.toFixed(1) }) : ""}
+            @change=${(e: Event) => setBed(b.id, (bb) => (bb.irrigation_flow_lpm = Number((e.target as HTMLInputElement).value) || null))} />
+            ${b.measured_flow_lpm ? html`<span class="xs muted">${this.t("settings.flow_measured", { lpm: b.measured_flow_lpm.toFixed(1) })}</span>` : nothing}</label>
+          ${b.irrigation_entity ? html`<label class="field">${this.t("settings.valve_timer")}<input type="number" min="0" step="1" .value=${String(b.valve_max_min ?? "")} ?disabled=${!this.admin}
+            placeholder=${this.t("settings.valve_timer_none")}
+            @change=${(e: Event) => setBed(b.id, (bb) => (bb.valve_max_min = Number((e.target as HTMLInputElement).value) || null))} /></label>` : nothing}
         </div>
       </div>`)}
     </section>`;
@@ -359,7 +364,9 @@ export class SettingsView extends LitElement {
         <label class="field">${this.t("settings.butt_capacity")}<input type="number" min="0" step="50" .value=${String(w.butt_capacity_l ?? 0)}
           @change=${(e: Event) => set({ butt_capacity_l: Number((e.target as HTMLInputElement).value) || 0 })} /></label>
       </div>
-      <p class="xs muted">${this.t("settings.water_hint")}</p>
+      <label class="field check"><input type="checkbox" .checked=${w.leak_alerts ?? true} ?disabled=${!w.meter_entity}
+        @change=${(e: Event) => set({ leak_alerts: (e.target as HTMLInputElement).checked })} />${this.t("settings.leak_alerts")}</label>
+      <p class="xs muted">${this.t("settings.water_hint")} ${this.t("settings.leak_hint")}</p>
     </section>`;
   }
 

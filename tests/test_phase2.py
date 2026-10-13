@@ -881,3 +881,97 @@ async def test_missing_seed_goes_to_a_todo_list_once(hass: HomeAssistant, garden
     assert second["added"] == 0 and second["skipped"] == first["added"]
     await client.send_json_auto_id({"type": f"{DOMAIN}/seeds/to_todo", "season": season, "entity_id": "light.kitchen"})
     assert not (await _result(client))["success"]
+
+
+async def test_runs_split_for_the_valve_timer_and_learn_the_flow_from_the_meter(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A valve with its own 10-minute timer gets 9 + 9 + 7 minutes; the meter tells the real flow."""
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.max_runtime_min = 60
+    repo.data.settings.water.meter_entity = "sensor.garden_water"
+    hass.states.async_set("sensor.garden_water", "1.000", {"unit_of_measurement": "m³"})
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    bed.valve_max_min = 10
+    meter = {"l": 1000.0}
+    real_sleep = asyncio.sleep
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        opened.append((entity_id, on))
+        hass.states.async_set(entity_id, "on" if on else "off")
+
+    async def fake_sleep(seconds: float) -> None:
+        if hass.states.get("switch.valve_bed_1").state == "on":
+            meter["l"] += seconds / 60 * 12.0  # really 12 L/min, not the 4 entered
+            hass.states.async_set("sensor.garden_water", f"{meter['l'] / 1000:.4f}", {"unit_of_measurement": "m³"})
+        await real_sleep(0)
+
+    opened: list[tuple[str, bool]] = []
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fake_sleep)
+    plan = irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=50)  # 100 L at 4 L/min = 25 min
+    assert plan.runs[0].minutes == 25
+    assert irrigation.async_start(plan, source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert [on for e, on in opened if e == "switch.valve_bed_1"] == [True, False, True, False, True, False]
+    event = repo.data.irrigation_log[-1]
+    assert event.minutes == 25 and event.liters == pytest.approx(300, abs=1)  # measured, not 100 L
+    assert bed.measured_flow_lpm == pytest.approx(12, abs=0.1)
+    bed.irrigation_flow_lpm = None
+    assert bed.flow_lpm == pytest.approx(12, abs=0.1)  # used when no flow is entered
+
+
+async def test_a_valve_that_shuts_by_itself_ends_the_run_and_is_reported(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.max_runtime_min = 60
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    held = {"s": 0.0}
+    real_sleep = asyncio.sleep
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass.states.async_set(entity_id, "on" if on else "off")
+
+    async def fake_sleep(seconds: float) -> None:
+        held["s"] += seconds
+        if held["s"] >= 120:  # the valve's own timer shuts it after two minutes
+            hass.states.async_set("switch.valve_bed_1", "off")
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fake_sleep)
+    assert irrigation.async_start(irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=20), source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert repo.data.irrigation_log[-1].minutes == 2.0
+    assert any(e["summary"][0]["key"] == "valve_closed_early" for e in repo.syslog if e["source"] == "error")
+
+
+async def test_water_counted_with_every_valve_closed_is_a_leak(hass: HomeAssistant, garden) -> None:
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.water.meter_entity = "sensor.garden_water"
+    for entity_id in irrigation.valve_entities():
+        hass.states.async_set(entity_id, "off" if entity_id.startswith("switch.") else "closed")
+    start = dt_util.now()
+    for minute in range(0, 17):
+        hass.states.async_set("sensor.garden_water", str(500 + minute * 0.5), {"unit_of_measurement": "L"})
+        irrigation.async_watch(start + timedelta(minutes=minute))
+    assert irrigation.leak is not None and irrigation.leak["liters"] >= 5
+    for minute in range(17, 40):  # the tap is closed again: no more water counted
+        irrigation.async_watch(start + timedelta(minutes=minute))
+    assert irrigation.leak is None
+    repo.data.settings.water.leak_alerts = False
+    for minute in range(40, 60):
+        hass.states.async_set("sensor.garden_water", str(600 + minute), {"unit_of_measurement": "L"})
+        irrigation.async_watch(start + timedelta(minutes=minute))
+    assert irrigation.leak is None

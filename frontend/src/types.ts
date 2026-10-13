@@ -99,6 +99,8 @@ export interface Bed {
   sensors: SensorMapping;
   irrigation_entity: string | null;
   irrigation_flow_lpm: number | null;
+  measured_flow_lpm?: number | null;
+  valve_max_min?: number | null;
   notes: string;
   soil_tests?: SoilTest[];
 }
@@ -523,7 +525,7 @@ export interface Settings {
     weekly_plan_time?: string;
   };
   weather_aware_scheduling?: boolean;
-  water?: { meter_entity: string | null; butt_level_entity: string | null; butt_capacity_l: number };
+  water?: { meter_entity: string | null; butt_level_entity: string | null; butt_capacity_l: number; leak_alerts?: boolean };
   assignment?: Record<string, string>;
   person_notify?: Record<string, string>;
   sensor_stale_minutes: number;
@@ -580,6 +582,7 @@ export interface Snapshot {
     running: boolean; bed_id: string | null; ends_at: ISODateTime | null; last_error: string | null;
     /** Valves or the pump open far longer than any run could last. */
     stuck?: { entity_id: string; since: ISODateTime; what: string }[];
+    leak?: { entity_id: string; since: ISODateTime; liters: number; minutes: number } | null;
   };
   analysis: Analysis | null;
   weather: {
