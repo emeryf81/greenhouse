@@ -40,7 +40,7 @@ from .models import (
     ZoneType,
     present_in,
 )
-from .pdf import PdfDocument, Surface, SvgPage, ellipsize, hex_rgb, text_width
+from .pdf import Image, PdfDocument, Surface, SvgPage, ellipsize, hex_rgb, text_width
 from .plantdb import FAMILIES, PlantDatabase
 from .region import season_anchors, season_bounds
 from .schedule import PlantingTimeline
@@ -53,7 +53,7 @@ PAGE_SIZES: dict[str, tuple[float, float]] = {
     "letter": (215.9, 279.4),
     "remarkable": (179.6, 239.5),  # reMarkable Paper Pro, 2160 x 1620 px @ 229 ppi
 }
-DOCUMENTS = ("garden", "zone", "beds", "tasks", "season", "year", "blank", "plants")
+DOCUMENTS = ("garden", "zone", "beds", "tasks", "season", "year", "blank", "plants", "book")
 COLOR_MODES = ("color", "eink", "grayscale")
 PATTERNS = ("diag", "back", "horiz", "vert", "cross", "dots", "grid")
 
@@ -169,6 +169,8 @@ class PrintContext:
     timelines: dict[str, PlantingTimeline]
     today: date
     garden_name: str = "Hortulus"
+    # photo id -> JPEG for the season book (``(id, grayscale)``; None = not available)
+    photos: Callable[[str, bool], Image | None] | None = None
 
 
 @dataclass(slots=True)
@@ -1299,6 +1301,10 @@ def _current_season(ctx: PrintContext) -> int:
 # Public API
 # --------------------------------------------------------------------------- #
 def render_pdf(ctx: PrintContext, opts: PrintOptions) -> bytes:
+    if opts.document == "book":
+        from .seasonbook import render_book
+
+        return render_book(ctx, opts)
     doc = PdfDocument(title=f"Hortulus - {label(opts.lang, opts.document)}")
 
     def factory(w: float, h: float) -> Surface:
@@ -1309,6 +1315,11 @@ def render_pdf(ctx: PrintContext, opts: PrintOptions) -> bytes:
 
 
 def render_svg(ctx: PrintContext, opts: PrintOptions) -> list[str]:
+    if opts.document == "book":
+        from .seasonbook import render_book_svg
+
+        return render_book_svg(ctx, opts)
+
     def factory(w: float, h: float) -> Surface:
         return SvgPage(w, h)
 

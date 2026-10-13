@@ -261,6 +261,44 @@ async def test_export_pdf_and_http_view(
     assert bad.status == 400
 
 
+async def test_season_book_reads_journal_photos_from_image_uploads(hass: HomeAssistant, garden, tmp_path: Path) -> None:
+    """The book takes photos from HA's image uploads (``image/<id>/original``), upright and scaled down."""
+    from io import BytesIO
+
+    from homeassistant.util import dt as dt_util
+    from PIL import Image as PILImage
+
+    from custom_components.garden_manager.engine.models import JournalEntry
+    from custom_components.garden_manager.printing import photo_loader
+
+    entry, _calls = garden
+    hass.config.config_dir = str(tmp_path)
+    photo_id = "0123456789abcdef0123456789abcdef"
+    folder = tmp_path / "image" / photo_id
+    folder.mkdir(parents=True)
+    buf = BytesIO()
+    PILImage.new("RGB", (3000, 2000), "orange").save(buf, "PNG")  # not a JPEG, too large: converted
+    (folder / "original").write_bytes(buf.getvalue())
+    (tmp_path / "secret.jpg").write_bytes(b"x")
+
+    load = photo_loader(tmp_path)
+    img = await hass.async_add_executor_job(load, photo_id, False)
+    assert img is not None and (img.width, img.height) == (1600, 1067) and img.components == 3
+    gray = await hass.async_add_executor_job(load, f"/api/image/serve/{photo_id}/512x512", True)
+    assert gray is not None and gray.components == 1
+    assert await hass.async_add_executor_job(load, "/local/../secret.jpg", False) is None
+    assert await hass.async_add_executor_job(load, "https://example.com/a.jpg", False) is None
+
+    repo = entry.runtime_data.repo
+    repo.data.journal.append(JournalEntry("j1", dt_util.now(), "Eerste oogst", [photo_id], "milestone"))
+    result = await hass.services.async_call(
+        DOMAIN, "export_pdf", {"document": "book", "page": "a5"}, blocking=True, return_response=True
+    )
+    content = await hass.async_add_executor_job(Path(result["path"]).read_bytes)
+    assert content.startswith(b"%PDF") and b"/DCTDecode" in content
+    assert result["filename"].startswith("hortulus-book-")
+
+
 async def test_websocket_print_handbook_autofill(hass: HomeAssistant, garden, hass_ws_client) -> None:
     client = await hass_ws_client(hass)
     await client.send_json_auto_id(

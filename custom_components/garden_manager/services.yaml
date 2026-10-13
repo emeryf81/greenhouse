@@ -382,7 +382,7 @@ export_pdf:
       default: garden
       selector:
         select:
-          options: [garden, zone, beds, tasks, season, year, blank, plants]
+          options: [garden, zone, beds, tasks, season, year, blank, plants, book]
     page:
       default: a4
       selector:

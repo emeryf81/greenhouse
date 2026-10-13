@@ -477,7 +477,7 @@ export interface HandbookChapterMeta { id: string; order: number; title: string;
 export interface GlossaryEntry { term: string; text: string; chapter: string }
 
 export interface PrintOptions {
-  document: "garden" | "zone" | "beds" | "tasks" | "season" | "year" | "blank" | "plants";
+  document: "garden" | "zone" | "beds" | "tasks" | "season" | "year" | "blank" | "plants" | "book";
   page: "a4" | "a3" | "a5" | "letter" | "remarkable";
   landscape: boolean;
   color_mode: "color" | "eink" | "grayscale";

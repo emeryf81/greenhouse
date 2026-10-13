@@ -20,6 +20,7 @@ const DOCS: { id: PrintOptions["document"]; icon: string }[] = [
   { id: "year", icon: "mdi:calendar-month" },
   { id: "blank", icon: "mdi:draw" },
   { id: "plants", icon: "mdi:card-text-outline" },
+  { id: "book", icon: "mdi:book-open-page-variant-outline" },
 ];
 const PAGES: PrintOptions["page"][] = ["remarkable", "a4", "a3", "a5", "letter"];
 const STORAGE_KEY = "hortulus.print";
@@ -196,6 +197,7 @@ export class PrintView extends LitElement {
         <label class="field check full"><input type="checkbox" .checked=${o.labels} @change=${(e: Event) => this.set("labels", (e.target as HTMLInputElement).checked)} />${this.t("print.labels")}</label>
       </div>
       ${o.page === "remarkable" ? html`<div class="rm"><ha-icon icon="mdi:tablet"></ha-icon><span>${this.t("print.remarkable_hint")}</span></div>` : nothing}
+      ${o.document === "book" ? html`<div class="rm"><ha-icon icon="mdi:book-open-page-variant-outline"></ha-icon><span>${this.t("print.book_tip")}</span></div>` : nothing}
       <div class="row wrap">
         <button class="btn primary" ?disabled=${this.busy} @click=${() => this.download()}><ha-icon icon="mdi:file-pdf-box"></ha-icon>${this.t("print.download")}</button>
         <button class="btn" ?disabled=${this.busy} @click=${() => this.preview()}><ha-icon icon="mdi:refresh"></ha-icon>${this.t("print.refresh")}</button>
