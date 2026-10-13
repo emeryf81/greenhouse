@@ -13,9 +13,10 @@ import { customElement, property, state } from "lit/decorators.js";
 import { GardenApi } from "./api";
 import { emblem } from "./brand";
 import { makeTranslator, normalizeLang, type Translate } from "./i18n";
-import { shared, tokens } from "./styles/tokens";
+import { shared, themes, tokens } from "./styles/tokens";
 import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "./types";
 import "./views/weather-view";
+import { themeAttribute, themeChoice } from "./util/theme";
 import "./views/dashboard-view";
 import "./views/planner-view";
 import "./views/library-view";
@@ -95,6 +96,7 @@ export class HortulusPanel extends LitElement {
 
   static styles = [
     tokens,
+    themes,
     shared,
     css`
       :host { display: block; min-height: 100vh; background:
@@ -159,6 +161,14 @@ export class HortulusPanel extends LitElement {
     `,
   ];
 
+  /** Colour theme chosen in this browser (night forces the dark palette). */
+  private applyTheme = (): void => {
+    const today = this.snapshot?.analysis?.today ?? new Date().toISOString().slice(0, 10);
+    const { theme, dark } = themeAttribute(themeChoice(), today, this.snapshot?.settings.region?.hemisphere === "south");
+    this.setAttribute("theme", theme);
+    this.toggleAttribute("dark", dark ?? Boolean(this.hass?.themes?.darkMode));
+  };
+
   // ---------------------------------------------------------------------- //
   protected willUpdate(changed: PropertyValues): void {
     if (changed.has("hass") && this.hass) {
@@ -167,7 +177,7 @@ export class HortulusPanel extends LitElement {
         this.uiLang = lang;
         this.t = makeTranslator(lang);
       }
-      this.toggleAttribute("dark", Boolean(this.hass.themes?.darkMode));
+      this.applyTheme();
       setPersons(this.hass);
       if (!this.api) {
         this.api = new GardenApi(this.hass);
@@ -185,6 +195,7 @@ export class HortulusPanel extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener("hortulus-theme-changed", this.applyTheme);
     void this.unsubscribe?.();
     this.unsubscribe = undefined;
     this.api = undefined;
@@ -192,6 +203,7 @@ export class HortulusPanel extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener("hortulus-theme-changed", this.applyTheme);
     if (this.hass && !this.api) {
       this.api = new GardenApi(this.hass);
       void this.connect();
@@ -226,6 +238,7 @@ export class HortulusPanel extends LitElement {
       void this.loadGlossary();
       this.unsubscribe = await this.api!.subscribe((snap) => {
         this.snapshot = snap;
+        this.applyTheme();
         const lang = normalizeLang(snap.lang);
         if (lang !== this.uiLang) {
           this.uiLang = lang;
