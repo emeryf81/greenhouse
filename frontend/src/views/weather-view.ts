@@ -68,6 +68,7 @@ export class WeatherView extends LitElement {
   @state() private radarFailed = false;
   private unsubs: Promise<() => Promise<void>>[] = [];
   private subscribedTo = "";
+  private generation = 0;
   private timer?: number;
 
   static styles = [
@@ -110,8 +111,12 @@ export class WeatherView extends LitElement {
   }
 
   protected willUpdate(changed: PropertyValues): void {
-    if ((changed.has("snapshot") || changed.has("hass")) && this.hass && this.entityId && this.entityId !== this.subscribedTo) {
-      this.subscribe(this.entityId);
+    if (!(changed.has("snapshot") || changed.has("hass")) || !this.hass) return;
+    const entityId = this.entityId;
+    if (entityId && entityId !== this.subscribedTo) this.subscribe(entityId);
+    else if (!entityId && this.subscribedTo) {
+      this.unsubscribe();
+      this.subscribedTo = "";
     }
   }
 
@@ -128,6 +133,7 @@ export class WeatherView extends LitElement {
   }
 
   private unsubscribe(): void {
+    this.generation++; // a late message from a replaced subscription is ignored
     for (const u of this.unsubs) void u.then((off) => off()).catch(() => undefined);
     this.unsubs = [];
   }
@@ -135,8 +141,10 @@ export class WeatherView extends LitElement {
   private subscribe(entityId: string): void {
     this.unsubscribe();
     this.subscribedTo = entityId;
+    const generation = this.generation;
     for (const type of ["daily", "hourly"] as const) {
       const sub = this.hass.connection.subscribeMessage<{ forecast: Fc[] | null }>((msg) => {
+        if (generation !== this.generation) return;
         if (type === "daily") this.daily = msg.forecast ?? [];
         else this.hourly = msg.forecast ?? [];
       }, { type: "weather/subscribe_forecast", entity_id: entityId, forecast_type: type });

@@ -103,16 +103,19 @@ export class CropGantt extends LitElement {
 
   render(): TemplateResult {
     const months = Array.from({ length: 12 }, (_, i) => new Date(this.start + (i + 0.5) * (this.span / 12)).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { month: "short" }));
-    const byBed = new Map<string, CropRow[]>();
+    // grouped by bed id (two beds may share a name); crops without a bed together under "–"
+    const byBed = new Map<string, { name: string; rows: CropRow[] }>();
     for (const r of this.rows.filter((x) => x.timeline)) {
-      const key = r.bed ?? "–";
-      byBed.set(key, [...(byBed.get(key) ?? []), r]);
+      const key = r.bed ? r.planting.bed_id ?? r.bed : "–";
+      const group = byBed.get(key) ?? { name: r.bed ?? "–", rows: [] };
+      group.rows.push(r);
+      byBed.set(key, group);
     }
     const todayPct = this.today ? this.pct(this.today) : -1;
     return html`<div class="wrap"><div class="chart">
       <div class="months"><span></span><div class="m">${months.map((m) => html`<span>${m}</span>`)}</div></div>
-      ${[...byBed.entries()].map(([bed, rows]) => html`
-        <div class="bed">${bed}</div>
+      ${[...byBed.values()].map(({ name, rows }) => html`
+        <div class="bed">${name}</div>
         ${rows.sort((a, b) => (a.timeline!.in_ground < b.timeline!.in_ground ? -1 : 1)).map((r) => {
           const tl = r.timeline!;
           const plant = this.plants.get(r.planting.plant_id);

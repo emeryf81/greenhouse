@@ -50,7 +50,7 @@ MUTED = "#5E6B63"
 FAINT = "#B9C2BC"
 PAPER = "#F7F4EC"
 
-PhotoLoader = Callable[[str, bool], Image | None]
+PhotoLoader = Callable[..., Image | None]  # (photo_id, gray, probe=False)
 
 # --------------------------------------------------------------------------- #
 # Words
@@ -761,7 +761,7 @@ class Book:
 # The book
 # --------------------------------------------------------------------------- #
 class SeasonBook:
-    def __init__(self, ctx, opts, factory: Callable[[float, float], Surface]) -> None:
+    def __init__(self, ctx, opts, factory: Callable[[float, float], Surface], preview_pages: int | None = None) -> None:
         from .printout import PAGE_SIZES
 
         self.ctx = ctx
@@ -785,6 +785,7 @@ class SeasonBook:
         self._figures: dict[str, float] | None = None
         self._opener_photo: str | None = None
         self._images: dict[str, Image | None] = {}
+        self.preview_pages = preview_pages  # past these pages a photo only needs its size, not its pixels
         self.toc: list[tuple[str, str, int]] = []  # (title, summary, page number)
 
     # -- data helpers ---------------------------------------------------- #
@@ -821,8 +822,14 @@ class SeasonBook:
     def image(self, photo_id: str) -> Image | None:
         if photo_id not in self._images:
             loader: PhotoLoader | None = getattr(self.ctx, "photos", None)
+            probe = self.preview_pages is not None and self.book.number > self.preview_pages
             try:
-                self._images[photo_id] = loader(photo_id, self.gray) if loader else None
+                if loader is None:
+                    self._images[photo_id] = None
+                elif probe:
+                    self._images[photo_id] = loader(photo_id, self.gray, probe=True)
+                else:
+                    self._images[photo_id] = loader(photo_id, self.gray)
             except Exception:
                 self._images[photo_id] = None
         return self._images[photo_id]
@@ -1522,7 +1529,11 @@ def render_book(ctx, opts) -> bytes:
 
 
 def render_book_svg(ctx, opts, limit: int = 16) -> list[str]:
-    """The first pages of the season book as SVG (the on-screen preview)."""
+    """The first pages of the season book as SVG (the on-screen preview).
+
+    The whole book is still laid out, so the contents page shows the real page
+    numbers, but photos past the preview are only measured, never decoded.
+    """
     pages: list[SvgPage] = []
 
     def factory(w: float, h: float) -> Surface:
@@ -1532,5 +1543,5 @@ def render_book_svg(ctx, opts, limit: int = 16) -> list[str]:
         pages.append(page)
         return page
 
-    SeasonBook(ctx, opts, factory).render()
+    SeasonBook(ctx, opts, factory, preview_pages=limit).render()
     return [p.to_svg(f"b{i}") for i, p in enumerate(pages[:limit])]

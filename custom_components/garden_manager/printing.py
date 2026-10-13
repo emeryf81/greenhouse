@@ -52,12 +52,32 @@ def jpeg_for_print(raw: bytes, gray: bool) -> Image | None:
     return Image.from_jpeg(out.getvalue())
 
 
-def photo_loader(config_dir: Path) -> Callable[[str, bool], Image | None]:
-    """Read journal photos: Home Assistant image uploads (``image/<id>/original``) and ``/local/`` files."""
+def photo_size(path: Path) -> Image | None:
+    """Only the upright size of a photo (header read, no decoding): enough to lay out a page."""
+    try:
+        from PIL import Image as PILImage
+    except ImportError:
+        info = Image.from_jpeg(path.read_bytes())
+        return Image(b"", info.width, info.height) if info else None
+    try:
+        with PILImage.open(path) as img:
+            width, height = img.size
+            if img.getexif().get(0x0112) in (5, 6, 7, 8):  # EXIF orientation: turned a quarter
+                width, height = height, width
+    except (OSError, ValueError):
+        return None
+    return Image(b"", width, height)
+
+
+def photo_loader(config_dir: Path) -> Callable[..., Image | None]:
+    """Read journal photos: Home Assistant image uploads (``image/<id>/original``) and ``/local/`` files.
+
+    With ``probe=True`` only the photo's size is read (season book preview, past the shown pages).
+    """
     images = config_dir / "image"
     www = config_dir / "www"
 
-    def load(photo_id: str, gray: bool) -> Image | None:
+    def load(photo_id: str, gray: bool, probe: bool = False) -> Image | None:
         if photo_id.startswith("/local/"):
             base, path = www, www / photo_id.removeprefix("/local/")
         elif match := _IMAGE_ID.fullmatch(photo_id):
@@ -68,7 +88,7 @@ def photo_loader(config_dir: Path) -> Callable[[str, bool], Image | None]:
             path = path.resolve()
             if not path.is_relative_to(base.resolve()) or not path.is_file():
                 return None
-            return jpeg_for_print(path.read_bytes(), gray)
+            return photo_size(path) if probe else jpeg_for_print(path.read_bytes(), gray)
         except OSError:
             return None
 
