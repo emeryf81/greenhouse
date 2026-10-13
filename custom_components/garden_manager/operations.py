@@ -20,6 +20,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, EVENT_TASK_COMPLETED, SIGNAL_LAYOUT_CHANGED
 from .engine import seasons
 from .engine.models import (
+    Expense,
     Feature,
     GardenBed,
     GardenSettings,
@@ -40,6 +41,7 @@ from .engine.models import (
     present_in,
 )
 from .engine.plantdb import validate_plant_dict
+from .engine.region import season_for_date
 from .engine.serde import from_dict, to_dict
 from .engine.tasks import (
     CompletionResult,
@@ -470,6 +472,9 @@ def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> Garden
     for key in ("assignment", "person_notify"):
         if isinstance(merged.get(key), dict):
             merged[key] = {k: v for k, v in merged[key].items() if v}
+    prices = (merged.get("economy") or {}).get("prices")
+    if isinstance(prices, dict):  # an empty price restores the default
+        merged["economy"]["prices"] = {k: float(v) for k, v in prices.items() if v not in (None, "", 0)}
     try:
         repo.data.settings = from_dict(GardenSettings, merged)
     except (TypeError, ValueError, KeyError) as err:
@@ -732,7 +737,7 @@ def op_log_harvest(runtime: GardenRuntime, raw: Mapping[str, Any]) -> HarvestEnt
 @callback
 def op_delete_record(runtime: GardenRuntime, kind: str, record_id: str) -> None:
     data = runtime.repo.data
-    lists = {"harvest": data.harvest_log, "journal": data.journal, "seed": data.seed_stock}
+    lists = {"harvest": data.harvest_log, "journal": data.journal, "seed": data.seed_stock, "expense": data.expenses}
     items = lists.get(kind)
     if items is None:
         raise _err("invalid_record", kind=kind)
@@ -741,6 +746,33 @@ def op_delete_record(runtime: GardenRuntime, kind: str, record_id: str) -> None:
     if len(items) == before:
         raise _err("unknown_record", record=record_id)
     runtime.repo.async_changed("records")
+
+
+EXPENSE_CATEGORIES = ("seeds", "plants", "soil", "fertilizer", "tools", "water", "protection", "other")
+
+
+@callback
+def op_save_expense(runtime: GardenRuntime, raw: Mapping[str, Any]) -> Expense:
+    """Add or update an expense (amount in the garden's currency)."""
+    data = runtime.repo.data
+    try:
+        amount = round(float(raw.get("amount") or 0), 2)
+    except (TypeError, ValueError) as err:
+        raise _err("invalid_expense") from err
+    category = str(raw.get("category") or "other")
+    if amount <= 0 or category not in EXPENSE_CATEGORIES:
+        raise _err("invalid_expense")
+    raw_day = raw.get("day") or dt_util.now().date()
+    day = raw_day if isinstance(raw_day, date) else date.fromisoformat(str(raw_day))
+    season = int(raw.get("season") or season_for_date(data.settings.region, day))
+    existing = next((e for e in data.expenses if e.id == raw.get("id")), None) if raw.get("id") else None
+    if existing is None:
+        existing = Expense(id=_new_id("ex"), day=day, season=season)
+        data.expenses.append(existing)
+    existing.day, existing.season, existing.category = day, season, category  # type: ignore[assignment]
+    existing.amount, existing.note = amount, str(raw.get("note") or "")[:200]
+    runtime.repo.async_changed("records")
+    return existing
 
 
 @callback

@@ -1,5 +1,6 @@
 // Thin, typed wrapper around the garden_manager websocket commands.
 import type {
+  Expense,
   AdviceResult,
   HarvestEntry,
   JournalEntry,
@@ -331,7 +332,11 @@ export class GardenApi {
     return this.call("records/harvest/add", entry as Record<string, unknown>);
   }
 
-  deleteRecord(kind: "harvest" | "journal" | "seed", recordId: string): Promise<void> {
+  saveExpense(expense: { id?: string; amount: number; category: string; day?: string; note?: string }): Promise<{ expense: Expense }> {
+    return this.call("records/expense/save", { expense });
+  }
+
+  deleteRecord(kind: "harvest" | "journal" | "seed" | "expense", recordId: string): Promise<void> {
     return this.call("records/delete", { kind, record_id: recordId });
   }
 

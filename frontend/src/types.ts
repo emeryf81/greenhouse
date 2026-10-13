@@ -543,6 +543,7 @@ export interface Settings {
     weekly_plan_time?: string;
   };
   weather_aware_scheduling?: boolean;
+  economy?: { currency: string; water_price_m3: number; prices: Record<string, number> };
   water?: { meter_entity: string | null; butt_level_entity: string | null; butt_capacity_l: number; leak_alerts?: boolean };
   assignment?: Record<string, string>;
   person_notify?: Record<string, string>;
@@ -756,6 +757,38 @@ export interface RecordsOverview {
   seeds: { packets: SeedStatus[]; missing: string[]; season: number };
   water: { week_l: number | null; season_l: number | null; rain_available_l: number | null; butt_pct: number | null; per_day: { day: string; liters: number }[] };
   year: { season: number; rows: YearRow[]; tasks: number[]; minutes: number[] } | null;
+  kitchen?: KitchenReport | null;
+  economics?: Economics;
+  expenses?: Expense[];
+}
+
+export interface KitchenReport {
+  ready: { planting_id: string; plant_id: string; name: string; bed: string; until: ISODate; group: string; keep: string }[];
+  surplus: { plant_id: string; name: string; kg_week: number; need_week: number; group: string; ideas: string }[];
+  picked_week_kg: number;
+  people: number;
+}
+
+export interface Economics {
+  season: number;
+  currency: string;
+  harvest_value: number;
+  harvest_kg: number;
+  crops: { plant_id: string; name: string; kg: number; price: number; value: number }[];
+  expenses: Record<string, number>;
+  water_m3: number | null;
+  water_cost: number;
+  total_cost: number;
+  balance: number;
+}
+
+export interface Expense {
+  id: string;
+  day: ISODate;
+  season: number;
+  category: string;
+  amount: number;
+  note: string;
 }
 
 // -- system log ------------------------------------------------------------- //

@@ -788,6 +788,27 @@ class WaterSettings:
 
 
 @dataclass(slots=True)
+class EconomySettings:
+    """Shop prices and costs for the harvest-versus-cost overview."""
+
+    currency: str = "€"
+    water_price_m3: float = 5.0  # mains water incl. levies
+    prices: dict[str, float] = field(default_factory=dict)  # plant id -> price per kg (overrides the defaults)
+
+
+@dataclass(slots=True)
+class Expense:
+    """Money spent on the garden (seeds, plants, compost, tools ...)."""
+
+    id: str
+    day: date
+    season: int
+    category: Literal["seeds", "plants", "soil", "fertilizer", "tools", "water", "protection", "other"] = "other"
+    amount: float = 0.0
+    note: str = ""
+
+
+@dataclass(slots=True)
 class GardenSettings:
     region: RegionProfile = field(default_factory=RegionProfile)
     weather_entity: str | None = None
@@ -814,6 +835,7 @@ class GardenSettings:
     maintenance_tasks: bool = True
     # Move weather-sensitive jobs (sowing, planting out, spraying ...) off rainy, frosty or hot days.
     weather_aware_scheduling: bool = True
+    economy: EconomySettings = field(default_factory=EconomySettings)
 
 
 @dataclass(slots=True)
@@ -939,6 +961,7 @@ class GardenData:
     journal: list[JournalEntry] = field(default_factory=list)
     seed_stock: list[SeedPacket] = field(default_factory=list)
     water_log: list[WaterReading] = field(default_factory=list)
+    expenses: list[Expense] = field(default_factory=list)
     # Garden plans per season.  ``zones``/``beds``/``features`` above are the
     # plan of ``layout_season`` - the garden as it is now; ``layouts`` holds the
     # plans of other seasons (archived years, next year's draft).  A new year

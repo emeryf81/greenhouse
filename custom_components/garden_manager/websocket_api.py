@@ -26,6 +26,7 @@ from .engine.advisor import advise, harvest_coverage
 from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
 from .engine.i18n import t
+from .engine.kitchen import economics, kitchen_report
 from .engine.models import GardenBed, GardenResources, Planting
 from .engine.planio import PlanImportError, export_plan
 from .engine.plantdb import FAMILIES
@@ -55,6 +56,7 @@ from .operations import (
     op_log_harvest,
     op_new_plan,
     op_postpone_task,
+    op_save_expense,
     op_save_journal,
     op_save_plan,
     op_save_plant,
@@ -110,6 +112,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_records_overview,
         ws_harvest_add,
         ws_record_delete,
+        ws_expense_save,
         ws_journal_save,
         ws_seed_save,
         ws_soil_save,
@@ -973,6 +976,13 @@ def ws_records_overview(hass: HomeAssistant, connection: websocket_api.ActiveCon
             "seeds": seed_report(data, db, season),
             "water": water_stats(data, today).to_dict(),
             "year": year_overview(data, db, analysis) if analysis else None,
+            "kitchen": kitchen_report(data, db, analysis.timelines, today, runtime.coordinator.lang)
+            if analysis
+            else None,
+            "economics": economics(data, db, season, runtime.coordinator.lang),
+            "expenses": [
+                to_dict(e) for e in sorted(data.expenses, key=lambda e: e.day, reverse=True) if e.season == season
+            ],
         },
     )
 
@@ -1028,7 +1038,7 @@ def ws_harvest_add(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     {
         vol.Required("type"): f"{DOMAIN}/records/delete",
         vol.Optional("garden_id"): str,
-        vol.Required("kind"): vol.In(["harvest", "journal", "seed"]),
+        vol.Required("kind"): vol.In(["harvest", "journal", "seed", "expense"]),
         vol.Required("record_id"): str,
     }
 )
@@ -1037,6 +1047,20 @@ def ws_record_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     runtime = _require_runtime(hass, connection, msg)
     if runtime is not None:
         _ws_op(connection, msg, lambda: op_delete_record(runtime, msg["kind"], msg["record_id"]) or {})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/records/expense/save",
+        vol.Optional("garden_id"): str,
+        vol.Required("expense"): dict,
+    }
+)
+@callback
+def ws_expense_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: {"expense": to_dict(op_save_expense(runtime, msg["expense"]))})
 
 
 @websocket_api.websocket_command(

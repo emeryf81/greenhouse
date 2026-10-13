@@ -1,6 +1,7 @@
 // "Journal" tab: garden diary with photos, harvest log with learned yields,
 // seed stock with viability, and garden water use.
 import "../components/harvest-years";
+import "../components/kitchen-economy";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
@@ -13,7 +14,7 @@ import "../components/date-input";
 import "../components/water-chart";
 import "../components/season-report";
 
-type Section = "diary" | "harvest" | "seeds" | "water" | "report" | "system";
+type Section = "diary" | "harvest" | "kitchen" | "seeds" | "water" | "report" | "system";
 const SYSLOG_PAGE = 50;
 const SYSLOG_SHOWN_LINES = 6;
 const OP_ICON: Record<string, string> = { add: "mdi:plus-circle-outline", remove: "mdi:minus-circle-outline", change: "mdi:pencil-outline" };
@@ -179,7 +180,7 @@ export class JournalView extends LitElement {
 
   render(): TemplateResult {
     if (this.systemOnly) return this.renderSystem();
-    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["report", "mdi:file-chart-outline"], ["system", "mdi:history"]];
+    const sections: [Section, string][] = [["diary", "mdi:notebook-outline"], ["harvest", "mdi:basket-outline"], ["kitchen", "mdi:silverware-fork-knife"], ["seeds", "mdi:seed-outline"], ["water", "mdi:water-outline"], ["report", "mdi:file-chart-outline"], ["system", "mdi:history"]];
     return html`
       <div class="tabs" role="tablist">
         ${sections.map(([id, icon]) => html`<button class="chip" role="tab" aria-selected=${String(this.section === id)} aria-pressed=${String(this.section === id)}
@@ -187,6 +188,8 @@ export class JournalView extends LitElement {
       </div>
       ${this.section === "diary" ? this.renderDiary() : this.section === "harvest" ? this.renderHarvest() : this.section === "seeds" ? this.renderSeeds()
         : this.section === "water" ? this.renderWater()
+        : this.section === "kitchen" ? html`<hl-kitchen-economy .overview=${this.overview} .api=${this.api} .t=${this.t} lang=${this.lang}
+            today=${this.snapshot.analysis?.today ?? ""} ?admin=${this.admin} @changed=${() => this.load()}></hl-kitchen-economy>`
         : this.section === "report" ? html`<section class="card stack"><h2><ha-icon icon="mdi:file-chart-outline"></ha-icon> ${this.t("journal.report")}</h2>
             <hl-season-report .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang}
               .plants=${new Map(this.plants.map((x) => [x.id, x]))} .families=${this.families}></hl-season-report></section>`

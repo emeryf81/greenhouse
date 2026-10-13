@@ -426,7 +426,7 @@ export class HortulusPanel extends LitElement {
       case "print":
         return html`<hl-print-view .snapshot=${snap} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .narrow=${this.narrow} .admin=${admin}></hl-print-view>`;
       case "settings":
-        return html`<hl-settings-view .snapshot=${snap} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
+        return html`<hl-settings-view .snapshot=${snap} .plants=${this.plants} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
       default:
         return html`<hl-dashboard-view .snapshot=${snap} .api=${this.api} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-dashboard-view>`;
     }

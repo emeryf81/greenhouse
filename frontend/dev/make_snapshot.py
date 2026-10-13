@@ -27,6 +27,7 @@ from custom_components.garden_manager.engine.advisor import advise, harvest_cove
 from custom_components.garden_manager.engine.analysis import analyze  # noqa: E402
 from custom_components.garden_manager.engine.autoplan import AutoplanOptions, autoplan  # noqa: E402
 from custom_components.garden_manager.engine.irrigation import plan_irrigation  # noqa: E402
+from custom_components.garden_manager.engine.kitchen import economics, kitchen_report  # noqa: E402
 from custom_components.garden_manager.engine.models import (  # noqa: E402
     Feature,
     FeatureType,
@@ -449,6 +450,9 @@ def build(lang: str) -> dict:
             "seeds": seed_report(data, db, analysis.season),
             "water": water_stats(data, analysis.today).to_dict(),
             "year": year_overview(data, db, analysis),
+            "kitchen": kitchen_report(data, db, analysis.timelines, analysis.today, lang),
+            "economics": economics(data, db, analysis.season, lang),
+            "expenses": [],
         },
         "supplies": {**catalog(lang), "shopping": [i.to_dict() for i in shopping_list(data, db, analysis, lang)]},
     }

@@ -131,6 +131,10 @@ TEXT: dict[str, dict[str, str]] = {
         "tbl_last": "laatste",
         "num_harvest": "Oogst per gewas",
         "num_harvest_none": "Er werd dit seizoen nog geen oogst genoteerd.",
+        "num_worth": "Wat de tuin opbracht",
+        "worth_text": "Tegen winkelprijzen was de oogst ongeveer {value} waard. De tuin kostte dit seizoen {cost} aan uitgaven en water. {verdict}",
+        "worth_plus": "Dat is {balance} uitgespaard - nog los van de smaak, de beweging en de rust.",
+        "worth_minus": "De tuin kostte dus {balance} meer dan hij in de winkel waard is; wat hij teruggeeft, staat niet op een kassabon.",
         "num_families": "Wat er groeide, per familie",
         "num_year": "Het seizoen in het kort",
         "num_lessons": "Wat lukte en wat niet",
@@ -224,6 +228,10 @@ TEXT: dict[str, dict[str, str]] = {
         "tbl_last": "last",
         "num_harvest": "Harvest per crop",
         "num_harvest_none": "No harvest was recorded this season yet.",
+        "num_worth": "What the garden gave",
+        "worth_text": "At shop prices the harvest was worth about {value}. This season the garden cost {cost} in expenses and water. {verdict}",
+        "worth_plus": "That is {balance} saved - before counting the taste, the exercise and the calm.",
+        "worth_minus": "So the garden cost {balance} more than it is worth in the shop; what it gives back is not on any receipt.",
         "num_families": "What grew, by family",
         "num_year": "The season at a glance",
         "num_lessons": "What worked and what did not",
@@ -1385,6 +1393,23 @@ class SeasonBook:
             )  # fmt: skip
         else:
             b.para(w["num_harvest_none"], font="serif-italic", color=MUTED)
+        from .kitchen import economics
+
+        eco = economics(self.data, self.db, self.season, lang)
+        if eco["harvest_value"] > 0:
+
+            def money(v: float) -> str:
+                return f"{safe(eco['currency'])} {fmt_num(v, lang, 2)}"
+
+            verdict = (w["worth_plus"] if eco["balance"] >= 0 else w["worth_minus"]).format(
+                balance=money(abs(eco["balance"]))
+            )
+            b.heading(w["num_worth"])
+            b.para(
+                w["worth_text"].format(
+                    value=money(eco["harvest_value"]), cost=money(eco["total_cost"]), verdict=verdict
+                )
+            )
         families: dict[str, set[str]] = defaultdict(set)
         for p in self.data.plantings:
             if p.season != self.season:

@@ -173,3 +173,16 @@ def test_helpers():
     assert join_names(["a", "b", "c", "d", "e", "f", "g"], "en", limit=3) == "a, b and 5 more"
     assert jpeg_info(_jpeg(40, 30)) == (40, 30, 3) and jpeg_info(_jpeg(8, 8, "L")) == (8, 8, 1)
     assert jpeg_info(b"not a jpeg") is None
+
+
+def test_numbers_page_shows_what_the_garden_gave(garden, db, make_planting):
+    from custom_components.garden_manager.engine.models import Expense
+    from custom_components.garden_manager.engine.seasonbook import render_book_svg
+
+    data = _year(garden, make_planting)
+    data.expenses = [Expense("e1", date(2026, 3, 1), 2026, "seeds", 15.0)]
+    pages = render_book_svg(
+        _ctx(data, db), PrintOptions.from_dict({"document": "book", "season": 2026, "lang": "nl"}), 200
+    )
+    text = " ".join(pages)
+    assert "Wat de tuin opbracht" in text and "uitgespaard" in text
