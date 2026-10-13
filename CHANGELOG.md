@@ -1,8 +1,41 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 – 2026-10
 
 ### Added
+- **Season book** (*Print → Season book*, or *Season book (PDF)* in the season report): the
+  whole garden year as a book to print – cover, epigraph, title page, the season's garden
+  plan, contents with page numbers, an introduction written from the season's own figures,
+  one chapter per month (what was sown, planted and done, the journal with your own photos,
+  the harvest, water and weather), the year in numbers, a glossary, colophon and back cover.
+  A5 by default, chapters open on a right-hand page, the page count is a multiple of four
+  (folds into signatures), bookmarks per chapter; Dutch and English. The PDF writer gained
+  Times, justified text, embedded JPEG photos and outlines.
+- **More than one garden**: add Hortulus again for an allotment or a second plot. Each
+  garden has its own data; the panel shows a garden switcher, every service accepts
+  `garden:` (title or entry id), the tasks card `garden:`. The first garden keeps its data
+  exactly as it was.
+- **Water meter**: litres booked per run come from the meter, each bed learns its real
+  flow (used when no flow is entered), and water counted for 15 minutes while every valve
+  is closed is reported as a **leak** (banner, notification; can be turned off).
+- **Valves with their own timer** (*Settings → Beds → Valve timer*): longer runs are split
+  into openings that stay inside it; a valve that shuts by itself mid-run ends the run,
+  books the real time and is reported.
+- **Buttons on phone notifications** (companion app): *Done* and *Tomorrow* on the digest
+  and reminders, *Water now* when beds need water, *Close valve* on a valve left open.
+- **Quick harvest** on the dashboard: the crops that can be picked now, add the weight with
+  big buttons, save. `log_harvest` accepts a plant **name** (`plant: Tomaat`) and finds the
+  crop in the garden – handy for an NFC tag or a dashboard button.
+- **Photo timeline** per crop and bed (in their popups) and *Your photos* in a plant's
+  details: from the first picture to the last ("day 1", "day 40"), with a viewer.
+- **Seeds to buy**: the seed list shows how many to buy and puts what is missing on a
+  Home Assistant to-do list (e.g. the shopping list) in one click, without duplicates.
+- **Tasks card**: watering today, a run in progress, a valve left open (with *Close*) and
+  leaks.
+- **A new look**: serif display type (the same voice as the season book), a dashboard hero in
+  the colours of the season with botanical line art and stat tiles, a glass app bar, softer
+  depth, refined buttons, alerts, tables and weather tiles, views that fade in, a skeleton
+  while loading; all motion off with *reduce motion*. Dark theme tuned throughout.
 - **Valve test** (*Settings*, next to every bed valve): opens it for 5 s with the pump in the
   safe order (the pump only after the valve reports open, never on its own) and checks it
   reports open and closed again. Websocket `irrigation/test`.
@@ -164,7 +197,7 @@
 
 ### Known limitations
 - One garden per Home Assistant: the panel shows the first config entry. Use zones for a
-  second plot.
+  second plot. (Lifted in 1.4.0.)
 
 ## 1.2.0 – 2026-10
 

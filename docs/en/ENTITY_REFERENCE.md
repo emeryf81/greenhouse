@@ -334,6 +334,8 @@ title: Garden today   # optional
 days: 0               # 0 = today + overdue, 7 = the coming week
 assignee: me          # optional: me | person.xyz | unassigned
 max: 8                # optional
+water: true           # optional: watering today, a run in progress, a valve left open (Close), leaks
+garden: Allotment     # optional: which garden, when you have more than one
 ```
 
 Tick a task off on the card and it is completed in Hortulus (with the next sowing or care

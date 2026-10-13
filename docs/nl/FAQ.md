@@ -114,7 +114,7 @@ Ja. Elke taak kan aan een persoon (`person.*`-entiteit) toegewezen worden. Onder
 
 ## Kan ik meerdere tuinen beheren?
 
-Nog niet. Hortulus werkt met één tuin per Home Assistant: voeg voor een tweede perceel (volkstuin, voortuin) gewoon zones toe in hetzelfde plan. Een tweede integratie-item kan, maar het paneel toont altijd het eerste.
+Ja. Voeg Hortulus nog eens toe (Instellingen › Apparaten & diensten › Integratie toevoegen) voor een volkstuin of tweede perceel; hernoem het item gerust (bv. „Volkstuin”). Elke tuin heeft zijn eigen plan, taken, dagboek en oogst. Bovenaan het paneel kies je de tuin; je browser onthoudt je keuze. Acties nemen `garden: Volkstuin` (naam of id), de dashboardkaart `garden: Volkstuin`. Zonder keuze gaat alles naar de eerste tuin, die blijft zoals hij was. Voor een paar bedden aan de voorkant volstaan ook gewoon extra zones in hetzelfde plan.
 
 ## Hoe gebruik ik spraakopdrachten?
 
@@ -208,3 +208,24 @@ Ja, in de popup van een gewas of bed (planner of Teelten) onder **Notitie of fot
 ## Krijg ik een overzicht van het seizoen?
 
 **Logboek → Seizoensrapport** (en in de **Jaarovergang**) toont per gewas wat je plantte en oogstte tegenover wat verwacht werd, wat mislukte, de problemen uit het dagboek en hoeveel water er gegeven werd. Je kan het downloaden als Markdown.
+
+
+## Kan ik mijn tuinjaar als boek afdrukken?
+
+Ja: **Afdrukken → Seizoensboek** (of *Seizoensboek (PDF)* in het seizoensrapport). Je krijgt een volledig uitgeschreven boek: voorblad, inhoudstafel, inleiding, per maand een hoofdstuk met wat er gezaaid, geplant en gedaan werd, je dagboek met je eigen foto's, de oogst, water en weer, daarna het jaar in cijfers, een woordenlijst, colofon en achterblad. Kies A5 en druk dubbelzijdig af (spiegelen langs de lange kant); het aantal bladzijden is altijd een veelvoud van vier, zodat je het in katernen kunt vouwen en binden. Foto's komen uit je dagboek (Home Assistant-afbeeldingen) en worden rechtgezet en verkleind.
+
+## Kan Hortulus een lek of een vastgelopen kraan melden?
+
+Met een watermeter (Instellingen › Water): telt de meter 15 minuten water terwijl alle kranen van Hortulus dicht zijn, dan krijg je een melding en een rode banner. Tijdens een beurt leest Hortulus de meter af: het logboek toont de werkelijke liters en elk bed leert zijn echte debiet. Heeft een kraan een eigen veiligheidstimer (bv. 60 min), vul die in bij **Instellingen › Bedden › Kraantimer**; langere beurten worden dan opgesplitst. Gaat een kraan vanzelf dicht, dan stopt de beurt en krijg je een melding.
+
+## Kan ik vanuit de melding op mijn gsm reageren?
+
+Ja, met de Home Assistant-app: de ochtendmelding en herinneringen hebben knoppen **Gedaan** (bij één taak), **Morgen** en – als bedden water nodig hebben – **Water nu**. Een kraan die open bleef staan heeft **Kraan dicht**.
+
+## Hoe noteer ik snel een oogst?
+
+Op **Vandaag** staat **Snel oogsten**: tik een gewas dat nu te oogsten is, tel het gewicht op met de knoppen en bewaar. Voor een NFC-tag of knop: de actie `garden_manager.log_harvest` met `plant: Tomaat` en `kg: 0.5` zoekt zelf de teelt in je tuin (met `bed:` als de plant in meerdere bedden staat).
+
+## Kan ik ontbrekend zaad op mijn boodschappenlijst zetten?
+
+In **Teelten → Zaden** zie je per gewas hoeveel je nog moet kopen. Met **… op de lijst zetten** komt wat ontbreekt op een takenlijst van Home Assistant (bv. de boodschappenlijst); wat er al op staat, wordt niet dubbel gezet.
