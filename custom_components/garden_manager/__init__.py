@@ -14,11 +14,13 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, PLATFORMS, STORAGE_KEY
+from .actions import ACTION_EVENT
+from .const import DOMAIN, PLATFORMS
 from .controllers import ClimateController, IrrigationController
 from .coordinator import GardenCoordinator
 from .engine.i18n import normalize_lang
 from .engine.plantdb import PlantDatabase, load_builtin_json
+from .gardens import loaded, storage_key
 from .notifications import GardenNotifier
 from .options import apply_options
 from .panel import async_register_panel, async_unregister_panel
@@ -57,7 +59,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bool:
     builtin = await hass.async_add_executor_job(load_builtin_json)
-    repo = GardenRepository(hass, builtin)
+    repo = GardenRepository(hass, builtin, storage_key(entry))
     if await repo.async_load():
         _LOGGER.info("Creating initial Hortulus garden from setup answers")
         repo.data = build_initial_data(
@@ -80,6 +82,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
     entry.async_on_unload(coordinator.async_add_listener(climate.async_apply))
     entry.async_on_unload(irrigation.async_stop_on_unload)
     irrigation.notifier = notifier
+    notifier.actions.runtime = entry.runtime_data
+    entry.async_on_unload(hass.bus.async_listen(ACTION_EVENT, notifier.actions.handle))
     entry.async_on_unload(async_track_time_interval(hass, irrigation.async_watch, timedelta(minutes=1)))
 
     await coordinator.async_config_entry_first_refresh()
@@ -220,14 +224,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> b
     if unloaded:
         clear_diagnosis_cache(entry.runtime_data)
         await entry.runtime_data.repo.async_flush()
-        async_unregister_panel(hass)
+        if not [e for e in loaded(hass) if e.entry_id != entry.entry_id]:
+            async_unregister_panel(hass)  # the panel stays while another garden is loaded
     return unloaded
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> None:
     """Remove stored garden data, keeping one backup copy for recovery."""
-    store: Store[dict] = Store(hass, 1, STORAGE_KEY)
+    key = storage_key(entry)
+    store: Store[dict] = Store(hass, 1, key)
     raw = await store.async_load()
     if raw is not None:
-        await Store[dict](hass, 1, f"{STORAGE_KEY}.backup").async_save(raw)
+        await Store[dict](hass, 1, f"{key}.backup").async_save(raw)
     await store.async_remove()

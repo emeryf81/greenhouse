@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+import uuid
 
 from homeassistant.config_entries import (
     ConfigFlow,
@@ -55,6 +56,7 @@ from .const import (
 )
 from .engine.models import GardenSettings, SoilType, WindExposure
 from .engine.region import PRESETS, USDA_FROST_DATES, resolve_profile
+from .gardens import CONF_STORAGE_KEY
 from .options import settings_to_options
 from .seed import region_from_conf
 
@@ -297,6 +299,15 @@ class GardenConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_summary(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._data[CONF_IMPORT_EXAMPLE] = user_input[CONF_IMPORT_EXAMPLE]
+            others = self._async_current_entries(include_ignore=False)
+            if others:
+                # a second (third ...) garden: its own storage, a title to tell them apart
+                self._data[CONF_STORAGE_KEY] = f"{DOMAIN}.garden_{uuid.uuid4().hex[:8]}"
+                taken = {(e.title or "").casefold() for e in others}
+                n = 2
+                while f"{BRAND} {n}".casefold() in taken:
+                    n += 1
+                return self.async_create_entry(title=f"{BRAND} {n}", data=self._data)
             return self.async_create_entry(title=BRAND, data=self._data)
         region = resolve_profile(region_from_conf(self._data[CONF_REGION], None, None))
         areas = "\n".join(

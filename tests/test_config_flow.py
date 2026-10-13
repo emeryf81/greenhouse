@@ -103,9 +103,10 @@ async def test_full_flow_creates_entry(hass: HomeAssistant) -> None:
     assert data["import_example_plan"] is True
 
 
-async def test_single_instance(hass: HomeAssistant) -> None:
+async def test_a_second_garden_gets_its_own_storage(hass: HomeAssistant) -> None:
+    """More than one garden: a new entry is allowed and keeps its data apart from the first."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
 
     MockConfigEntry(domain=DOMAIN, data={}).add_to_hass(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert result["type"] is FlowResultType.ABORT and result["reason"] == "single_instance_allowed"
+    assert result["type"] is FlowResultType.FORM

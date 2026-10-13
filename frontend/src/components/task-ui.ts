@@ -1,4 +1,6 @@
 import { toolsFor } from "../util/tools";
+import { celebrateAt } from "../util/celebrate";
+import { GARDEN_ICONS, gicon } from "./garden-icons";
 import { personName, persons } from "../util/people";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -67,8 +69,10 @@ function swipeEnd(ev: PointerEvent, task: Task, ctx: TaskCtx): void {
   delete el.dataset.swipe;
   if (!st?.active) return;
   ev.preventDefault();
-  if (st.dx > SWIPE_THRESHOLD && task.status === "open") ctx.onComplete(task);
-  else if (st.dx < -SWIPE_THRESHOLD && task.status === "open" && ctx.onPostpone) ctx.onPostpone(task, 1);
+  if (st.dx > SWIPE_THRESHOLD && task.status === "open") {
+    celebrateAt(el);
+    ctx.onComplete(task);
+  } else if (st.dx < -SWIPE_THRESHOLD && task.status === "open" && ctx.onPostpone) ctx.onPostpone(task, 1);
 }
 
 /** Compact, accessible task row used on the dashboard and in list views. */
@@ -81,13 +85,13 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
     <li class="task-row ${done ? "done" : ""} prio-${task.priority}" @pointerdown=${swipeDown} @pointermove=${swipeMove}
       @pointerup=${(e: PointerEvent) => swipeEnd(e, task, ctx)} @pointercancel=${(e: PointerEvent) => swipeEnd(e, task, ctx)}>
       <button class="check" role="checkbox" aria-checked=${String(done)} aria-label=${`${ctx.t("task.complete")}: ${task.title}`}
-        ?disabled=${done} @click=${() => ctx.onComplete(task)}>
+        ?disabled=${done} @click=${(e: Event) => { celebrateAt(e.currentTarget as Element); ctx.onComplete(task); }}>
         <ha-icon icon=${done ? "mdi:check-circle" : "mdi:checkbox-blank-circle-outline"}></ha-icon>
       </button>
       <button class="task-main" @click=${() => ctx.onOpen(task)}>
         ${crop ? html`<span class="type-icon crop" title=${ctx.t(`type.${task.type}`)}>${glyphIcon(glyphFor(crop.plant), crop.color, 24)}
-          <span class="type-badge" style=${`background:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span></span>`
-          : html`<span class="type-icon" style=${`color:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span>`}
+          <span class="type-badge" style=${`background:${color}`}>${gicon(GARDEN_ICONS[task.type] ? task.type : TASK_ICONS[task.type], 11)}</span></span>`
+          : html`<span class="type-icon" style=${`color:${color}`}>${gicon(GARDEN_ICONS[task.type] ? task.type : TASK_ICONS[task.type], 21)}</span>`}
         <span class="task-text">
           <span class="task-title">${task.title}</span>
           <span class="task-meta">
@@ -104,13 +108,16 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
 
 export const taskRowStyles = css`
   ul.tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .task-row { display: flex; align-items: center; gap: var(--hl-s1); border-radius: var(--hl-r-md); touch-action: pan-y; transition: transform 0.15s ease-out; background: var(--hl-surface); }
+  ul.tasks > li + li .task-row, ul.tasks > .task-row + .task-row { border-top: 1px solid color-mix(in srgb, var(--hl-border) 55%, transparent); }
+  .task-row { position: relative; display: flex; align-items: center; gap: var(--hl-s1); border-radius: var(--hl-r-md); touch-action: pan-y;
+    transition: transform 0.15s ease-out, background var(--hl-dur) var(--hl-ease); background: var(--hl-surface); padding-left: 6px; }
   .task-row[data-swipe="complete"] { background: var(--hl-leaf-100); }
   .task-row[data-swipe="postpone"] { background: var(--hl-sun-100); }
   .task-row:hover { background: var(--hl-surface-2); }
   .task-row.done .task-title { text-decoration: line-through; color: var(--hl-text-muted); }
-  .task-row.prio-urgent { box-shadow: inset 3px 0 0 var(--hl-danger); }
-  .task-row.prio-high { box-shadow: inset 3px 0 0 var(--hl-warning); }
+  .task-row.prio-urgent::before, .task-row.prio-high::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px; border-radius: 3px; }
+  .task-row.prio-urgent::before { background: var(--hl-danger); }
+  .task-row.prio-high::before { background: var(--hl-warning); }
   .check { border: 0; background: transparent; color: var(--hl-primary); cursor: pointer; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; --mdc-icon-size: 22px; }
   .check:hover:not([disabled]) { background: var(--hl-leaf-100); }
   .task-main { flex: 1; display: flex; align-items: center; gap: var(--hl-s2); border: 0; background: transparent; text-align: left; cursor: pointer; padding: 6px 4px; color: var(--hl-text); min-width: 0; }
@@ -298,7 +305,7 @@ export class TaskDialog extends LitElement {
       });
     return html`
       <div class="head">
-        <ha-icon class="big-icon" icon=${TASK_ICONS[task.type]} style=${`color:${TASK_COLORS[task.type] ?? "inherit"}`}></ha-icon>
+        <span class="big-icon" style=${`color:${TASK_COLORS[task.type] ?? "inherit"}`}>${gicon(GARDEN_ICONS[task.type] ? task.type : TASK_ICONS[task.type], 36)}</span>
         <div class="stack" style="gap:4px">
           <h2>${task.title}</h2>
           <div class="row wrap small muted">

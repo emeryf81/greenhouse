@@ -284,5 +284,5 @@ def recommend_irrigation(
 
 def _finish(rec: IrrigationRecommendation, bed: GardenBed) -> None:
     rec.liters = round(rec.amount_mm * bed.area_m2, 1)
-    if bed.irrigation_flow_lpm and bed.irrigation_flow_lpm > 0 and rec.liters > 0:
-        rec.duration_min = round(rec.liters / bed.irrigation_flow_lpm, 1)
+    if (flow := bed.flow_lpm) and rec.liters > 0:
+        rec.duration_min = round(rec.liters / flow, 1)

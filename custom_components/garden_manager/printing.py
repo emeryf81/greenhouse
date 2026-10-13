@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import timedelta
 from http import HTTPStatus
+from io import BytesIO
 from pathlib import Path
 import re
 from typing import TYPE_CHECKING, Any
@@ -15,7 +17,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, EXPORT_URL, PRINT_DIR, PRINT_URL
+from .engine.pdf import Image
 from .engine.printout import PrintContext, PrintOptions, filename, render_pdf, render_svg
+from .gardens import pick
 
 if TYPE_CHECKING:
     from . import GardenRuntime
@@ -25,6 +29,50 @@ BOOL_KEYS = ("landscape", "notes", "grid", "labels")
 _SAFE_NAME = re.compile(r"^[A-Za-z0-9_.-]+\.pdf$")
 LINK_VALID = timedelta(days=7)
 INT_KEYS = ("season", "days")
+# Photos in the season book: long side in pixels (sharp at A5 / 300 dpi for a full-width picture).
+PHOTO_MAX_PX = 1600
+_IMAGE_ID = re.compile(r"(?:/api/image/serve/)?([0-9A-Za-z_-]{6,64})(?:/[0-9x]+)?")
+
+
+def jpeg_for_print(raw: bytes, gray: bool) -> Image | None:
+    """Any photo -> a JPEG for the PDF: upright (EXIF), at most ``PHOTO_MAX_PX``, grey when asked."""
+    try:
+        from PIL import Image as PILImage, ImageOps
+    except ImportError:  # no Pillow: use JPEGs as they are
+        return Image.from_jpeg(raw)
+    try:
+        with PILImage.open(BytesIO(raw)) as img:
+            img = ImageOps.exif_transpose(img)
+            img = img.convert("L" if gray else "RGB")
+            img.thumbnail((PHOTO_MAX_PX, PHOTO_MAX_PX))
+            out = BytesIO()
+            img.save(out, "JPEG", quality=82, optimize=True)
+    except (OSError, ValueError):
+        return None
+    return Image.from_jpeg(out.getvalue())
+
+
+def photo_loader(config_dir: Path) -> Callable[[str, bool], Image | None]:
+    """Read journal photos: Home Assistant image uploads (``image/<id>/original``) and ``/local/`` files."""
+    images = config_dir / "image"
+    www = config_dir / "www"
+
+    def load(photo_id: str, gray: bool) -> Image | None:
+        if photo_id.startswith("/local/"):
+            base, path = www, www / photo_id.removeprefix("/local/")
+        elif match := _IMAGE_ID.fullmatch(photo_id):
+            base, path = images, images / match.group(1) / "original"
+        else:
+            return None  # remote URLs are not fetched
+        try:
+            path = path.resolve()
+            if not path.is_relative_to(base.resolve()) or not path.is_file():
+                return None
+            return jpeg_for_print(path.read_bytes(), gray)
+        except OSError:
+            return None
+
+    return load
 
 
 def print_context(runtime: GardenRuntime) -> PrintContext:
@@ -36,6 +84,7 @@ def print_context(runtime: GardenRuntime) -> PrintContext:
         timelines=dict(analysis.timelines) if analysis else {},
         today=analysis.today if analysis else dt_util.now().date(),
         garden_name=title,
+        photos=photo_loader(Path(runtime.coordinator.hass.config.config_dir)),
     )
 
 
@@ -113,11 +162,10 @@ class PrintView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app[KEY_HASS]
-        entries = hass.config_entries.async_loaded_entries(DOMAIN)
-        if not entries:
-            return web.Response(status=HTTPStatus.NOT_FOUND, text="Hortulus is not loaded")
-        runtime: GardenRuntime = entries[0].runtime_data
         query = dict(request.query)
+        runtime = pick(hass, query.pop("garden_id", None))
+        if runtime is None:
+            return web.Response(status=HTTPStatus.NOT_FOUND, text="Hortulus is not loaded")
         fmt = query.pop("format", "pdf")
         try:
             opts = options_from_query(query, runtime.coordinator.lang)

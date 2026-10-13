@@ -138,6 +138,7 @@ async def test_irrigation_dry_run_and_run_with_pump_interlock(
         # The switch domain belongs to Hortulus' own platform in this test,
         # so record at the controller boundary instead of mocking services.
         switched.append((entity_id, on))
+        hass.states.async_set(entity_id, "on" if on else "off")  # the valve reports open: the pump may start
 
     monkeypatch.setattr(controllers, "_switch", fake_switch)
 
@@ -259,6 +260,44 @@ async def test_export_pdf_and_http_view(
     assert (await resp.read()).startswith(b"%PDF")
     bad = await client.get("/api/garden_manager/print?document=poster")
     assert bad.status == 400
+
+
+async def test_season_book_reads_journal_photos_from_image_uploads(hass: HomeAssistant, garden, tmp_path: Path) -> None:
+    """The book takes photos from HA's image uploads (``image/<id>/original``), upright and scaled down."""
+    from io import BytesIO
+
+    from homeassistant.util import dt as dt_util
+    from PIL import Image as PILImage
+
+    from custom_components.garden_manager.engine.models import JournalEntry
+    from custom_components.garden_manager.printing import photo_loader
+
+    entry, _calls = garden
+    hass.config.config_dir = str(tmp_path)
+    photo_id = "0123456789abcdef0123456789abcdef"
+    folder = tmp_path / "image" / photo_id
+    folder.mkdir(parents=True)
+    buf = BytesIO()
+    PILImage.new("RGB", (3000, 2000), "orange").save(buf, "PNG")  # not a JPEG, too large: converted
+    (folder / "original").write_bytes(buf.getvalue())
+    (tmp_path / "secret.jpg").write_bytes(b"x")
+
+    load = photo_loader(tmp_path)
+    img = await hass.async_add_executor_job(load, photo_id, False)
+    assert img is not None and (img.width, img.height) == (1600, 1067) and img.components == 3
+    gray = await hass.async_add_executor_job(load, f"/api/image/serve/{photo_id}/512x512", True)
+    assert gray is not None and gray.components == 1
+    assert await hass.async_add_executor_job(load, "/local/../secret.jpg", False) is None
+    assert await hass.async_add_executor_job(load, "https://example.com/a.jpg", False) is None
+
+    repo = entry.runtime_data.repo
+    repo.data.journal.append(JournalEntry("j1", dt_util.now(), "Eerste oogst", [photo_id], "milestone"))
+    result = await hass.services.async_call(
+        DOMAIN, "export_pdf", {"document": "book", "page": "a5"}, blocking=True, return_response=True
+    )
+    content = await hass.async_add_executor_job(Path(result["path"]).read_bytes)
+    assert content.startswith(b"%PDF") and b"/DCTDecode" in content
+    assert result["filename"].startswith("hortulus-book-")
 
 
 async def test_websocket_print_handbook_autofill(hass: HomeAssistant, garden, hass_ws_client) -> None:
@@ -805,3 +844,305 @@ async def test_pump_is_never_tested_alone_and_close_stops_a_run(
     monkeypatch.setattr(type(runtime.irrigation), "running", property(lambda self: not stopped))
     valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
     assert await runtime.irrigation.async_close(valve) == "off" and stopped == [True]
+
+
+async def test_missing_seed_goes_to_a_todo_list_once(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """Seeds the plan lacks land on a HA to-do list; items already on it are not added twice."""
+    from homeassistant.core import SupportsResponse
+
+    from custom_components.garden_manager.engine.models import PlantingStatus, SowMethod
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    season = repo.data.plantings[0].season
+    for p in repo.data.plantings:
+        p.status, p.method = PlantingStatus.PLANNED, SowMethod.DIRECT_SOW
+    repo.data.seed_stock = []
+    items: list[str] = []
+    hass.states.async_set("todo.shopping_list", "0")
+
+    async def get_items(call: ServiceCall):
+        return {"todo.shopping_list": {"items": [{"summary": s} for s in items]}}
+
+    async def add_item(call: ServiceCall) -> None:
+        items.append(call.data["item"])
+
+    hass.services.async_register("todo", "get_items", get_items, supports_response=SupportsResponse.ONLY)
+    hass.services.async_register("todo", "add_item", add_item)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/seeds/to_todo", "season": season, "entity_id": "todo.shopping_list"}
+    )
+    first = (await _result(client))["result"]
+    assert first["added"] > 0 and first["skipped"] == 0 and len(items) == first["added"]
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/seeds/to_todo", "season": season, "entity_id": "todo.shopping_list"}
+    )
+    second = (await _result(client))["result"]
+    assert second["added"] == 0 and second["skipped"] == first["added"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/seeds/to_todo", "season": season, "entity_id": "light.kitchen"})
+    assert not (await _result(client))["success"]
+
+
+async def test_runs_split_for_the_valve_timer_and_learn_the_flow_from_the_meter(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A valve with its own 10-minute timer gets 9 + 9 + 7 minutes; the meter tells the real flow."""
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.max_runtime_min = 60
+    repo.data.settings.water.meter_entity = "sensor.garden_water"
+    hass.states.async_set("sensor.garden_water", "1.000", {"unit_of_measurement": "m³"})
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    bed.valve_max_min = 10
+    meter = {"l": 1000.0}
+    real_sleep = asyncio.sleep
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        opened.append((entity_id, on))
+        hass.states.async_set(entity_id, "on" if on else "off")
+
+    async def fake_sleep(seconds: float) -> None:
+        if hass.states.get("switch.valve_bed_1").state == "on":
+            meter["l"] += seconds / 60 * 12.0  # really 12 L/min, not the 4 entered
+            hass.states.async_set("sensor.garden_water", f"{meter['l'] / 1000:.4f}", {"unit_of_measurement": "m³"})
+        await real_sleep(0)
+
+    opened: list[tuple[str, bool]] = []
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fake_sleep)
+    plan = irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=50)  # 100 L at 4 L/min = 25 min
+    assert plan.runs[0].minutes == 25
+    assert irrigation.async_start(plan, source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert [on for e, on in opened if e == "switch.valve_bed_1"] == [True, False, True, False, True, False]
+    event = repo.data.irrigation_log[-1]
+    assert event.minutes == 25 and event.liters == pytest.approx(300, abs=1)  # measured, not 100 L
+    assert bed.measured_flow_lpm == pytest.approx(12, abs=0.1)
+    bed.irrigation_flow_lpm = None
+    assert bed.flow_lpm == pytest.approx(12, abs=0.1)  # used when no flow is entered
+
+
+async def test_a_valve_that_shuts_by_itself_ends_the_run_and_is_reported(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.max_runtime_min = 60
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    held = {"s": 0.0}
+    real_sleep = asyncio.sleep
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass.states.async_set(entity_id, "on" if on else "off")
+
+    async def fake_sleep(seconds: float) -> None:
+        held["s"] += seconds
+        if held["s"] >= 120:  # the valve's own timer shuts it after two minutes
+            hass.states.async_set("switch.valve_bed_1", "off")
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fake_sleep)
+    assert irrigation.async_start(irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=20), source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert repo.data.irrigation_log[-1].minutes == 1.5  # last seen open at 90 s, closed at the 120 s check
+    assert any(e["summary"][0]["key"] == "valve_closed_early" for e in repo.syslog if e["source"] == "error")
+
+
+async def test_water_counted_with_every_valve_closed_is_a_leak(hass: HomeAssistant, garden) -> None:
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.water.meter_entity = "sensor.garden_water"
+    for entity_id in irrigation.valve_entities():
+        hass.states.async_set(entity_id, "off" if entity_id.startswith("switch.") else "closed")
+    start = dt_util.now()
+    for minute in range(0, 17):
+        hass.states.async_set("sensor.garden_water", str(500 + minute * 0.5), {"unit_of_measurement": "L"})
+        irrigation.async_watch(start + timedelta(minutes=minute))
+    assert irrigation.leak is not None and irrigation.leak["liters"] >= 5
+    for minute in range(17, 40):  # the tap is closed again: no more water counted
+        irrigation.async_watch(start + timedelta(minutes=minute))
+    assert irrigation.leak is None
+    repo.data.settings.water.leak_alerts = False
+    for minute in range(40, 60):
+        hass.states.async_set("sensor.garden_water", str(600 + minute), {"unit_of_measurement": "L"})
+        irrigation.async_watch(start + timedelta(minutes=minute))
+    assert irrigation.leak is None
+
+
+async def test_phone_notification_buttons_complete_postpone_and_close(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The digest carries Done / Tomorrow; pressing them on the phone changes the tasks; a stuck valve gets Close."""
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    from custom_components.garden_manager.engine.models import Task, TaskStatus, TaskType
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    repo = runtime.repo
+    today = dt_util.now().date()
+    sent: list[dict[str, Any]] = []
+
+    async def phone(call: ServiceCall) -> None:
+        sent.append(dict(call.data))
+
+    hass.services.async_register("notify", "mobile_app_phone", phone)
+    repo.data.settings.notifications.notify_services = ["notify.mobile_app_phone"]
+    repo.data.tasks = [Task("only", TaskType.WEED, "Wieden", today)]
+    await runtime.notifier.async_send_digest(runtime.coordinator.data)
+    await hass.async_block_till_done()
+    actions = sent[-1]["data"]["actions"]
+    assert [a["title"] for a in actions][:2] == ["Done", "Tomorrow"] or [a["title"] for a in actions][:2] == [
+        "Gedaan",
+        "Morgen",
+    ]
+    hass.bus.async_fire("mobile_app_notification_action", {"action": actions[1]["action"]})  # tomorrow
+    await hass.async_block_till_done()
+    assert repo.data.task("only").due == today + timedelta(days=1)
+
+    repo.data.notified.clear()
+    await runtime.notifier.async_send_overdue(runtime.coordinator.data)  # nothing overdue: no buttons needed
+    repo.data.tasks.append(Task("two", TaskType.MULCH, "Mulchen", today))
+    done = runtime.notifier.actions.for_tasks([repo.data.task("two")], "en")[0]
+    hass.bus.async_fire("mobile_app_notification_action", {"action": done["action"]})
+    await hass.async_block_till_done()
+    assert repo.data.task("two").status is TaskStatus.DONE
+    # a used button does nothing the second time, a foreign action is ignored
+    hass.bus.async_fire("mobile_app_notification_action", {"action": done["action"]})
+    hass.bus.async_fire("mobile_app_notification_action", {"action": "OTHER_APP_THING"})
+    await hass.async_block_till_done()
+
+    valve = "valve.greenhouse_drip"
+    closed: list[str] = []
+
+    async def fake_close(entity_id: str) -> str:
+        closed.append(entity_id)
+        return "closed"
+
+    monkeypatch.setattr(runtime.irrigation, "async_close", fake_close)
+    close = runtime.notifier.actions.for_valve(valve, "nl")[0]
+    assert close["title"] == "Kraan dicht"
+    hass.bus.async_fire("mobile_app_notification_action", {"action": close["action"]})
+    await hass.async_block_till_done()
+    assert closed == [valve]
+
+    # "Water now" carries this garden's token and waters only the beds that asked for it (also in advise mode)
+    bed = next(b for b in repo.data.beds if b.irrigation_entity)
+    started: list[set[str]] = []
+    monkeypatch.setattr(runtime.notifier.actions, "thirsty_beds", lambda: {bed.id})
+    real_build = runtime.irrigation.build_plan
+
+    def build(**kw):
+        assert kw.get("force") is True  # the press is the go-ahead, also in advise mode
+        started.append(kw.get("bed_ids"))
+        return real_build(**kw)
+
+    monkeypatch.setattr(runtime.irrigation, "build_plan", build)
+    monkeypatch.setattr(runtime.irrigation, "async_start", lambda plan, source="auto": True)
+    water = next(a for a in runtime.notifier.actions.for_tasks([], "en") if a["action"].startswith("HORTULUS_WATER_"))
+    hass.bus.async_fire("mobile_app_notification_action", {"action": "HORTULUS_WATER_deadbeef"})  # another garden's
+    await hass.async_block_till_done()
+    assert started == []
+    hass.bus.async_fire("mobile_app_notification_action", {"action": water["action"]})
+    await hass.async_block_till_done()
+    assert started == [{bed.id}]
+
+
+async def test_harvest_by_plant_name_finds_the_crop(hass: HomeAssistant, garden) -> None:
+    """``log_harvest`` with a plant name (as an NFC tag would send) books it on the one crop in the garden."""
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    crop = next(p for p in repo.data.plantings if p.plant_id == "tomato")
+    others = [p for p in repo.data.plantings if p.plant_id == "tomato" and p is not crop]
+    for p in others:
+        repo.data.plantings.remove(p)
+    crop.season = 2026  # the example plan is for next year; the harvest is today (May 2026)
+    result = await hass.services.async_call(
+        DOMAIN, "log_harvest", {"plant": "TOMAAT", "kg": 0.8}, blocking=True, return_response=True
+    )
+    assert result["harvest"]["plant_id"] == "tomato" and result["harvest"]["planting_id"] == crop.id
+    assert crop.harvest_started_on is not None
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "log_harvest", {"plant": "Mandragora", "kg": 1}, blocking=True)
+
+
+async def test_two_gardens_side_by_side(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """A second garden has its own data; the panel picks it with ``garden_id``, services with ``garden``."""
+    entry, _calls = garden
+    second = MockConfigEntry(domain=DOMAIN, data={**ENTRY, "storage_key": f"{DOMAIN}.garden_two"}, title="Volkstuin")
+    second.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second.entry_id)
+    await hass.async_block_till_done()
+    first_repo, second_repo = entry.runtime_data.repo, second.runtime_data.repo
+    assert first_repo is not second_repo and second_repo.key == f"{DOMAIN}.garden_two"
+
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/subscribe", "garden_id": second.entry_id})
+    assert (await client.receive_json())["success"]
+    snap = (await client.receive_json())["event"]
+    assert snap["entry_id"] == second.entry_id
+    assert {g["title"] for g in snap["gardens"]} == {"Hortulus", "Volkstuin"}
+
+    before = len(first_repo.data.harvest_log)
+    await hass.services.async_call(
+        DOMAIN, "log_harvest", {"plant_id": "tomato", "kg": 1, "garden": "volkstuin"}, blocking=True
+    )
+    assert len(second_repo.data.harvest_log) == 1 and len(first_repo.data.harvest_log) == before
+    await hass.services.async_call(DOMAIN, "log_harvest", {"plant_id": "tomato", "kg": 1}, blocking=True)
+    assert len(first_repo.data.harvest_log) == before + 1  # no garden named: the first one
+
+    # unloading one garden keeps the panel for the other
+    assert await hass.config_entries.async_unload(second.entry_id)
+    from homeassistant.components.frontend import DATA_PANELS
+
+    assert "hortulus" in hass.data.get(DATA_PANELS, {})
+
+
+async def test_the_pump_waits_for_a_valve_that_reports_open(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A valve that never reports open gets no pump and no water booked; it is reported."""
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.pump_entity = "switch.pump"
+    switched: list[tuple[str, bool]] = []
+    real_sleep = asyncio.sleep
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        switched.append((entity_id, on))  # the valve never changes state
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    hass.states.async_set("switch.valve_bed_1", "off")
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    before = len(repo.data.irrigation_log)
+    assert irrigation.async_start(irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=5), source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert ("switch.pump", True) not in switched
+    assert len(repo.data.irrigation_log) == before
+    assert any(e["summary"][0]["key"] == "valve_did_not_open" for e in repo.syslog if e["source"] == "error")
+
+
+def test_valve_timer_chunks_and_jpeg_guard() -> None:
+    from custom_components.garden_manager.controllers import _chunks
+    from custom_components.garden_manager.engine.pdf import jpeg_info
+
+    assert _chunks(25, 10) == [9, 9, 7]
+    assert _chunks(3, 1) == [0.75, 0.75, 0.75, 0.75]  # a one-minute timer still splits
+    assert _chunks(5, None) == [5]
+    assert jpeg_info(b"\xff\xd8\xff\xe0\x00\x00" + b"\x00" * 20) is None  # a zero-length segment

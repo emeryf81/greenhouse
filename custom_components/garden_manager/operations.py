@@ -37,6 +37,7 @@ from .engine.models import (
     TaskStatus,
     TaskType,
     Zone,
+    present_in,
 )
 from .engine.plantdb import validate_plant_dict
 from .engine.serde import from_dict, to_dict
@@ -668,15 +669,46 @@ def _new_id(prefix: str) -> str:
 
 
 @callback
+def resolve_plant_id(runtime: GardenRuntime, ref: str | None) -> str:
+    """A plant id, or a plant name in any language (case-insensitive) - for NFC tags and YAML."""
+    db = runtime.repo.db
+    text = str(ref or "").strip()
+    if db.get(text) is not None:
+        return text
+    folded = text.casefold()
+    for plant in db.all():
+        if any(name.casefold() == folded for name in plant.names.values()):
+            return plant.id
+    raise _err("unknown_plant", plant=text or "-")
+
+
+def _harvest_planting(runtime: GardenRuntime, plant_id: str, bed_id: str | None, day: date) -> Planting | None:
+    """The one crop of this plant in the garden on ``day`` (optionally in ``bed_id``), if it is unambiguous."""
+    from .engine.region import season_for_date
+
+    data = runtime.repo.data
+    season = season_for_date(data.settings.region, day)
+    plant = runtime.repo.db.get(plant_id)
+    live = [
+        p for p in data.plantings
+        if p.plant_id == plant_id and present_in(p, bool(plant and plant.perennial), season)
+        and p.status not in (PlantingStatus.FAILED, PlantingStatus.FINISHED) and (bed_id is None or p.bed_id == bed_id)
+    ]  # fmt: skip
+    return live[0] if len(live) == 1 else None
+
+
 def op_log_harvest(runtime: GardenRuntime, raw: Mapping[str, Any]) -> HarvestEntry:
-    """Record a harvest.  ``planting`` (id) or ``plant`` (id) identifies the crop."""
+    """Record a harvest.  ``planting`` (id) or ``plant`` (id or name) identifies the crop."""
     data = runtime.repo.data
     planting = data.planting(raw.get("planting_id")) if raw.get("planting_id") else None
     if raw.get("planting_id") and planting is None:
         raise _err("unknown_planting", planting=raw["planting_id"])
-    plant_id = planting.plant_id if planting else str(raw.get("plant_id") or "")
-    if runtime.repo.db.get(plant_id) is None:
-        raise _err("unknown_plant", plant=plant_id or "-")
+    bed = resolve_bed(runtime, raw["bed"]) if raw.get("bed") else None
+    plant_id = planting.plant_id if planting else resolve_plant_id(runtime, raw.get("plant_id") or raw.get("plant"))
+    raw_day = raw.get("day") or dt_util.now().date()
+    harvest_day = raw_day if isinstance(raw_day, date) else date.fromisoformat(str(raw_day))
+    if planting is None:
+        planting = _harvest_planting(runtime, plant_id, bed.id if bed else raw.get("bed_id"), harvest_day)
     kg = float(raw.get("kg") or 0)
     count = int(raw["count"]) if raw.get("count") not in (None, "") else None
     if kg < 0 or (count is not None and count < 0) or (kg == 0 and not count):
@@ -685,7 +717,7 @@ def op_log_harvest(runtime: GardenRuntime, raw: Mapping[str, Any]) -> HarvestEnt
     entry = HarvestEntry(
         id=_new_id("hv"), day=day if isinstance(day, date) else date.fromisoformat(str(day)), plant_id=plant_id,
         kg=round(kg, 3), count=count, planting_id=planting.id if planting else None,
-        bed_id=planting.bed_id if planting else raw.get("bed_id"),
+        bed_id=planting.bed_id if planting else (bed.id if bed else raw.get("bed_id")),
         quality=int(raw["quality"]) if raw.get("quality") else None, note=str(raw.get("note") or ""),
     )  # fmt: skip
     data.harvest_log.append(entry)

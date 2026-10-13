@@ -1,3 +1,5 @@
+import type { GardenApi } from "../api";
+import "../components/quick-harvest";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Translate } from "../i18n";
@@ -25,6 +27,7 @@ export class DashboardView extends LitElement {
   @property({ attribute: false }) snapshot!: Snapshot;
   @property({ attribute: false }) plants: Map<string, Plant> = new Map();
   @property({ attribute: false }) families: Record<string, FamilyInfo> = {};
+  @property({ attribute: false }) api?: GardenApi;
   @property({ attribute: false }) t!: Translate;
   @property() lang = "en";
   @property({ type: Boolean }) admin = true;
@@ -33,19 +36,45 @@ export class DashboardView extends LitElement {
     shared,
     taskRowStyles,
     css`
-      .hero { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--hl-s4); margin-bottom: var(--hl-s4); }
-      .hero h1 { font-size: var(--hl-fs-2xl); }
+      .hero { position: relative; overflow: hidden; border-radius: 22px; margin-bottom: var(--hl-s5); padding: 28px 32px 24px;
+        color: var(--hl-hero-ink); background: var(--season, var(--hl-grad-spring)); box-shadow: var(--hl-shadow-2), var(--hl-highlight);
+        isolation: isolate; }
+      .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0.55;
+        background: radial-gradient(600px 220px at 85% 10%, rgba(255, 255, 255, 0.7), transparent 70%),
+          radial-gradient(400px 200px at 0% 120%, rgba(255, 255, 255, 0.35), transparent 70%); }
+      :host-context([dark]) .hero::before { opacity: 0.08; }
+      .hero .wall { position: absolute; top: 16px; right: 16px; background: color-mix(in srgb, var(--hl-surface) 55%, transparent); }
+      .hero .art { position: absolute; right: 18px; top: -6px; height: 150%; opacity: 0.9; z-index: -1; pointer-events: none; }
+      .hero .eyebrow { color: color-mix(in srgb, var(--hl-hero-ink) 70%, transparent); }
+      .hero h1 { font-size: clamp(28px, 3.4vw, 42px); color: var(--hl-hero-ink); margin: 6px 0 2px; }
+      .hero .lede { font-family: var(--hl-font-serif); font-style: italic; font-size: 16px; color: color-mix(in srgb, var(--hl-hero-ink) 78%, transparent); max-width: 560px; }
+      .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 20px; max-width: 760px; }
+      .stat { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--hl-surface) 62%, transparent);
+        backdrop-filter: blur(6px); border: 1px solid color-mix(in srgb, #fff 45%, transparent); box-shadow: var(--hl-shadow-1); }
+      :host-context([dark]) .stat { border-color: rgba(255, 255, 255, 0.06); }
+      .stat .v { font-family: var(--hl-font-serif); font-size: 26px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+      .stat .v small { font-family: var(--hl-font); font-size: 12px; font-weight: 600; margin-left: 2px; opacity: 0.7; }
+      .stat .l { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.72; margin-top: 4px; }
+      .stat.alert-frost .v { color: var(--hl-info); }
+      @media (max-width: 720px) { .hero { padding: 22px 20px; } .stats { grid-template-columns: repeat(2, 1fr); } .hero .art { opacity: 0.35; } }
       .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--hl-s4); }
       .span-8 { grid-column: span 8; }
       .span-4 { grid-column: span 4; }
       .span-12 { grid-column: span 12; }
       @media (max-width: 1100px) { .span-8, .span-4 { grid-column: span 12; } }
       .alerts { display: flex; flex-direction: column; gap: var(--hl-s2); margin-bottom: var(--hl-s4); }
-      .alert { display: flex; gap: var(--hl-s3); align-items: center; padding: var(--hl-s3) var(--hl-s4); border-radius: var(--hl-r-md); border: 1px solid var(--hl-border); background: var(--hl-surface); }
+      .alert { position: relative; display: flex; gap: var(--hl-s3); align-items: center; padding: 14px 18px 14px 22px; border-radius: 14px;
+        border: 1px solid var(--hl-border); background: var(--hl-surface); box-shadow: var(--hl-shadow-1); overflow: hidden; }
+      .alert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent, var(--hl-text-muted)); }
+      .alert > ha-icon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%;
+        background: color-mix(in srgb, var(--accent, var(--hl-text-muted)) 14%, transparent); color: var(--accent, var(--hl-text)); }
+      .alert.critical { --accent: var(--hl-danger); }
+      .alert.warning { --accent: var(--hl-warning); }
+      .alert.frost { --accent: var(--hl-info); }
       .alert.critical { background: var(--hl-tomato-100); border-color: color-mix(in srgb, var(--hl-danger) 35%, transparent); }
       .alert.warning { background: var(--hl-sun-100); border-color: color-mix(in srgb, var(--hl-warning) 35%, transparent); }
       .alert.frost { background: var(--hl-frost-100); border-color: color-mix(in srgb, var(--hl-info) 35%, transparent); }
-      .alert ha-icon { --mdc-icon-size: 24px; }
+      .alert ha-icon { --mdc-icon-size: 20px; }
       .beds { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--hl-s3); }
       .bed { border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); padding: var(--hl-s3); background: var(--hl-surface-2); display: flex; flex-direction: column; gap: var(--hl-s2); }
       .gauge { height: 8px; border-radius: 4px; background: var(--hl-surface-3); position: relative; overflow: hidden; }
@@ -54,8 +83,13 @@ export class DashboardView extends LitElement {
       .avatars { display: flex; flex-wrap: wrap; gap: 4px; }
       .avatar { border: 0; cursor: pointer; padding: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 700; }
       .days { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--hl-s2); }
-      .day { text-align: center; padding: var(--hl-s2); border-radius: var(--hl-r-md); background: var(--hl-surface-2); }
-      .day .temp { font-size: var(--hl-fs-lg); font-weight: 600; }
+      .day { text-align: center; padding: 12px 8px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--hl-border) 70%, transparent);
+        background: linear-gradient(180deg, var(--hl-frost-100) 0%, var(--hl-surface) 100%); }
+      .day:first-child { background: linear-gradient(180deg, var(--hl-sun-100) 0%, var(--hl-surface) 100%); }
+      .day .temp { font-family: var(--hl-font-serif); font-size: 24px; font-weight: 700; margin: 2px 0; }
+      .alert.warning { background: color-mix(in srgb, var(--hl-sun-100) 65%, var(--hl-surface)); }
+      .alert.critical { background: color-mix(in srgb, var(--hl-tomato-100) 65%, var(--hl-surface)); }
+      .alert.frost { background: color-mix(in srgb, var(--hl-frost-100) 65%, var(--hl-surface)); }
       .big { font-size: var(--hl-fs-3xl); font-weight: 700; line-height: 1; }
       .kv { display: flex; justify-content: space-between; gap: var(--hl-s2); font-size: var(--hl-fs-sm); }
     `,
@@ -80,14 +114,26 @@ export class DashboardView extends LitElement {
   /** A valve or the pump stayed open: say so, with a button to close it. */
   private renderStuck(): TemplateResult | typeof nothing {
     const stuck = this.snapshot.irrigation_status?.stuck ?? [];
-    if (!stuck.length) return nothing;
-    return html`<section class="alerts" aria-label=${this.t("valve.stuck_title")}>${stuck.map((v) => html`<div class="alert critical" role="alert">
+    const leak = this.snapshot.irrigation_status?.leak;
+    if (!stuck.length && !leak) return nothing;
+    return html`<section class="alerts" aria-label=${this.t("valve.stuck_title")}>
+      ${leak ? html`<div class="alert critical" role="alert"><ha-icon icon="mdi:water-alert"></ha-icon>
+        <div><b>${this.t("valve.leak", { liters: leak.liters, minutes: leak.minutes })}</b>
+        <div class="small">${this.t("valve.leak_hint", { entity: leak.entity_id })}</div></div></div>` : nothing}
+      ${stuck.map((v) => html`<div class="alert critical" role="alert">
       <ha-icon icon="mdi:valve-open"></ha-icon>
       <div><b>${this.t("valve.stuck", { what: v.what === "pump" ? this.t("valve.pump") : v.what, entity: v.entity_id })}</b>
         <div class="small">${this.t("valve.stuck_since", { time: new Date(v.since).toLocaleTimeString(this.lang === "nl" ? "nl-NL" : "en-GB", { hour: "2-digit", minute: "2-digit" }) })}</div></div>
       <span class="spacer"></span>
       ${this.admin ? html`<button class="btn small danger" @click=${() => this.emit("close-valve", v.entity_id)}>${this.t("valve.close")}</button>` : nothing}
     </div>`)}</section>`;
+  }
+
+  /** Season of the year for the hero colour (hemisphere aware). */
+  private seasonOf(day: string): "spring" | "summer" | "autumn" | "winter" {
+    let m = Number(day.slice(5, 7)) - 1;
+    if (this.snapshot.settings.region?.hemisphere === "south") m = (m + 6) % 12;
+    return m < 2 || m === 11 ? "winter" : m < 5 ? "spring" : m < 8 ? "summer" : "autumn";
   }
 
   private greeting(): string {
@@ -105,14 +151,18 @@ export class DashboardView extends LitElement {
     const minutes = due.reduce((s, t) => s + t.estimated_minutes, 0);
     const greenhouses = snap.zones.filter((z) => z.type !== "outdoor");
     return html`
-      <section class="hero">
-        <div class="stack" style="gap:4px">
-          <span class="muted small">${formatDate(today, this.lang, { weekday: "long", day: "numeric", month: "long" })} · ${this.t("common.season", { year: a.season })}</span>
-          <h1>${this.greeting()} 🌱</h1>
+      <section class="hero" style=${`--season: var(--hl-grad-${this.seasonOf(today)})`}>
+        ${botanical(this.seasonOf(today))}
+        <div class="eyebrow">${formatDate(today, this.lang, { weekday: "long", day: "numeric", month: "long" })} · ${this.t("common.season", { year: a.season })}</div>
+        <h1>${this.greeting()}</h1>
+        <p class="lede">${this.t(`dash.lede.${this.seasonOf(today)}`)}</p>
+        <button class="btn small ghost wall" @click=${() => this.emit("navigate", "wall")}><ha-icon icon="mdi:tablet-dashboard"></ha-icon>${this.t("wall.open")}</button>
+        <div class="stats">
+          <div class="stat"><div class="v">${due.length}</div><div class="l">${this.t("dash.stat_tasks")}</div></div>
+          <div class="stat"><div class="v">${minutes}<small>min</small></div><div class="l">${this.t("dash.stat_work")}</div></div>
+          <div class="stat ${a.frost.level === "high" || a.frost.level === "moderate" ? "alert-frost" : ""}"><div class="v">${this.t(`risk.${a.frost.level}`)}</div><div class="l">${this.t("dash.frost_risk")}</div></div>
+          <div class="stat"><div class="v">${Math.round(a.gdd.season_total)}</div><div class="l">${this.t("dash.stat_gdd")}</div></div>
         </div>
-        <span class="spacer"></span>
-        <span class="chip ${RISK_CHIP[a.frost.level]}"><ha-icon icon="mdi:snowflake"></ha-icon>${this.t("dash.frost_risk")}: ${this.t(`risk.${a.frost.level}`)}</span>
-        <span class="chip"><ha-icon icon="mdi:thermometer-plus"></ha-icon>${Math.round(a.gdd.season_total)} GDD</span>
       </section>
 
       ${this.renderStuck()}
@@ -132,6 +182,10 @@ export class DashboardView extends LitElement {
           ${due.length > 10 ? html`<button class="btn small ghost" @click=${() => this.emit("navigate", "calendar")}>${this.t("dash.show_all", { n: due.length })}</button>` : nothing}
         </section>
 
+        ${this.api && this.admin ? html`<section class="card span-12" aria-labelledby="quick-h">
+          <header><h2 id="quick-h">${this.t("quick.title")}</h2><span class="spacer"></span><span class="small muted">${this.t("quick.hint")}</span></header>
+          <hl-quick-harvest .snapshot=${snap} .api=${this.api} .t=${this.t} .plants=${this.plants} .families=${this.families} lang=${this.lang}></hl-quick-harvest>
+        </section>` : nothing}
         <section class="card span-4" aria-labelledby="weather-h">
           <header><h2 id="weather-h">${this.t("dash.weather")}</h2></header>
           ${a.weather_available ? html`
@@ -246,4 +300,23 @@ declare global {
   interface HTMLElementTagNameMap {
     "hl-dashboard-view": DashboardView;
   }
+}
+
+/** Hand-drawn botanical line art for the hero, one sprig per season. */
+function botanical(season: string): TemplateResult {
+  const ink = "color-mix(in srgb, var(--hl-hero-ink) 32%, transparent)";
+  const fill = { spring: "#7fb069", summer: "#e8a33d", autumn: "#c8742f", winter: "#7d9bb8" }[season] ?? "#7fb069";
+  return html`<svg class="art" viewBox="0 0 260 220" aria-hidden="true">
+    <g fill="none" stroke=${ink} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M150 220 C150 170 146 120 160 70 C168 42 182 22 200 8" />
+      <path d="M152 170 C128 160 112 140 108 116 C132 118 150 136 152 170 Z" fill=${fill} fill-opacity="0.28" />
+      <path d="M156 128 C182 122 200 104 206 80 C182 82 162 98 156 128 Z" fill=${fill} fill-opacity="0.28" />
+      <path d="M160 92 C140 82 130 64 130 44 C150 50 162 68 160 92 Z" fill=${fill} fill-opacity="0.22" />
+      <path d="M182 40 C198 40 212 30 220 16 C204 14 190 24 182 40 Z" fill=${fill} fill-opacity="0.22" />
+      <path d="M152 170 L130 132 M156 128 L190 96 M160 92 L142 60" stroke-width="1" />
+      <circle cx="214" cy="54" r="7" fill=${fill} fill-opacity="0.5" />
+      <circle cx="226" cy="70" r="4.5" fill=${fill} fill-opacity="0.4" />
+      <path d="M60 220 C64 190 58 166 70 140 M70 140 C58 128 52 112 56 96 C68 104 74 120 70 140 Z" fill=${fill} fill-opacity="0.16" />
+    </g>
+  </svg>`;
 }

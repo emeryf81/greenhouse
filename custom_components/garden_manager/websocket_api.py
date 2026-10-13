@@ -31,12 +31,13 @@ from .engine.planio import PlanImportError, export_plan
 from .engine.plantdb import FAMILIES
 from .engine.printout import PrintOptions
 from .engine.qa import answer as qa_answer, options as qa_options
-from .engine.records import harvest_summary, learned_yields, seed_report, water_stats, year_overview
+from .engine.records import harvest_by_year, harvest_summary, learned_yields, seed_report, water_stats, year_overview
 from .engine.region import resolve_profile, season_anchors, season_bounds, season_for_date
 from .engine.schedule import plant_windows, planting_timeline, season_timeline
 from .engine.serde import from_dict, to_dict
 from .engine.succession import expand_succession
 from .engine.supplies import catalog as supplies_catalog, shopping_list
+from .gardens import listing, pick
 from .operations import (
     RevisionConflict,
     op_activate_plan,
@@ -133,20 +134,21 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_irrigation_test,
         ws_irrigation_close,
         ws_planning,
+        ws_seeds_to_todo,
         ws_season_report,
     ):
         websocket_api.async_register_command(hass, command)
 
 
-def _runtime(hass: HomeAssistant) -> GardenRuntime | None:
-    entries = hass.config_entries.async_loaded_entries(DOMAIN)
-    return entries[0].runtime_data if entries else None
+def _runtime(hass: HomeAssistant, msg: dict[str, Any] | None = None) -> GardenRuntime | None:
+    """The garden the panel asked for (``garden_id``, a config entry id), else the first."""
+    return pick(hass, (msg or {}).get("garden_id"))
 
 
 def _require_runtime(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> GardenRuntime | None:
-    runtime = _runtime(hass)
+    runtime = _runtime(hass, msg)
     if runtime is None:
         connection.send_error(msg["id"], "not_loaded", "Hortulus is not set up")
     # Attribute whatever this command changes to the user in the system log.
@@ -233,7 +235,10 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
                 {"entity_id": e, "since": since.isoformat(), "what": runtime.irrigation.valve_entities().get(e, e)}
                 for e, since in runtime.irrigation.stuck.items()
             ],
+            "leak": runtime.irrigation.leak,
         },
+        "entry_id": coordinator.config_entry.entry_id,
+        "gardens": listing(coordinator.hass),
         "analysis": coordinator.data.to_dict() if coordinator.data else None,
         "weather": {
             "available": weather.available,
@@ -248,7 +253,7 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe", vol.Optional("garden_id"): str})
 @callback
 def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Push a full snapshot now and after every coordinator update."""
@@ -266,7 +271,7 @@ def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection
     push()
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plants"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plants", vol.Optional("garden_id"): str})
 @callback
 def ws_plants(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     runtime = _require_runtime(hass, connection, msg)
@@ -286,6 +291,7 @@ def ws_plants(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plants/save",
+        vol.Optional("garden_id"): str,
         vol.Required("plant"): dict,
         vol.Optional("mode", default="custom"): vol.In(["custom", "override"]),
     }
@@ -304,7 +310,9 @@ def ws_plant_save(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     connection.send_result(msg["id"], {"plant": to_dict(plant)})
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plants/delete", vol.Required("plant_id"): str})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/plants/delete", vol.Optional("garden_id"): str, vol.Required("plant_id"): str}
+)
 @websocket_api.require_admin
 @callback
 def ws_plant_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -322,6 +330,7 @@ def ws_plant_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plants/windows",
+        vol.Optional("garden_id"): str,
         vol.Required("plant_id"): str,
         vol.Optional("zone_id"): vol.Any(str, None),
         vol.Optional("season"): vol.Any(int, None),
@@ -357,6 +366,7 @@ def ws_plant_windows(hass: HomeAssistant, connection: websocket_api.ActiveConnec
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/save",
+        vol.Optional("garden_id"): str,
         vol.Optional("base_revision"): vol.Any(int, None),
         vol.Required("zones"): list,
         vol.Required("beds"): list,
@@ -396,6 +406,7 @@ def ws_plan_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/check",
+        vol.Optional("garden_id"): str,
         vol.Required("bed"): dict,
         vol.Required("plantings"): list,
     }
@@ -451,6 +462,7 @@ def ws_plan_check(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/succession",
+        vol.Optional("garden_id"): str,
         vol.Required("planting"): dict,
         vol.Required("count"): vol.All(int, vol.Range(min=1, max=20)),
         vol.Optional("interval_days"): vol.Any(None, vol.All(int, vol.Range(min=1, max=120))),
@@ -489,6 +501,7 @@ def ws_plan_succession(hass: HomeAssistant, connection: websocket_api.ActiveConn
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/export",
+        vol.Optional("garden_id"): str,
         vol.Optional("format", default="json"): vol.In(["json", "yaml"]),
         vol.Optional("include_tasks", default=False): bool,
     }
@@ -512,6 +525,7 @@ def ws_plan_export(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/import",
+        vol.Optional("garden_id"): str,
         vol.Required("content"): str,
         vol.Optional("mode", default="merge"): vol.In(["merge", "replace"]),
     }
@@ -537,6 +551,7 @@ def ws_plan_import(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/tasks/add",
+        vol.Optional("garden_id"): str,
         vol.Required("title"): str,
         vol.Optional("due"): vol.Any(str, None),
         vol.Optional("task_type", default="custom"): str,
@@ -577,6 +592,7 @@ def ws_task_add(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/tasks/action",
+        vol.Optional("garden_id"): str,
         vol.Required("task_id"): str,
         vol.Required("action"): vol.In(["complete", "skip", "postpone", "update", "delete", "reopen"]),
         vol.Optional("note"): vol.Any(str, None),
@@ -633,7 +649,9 @@ def ws_task_action(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/settings/save", vol.Required("settings"): dict})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/settings/save", vol.Optional("garden_id"): str, vol.Required("settings"): dict}
+)
 @websocket_api.require_admin
 @callback
 def ws_settings_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -654,6 +672,7 @@ def ws_settings_save(hass: HomeAssistant, connection: websocket_api.ActiveConnec
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/autofill",
+        vol.Optional("garden_id"): str,
         vol.Optional("season"): int,
         vol.Optional("bed_ids"): [str],
         vol.Optional("replace", default=False): bool,
@@ -696,6 +715,7 @@ async def ws_autofill(hass: HomeAssistant, connection: websocket_api.ActiveConne
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/autofill/apply",
+        vol.Optional("garden_id"): str,
         vol.Optional("base_revision"): vol.Any(int, None),
         vol.Required("plantings"): list,
         vol.Optional("replace_beds", default=[]): [str],
@@ -729,7 +749,9 @@ def ws_autofill_apply(hass: HomeAssistant, connection: websocket_api.ActiveConne
 # --------------------------------------------------------------------------- #
 # Print preview (the PDF itself comes from the authenticated HTTP view)
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/print/render", vol.Required("options"): dict})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/print/render", vol.Optional("garden_id"): str, vol.Required("options"): dict}
+)
 @websocket_api.async_response
 async def ws_print_render(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     runtime = _require_runtime(hass, connection, msg)
@@ -747,12 +769,14 @@ async def ws_print_render(hass: HomeAssistant, connection: websocket_api.ActiveC
 # --------------------------------------------------------------------------- #
 # Handbook
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/handbook/index", vol.Optional("lang"): str})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/handbook/index", vol.Optional("garden_id"): str, vol.Optional("lang"): str}
+)
 @websocket_api.async_response
 async def ws_handbook_index(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    runtime = _runtime(hass)
+    runtime = _runtime(hass, msg)
     lang = msg.get("lang") or (runtime.coordinator.lang if runtime else "en")
     chapters = await hass.async_add_executor_job(handbook.chapters, lang)
     glossary = await hass.async_add_executor_job(handbook.glossary, lang)
@@ -760,13 +784,18 @@ async def ws_handbook_index(
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): f"{DOMAIN}/handbook/chapter", vol.Required("chapter_id"): str, vol.Optional("lang"): str}
+    {
+        vol.Required("type"): f"{DOMAIN}/handbook/chapter",
+        vol.Optional("garden_id"): str,
+        vol.Required("chapter_id"): str,
+        vol.Optional("lang"): str,
+    }
 )
 @websocket_api.async_response
 async def ws_handbook_chapter(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    runtime = _runtime(hass)
+    runtime = _runtime(hass, msg)
     lang = msg.get("lang") or (runtime.coordinator.lang if runtime else "en")
     chapter = await hass.async_add_executor_job(handbook.chapter, msg["chapter_id"], lang)
     if chapter is None:
@@ -776,13 +805,18 @@ async def ws_handbook_chapter(
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): f"{DOMAIN}/handbook/search", vol.Required("query"): str, vol.Optional("lang"): str}
+    {
+        vol.Required("type"): f"{DOMAIN}/handbook/search",
+        vol.Optional("garden_id"): str,
+        vol.Required("query"): str,
+        vol.Optional("lang"): str,
+    }
 )
 @websocket_api.async_response
 async def ws_handbook_search(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    runtime = _runtime(hass)
+    runtime = _runtime(hass, msg)
     lang = msg.get("lang") or (runtime.coordinator.lang if runtime else "en")
     hits = await hass.async_add_executor_job(handbook.search, msg["query"], lang)
     connection.send_result(msg["id"], {"results": hits})
@@ -791,7 +825,7 @@ async def ws_handbook_search(
 # --------------------------------------------------------------------------- #
 # Irrigation
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/plan"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/plan", vol.Optional("garden_id"): str})
 @callback
 def ws_irrigation_plan(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     runtime = _require_runtime(hass, connection, msg)
@@ -812,6 +846,7 @@ def ws_irrigation_plan(hass: HomeAssistant, connection: websocket_api.ActiveConn
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/irrigation/run",
+        vol.Optional("garden_id"): str,
         vol.Optional("bed_ids"): [str],
         vol.Optional("amount_mm"): vol.Coerce(float),
     }
@@ -828,7 +863,7 @@ def ws_irrigation_run(hass: HomeAssistant, connection: websocket_api.ActiveConne
     connection.send_result(msg["id"], {"started": started, **plan.to_dict()})
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/stop"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/stop", vol.Optional("garden_id"): str})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_irrigation_stop(
@@ -844,7 +879,7 @@ async def ws_irrigation_stop(
 # --------------------------------------------------------------------------- #
 # Advice, Q&A and supplies
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/advice"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/advice", vol.Optional("garden_id"): str})
 @websocket_api.async_response
 async def ws_advice(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Suggestions for the current plan plus the month-by-month harvest coverage."""
@@ -864,7 +899,7 @@ async def ws_advice(hass: HomeAssistant, connection: websocket_api.ActiveConnect
     connection.send_result(msg["id"], await hass.async_add_executor_job(build))
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/qa/options"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/qa/options", vol.Optional("garden_id"): str})
 @callback
 def ws_qa_options(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     runtime = _require_runtime(hass, connection, msg)
@@ -878,6 +913,7 @@ def ws_qa_options(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/qa/ask",
+        vol.Optional("garden_id"): str,
         vol.Required("subject"): str,
         vol.Required("problem"): str,
         vol.Optional("target"): vol.Any(str, None),
@@ -901,7 +937,7 @@ def ws_qa_ask(hass: HomeAssistant, connection: websocket_api.ActiveConnection, m
     connection.send_result(msg["id"], result.to_dict())
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/supplies"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/supplies", vol.Optional("garden_id"): str})
 @callback
 def ws_supplies(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Tool catalogue, tools per task type and the season's shopping list."""
@@ -917,7 +953,7 @@ def ws_supplies(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
 # --------------------------------------------------------------------------- #
 # Records: harvest, diary, seeds, soil tests, water, year overview
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/records/overview"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/records/overview", vol.Optional("garden_id"): str})
 @callback
 def ws_records_overview(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     runtime = _require_runtime(hass, connection, msg)
@@ -932,6 +968,7 @@ def ws_records_overview(hass: HomeAssistant, connection: websocket_api.ActiveCon
             "season": season,
             "harvest_season": {k: v.to_dict() for k, v in harvest_summary(data, season).items()},
             "harvest_all": {k: v.to_dict() for k, v in harvest_summary(data).items()},
+            "harvest_years": harvest_by_year(data),
             "learned_yields": learned_yields(data),
             "seeds": seed_report(data, db, season),
             "water": water_stats(data, today).to_dict(),
@@ -942,7 +979,7 @@ def ws_records_overview(hass: HomeAssistant, connection: websocket_api.ActiveCon
 
 def _log_error(hass: HomeAssistant | None, msg: dict[str, Any], code: str, err: BaseException) -> None:
     """Keep failed panel actions in the system log for the analysis view."""
-    runtime = _runtime(hass) if hass is not None else None
+    runtime = _runtime(hass, msg) if hass is not None else None
     if runtime is None:
         return
     context = {
@@ -969,6 +1006,7 @@ def _ws_op(connection: websocket_api.ActiveConnection, msg: dict[str, Any], fn: 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/records/harvest/add",
+        vol.Optional("garden_id"): str,
         vol.Optional("planting_id"): vol.Any(str, None),
         vol.Optional("plant_id"): vol.Any(str, None),
         vol.Optional("kg"): vol.Coerce(float),
@@ -989,6 +1027,7 @@ def ws_harvest_add(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/records/delete",
+        vol.Optional("garden_id"): str,
         vol.Required("kind"): vol.In(["harvest", "journal", "seed"]),
         vol.Required("record_id"): str,
     }
@@ -1000,7 +1039,13 @@ def ws_record_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         _ws_op(connection, msg, lambda: op_delete_record(runtime, msg["kind"], msg["record_id"]) or {})
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/records/journal/save", vol.Required("entry"): dict})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/records/journal/save",
+        vol.Optional("garden_id"): str,
+        vol.Required("entry"): dict,
+    }
+)
 @callback
 def ws_journal_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     runtime = _require_runtime(hass, connection, msg)
@@ -1012,7 +1057,9 @@ def ws_journal_save(hass: HomeAssistant, connection: websocket_api.ActiveConnect
         _ws_op(connection, msg, lambda: {"entry": to_dict(op_save_journal(runtime, raw))})
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/records/seeds/save", vol.Required("packet"): dict})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/records/seeds/save", vol.Optional("garden_id"): str, vol.Required("packet"): dict}
+)
 @callback
 def ws_seed_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     runtime = _require_runtime(hass, connection, msg)
@@ -1021,7 +1068,12 @@ def ws_seed_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): f"{DOMAIN}/records/soil/save", vol.Required("bed_id"): str, vol.Required("test"): dict}
+    {
+        vol.Required("type"): f"{DOMAIN}/records/soil/save",
+        vol.Optional("garden_id"): str,
+        vol.Required("bed_id"): str,
+        vol.Required("test"): dict,
+    }
 )
 @callback
 def ws_soil_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -1031,7 +1083,12 @@ def ws_soil_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): f"{DOMAIN}/records/soil/delete", vol.Required("bed_id"): str, vol.Required("date"): str}
+    {
+        vol.Required("type"): f"{DOMAIN}/records/soil/delete",
+        vol.Optional("garden_id"): str,
+        vol.Required("bed_id"): str,
+        vol.Required("date"): str,
+    }
 )
 @callback
 def ws_soil_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -1048,6 +1105,7 @@ def ws_soil_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/syslog/list",
+        vol.Optional("garden_id"): str,
         vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=syslog.MAX_ENTRIES)),
         vol.Optional("before"): vol.Any(str, None),
         vol.Optional("include_system", default=True): bool,
@@ -1076,7 +1134,9 @@ def ws_syslog_list(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
     )
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/syslog/entry", vol.Required("entry_id"): str})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/syslog/entry", vol.Optional("garden_id"): str, vol.Required("entry_id"): str}
+)
 @websocket_api.require_admin
 @callback
 def ws_syslog_entry(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -1094,6 +1154,7 @@ def ws_syslog_entry(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/syslog/undo",
+        vol.Optional("garden_id"): str,
         vol.Required("entry_id"): str,
         vol.Optional("force", default=False): bool,
     }
@@ -1109,7 +1170,9 @@ def ws_syslog_undo(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 # --------------------------------------------------------------------------- #
 # Garden plans per season & the year-end transition
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/layout/delete", vol.Required("season"): int})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/layout/delete", vol.Optional("garden_id"): str, vol.Required("season"): int}
+)
 @websocket_api.require_admin
 @callback
 def ws_layout_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -1139,7 +1202,9 @@ def _occupancy(runtime: GardenRuntime) -> dict[str, Any]:
     return out
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/year/preview", vol.Optional("from_season"): int})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/year/preview", vol.Optional("garden_id"): str, vol.Optional("from_season"): int}
+)
 @callback
 def ws_year_preview(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """What the year-end transition would carry into next year (nothing is changed)."""
@@ -1157,6 +1222,7 @@ def ws_year_preview(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/year/apply",
+        vol.Optional("garden_id"): str,
         vol.Required("from_season"): int,
         vol.Optional("layout", default="copy"): vol.In(["copy", "keep"]),
         vol.Optional("zone_ids"): vol.Any([str], None),
@@ -1192,6 +1258,7 @@ def ws_year_apply(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/new",
+        vol.Optional("garden_id"): str,
         vol.Required("season"): int,
         vol.Optional("start", default="empty"): vol.In(["empty", "zones", "zones_beds"]),
         vol.Optional("old_name"): vol.Any(str, None),
@@ -1212,6 +1279,7 @@ def ws_plan_new(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plan/activate",
+        vol.Optional("garden_id"): str,
         vol.Required("plan_id"): str,
         vol.Optional("old_name"): vol.Any(str, None),
     }
@@ -1224,7 +1292,9 @@ def ws_plan_activate(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         _ws_op(connection, msg, lambda: op_activate_plan(hass, runtime, msg["plan_id"], old_name=msg.get("old_name")))
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plan/delete", vol.Required("plan_id"): str})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/plan/delete", vol.Optional("garden_id"): str, vol.Required("plan_id"): str}
+)
 @websocket_api.require_admin
 @callback
 def ws_plan_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -1236,7 +1306,7 @@ def ws_plan_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 # --------------------------------------------------------------------------- #
 # Analysis
 # --------------------------------------------------------------------------- #
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/analysis"})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/analysis", vol.Optional("garden_id"): str})
 @callback
 def ws_analysis(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Consistency check of the plan plus the most recent errors."""
@@ -1273,6 +1343,7 @@ def ws_analysis(hass: HomeAssistant, connection: websocket_api.ActiveConnection,
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/analysis/explain",
+        vol.Optional("garden_id"): str,
         vol.Required("plant_id"): str,
         vol.Optional("season"): vol.Any(int, None),
         vol.Optional("match_zone", default=True): bool,
@@ -1346,7 +1417,9 @@ def _season_rows(runtime: GardenRuntime, season: int) -> list[dict[str, Any]]:
     return rows
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plantings/season", vol.Required("season"): int})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/plantings/season", vol.Optional("garden_id"): str, vol.Required("season"): int}
+)
 @callback
 def ws_plantings_season(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Every crop of a season with its bed and computed dates."""
@@ -1356,7 +1429,12 @@ def ws_plantings_season(hass: HomeAssistant, connection: websocket_api.ActiveCon
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): f"{DOMAIN}/planting/update", vol.Required("planting_id"): str, vol.Required("changes"): dict}
+    {
+        vol.Required("type"): f"{DOMAIN}/planting/update",
+        vol.Optional("garden_id"): str,
+        vol.Required("planting_id"): str,
+        vol.Required("changes"): dict,
+    }
 )
 @websocket_api.require_admin
 @callback
@@ -1377,6 +1455,7 @@ def ws_planting_update(hass: HomeAssistant, connection: websocket_api.ActiveConn
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/plantings/update_many",
+        vol.Optional("garden_id"): str,
         vol.Required("planting_ids"): [str],
         vol.Required("changes"): dict,
     }
@@ -1402,6 +1481,7 @@ def ws_plantings_update_many(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/analysis/fix",
+        vol.Optional("garden_id"): str,
         vol.Required("code"): str,
         vol.Optional("params", default={}): dict,
         vol.Optional("refs", default={}): dict,
@@ -1420,7 +1500,12 @@ _PLAN_REF = vol.Schema({vol.Optional("season"): vol.Any(int, None), vol.Optional
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): f"{DOMAIN}/plan/compare", vol.Required("a"): _PLAN_REF, vol.Required("b"): _PLAN_REF}
+    {
+        vol.Required("type"): f"{DOMAIN}/plan/compare",
+        vol.Optional("garden_id"): str,
+        vol.Required("a"): _PLAN_REF,
+        vol.Required("b"): _PLAN_REF,
+    }
 )
 @callback
 def ws_plan_compare(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -1441,7 +1526,11 @@ def ws_plan_compare(hass: HomeAssistant, connection: websocket_api.ActiveConnect
 
 
 @websocket_api.websocket_command(
-    {vol.Required("type"): f"{DOMAIN}/analysis/still_possible", vol.Required("season"): int}
+    {
+        vol.Required("type"): f"{DOMAIN}/analysis/still_possible",
+        vol.Optional("garden_id"): str,
+        vol.Required("season"): int,
+    }
 )
 @callback
 def ws_still_possible(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -1458,6 +1547,7 @@ def ws_still_possible(hass: HomeAssistant, connection: websocket_api.ActiveConne
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/irrigation/test",
+        vol.Optional("garden_id"): str,
         vol.Required("entity_id"): str,
         vol.Optional("seconds", default=5): vol.All(vol.Coerce(float), vol.Range(min=1, max=60)),
         vol.Optional("with_pump", default=True): bool,
@@ -1487,7 +1577,9 @@ async def ws_irrigation_test(
     connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/irrigation/close", vol.Required("entity_id"): str})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/irrigation/close", vol.Optional("garden_id"): str, vol.Required("entity_id"): str}
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_irrigation_close(
@@ -1528,7 +1620,9 @@ def _season_timelines(runtime: GardenRuntime, season: int) -> dict[str, Any]:
     return out
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/planning", vol.Required("season"): int})
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/planning", vol.Optional("garden_id"): str, vol.Required("season"): int}
+)
 @websocket_api.async_response
 async def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """Seeds to buy, what can follow a crop, and the expected harvest per week."""
@@ -1560,7 +1654,52 @@ async def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConne
     connection.send_result(msg["id"], await hass.async_add_executor_job(build))
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/report/season", vol.Required("season"): int})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/seeds/to_todo",
+        vol.Optional("garden_id"): str,
+        vol.Required("season"): int,
+        vol.Required("entity_id"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_seeds_to_todo(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Put the seeds the plan still lacks on a Home Assistant to-do list (skipping items already on it)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    entity_id = msg["entity_id"]
+    if not entity_id.startswith("todo.") or hass.states.get(entity_id) is None:
+        connection.send_error(msg["id"], "invalid_format", f"{entity_id} is not a to-do list")
+        return
+    needs = planning.seed_needs(runtime.repo.data, runtime.repo.db, msg["season"])
+    items = planning.seed_todo_items(needs, runtime.repo.db, msg["season"], runtime.coordinator.lang)
+    try:
+        current = await hass.services.async_call(
+            "todo", "get_items", {"status": ["needs_action"]}, target={"entity_id": entity_id},
+            blocking=True, return_response=True,
+        )  # fmt: skip
+        open_items = {i.get("summary") for i in (current or {}).get(entity_id, {}).get("items", [])}
+        added = 0
+        for item in items:
+            if item["summary"] in open_items:
+                continue
+            await hass.services.async_call(
+                "todo", "add_item", {"item": item["summary"], "description": item["description"]},
+                target={"entity_id": entity_id}, blocking=True,
+            )  # fmt: skip
+            added += 1
+    except (HomeAssistantError, ValueError) as err:
+        connection.send_error(msg["id"], "home_assistant_error", str(err))
+        return
+    connection.send_result(msg["id"], {"added": added, "skipped": len(items) - added, "items": items})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/report/season", vol.Optional("garden_id"): str, vol.Required("season"): int}
+)
 @callback
 def ws_season_report(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     """End of season report: grown, harvested, lost, and what the journal said."""

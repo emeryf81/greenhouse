@@ -36,6 +36,9 @@ class GardenNotifier:
     def __init__(self, hass: HomeAssistant, repo: GardenRepository) -> None:
         self.hass = hass
         self.repo = repo
+        from .actions import NotificationActions
+
+        self.actions = NotificationActions(hass)  # buttons on phone notifications
 
     @property
     def settings(self):
@@ -153,9 +156,9 @@ class GardenNotifier:
             message,
             notification_id=f"{DOMAIN}_digest",
             tts=False,
-            data={"tag": f"{DOMAIN}_digest", "url": "/hortulus"},
+            data={"tag": f"{DOMAIN}_digest", "url": "/hortulus", **self._buttons(due, lang)},
         )
-        await self._send_personal(due, lambda tasks: t("digest.title", lang), f"{DOMAIN}_digest")
+        await self._send_personal(due, lambda tasks: t("digest.title", lang), f"{DOMAIN}_digest", lang)
 
     async def async_send_overdue(self, analysis: GardenAnalysis) -> None:
         """Evening reminder for tasks left undone, with a verdict per task."""
@@ -186,10 +189,10 @@ class GardenNotifier:
             t("overdue.title", lang, count=len(items)),
             "\n".join(lines),
             notification_id=f"{DOMAIN}_overdue",
-            data={"tag": f"{DOMAIN}_overdue", "url": "/hortulus"},
+            data={"tag": f"{DOMAIN}_overdue", "url": "/hortulus", **self._buttons([i.task for i in items], lang)},
         )
         await self._send_personal(
-            [i.task for i in items], lambda tasks: t("overdue.title", lang, count=len(tasks)), f"{DOMAIN}_overdue"
+            [i.task for i in items], lambda tasks: t("overdue.title", lang, count=len(tasks)), f"{DOMAIN}_overdue", lang
         )
 
     async def async_send_weekly(self, analysis: GardenAnalysis) -> None:
@@ -215,7 +218,12 @@ class GardenNotifier:
             data={"tag": f"{DOMAIN}_weekly", "url": "/hortulus"},
         )
 
-    async def _send_personal(self, tasks: list[Task], title: Any, tag: str) -> None:
+    def _buttons(self, tasks: list[Task], lang: str) -> dict[str, Any]:
+        """``{"actions": [...]}`` for the companion app (Done / Tomorrow / Water now), or nothing."""
+        actions = self.actions.for_tasks(tasks, lang)
+        return {"actions": actions} if actions else {}
+
+    async def _send_personal(self, tasks: list[Task], title: Any, tag: str, lang: str = "en") -> None:
         """Each household member with a notify service gets the tasks assigned to them."""
         mapping = self.repo.data.settings.person_notify
         for person, service in mapping.items():
@@ -230,7 +238,8 @@ class GardenNotifier:
             message = "\n".join(f"- {task.title}" for task in mine[:12])
             try:
                 await self.hass.services.async_call(
-                    domain, name, {"title": title(mine), "message": message, "data": {"tag": f"{tag}_{person}", "url": "/hortulus"}},
+                    domain, name, {"title": title(mine), "message": message,
+                                   "data": {"tag": f"{tag}_{person}", "url": "/hortulus", **self._buttons(mine, lang)}},
                     blocking=False,
                 )  # fmt: skip
             except HomeAssistantError as err:

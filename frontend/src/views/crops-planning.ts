@@ -18,7 +18,7 @@ export type PlanningView = "weeks" | "seeds" | "follow" | "harvest";
 
 interface PlanningResult {
   season: number;
-  seeds: { plant_id: string; plants: number; seeds: number; plantings: string[]; stock: { quantity: number; unit: string; variety: string; year: number | null }[]; status: "ok" | "check" | "short" | "none" }[];
+  seeds: { plant_id: string; plants: number; seeds: number; plantings: string[]; stock: { quantity: number; unit: string; variety: string; year: number | null }[]; status: "ok" | "check" | "short" | "none"; to_buy: number }[];
   successions: { bed_id: string; free_from: string; leaving: string[]; options: { plant_id: string; harvest_by: string; days: number }[] }[];
   harvest: { weeks: { week: string; kg: number; by_plant: Record<string, number> }[]; totals: Record<string, number>; learned: string[] };
 }
@@ -48,6 +48,9 @@ export class CropsPlanning extends LitElement {
   @state() private weeksAhead = 8;
   private loadedFor = 0;
   @state() private error = "";
+  @state() private todoList = "";
+  @state() private todoBusy = false;
+  @state() private todoMsg = "";
 
   static styles = [
     shared,
@@ -183,13 +186,56 @@ export class CropsPlanning extends LitElement {
       <h2 style="margin:0">${this.t("plan.seeds_title", { season: r.season })}</h2>
       <p class="small muted">${this.t("plan.seeds_intro")}</p>
       ${r.seeds.length ? html`<table>
-        <thead><tr><th>${this.t("lib.plant")}</th><th>${this.t("plan.plants")}</th><th>${this.t("plan.seeds")}</th><th>${this.t("plan.in_stock")}</th><th></th></tr></thead>
+        <thead><tr><th>${this.t("lib.plant")}</th><th>${this.t("plan.plants")}</th><th>${this.t("plan.seeds")}</th><th>${this.t("plan.in_stock")}</th><th>${this.t("plan.to_buy")}</th><th></th></tr></thead>
         <tbody>${r.seeds.map((s) => html`<tr>
           <td>${this.plant(s.plant_id)}</td><td>${s.plants}</td><td>~${s.seeds}</td><td class="small">${label(s) || "–"}</td>
+          <td>${s.status === "short" || s.status === "none" ? (s.to_buy ? `~${s.to_buy}` : "✓") : "–"}</td>
           <td><span class="chip ${s.status === "ok" ? "ok" : s.status === "check" ? "" : "bad"}">${this.t(`plan.seed.${s.status}`)}</span></td>
         </tr>`)}</tbody></table>
-        <p class="xs muted">${this.t("plan.seeds_hint")}</p>` : html`<p class="muted">${this.t("plan.seeds_none")}</p>`}
+        <p class="xs muted">${this.t("plan.seeds_hint")}</p>
+        ${this.renderTodo(r)}` : html`<p class="muted">${this.t("plan.seeds_none")}</p>`}
     </section>`;
+  }
+
+  /** Send the seeds still missing to a Home Assistant to-do list (a shopping list). */
+  private renderTodo(r: PlanningResult): TemplateResult | typeof nothing {
+    const missing = r.seeds.filter((s) => s.status === "short" || s.status === "none").length;
+    if (!missing) return nothing;
+    const lists = this.api.todoLists();
+    if (!lists.length) return html`<p class="xs muted">${this.t("plan.todo_none")}</p>`;
+    let saved = this.todoList;
+    if (!saved) {
+      try {
+        saved = localStorage.getItem("hortulus.seed_todo") ?? "";
+      } catch {
+        /* private mode */
+      }
+    }
+    const list = lists.some((l) => l.entity_id === saved) ? saved : lists.find((l) => l.entity_id.includes("shopping"))?.entity_id ?? lists[0].entity_id;
+    const send = async () => {
+      this.todoBusy = true;
+      this.todoMsg = "";
+      try {
+        localStorage.setItem("hortulus.seed_todo", list);
+      } catch {
+        /* private mode */
+      }
+      try {
+        const res = await this.api.seedsToTodo(r.season, list);
+        this.todoMsg = this.t("plan.todo_done", { added: res.added, skipped: res.skipped });
+      } catch (err) {
+        this.todoMsg = (err as Error).message;
+      } finally {
+        this.todoBusy = false;
+      }
+    };
+    return html`<div class="row wrap" style="align-items:end">
+      <label class="field">${this.t("plan.todo_list")}
+        <select @change=${(e: Event) => (this.todoList = (e.target as HTMLSelectElement).value)}>
+          ${lists.map((l) => html`<option value=${l.entity_id} ?selected=${l.entity_id === list}>${l.name}</option>`)}</select></label>
+      <button class="btn small" ?disabled=${this.todoBusy} @click=${send}><ha-icon icon="mdi:cart-plus"></ha-icon>${this.t("plan.todo_send", { n: missing })}</button>
+      ${this.todoMsg ? html`<span class="small muted" role="status">${this.todoMsg}</span>` : nothing}
+    </div>`;
   }
 
   // -- what follows ------------------------------------------------------------ //

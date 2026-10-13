@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
+import { THEMES, setThemeChoice, themeChoice } from "../util/theme";
 import { shared } from "../styles/tokens";
 import { photosEnabled, setPhotosEnabled } from "../components/plant-image";
 import type { Bed, HomeAssistant, PlanDoc, SensorMapping, Settings, Snapshot, Zone } from "../types";
@@ -50,6 +51,16 @@ export class SettingsView extends LitElement {
     shared,
     css`
       .sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--hl-s4); align-items: start; }
+      .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 6px; }
+      .theme-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px; border-radius: 14px; cursor: pointer; text-align: left;
+        border: 1px solid var(--hl-border); background: var(--hl-surface); color: var(--hl-text); font: inherit; }
+      .theme-opt[aria-checked="true"] { border-color: var(--hl-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hl-primary) 20%, transparent); }
+      .theme-opt small { color: var(--hl-text-muted); font-size: 11px; }
+      .swatch { width: 100%; height: 34px; border-radius: 9px; }
+      .swatch.classic { background: linear-gradient(120deg, #3b7334 0 40%, #e8a33d 40% 55%, #faf7f0 55%); }
+      .swatch.earth { background: linear-gradient(120deg, #8a4f2a 0 40%, #c8743a 40% 55%, #f7f1e8 55%); }
+      .swatch.night { background: linear-gradient(120deg, #8fd0b0 0 30%, #c9b8ff 30% 45%, #0d1214 45%); }
+      .swatch.season { background: linear-gradient(90deg, #a9d18e 0 25%, #f6c26b 25% 50%, #d98e57 50% 75%, #b3c9dc 75%); }
       .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--hl-s2) var(--hl-s3); }
       .form-grid .full { grid-column: 1 / -1; }
       .item { border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); padding: var(--hl-s3); display: flex; flex-direction: column; gap: var(--hl-s2); background: var(--hl-surface-2); }
@@ -247,7 +258,12 @@ export class SettingsView extends LitElement {
           ${this.entityInput(`${b.id}-irr`, "irrigation", b.irrigation_entity, (v) => setBed(b.id, (bb) => (bb.irrigation_entity = v)), this.t("settings.irrigation"))}
           ${this.valveTest(b.irrigation_entity)}
           <label class="field">${this.t("settings.flow")}<input type="number" min="0" step="0.1" .value=${String(b.irrigation_flow_lpm ?? "")} ?disabled=${!this.admin}
-            @change=${(e: Event) => setBed(b.id, (bb) => (bb.irrigation_flow_lpm = Number((e.target as HTMLInputElement).value) || null))} /></label>
+            placeholder=${b.measured_flow_lpm ? this.t("settings.flow_measured", { lpm: b.measured_flow_lpm.toFixed(1) }) : ""}
+            @change=${(e: Event) => setBed(b.id, (bb) => (bb.irrigation_flow_lpm = Number((e.target as HTMLInputElement).value) || null))} />
+            ${b.measured_flow_lpm ? html`<span class="xs muted">${this.t("settings.flow_measured", { lpm: b.measured_flow_lpm.toFixed(1) })}</span>` : nothing}</label>
+          ${b.irrigation_entity ? html`<label class="field">${this.t("settings.valve_timer")}<input type="number" min="0" step="1" .value=${String(b.valve_max_min ?? "")} ?disabled=${!this.admin}
+            placeholder=${this.t("settings.valve_timer_none")}
+            @change=${(e: Event) => setBed(b.id, (bb) => (bb.valve_max_min = Number((e.target as HTMLInputElement).value) || null))} /></label>` : nothing}
         </div>
       </div>`)}
     </section>`;
@@ -359,7 +375,9 @@ export class SettingsView extends LitElement {
         <label class="field">${this.t("settings.butt_capacity")}<input type="number" min="0" step="50" .value=${String(w.butt_capacity_l ?? 0)}
           @change=${(e: Event) => set({ butt_capacity_l: Number((e.target as HTMLInputElement).value) || 0 })} /></label>
       </div>
-      <p class="xs muted">${this.t("settings.water_hint")}</p>
+      <label class="field check"><input type="checkbox" .checked=${w.leak_alerts ?? true} ?disabled=${!w.meter_entity}
+        @change=${(e: Event) => set({ leak_alerts: (e.target as HTMLInputElement).checked })} />${this.t("settings.leak_alerts")}</label>
+      <p class="xs muted">${this.t("settings.water_hint")} ${this.t("settings.leak_hint")}</p>
     </section>`;
   }
 
@@ -447,6 +465,12 @@ export class SettingsView extends LitElement {
         <label class="field check"><input type="checkbox" .checked=${photosEnabled()}
           @change=${(e: Event) => setPhotosEnabled((e.target as HTMLInputElement).checked)} />${this.t("settings.photos")}</label>
         <p class="xs muted">${this.t("settings.photos_hint")}</p>
+        <div class="field"><span>${this.t("settings.theme")}</span>
+          <div class="themes" role="radiogroup" aria-label=${this.t("settings.theme")}>
+            ${THEMES.map((th) => html`<button class="theme-opt" role="radio" aria-checked=${String(themeChoice() === th)}
+                @click=${() => { setThemeChoice(th); this.requestUpdate(); }}>
+              <span class="swatch ${th}"></span><b>${this.t(`theme.${th}`)}</b><small>${this.t(`theme.${th}.hint`)}</small></button>`)}
+          </div></div>
       </section>
       ${this.datalists()}
     `;

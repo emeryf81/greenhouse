@@ -136,6 +136,8 @@ title: Tuin vandaag   # optioneel
 days: 0               # 0 = vandaag + achterstallig, 7 = de komende week
 assignee: me          # optioneel: me | person.xyz | unassigned
 max: 8
+water: true           # optioneel: water vandaag, een lopende beurt, een kraan die openstaat (Sluiten), lekken
+garden: Volkstuin     # optioneel: welke tuin, als je er meer dan één hebt
 ```
 
 Een taak afvinken op de kaart rondt ze af in Hortulus.

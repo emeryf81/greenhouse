@@ -3,6 +3,7 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
+import "./photo-timeline";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { JournalEntry, Snapshot } from "../types";
@@ -94,6 +95,7 @@ export class QuickNote extends LitElement {
           <span class="spacer"></span>
           <button class="btn small primary" ?disabled=${this.busy || (!this.text.trim() && !this.photos.length)} @click=${() => this.save()}>${this.t("note.save")}</button>
         </div>` : nothing}
+      <hl-photo-timeline .journal=${this.snapshot.journal ?? []} .t=${this.t} lang=${this.lang} plantingId=${this.plantingId ?? ""} bedId=${this.bedId ?? ""}></hl-photo-timeline>
       ${this.entries.map((e) => html`<div class="entry">
         ${e.photos[0] ? html`<img src=${photoUrl(e.photos[0], "128x128")} alt="" />` : nothing}
         <div><span class="xs muted">${formatDate(e.at.slice(0, 10), this.lang)} · ${this.t(`journal.kind.${e.kind}`)}</span><br />${e.text}</div>

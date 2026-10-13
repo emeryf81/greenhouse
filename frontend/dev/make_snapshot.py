@@ -55,6 +55,7 @@ from custom_components.garden_manager.engine.plantdb import (  # noqa: E402
 from custom_components.garden_manager.engine.printout import PrintContext, PrintOptions, render_svg  # noqa: E402
 from custom_components.garden_manager.engine.qa import answer as qa_answer, options as qa_options  # noqa: E402
 from custom_components.garden_manager.engine.records import (  # noqa: E402
+    harvest_by_year,
     harvest_summary,
     learned_yields,
     seed_report,
@@ -235,6 +236,11 @@ def build(lang: str) -> dict:
         HarvestEntry("h1", date(2025, 7, 20), "lettuce", 1.4, None, next(p.id for p in data.plantings if p.plant_id == "lettuce"), bed1.id, 4),
         HarvestEntry("h2", date(2025, 8, 12), "tomato", 3.2, 28, next((p.id for p in data.plantings if p.plant_id == "tomato"), None), None, 5),
         HarvestEntry("h3", date(2025, 9, 2), "tomato", 4.1, 35, next((p.id for p in data.plantings if p.plant_id == "tomato"), None), None, 4),
+        HarvestEntry("h0a", date(2023, 8, 10), "tomato", 5.6, 41, None, None, 4),
+        HarvestEntry("h0b", date(2024, 8, 14), "tomato", 9.2, 70, None, None, 5),
+        HarvestEntry("h0c", date(2024, 7, 2), "lettuce", 2.1, None, None, bed1.id, 4),
+        HarvestEntry("h0d", date(2023, 6, 20), "lettuce", 1.2, None, None, bed1.id, 3),
+        HarvestEntry("h0e", date(2024, 9, 1), "courgette", 6.4, 9, None, None, 4),
         HarvestEntry("h4", date(2026, 5, 12), "radish", 0.6, 40, None, bed1.id, 4),
         HarvestEntry("h5", date(2026, 5, 18), "lettuce", 0.8, 3, None, bed1.id, 5),
     ]  # fmt: skip
@@ -438,6 +444,7 @@ def build(lang: str) -> dict:
             "season": analysis.season,
             "harvest_season": {k: v.to_dict() for k, v in harvest_summary(data, analysis.season).items()},
             "harvest_all": {k: v.to_dict() for k, v in harvest_summary(data).items()},
+            "harvest_years": harvest_by_year(data),
             "learned_yields": learned_yields(data),
             "seeds": seed_report(data, db, analysis.season),
             "water": water_stats(data, analysis.today).to_dict(),

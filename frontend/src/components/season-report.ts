@@ -36,6 +36,7 @@ export class SeasonReportView extends LitElement {
   @property({ type: Boolean }) pick = true;
   @state() private report: SeasonReport | null = null;
   @state() private error = "";
+  @state() private bookBusy = false;
   private loadedFor = 0;
 
   static styles = [
@@ -59,6 +60,25 @@ export class SeasonReportView extends LitElement {
       this.report = null;
       this.error = "";
       this.api.seasonReport(this.season).then((r) => (this.report = r as SeasonReport)).catch((err) => (this.error = (err as Error).message));
+    }
+  }
+
+  /** The whole season as a printable book (A5 PDF). */
+  private async book(): Promise<void> {
+    this.bookBusy = true;
+    try {
+      const { blob, filename } = await this.api.printPdf({ document: "book", page: "a5", season: this.season });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (err) {
+      // a failed download must not replace the report that is on screen
+      this.dispatchEvent(new CustomEvent("hl-toast", { detail: { message: this.t("common.error", { message: (err as Error).message }) }, bubbles: true, composed: true }));
+    } finally {
+      this.bookBusy = false;
     }
   }
 
@@ -97,6 +117,8 @@ export class SeasonReportView extends LitElement {
         ${this.pick ? html`<select style="width:auto" aria-label=${this.t("planner.season")} @change=${(e: Event) => (this.season = Number((e.target as HTMLSelectElement).value))}>
           ${seasons.map((s) => html`<option value=${s} ?selected=${s === this.season}>${this.t("common.season", { year: s })}</option>`)}</select>` : nothing}
         <span class="spacer"></span>
+        <button class="btn small ghost" ?disabled=${this.bookBusy} @click=${() => this.book()} title=${this.t("report.book_hint")}>
+          <ha-icon icon="mdi:book-open-page-variant-outline"></ha-icon>${this.bookBusy ? this.t("common.loading") : this.t("report.book")}</button>
         ${r ? html`<button class="btn small ghost" @click=${() => download(`hortulus-${r.season}.md`, this.markdown(r), "text/markdown")}>
           <ha-icon icon="mdi:download"></ha-icon>${this.t("report.download")}</button>` : nothing}
       </div>

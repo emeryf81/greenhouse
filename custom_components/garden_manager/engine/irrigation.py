@@ -119,7 +119,8 @@ def plan_irrigation(
         if not bed.irrigation_entity:
             plan.skipped[bed.id] = ("irrigation.skip.no_valve", {})
             continue
-        if not bed.irrigation_flow_lpm or bed.irrigation_flow_lpm <= 0:
+        flow = bed.flow_lpm
+        if flow is None:
             plan.skipped[bed.id] = ("irrigation.skip.no_flow", {})
             continue
         # -- safety ------------------------------------------------------- #
@@ -149,11 +150,11 @@ def plan_irrigation(
             plan.skipped[bed.id] = ("irrigation.skip.not_needed", {})
             continue
         liters = round(mm * bed.area_m2, 1)
-        minutes = liters / bed.irrigation_flow_lpm
+        minutes = liters / flow
         capped = minutes > cfg.max_runtime_min
         minutes = round(min(minutes, cfg.max_runtime_min), 1)
         if capped:
-            liters = round(minutes * bed.irrigation_flow_lpm, 1)
+            liters = round(minutes * flow, 1)
             mm = round(liters / bed.area_m2, 1) if bed.area_m2 else mm
         plan.runs.append(IrrigationRun(bed.id, bed.irrigation_entity, minutes, round(mm, 1), liters, capped))
     return plan

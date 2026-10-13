@@ -902,6 +902,14 @@
           "name": "Plant",
           "description": "Plant id when there is no planting."
         },
+        "plant": {
+          "name": "Plant name",
+          "description": "Plant id or name in any language, e.g. Tomato - handy for an NFC tag. The crop in the garden is found by itself."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Bed name or id, when the plant grows in several beds."
+        },
         "kg": {
           "name": "Weight",
           "description": "Kilograms harvested."

@@ -68,7 +68,8 @@ def test_every_document_renders_a_valid_pdf(ctx, document):
     for stream in _streams(pdf):
         assert b" rl " not in stream  # only real PDF operators
     svgs = render_svg(ctx, PrintOptions(document=document, page="a4", lang="nl"))
-    assert len(svgs) == len(_pages(pdf))
+    # the season book previews its first 16 pages only
+    assert len(svgs) == (min(16, len(_pages(pdf))) if document == "book" else len(_pages(pdf)))
     assert all(s.startswith("<svg") and s.endswith("</svg>") for s in svgs)
 
 

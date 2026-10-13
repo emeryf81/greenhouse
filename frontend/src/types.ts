@@ -99,6 +99,8 @@ export interface Bed {
   sensors: SensorMapping;
   irrigation_entity: string | null;
   irrigation_flow_lpm: number | null;
+  measured_flow_lpm?: number | null;
+  valve_max_min?: number | null;
   notes: string;
   soil_tests?: SoilTest[];
 }
@@ -477,7 +479,7 @@ export interface HandbookChapterMeta { id: string; order: number; title: string;
 export interface GlossaryEntry { term: string; text: string; chapter: string }
 
 export interface PrintOptions {
-  document: "garden" | "zone" | "beds" | "tasks" | "season" | "year" | "blank" | "plants";
+  document: "garden" | "zone" | "beds" | "tasks" | "season" | "year" | "blank" | "plants" | "book";
   page: "a4" | "a3" | "a5" | "letter" | "remarkable";
   landscape: boolean;
   color_mode: "color" | "eink" | "grayscale";
@@ -523,7 +525,7 @@ export interface Settings {
     weekly_plan_time?: string;
   };
   weather_aware_scheduling?: boolean;
-  water?: { meter_entity: string | null; butt_level_entity: string | null; butt_capacity_l: number };
+  water?: { meter_entity: string | null; butt_level_entity: string | null; butt_capacity_l: number; leak_alerts?: boolean };
   assignment?: Record<string, string>;
   person_notify?: Record<string, string>;
   sensor_stale_minutes: number;
@@ -574,12 +576,16 @@ export interface Snapshot {
   diagnosis?: { error: number; warning: number; info: number } | null;
   harvest_log?: HarvestEntry[];
   journal?: JournalEntry[];
+  /** This garden's config entry, and every garden in this Home Assistant. */
+  entry_id?: string;
+  gardens?: { entry_id: string; title: string }[];
   seed_stock?: SeedPacket[];
   irrigation_log?: { bed_id: string; at: ISODateTime; mm: number; liters: number; minutes: number; source: string }[];
   irrigation_status?: {
     running: boolean; bed_id: string | null; ends_at: ISODateTime | null; last_error: string | null;
     /** Valves or the pump open far longer than any run could last. */
     stuck?: { entity_id: string; since: ISODateTime; what: string }[];
+    leak?: { entity_id: string; since: ISODateTime; liters: number; minutes: number } | null;
   };
   analysis: Analysis | null;
   weather: {
@@ -664,6 +670,7 @@ export interface HomeAssistant {
   locale?: { language: string };
   themes?: { darkMode?: boolean };
   user?: { id: string; is_admin: boolean; name: string };
+  config?: { country?: string | null; latitude?: number; longitude?: number };
   connection: {
     sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T>;
     subscribeMessage<T>(cb: (msg: T) => void, msg: Record<string, unknown>): Promise<() => Promise<void>>;
@@ -726,6 +733,7 @@ export interface RecordsOverview {
   season: number;
   harvest_season: Record<string, CropHarvest>;
   harvest_all: Record<string, CropHarvest>;
+  harvest_years?: Record<string, Record<string, number>>;
   learned_yields: Record<string, number>;
   seeds: { packets: SeedStatus[]; missing: string[]; season: number };
   water: { week_l: number | null; season_l: number | null; rain_available_l: number | null; butt_pct: number | null; per_day: { day: string; liters: number }[] };

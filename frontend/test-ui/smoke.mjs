@@ -60,7 +60,7 @@ const modal = () => page.locator("hl-modal");
 const modalOpen = () => page.locator("hl-modal dialog[open]").first().waitFor();
 const modalTitle = () => modal().first().evaluate((m) => m.shadowRoot.querySelector("h2")?.textContent ?? "");
 
-const TABS = ["dashboard", "layout", "planner", "crops", "library", "calendar", "journal", "advice", "analysis", "handbook", "print", "settings"];
+const TABS = ["dashboard", "layout", "planner", "crops", "library", "calendar", "weather", "journal", "advice", "analysis", "handbook", "print", "settings"];
 for (const lang of ["nl", "en"]) {
   for (const tab of TABS) {
     await step(`${lang}: ${tab} renders`, async () => {
@@ -154,6 +154,33 @@ await step("journal: watering per bed and season report", async () => {
   await page.locator("hl-water-chart svg").first().waitFor();
   await page.locator("hl-journal-view button[role=tab]", { hasText: "Seizoensrapport" }).click();
   await page.locator("hl-season-report .tiles").waitFor();
+});
+
+await step("menu: seven places, the garden's tabs underneath", async () => {
+  await open("crops");
+  const top = await page.locator("hortulus-panel").evaluate((el) => el.shadowRoot.querySelectorAll("nav.top a").length);
+  assert.equal(top, 7);
+  await page.locator("hortulus-panel nav.sub a", { hasText: "Tuinplan" }).click();
+  await page.locator("hl-planner-view").waitFor();
+  await page.locator("hortulus-panel nav.top a", { hasText: "Weer" }).click();
+  await page.locator("hl-weather-view .day").first().waitFor();
+  const days = await page.locator("hl-weather-view .day").count();
+  assert.ok(days >= 7, `only ${days} days`);
+});
+
+await step("crops timeline: a bar per crop, bed by bed", async () => {
+  await open("crops");
+  await page.locator("hl-crops-view .views button", { hasText: "Tijdlijn" }).click();
+  await page.locator("hl-crop-gantt .bar").first().waitFor();
+  assert.ok((await page.locator("hl-crop-gantt .bar").count()) > 5);
+});
+
+await step("wall screen: clock and big tick-boxes, back to Today", async () => {
+  await page.goto(`${base}?tab=wall&lang=nl`);
+  await page.locator("hl-wall-view .clock").waitFor();
+  assert.ok((await page.locator("hl-wall-view .tick").count()) > 0, "no tasks on the wall");
+  await page.locator("hl-wall-view .exit").click();
+  await page.locator("hl-dashboard-view").waitFor();
 });
 
 await step("crops on a phone: one card per crop", async () => {

@@ -537,8 +537,21 @@ class GardenBed:
     sensors: SensorMapping = field(default_factory=SensorMapping)
     irrigation_entity: str | None = None
     irrigation_flow_lpm: float | None = None
+    # Learned from the water meter during watering runs (used when no flow is entered).
+    measured_flow_lpm: float | None = None
+    # The valve's own safety timer (it closes by itself after this many minutes):
+    # longer runs are split so the valve never shuts mid-run.
+    valve_max_min: float | None = None
     notes: str = ""
     soil_tests: list[SoilTest] = field(default_factory=list)
+
+    @property
+    def flow_lpm(self) -> float | None:
+        """Flow through the bed's valve: what was entered, else what the meter measured."""
+        for value in (self.irrigation_flow_lpm, self.measured_flow_lpm):
+            if value and value > 0:
+                return value
+        return None
 
     @property
     def latest_soil_test(self) -> SoilTest | None:
@@ -770,6 +783,8 @@ class WaterSettings:
     meter_entity: str | None = None  # total m³ (or L) - a water meter / flow sensor
     butt_level_entity: str | None = None  # % full of the rain water butt(s)
     butt_capacity_l: float = 0.0  # total volume of all butts
+    # Water counted while every Hortulus valve is closed -> a notification.
+    leak_alerts: bool = True
 
 
 @dataclass(slots=True)

@@ -74,16 +74,17 @@ class GardenRepository:
     debounced save and notifies listeners (the coordinator).
     """
 
-    def __init__(self, hass: HomeAssistant, builtin_plants: list[dict[str, Any]]) -> None:
+    def __init__(self, hass: HomeAssistant, builtin_plants: list[dict[str, Any]], key: str = STORAGE_KEY) -> None:
         self.hass = hass
-        self.store = GardenStore(hass, STORAGE_VERSION, STORAGE_KEY, minor_version=STORAGE_MINOR_VERSION)
+        self.key = key
+        self.store = GardenStore(hass, STORAGE_VERSION, key, minor_version=STORAGE_MINOR_VERSION)
         self.data = GardenData()
         self._builtin = builtin_plants
         self._db: PlantDatabase | None = None
         self._listeners: list[Callable[[str], None]] = []
         # System log: every change, reversible.  Kept in its own store so the
         # garden document stays small and needs no migration for it.
-        self.syslog_store = Store[dict[str, Any]](hass, 1, f"{STORAGE_KEY}.syslog")
+        self.syslog_store = Store[dict[str, Any]](hass, 1, f"{key}.syslog")
         self.syslog: list[dict[str, Any]] = []
         self._baseline: dict[str, dict[str, Any]] = syslog.snapshot(to_dict(self.data))
         self._pending_undo_of: str | None = None
@@ -105,7 +106,7 @@ class GardenRepository:
             self.data = from_dict(GardenData, raw)
         except (TypeError, ValueError, KeyError):
             _LOGGER.exception("Stored Hortulus data is corrupt; keeping a backup and starting fresh")
-            backup = Store[dict[str, Any]](self.hass, 1, f"{STORAGE_KEY}.corrupt")
+            backup = Store[dict[str, Any]](self.hass, 1, f"{self.key}.corrupt")
             await backup.async_save(raw)
             self.data = GardenData()
             return True

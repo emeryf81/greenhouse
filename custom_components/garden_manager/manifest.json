@@ -24,11 +24,10 @@
     "persistent_notification",
     "image_upload"
   ],
-  "documentation": "https://github.com/emeryf81/greenhouse",
+  "documentation": "https://github.com/emeryf81/hortulus",
   "integration_type": "service",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/emeryf81/greenhouse/issues",
+  "issue_tracker": "https://github.com/emeryf81/hortulus/issues",
   "requirements": [],
-  "single_config_entry": true,
-  "version": "1.3.0"
+  "version": "1.4.0"
 }

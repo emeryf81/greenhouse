@@ -376,6 +376,8 @@ MESSAGES["en"].update(
         "notify.valve_stuck": "{what} ({entity}) has been open far longer than any watering run. Is it stuck, or was it opened by hand?",
         "notify.valve_not_closed": "{what} ({entity}) did not report closed after watering. Check the valve.",
         "notify.valve_did_not_open": "{what} ({entity}) did not report open during the test. Check the connection.",
+        "notify.valve_closed_early": "{what} ({entity}) closed by itself after {minutes} min while Hortulus was still watering. Does the valve have its own timer? Enter it under Settings → Beds → Valve timer, then Hortulus splits longer runs.",
+        "notify.water_leak": "The water meter ({entity}) counted {liters} L in {minutes} minutes while every Hortulus valve was closed. A leak, or a tap left open?",
     }
 )
 MESSAGES["nl"].update(
@@ -384,6 +386,32 @@ MESSAGES["nl"].update(
         "notify.valve_stuck": "{what} ({entity}) staat al veel langer open dan een beregeningsbeurt duurt. Hangt hij vast, of werd hij met de hand geopend?",
         "notify.valve_not_closed": "{what} ({entity}) meldde na het water geven niet dat hij dicht is. Kijk de kraan na.",
         "notify.valve_did_not_open": "{what} ({entity}) meldde tijdens de test niet dat hij open ging. Kijk de verbinding na.",
+        "notify.valve_closed_early": "{what} ({entity}) ging na {minutes} min vanzelf dicht terwijl Hortulus nog water gaf. Heeft de kraan een eigen timer? Vul die in bij Instellingen → Bedden → Kraantimer, dan splitst Hortulus langere beurten op.",
+        "notify.water_leak": "De watermeter ({entity}) telde {liters} L in {minutes} minuten terwijl alle kranen van Hortulus dicht waren. Een lek, of staat er een kraan open?",
+    }
+)
+
+# Seeds to buy -> a Home Assistant to-do list.
+MESSAGES["en"].update(
+    {
+        "seeds.todo_item_any": "Seed: {plant}",
+        "seeds.todo_amount": "About {seeds} seeds.",
+        "seeds.todo_description": "For the {season} plan of Hortulus: {plants} plants.",
+        "action.done": "Done",
+        "action.tomorrow": "Tomorrow",
+        "action.water_now": "Water now",
+        "action.close_valve": "Close valve",
+    }
+)
+MESSAGES["nl"].update(
+    {
+        "seeds.todo_item_any": "Zaad: {plant}",
+        "seeds.todo_amount": "Ongeveer {seeds} zaden.",
+        "seeds.todo_description": "Voor het plan {season} in Hortulus: {plants} planten.",
+        "action.done": "Gedaan",
+        "action.tomorrow": "Morgen",
+        "action.water_now": "Water nu",
+        "action.close_valve": "Kraan dicht",
     }
 )
 

@@ -161,7 +161,7 @@ Yes. Every task can be assigned to a person (`person.*` entity). Under **Setting
 
 ## Can I manage several gardens?
 
-Not yet. Hortulus works with one garden per Home Assistant: add zones for a second plot (an allotment, the front garden) in the same plan. A second config entry is possible, but the panel always shows the first one.
+Yes. Add Hortulus again (Settings › Devices & services › Add integration) for an allotment or a second plot, and rename the entry (e.g. "Allotment"). Each garden has its own plan, tasks, journal and harvest. Pick the garden at the top of the panel; your browser remembers it. Services take `garden: Allotment` (title or id), the dashboard card `garden: Allotment`. Without one, everything goes to the first garden, which stays exactly as it was. For a few beds out front, extra zones in the same plan work too.
 
 ## How do I use voice commands?
 
@@ -255,3 +255,33 @@ Yes, in a crop's or bed's popup (planner or Crops) under **Note or photo**. On a
 ## Is there a season overview?
 
 **Journal → Season report** (and the **year-end transition**) shows per crop what you planted and harvested against the expectation, what failed, problems from the journal and the water given. Download it as Markdown.
+
+
+## Can I print my garden year as a book?
+
+Yes: **Print → Season book** (or *Season book (PDF)* in the season report). You get a fully written book: cover, contents, introduction, one chapter per month with what was sown, planted and done, your journal with your own photos, the harvest, water and weather, then the year in numbers, a glossary, colophon and back cover. Choose A5 and print double-sided (flip on the long edge); the page count is always a multiple of four, so it folds into signatures for binding. Photos come from your journal (Home Assistant images), turned upright and scaled down.
+
+## Can Hortulus report a leak or a stuck valve?
+
+With a water meter (Settings › Water): when the meter counts water for 15 minutes while every Hortulus valve is closed, you get a notification and a red banner. During a run Hortulus reads the meter: the log shows the real litres and each bed learns its real flow. If a valve has its own safety timer (e.g. 60 min), enter it under **Settings › Beds › Valve timer**; longer runs are then split. A valve that shuts by itself ends the run and is reported.
+
+## Can I act on a notification from my phone?
+
+Yes, with the Home Assistant app: the morning digest and reminders carry **Done** (for one task), **Tomorrow** and – when beds need water – **Water now**. A valve left open carries **Close valve**.
+
+## How do I record a harvest quickly?
+
+**Today** has **Quick harvest**: tap a crop that is ready, add up the weight with the buttons and save. For an NFC tag or a button: the service `garden_manager.log_harvest` with `plant: Tomato` and `kg: 0.5` finds the crop in your garden (add `bed:` when the plant grows in several beds).
+
+## Can missing seed go on my shopping list?
+
+**Crops → Seeds** shows per crop how many seeds to buy. **Add … to the list** puts what is missing on a Home Assistant to-do list (e.g. the shopping list); items already on it are not added twice.
+
+
+## Where do I find the weather and the rain radar?
+
+In the **Weather** tab: the weather now, a chart of the next 24 hours (temperature and rain), the coming ten days with frost and heat tags, what it means for the garden (frost nights, hot days, rain so watering can wait, a dry spell) and a **rain radar**. If Home Assistant has a radar camera (e.g. the Buienradar integration), Hortulus shows it; otherwise Buienradar's public map for the Netherlands or Belgium. The forecast comes from the weather entity chosen under **Settings › Weather & outdoor sensors**.
+
+## Where did Plants, Advice and Settings go?
+
+The menu now has seven places: **Today**, **Garden** (Planner, Garden plan, Crops), **Calendar**, **Weather**, **Journal**, **Knowledge** (Plants, Advice, Handbook) and **Manage** (Analysis, Print, Settings). A place's tabs sit in a row above the page; a place reopens on the tab you used last.

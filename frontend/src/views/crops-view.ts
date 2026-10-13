@@ -1,5 +1,6 @@
 // "Crops" tab: every crop of a season in one list - adjust every date, the status,
 // the count and notes directly, without dragging anything on the map.
+import "../components/crop-gantt";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
@@ -40,7 +41,7 @@ export class CropsView extends LitElement {
   @state() private bulkField: DateField | "" = "";
   @state() private bulkDate: string | null = null;
   @state() private highlight = "";
-  @state() private view: "list" | PlanningView = "list";
+  @state() private view: "list" | "timeline" | PlanningView = "list";
   @state() private compact = false;
   private media?: MediaQueryList;
   private onMedia = () => (this.compact = !!this.media?.matches);
@@ -250,12 +251,15 @@ export class CropsView extends LitElement {
   }
 
   render(): TemplateResult {
-    const views: ["list" | PlanningView, string][] = [["list", "mdi:table"], ["weeks", "mdi:calendar-week"], ["seeds", "mdi:seed-outline"],
+    const views: ["list" | "timeline" | PlanningView, string][] = [["list", "mdi:table"], ["timeline", "mdi:chart-gantt"], ["weeks", "mdi:calendar-week"], ["seeds", "mdi:seed-outline"],
       ["follow", "mdi:swap-horizontal"], ["harvest", "mdi:basket-outline"]];
     return html`
       <div class="views" role="tablist">${views.map(([id, icon]) => html`<button class="chip" role="tab" aria-selected=${String(this.view === id)}
         aria-pressed=${String(this.view === id)} @click=${() => (this.view = id)}><ha-icon icon=${icon}></ha-icon>${this.t(`crops.view.${id}`)}</button>`)}</div>
-      ${this.view === "list" ? this.renderList() : html`${this.renderSeasonPick()}
+      ${this.view === "list" ? this.renderList() : this.view === "timeline" ? html`${this.renderSeasonPick()}
+        <section class="card"><hl-crop-gantt .rows=${this.rows} .plants=${this.plantMap} .families=${this.families} .t=${this.t} lang=${this.lang}
+          season=${this.season} today=${this.snapshot.analysis?.today ?? ""} ?south=${this.snapshot.settings.region?.hemisphere === "south"} ?admin=${this.admin}
+          @move-planting=${(e: CustomEvent<{ row: CropRow; changes: Partial<Planting> }>) => this.saveRow(e.detail.row, e.detail.changes)}></hl-crop-gantt></section>` : html`${this.renderSeasonPick()}
         <hl-crops-planning .snapshot=${this.snapshot} .api=${this.api} .t=${this.t} lang=${this.lang} .plants=${this.plantMap} .families=${this.families}
           .rows=${this.rows} season=${this.season} view=${this.view} ?admin=${this.admin} @crops-changed=${() => this.load()}></hl-crops-planning>`}
       ${this.open ? this.renderDetail(this.open) : nothing}`;

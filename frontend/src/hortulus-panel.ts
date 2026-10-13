@@ -8,12 +8,18 @@
  * bundle (~55 kB gzipped incl. Lit) without a second framework runtime.
  */
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { keyed } from "lit/directives/keyed.js";
 import { customElement, property, state } from "lit/decorators.js";
 import { GardenApi } from "./api";
 import { emblem } from "./brand";
 import { makeTranslator, normalizeLang, type Translate } from "./i18n";
-import { shared, tokens } from "./styles/tokens";
+import { shared, themes, tokens } from "./styles/tokens";
 import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "./types";
+import "./views/weather-view";
+import { gicon } from "./components/garden-icons";
+import "./views/wall-view";
+import { celebrate } from "./util/celebrate";
+import { themeAttribute, themeChoice } from "./util/theme";
 import "./views/dashboard-view";
 import "./views/planner-view";
 import "./views/library-view";
@@ -33,21 +39,35 @@ import "./components/modal";
 import "./components/plant-detail";
 import { familyColor, plantName } from "./util/garden";
 
-type Tab = "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
-const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
-  { id: "dashboard", icon: "mdi:home-variant-outline", mobile: true },
-  { id: "layout", icon: "mdi:floor-plan", mobile: false },
-  { id: "planner", icon: "mdi:sprout", mobile: true },
-  { id: "crops", icon: "mdi:format-list-bulleted-square", mobile: true },
-  { id: "library", icon: "mdi:sprout-outline", mobile: true },
-  { id: "calendar", icon: "mdi:calendar-month-outline", mobile: true },
-  { id: "journal", icon: "mdi:notebook-outline", mobile: false },
-  { id: "advice", icon: "mdi:chat-question-outline", mobile: true },
-  { id: "analysis", icon: "mdi:stethoscope", mobile: false },
-  { id: "handbook", icon: "mdi:book-open-page-variant-outline", mobile: true },
-  { id: "print", icon: "mdi:printer-outline", mobile: false },
-  { id: "settings", icon: "mdi:cog-outline", mobile: false },
+type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
+const TABS: { id: Tab; icon: string }[] = [
+  { id: "dashboard", icon: "home" },
+  { id: "planner", icon: "planner" },
+  { id: "layout", icon: "layout" },
+  { id: "crops", icon: "crops" },
+  { id: "calendar", icon: "calendar" },
+  { id: "weather", icon: "weather" },
+  { id: "journal", icon: "journal" },
+  { id: "library", icon: "library" },
+  { id: "advice", icon: "advice" },
+  { id: "handbook", icon: "handbook" },
+  { id: "analysis", icon: "analysis" },
+  { id: "print", icon: "print" },
+  { id: "settings", icon: "settings" },
+  { id: "wall", icon: "wall" }, // the wall screen: no menu, reached from Today
 ];
+/** The menu: seven places, the related tabs of a place in a row underneath. */
+type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "knowledge" | "manage";
+const GROUPS: { id: Group; icon: string; tabs: Tab[] }[] = [
+  { id: "today", icon: "home", tabs: ["dashboard"] },
+  { id: "garden", icon: "garden", tabs: ["planner", "layout", "crops"] },
+  { id: "calendar", icon: "calendar", tabs: ["calendar"] },
+  { id: "weather", icon: "weather", tabs: ["weather"] },
+  { id: "journal", icon: "journal", tabs: ["journal"] },
+  { id: "knowledge", icon: "knowledge", tabs: ["library", "advice", "handbook"] },
+  { id: "manage", icon: "manage", tabs: ["analysis", "print", "settings"] },
+];
+const groupOf = (tab: Tab): (typeof GROUPS)[number] => GROUPS.find((g) => g.tabs.includes(tab)) ?? GROUPS[0];
 
 @customElement("hortulus-panel")
 export class HortulusPanel extends LitElement {
@@ -57,6 +77,7 @@ export class HortulusPanel extends LitElement {
   @property({ attribute: false }) panel?: unknown;
 
   @state() private snapshot: Snapshot | null = null;
+  @state() private lastInGroup: Partial<Record<Group, Tab>> = {};
   @state() private plants: Plant[] = [];
   @state() private families: Record<string, FamilyInfo> = {};
   @state() private tab: Tab = "dashboard";
@@ -79,19 +100,59 @@ export class HortulusPanel extends LitElement {
 
   static styles = [
     tokens,
+    themes,
     shared,
     css`
-      :host { display: block; min-height: 100vh; background: var(--hl-bg); }
+      :host { display: block; min-height: 100vh; background:
+        radial-gradient(1200px 520px at 12% -8%, color-mix(in srgb, var(--hl-leaf-100) 70%, transparent), transparent 70%),
+        radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--hl-sun-100) 55%, transparent), transparent 70%),
+        var(--hl-bg); background-attachment: fixed; }
       .appbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: var(--hl-s3);
-        padding: 0 var(--hl-s4); height: 56px; background: color-mix(in srgb, var(--hl-surface) 92%, transparent);
-        backdrop-filter: blur(8px); border-bottom: 1px solid var(--hl-border); }
-      .brand { display: flex; align-items: center; gap: var(--hl-s2); font-weight: 700; font-size: var(--hl-fs-lg); letter-spacing: 0.01em; }
-      .brand small { font-weight: 400; color: var(--hl-text-muted); font-size: var(--hl-fs-xs); }
-      nav { display: flex; gap: 2px; margin-left: var(--hl-s4); overflow-x: auto; }
-      nav a { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 40px; border-radius: var(--hl-r-pill);
-        color: var(--hl-text-muted); text-decoration: none; font-weight: 500; white-space: nowrap; --mdc-icon-size: 18px; }
-      nav a:hover { background: var(--hl-surface-2); color: var(--hl-text); }
-      nav a[aria-current="page"] { background: var(--hl-leaf-100); color: var(--hl-chip-active-fg); }
+        padding: 0 var(--hl-s5); height: 60px; background: color-mix(in srgb, var(--hl-surface) 78%, transparent);
+        backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px);
+        border-bottom: 1px solid color-mix(in srgb, var(--hl-border) 70%, transparent);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 6px 20px -12px rgba(46, 33, 24, 0.25); }
+      .brand { display: flex; align-items: center; gap: 10px; flex: none; }
+      .brand > span { font-family: var(--hl-font-serif); font-weight: 700; font-size: 21px; letter-spacing: -0.01em; }
+      .brand small { font-weight: 400; color: var(--hl-text-muted); font-size: var(--hl-fs-xs); line-height: 1.25; max-width: 150px;
+        padding-left: 10px; border-left: 1px solid var(--hl-border); }
+      .brand svg { filter: drop-shadow(0 2px 4px rgba(31, 61, 28, 0.25)); }
+      nav { display: flex; gap: 2px; margin-left: var(--hl-s4); overflow-x: auto; padding: 4px; scrollbar-width: none;
+        mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent); }
+      nav::-webkit-scrollbar { display: none; }
+      nav a { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 38px; border-radius: var(--hl-r-pill);
+        color: var(--hl-text-muted); text-decoration: none; font-weight: 500; white-space: nowrap; --mdc-icon-size: 18px;
+        transition: background var(--hl-dur) var(--hl-ease), color var(--hl-dur) var(--hl-ease), box-shadow var(--hl-dur) var(--hl-ease); }
+      nav a:hover { background: color-mix(in srgb, var(--hl-surface-2) 80%, transparent); color: var(--hl-text); }
+      nav a[aria-current="page"] { background: var(--hl-surface); color: var(--hl-primary); font-weight: 600;
+        box-shadow: var(--hl-shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--hl-leaf-300) 60%, transparent); }
+      nav.top a[aria-current="page"]::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 16px; height: 2px; margin-left: -8px;
+        border-radius: 2px; background: var(--hl-accent); }
+      .view { animation: hl-rise var(--hl-dur-slow) var(--hl-ease) both; }
+      .burst { position: fixed; z-index: 30; width: 0; height: 0; pointer-events: none; }
+      .burst span { position: absolute; left: -5px; top: -4px; width: 10px; height: 7px; border-radius: 10px 0; background: var(--c);
+        animation: hl-leaf 900ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+      @keyframes hl-leaf {
+        0% { transform: translate(0, 0) rotate(0) scale(0.4); opacity: 0; }
+        15% { opacity: 1; }
+        100% { transform: translate(var(--dx), calc(var(--dy) + 40px)) rotate(var(--rot)) scale(1); opacity: 0; }
+      }
+      :host([narrow]) .bottom-nav a[aria-current="page"] { box-shadow: none; background: var(--hl-leaf-100); border-radius: 14px; }
+      :host([narrow]) .bottom-nav { backdrop-filter: saturate(1.6) blur(14px); background: color-mix(in srgb, var(--hl-surface) 86%, transparent); }
+      nav.sub { display: inline-flex; gap: 2px; padding: 4px; margin: 0 0 var(--hl-s4); border-radius: 999px; overflow-x: auto; max-width: 100%;
+        background: color-mix(in srgb, var(--hl-surface-2) 85%, transparent); border: 1px solid color-mix(in srgb, var(--hl-border) 70%, transparent);
+        scrollbar-width: none; }
+      nav.sub a { display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; height: 34px; border-radius: 999px; white-space: nowrap;
+        color: var(--hl-text-muted); text-decoration: none; font-weight: 500; font-size: var(--hl-fs-sm); --mdc-icon-size: 17px;
+        transition: background var(--hl-dur) var(--hl-ease), color var(--hl-dur) var(--hl-ease); }
+      nav.sub a:hover { color: var(--hl-text); }
+      nav.sub a[aria-current="page"] { background: var(--hl-surface); color: var(--hl-primary); font-weight: 600; box-shadow: var(--hl-shadow-1); }
+      nav.sub a .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #fff;
+        display: inline-grid; place-items: center; line-height: 1; }
+      nav.sub a .badge.bad { background: var(--hl-danger); }
+      nav.sub a .badge.warn { background: var(--hl-warning); }
+      select.garden { width: auto; min-height: 34px; padding: 4px 30px 4px 12px; border-radius: 999px; font-weight: 600; flex: none;
+        background-color: var(--hl-leaf-50); border-color: var(--hl-leaf-300); }
       nav a:focus-visible { outline: 2px solid var(--hl-focus); outline-offset: 2px; }
       nav a .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #fff;
         display: inline-grid; place-items: center; line-height: 1; }
@@ -112,6 +173,14 @@ export class HortulusPanel extends LitElement {
     `,
   ];
 
+  /** Colour theme chosen in this browser (night forces the dark palette). */
+  private applyTheme = (): void => {
+    const today = this.snapshot?.analysis?.today ?? new Date().toISOString().slice(0, 10);
+    const { theme, dark } = themeAttribute(themeChoice(), today, this.snapshot?.settings.region?.hemisphere === "south");
+    this.setAttribute("theme", theme);
+    this.toggleAttribute("dark", dark ?? Boolean(this.hass?.themes?.darkMode));
+  };
+
   // ---------------------------------------------------------------------- //
   protected willUpdate(changed: PropertyValues): void {
     if (changed.has("hass") && this.hass) {
@@ -120,7 +189,7 @@ export class HortulusPanel extends LitElement {
         this.uiLang = lang;
         this.t = makeTranslator(lang);
       }
-      this.toggleAttribute("dark", Boolean(this.hass.themes?.darkMode));
+      this.applyTheme();
       setPersons(this.hass);
       if (!this.api) {
         this.api = new GardenApi(this.hass);
@@ -138,6 +207,7 @@ export class HortulusPanel extends LitElement {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    window.removeEventListener("hortulus-theme-changed", this.applyTheme);
     void this.unsubscribe?.();
     this.unsubscribe = undefined;
     this.api = undefined;
@@ -145,18 +215,42 @@ export class HortulusPanel extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener("hortulus-theme-changed", this.applyTheme);
     if (this.hass && !this.api) {
       this.api = new GardenApi(this.hass);
       void this.connect();
     }
   }
 
-  private async connect(): Promise<void> {
+  /** Show another garden: remember it, subscribe to it, load its plants. */
+  private async switchGarden(id: string): Promise<void> {
+    if (!this.api || id === (this.snapshot?.entry_id ?? "")) return;
+    try {
+      localStorage.setItem("hortulus.garden", id);
+    } catch {
+      /* private mode */
+    }
+    await this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    this.api.gardenId = id;
+    this.snapshot = null;
+    await this.connect();
+  }
+
+  private async connect(retried = false): Promise<void> {
+    if (this.api && !this.api.gardenId && !retried) {
+      try {
+        this.api.gardenId = localStorage.getItem("hortulus.garden") ?? "";
+      } catch {
+        /* private mode */
+      }
+    }
     try {
       await this.loadPlants();
       void this.loadGlossary();
       this.unsubscribe = await this.api!.subscribe((snap) => {
         this.snapshot = snap;
+        this.applyTheme();
         const lang = normalizeLang(snap.lang);
         if (lang !== this.uiLang) {
           this.uiLang = lang;
@@ -166,7 +260,19 @@ export class HortulusPanel extends LitElement {
         if (this.openTask) this.openTask = snap.tasks.find((t) => t.id === this.openTask!.id) ?? null;
       });
     } catch (err) {
-      this.error = (err as { code?: string }).code === "not_loaded" ? this.t("common.not_loaded") : String((err as Error).message ?? err);
+      const notLoaded = (err as { code?: string }).code === "not_loaded";
+      if (notLoaded && this.api?.gardenId && !retried) {
+        // the remembered garden was removed: forget it and show the first garden instead
+        this.api.gardenId = "";
+        try {
+          localStorage.removeItem("hortulus.garden");
+        } catch {
+          /* private mode */
+        }
+        await this.connect(true);
+        return;
+      }
+      this.error = notLoaded ? this.t("common.not_loaded") : String((err as Error).message ?? err);
     }
   }
 
@@ -199,6 +305,7 @@ export class HortulusPanel extends LitElement {
     history.pushState(null, "", path);
     window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
     this.tab = tab;
+    this.lastInGroup = { ...this.lastInGroup, [groupOf(tab).id]: tab };
   }
 
   private openPlant(id: string): void {
@@ -304,6 +411,8 @@ export class HortulusPanel extends LitElement {
       case "library":
         return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
+      case "weather":
+        return html`<hl-weather-view .snapshot=${snap} .hass=${this.hass} .t=${this.t} .lang=${this.uiLang}></hl-weather-view>`;
       case "calendar":
         return html`<hl-calendar-view .snapshot=${snap} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .plants=${plantMap} .families=${this.families}></hl-calendar-view>`;
       case "journal":
@@ -319,7 +428,7 @@ export class HortulusPanel extends LitElement {
       case "settings":
         return html`<hl-settings-view .snapshot=${snap} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
       default:
-        return html`<hl-dashboard-view .snapshot=${snap} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-dashboard-view>`;
+        return html`<hl-dashboard-view .snapshot=${snap} .api=${this.api} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-dashboard-view>`;
     }
   }
 
@@ -331,28 +440,69 @@ export class HortulusPanel extends LitElement {
     return html`<span class="badge ${d.error ? "bad" : "warn"}" title=${this.t("analysis.badge", { errors: d.error, warnings: d.warning })}>${n}</span>`;
   }
 
-  private renderNav(cls: string): TemplateResult {
-    return html`<nav class=${cls} aria-label="Hortulus">
-      ${TABS.filter((tab) => cls !== "bottom-nav" || tab.mobile).map((tab) => html`<a href="#" aria-current=${tab.id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(tab.id, e)}>
-        <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${tab.id}`)}${tab.id === "analysis" ? this.renderBadge() : nothing}</a>`)}
+  /** Open a place: the tab you used last there, else its first tab. */
+  private openGroup(group: (typeof GROUPS)[number], e: Event): void {
+    const last = this.lastInGroup[group.id];
+    this.navigate(last && group.tabs.includes(last) ? last : group.tabs[0], e);
+  }
+
+  /** The tabs of the current place, as a row under the app bar. */
+  private renderSubnav(): TemplateResult | typeof nothing {
+    const group = groupOf(this.tab);
+    if (group.tabs.length < 2) return nothing;
+    return html`<nav class="sub" aria-label=${this.t(`nav.group.${group.id}`)}>
+      ${group.tabs.map((id) => {
+        const tab = TABS.find((x) => x.id === id)!;
+        return html`<a href="#" aria-current=${id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(id, e)}>
+          ${gicon(tab.icon, 17)}${this.t(`nav.${id}`)}${id === "analysis" ? this.renderBadge() : nothing}</a>`;
+      })}
     </nav>`;
   }
 
+  private renderNav(cls: string): TemplateResult {
+    const current = groupOf(this.tab).id;
+    return html`<nav class=${cls} aria-label="Hortulus">
+      ${GROUPS.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>
+        ${gicon(g.icon, 19)}${this.t(g.tabs.length > 1 ? `nav.group.${g.id}` : `nav.${g.tabs[0]}`)}${g.tabs.includes("analysis") ? this.renderBadge() : nothing}</a>`)}
+    </nav>`;
+  }
+
+  /** First load: a calm skeleton instead of a bare "Loading". */
+  private renderLoading(): TemplateResult {
+    return html`<div class="loading" aria-busy="true" aria-label=${this.t("common.loading")}>
+      <div class="skeleton" style="width:220px;height:14px"></div>
+      <div class="skeleton" style="width:320px;height:34px;margin-top:10px"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:24px">
+        <div class="skeleton" style="height:320px;border-radius:16px"></div><div class="skeleton" style="height:320px;border-radius:16px"></div>
+      </div></div>`;
+  }
+
   render(): TemplateResult {
+    if (this.tab === "wall" && this.snapshot && this.api) {
+      return html`<hl-wall-view .snapshot=${this.snapshot} .hass=${this.hass} .t=${this.t} lang=${this.uiLang}
+          .plants=${new Map(this.plants.map((p) => [p.id, p]))} .families=${this.families}
+          @navigate=${(e: CustomEvent<Tab>) => this.navigate(e.detail)}
+          @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}
+          @hl-celebrate=${(e: CustomEvent<{ x: number; y: number }>) => celebrate(this.renderRoot as ShadowRoot, e.detail.x, e.detail.y)}></hl-wall-view>
+        ${this.toastMsg ? html`<div class="toast" role="status" aria-live="polite">${this.toastMsg}</div>` : nothing}`;
+    }
     return html`
       <header class="appbar">
         ${this.narrow ? html`<button class="icon-btn" aria-label="Menu" @click=${() => this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }))}>
           <ha-icon icon="mdi:menu"></ha-icon></button>` : nothing}
-        <div class="brand">${emblem(30)}<span>Hortulus</span>${this.narrow ? nothing : html`<small>${this.t("app.tagline")}</small>`}</div>
+        <div class="brand">${emblem(30)}<span>Hortulus</span>${this.narrow || (this.snapshot?.gardens?.length ?? 0) > 1 ? nothing : html`<small>${this.t("app.tagline")}</small>`}</div>
+        ${(this.snapshot?.gardens?.length ?? 0) > 1 ? html`<select class="garden" aria-label=${this.t("app.garden")}
+            @change=${(e: Event) => this.switchGarden((e.target as HTMLSelectElement).value)}>
+          ${this.snapshot!.gardens!.map((g) => html`<option value=${g.entry_id} ?selected=${g.entry_id === this.snapshot!.entry_id}>${g.title}</option>`)}
+        </select>` : nothing}
         ${this.renderNav("top")}
         ${this.narrow ? html`<span style="flex:1"></span>
-          <button class="icon-btn" aria-label=${this.t("nav.journal")} @click=${() => this.navigate("journal")}><ha-icon icon="mdi:notebook-outline"></ha-icon></button>
-          <button class="icon-btn" aria-label=${this.t("nav.print")} @click=${() => this.navigate("print")}><ha-icon icon="mdi:printer-outline"></ha-icon></button>
           <button class="icon-btn" aria-label=${this.t("nav.settings")} aria-pressed=${String(this.tab === "settings")} @click=${() => this.navigate("settings")}>
             <ha-icon icon="mdi:cog-outline"></ha-icon></button>` : nothing}
       </header>
       <main @open-task=${(e: CustomEvent<Task>) => (this.openTask = e.detail)}
         @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}
+        @hl-celebrate=${(e: CustomEvent<{ x: number; y: number }>) => celebrate(this.renderRoot as ShadowRoot, e.detail.x, e.detail.y)}
         @postpone-task=${(e: CustomEvent<{ task: Task; days: number }>) => this.postponeTask(e.detail.task, e.detail.days)}
         @irrigation=${(e: CustomEvent<"run" | "stop">) => this.irrigation(e.detail)}
         @close-valve=${(e: CustomEvent<string>) => this.closeValve(e.detail)}
@@ -366,7 +516,7 @@ export class HortulusPanel extends LitElement {
         @focus-crop=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusCrop(e.detail)}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}>
         ${this.error ? html`<div class="card error">${emblem(56)}<p>${this.error}</p></div>`
-          : this.snapshot ? this.renderTab() : html`<p class="empty">${this.t("common.loading")}</p>`}
+          : this.snapshot ? html`${this.renderSubnav()}${keyed(this.tab, html`<div class="view">${this.renderTab()}</div>`)}` : this.renderLoading()}
       </main>
       ${this.renderNav("bottom-nav")}
       ${this.snapshot && (this.openTask || this.creatingTask) ? html`<hl-task-dialog .task=${this.openTask} .create=${this.creatingTask} .snapshot=${this.snapshot}
