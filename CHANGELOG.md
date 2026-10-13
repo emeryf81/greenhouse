@@ -41,6 +41,21 @@
   Garden plan, Crops), *Calendar*, *Weather*, *Journal*, *Knowledge* (Plants, Advice,
   Handbook) and *Manage* (Analysis, Print, Settings), with the tabs of a place in a row
   underneath; a place reopens on the tab you used last. Links and URLs stay the same.
+- **Colour themes** (*Settings → Display*, per browser): classic green, earth, night (always
+  dark), or one that follows the season.
+- **Hortulus' own icons**: one hand-drawn line set for the menu and every task type.
+- **Crops → Timeline**: the year per bed as bars (raising, growing, harvest) with a today line;
+  drag a planned crop sideways to move its sowing and planting out.
+- **Harvest over the years** (*Journal → Harvest*): the total per season with the best year in
+  gold, and per crop a row of bars so good and bad years stand out (`harvest_years` in the
+  records overview).
+- **Wall screen** (*Today → Wall screen*, or `/hortulus/wall`): a calm, large kiosk view for a
+  tablet – the time, the weather, today's tasks with big tick-boxes, the beds' moisture and
+  alerts; no menus, dims at night.
+- **Garden map**: beds cast a soft shadow, richer soil, timber edges on raised beds, a faint
+  ground grain; crops are drawn smaller after planting and grow to full size by harvest for
+  the date shown.
+- **A burst of leaves** when a task is ticked off or a harvest saved (off with *reduce motion*).
 - **A new look**: serif display type (the same voice as the season book), a dashboard hero in
   the colours of the season with botanical line art and stat tiles, a glass app bar, softer
   depth, refined buttons, alerts, tables and weather tiles, views that fade in, a skeleton

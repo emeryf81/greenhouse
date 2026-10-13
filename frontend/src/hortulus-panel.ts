@@ -16,6 +16,7 @@ import { makeTranslator, normalizeLang, type Translate } from "./i18n";
 import { shared, themes, tokens } from "./styles/tokens";
 import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "./types";
 import "./views/weather-view";
+import { gicon } from "./components/garden-icons";
 import "./views/wall-view";
 import { celebrate } from "./util/celebrate";
 import { themeAttribute, themeChoice } from "./util/theme";
@@ -40,31 +41,31 @@ import { familyColor, plantName } from "./util/garden";
 
 type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string }[] = [
-  { id: "dashboard", icon: "mdi:home-variant-outline" },
-  { id: "planner", icon: "mdi:sprout" },
-  { id: "layout", icon: "mdi:floor-plan" },
-  { id: "crops", icon: "mdi:format-list-bulleted-square" },
-  { id: "calendar", icon: "mdi:calendar-month-outline" },
-  { id: "weather", icon: "mdi:weather-partly-rainy" },
-  { id: "journal", icon: "mdi:notebook-outline" },
-  { id: "library", icon: "mdi:sprout-outline" },
-  { id: "advice", icon: "mdi:chat-question-outline" },
-  { id: "handbook", icon: "mdi:book-open-page-variant-outline" },
-  { id: "analysis", icon: "mdi:stethoscope" },
-  { id: "print", icon: "mdi:printer-outline" },
-  { id: "settings", icon: "mdi:cog-outline" },
-  { id: "wall", icon: "mdi:tablet-dashboard" }, // the wall screen: no menu, reached from Today
+  { id: "dashboard", icon: "home" },
+  { id: "planner", icon: "planner" },
+  { id: "layout", icon: "layout" },
+  { id: "crops", icon: "crops" },
+  { id: "calendar", icon: "calendar" },
+  { id: "weather", icon: "weather" },
+  { id: "journal", icon: "journal" },
+  { id: "library", icon: "library" },
+  { id: "advice", icon: "advice" },
+  { id: "handbook", icon: "handbook" },
+  { id: "analysis", icon: "analysis" },
+  { id: "print", icon: "print" },
+  { id: "settings", icon: "settings" },
+  { id: "wall", icon: "wall" }, // the wall screen: no menu, reached from Today
 ];
 /** The menu: seven places, the related tabs of a place in a row underneath. */
 type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "knowledge" | "manage";
 const GROUPS: { id: Group; icon: string; tabs: Tab[] }[] = [
-  { id: "today", icon: "mdi:home-variant-outline", tabs: ["dashboard"] },
-  { id: "garden", icon: "mdi:sprout", tabs: ["planner", "layout", "crops"] },
-  { id: "calendar", icon: "mdi:calendar-month-outline", tabs: ["calendar"] },
-  { id: "weather", icon: "mdi:weather-partly-rainy", tabs: ["weather"] },
-  { id: "journal", icon: "mdi:notebook-outline", tabs: ["journal"] },
-  { id: "knowledge", icon: "mdi:book-open-page-variant-outline", tabs: ["library", "advice", "handbook"] },
-  { id: "manage", icon: "mdi:tune-variant", tabs: ["analysis", "print", "settings"] },
+  { id: "today", icon: "home", tabs: ["dashboard"] },
+  { id: "garden", icon: "garden", tabs: ["planner", "layout", "crops"] },
+  { id: "calendar", icon: "calendar", tabs: ["calendar"] },
+  { id: "weather", icon: "weather", tabs: ["weather"] },
+  { id: "journal", icon: "journal", tabs: ["journal"] },
+  { id: "knowledge", icon: "knowledge", tabs: ["library", "advice", "handbook"] },
+  { id: "manage", icon: "manage", tabs: ["analysis", "print", "settings"] },
 ];
 const groupOf = (tab: Tab): (typeof GROUPS)[number] => GROUPS.find((g) => g.tabs.includes(tab)) ?? GROUPS[0];
 
@@ -441,7 +442,7 @@ export class HortulusPanel extends LitElement {
       ${group.tabs.map((id) => {
         const tab = TABS.find((x) => x.id === id)!;
         return html`<a href="#" aria-current=${id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(id, e)}>
-          <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${id}`)}${id === "analysis" ? this.renderBadge() : nothing}</a>`;
+          ${gicon(tab.icon, 17)}${this.t(`nav.${id}`)}${id === "analysis" ? this.renderBadge() : nothing}</a>`;
       })}
     </nav>`;
   }
@@ -450,7 +451,7 @@ export class HortulusPanel extends LitElement {
     const current = groupOf(this.tab).id;
     return html`<nav class=${cls} aria-label="Hortulus">
       ${GROUPS.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>
-        <ha-icon icon=${g.icon}></ha-icon>${this.t(g.tabs.length > 1 ? `nav.group.${g.id}` : `nav.${g.tabs[0]}`)}${g.tabs.includes("analysis") ? this.renderBadge() : nothing}</a>`)}
+        ${gicon(g.icon, 19)}${this.t(g.tabs.length > 1 ? `nav.group.${g.id}` : `nav.${g.tabs[0]}`)}${g.tabs.includes("analysis") ? this.renderBadge() : nothing}</a>`)}
     </nav>`;
   }
 

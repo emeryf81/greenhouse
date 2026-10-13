@@ -1,5 +1,6 @@
 import { toolsFor } from "../util/tools";
 import { celebrateAt } from "../util/celebrate";
+import { GARDEN_ICONS, gicon } from "./garden-icons";
 import { personName, persons } from "../util/people";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -89,8 +90,8 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
       </button>
       <button class="task-main" @click=${() => ctx.onOpen(task)}>
         ${crop ? html`<span class="type-icon crop" title=${ctx.t(`type.${task.type}`)}>${glyphIcon(glyphFor(crop.plant), crop.color, 24)}
-          <span class="type-badge" style=${`background:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span></span>`
-          : html`<span class="type-icon" style=${`color:${color}`}><ha-icon icon=${TASK_ICONS[task.type]}></ha-icon></span>`}
+          <span class="type-badge" style=${`background:${color}`}>${gicon(GARDEN_ICONS[task.type] ? task.type : TASK_ICONS[task.type], 11)}</span></span>`
+          : html`<span class="type-icon" style=${`color:${color}`}>${gicon(GARDEN_ICONS[task.type] ? task.type : TASK_ICONS[task.type], 21)}</span>`}
         <span class="task-text">
           <span class="task-title">${task.title}</span>
           <span class="task-meta">
@@ -304,7 +305,7 @@ export class TaskDialog extends LitElement {
       });
     return html`
       <div class="head">
-        <ha-icon class="big-icon" icon=${TASK_ICONS[task.type]} style=${`color:${TASK_COLORS[task.type] ?? "inherit"}`}></ha-icon>
+        <span class="big-icon" style=${`color:${TASK_COLORS[task.type] ?? "inherit"}`}>${gicon(GARDEN_ICONS[task.type] ? task.type : TASK_ICONS[task.type], 36)}</span>
         <div class="stack" style="gap:4px">
           <h2>${task.title}</h2>
           <div class="row wrap small muted">
