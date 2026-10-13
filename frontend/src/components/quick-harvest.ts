@@ -7,6 +7,7 @@ import type { Translate } from "../i18n";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Planting, Snapshot } from "../types";
+import { celebrateAt } from "../util/celebrate";
 import { familyColor, plantName } from "../util/garden";
 
 const STEPS = [0.1, 0.25, 0.5, 1];
@@ -69,6 +70,7 @@ export class QuickHarvest extends LitElement {
     this.busy = true;
     try {
       await this.api.logHarvest({ planting_id: this.picked.id, kg: Math.round(this.kg * 1000) / 1000 });
+      celebrateAt(this.renderRoot.querySelector(".kg"));
       this.done = this.t("quick.saved", { kg: this.kg.toLocaleString(this.lang, { maximumFractionDigits: 2 }), plant: plantName(this.plants.get(this.picked.plant_id), this.lang) });
       this.picked = null;
       this.kg = 0;

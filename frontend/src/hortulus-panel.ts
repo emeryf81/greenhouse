@@ -16,6 +16,7 @@ import { makeTranslator, normalizeLang, type Translate } from "./i18n";
 import { shared, themes, tokens } from "./styles/tokens";
 import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "./types";
 import "./views/weather-view";
+import { celebrate } from "./util/celebrate";
 import { themeAttribute, themeChoice } from "./util/theme";
 import "./views/dashboard-view";
 import "./views/planner-view";
@@ -125,6 +126,14 @@ export class HortulusPanel extends LitElement {
       nav.top a[aria-current="page"]::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 16px; height: 2px; margin-left: -8px;
         border-radius: 2px; background: var(--hl-accent); }
       .view { animation: hl-rise var(--hl-dur-slow) var(--hl-ease) both; }
+      .burst { position: fixed; z-index: 30; width: 0; height: 0; pointer-events: none; }
+      .burst span { position: absolute; left: -5px; top: -4px; width: 10px; height: 7px; border-radius: 10px 0; background: var(--c);
+        animation: hl-leaf 900ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+      @keyframes hl-leaf {
+        0% { transform: translate(0, 0) rotate(0) scale(0.4); opacity: 0; }
+        15% { opacity: 1; }
+        100% { transform: translate(var(--dx), calc(var(--dy) + 40px)) rotate(var(--rot)) scale(1); opacity: 0; }
+      }
       :host([narrow]) .bottom-nav a[aria-current="page"] { box-shadow: none; background: var(--hl-leaf-100); border-radius: 14px; }
       :host([narrow]) .bottom-nav { backdrop-filter: saturate(1.6) blur(14px); background: color-mix(in srgb, var(--hl-surface) 86%, transparent); }
       nav.sub { display: inline-flex; gap: 2px; padding: 4px; margin: 0 0 var(--hl-s4); border-radius: 999px; overflow-x: auto; max-width: 100%;
@@ -470,6 +479,7 @@ export class HortulusPanel extends LitElement {
       </header>
       <main @open-task=${(e: CustomEvent<Task>) => (this.openTask = e.detail)}
         @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}
+        @hl-celebrate=${(e: CustomEvent<{ x: number; y: number }>) => celebrate(this.renderRoot as ShadowRoot, e.detail.x, e.detail.y)}
         @postpone-task=${(e: CustomEvent<{ task: Task; days: number }>) => this.postponeTask(e.detail.task, e.detail.days)}
         @irrigation=${(e: CustomEvent<"run" | "stop">) => this.irrigation(e.detail)}
         @close-valve=${(e: CustomEvent<string>) => this.closeValve(e.detail)}

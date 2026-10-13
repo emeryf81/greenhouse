@@ -1,4 +1,5 @@
 import { toolsFor } from "../util/tools";
+import { celebrateAt } from "../util/celebrate";
 import { personName, persons } from "../util/people";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -67,8 +68,10 @@ function swipeEnd(ev: PointerEvent, task: Task, ctx: TaskCtx): void {
   delete el.dataset.swipe;
   if (!st?.active) return;
   ev.preventDefault();
-  if (st.dx > SWIPE_THRESHOLD && task.status === "open") ctx.onComplete(task);
-  else if (st.dx < -SWIPE_THRESHOLD && task.status === "open" && ctx.onPostpone) ctx.onPostpone(task, 1);
+  if (st.dx > SWIPE_THRESHOLD && task.status === "open") {
+    celebrateAt(el);
+    ctx.onComplete(task);
+  } else if (st.dx < -SWIPE_THRESHOLD && task.status === "open" && ctx.onPostpone) ctx.onPostpone(task, 1);
 }
 
 /** Compact, accessible task row used on the dashboard and in list views. */
@@ -81,7 +84,7 @@ export function renderTaskRow(task: Task, ctx: TaskCtx): TemplateResult {
     <li class="task-row ${done ? "done" : ""} prio-${task.priority}" @pointerdown=${swipeDown} @pointermove=${swipeMove}
       @pointerup=${(e: PointerEvent) => swipeEnd(e, task, ctx)} @pointercancel=${(e: PointerEvent) => swipeEnd(e, task, ctx)}>
       <button class="check" role="checkbox" aria-checked=${String(done)} aria-label=${`${ctx.t("task.complete")}: ${task.title}`}
-        ?disabled=${done} @click=${() => ctx.onComplete(task)}>
+        ?disabled=${done} @click=${(e: Event) => { celebrateAt(e.currentTarget as Element); ctx.onComplete(task); }}>
         <ha-icon icon=${done ? "mdi:check-circle" : "mdi:checkbox-blank-circle-outline"}></ha-icon>
       </button>
       <button class="task-main" @click=${() => ctx.onOpen(task)}>
