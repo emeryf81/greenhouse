@@ -168,6 +168,13 @@ await step("menu: seven places, the garden's tabs underneath", async () => {
   assert.ok(days >= 7, `only ${days} days`);
 });
 
+await step("crops timeline: a bar per crop, bed by bed", async () => {
+  await open("crops");
+  await page.locator("hl-crops-view .views button", { hasText: "Tijdlijn" }).click();
+  await page.locator("hl-crop-gantt .bar").first().waitFor();
+  assert.ok((await page.locator("hl-crop-gantt .bar").count()) > 5);
+});
+
 await step("wall screen: clock and big tick-boxes, back to Today", async () => {
   await page.goto(`${base}?tab=wall&lang=nl`);
   await page.locator("hl-wall-view .clock").waitFor();
