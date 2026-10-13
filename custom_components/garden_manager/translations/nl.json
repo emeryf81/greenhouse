@@ -902,6 +902,14 @@
           "name": "Plant",
           "description": "Plant-id als er geen teelt is."
         },
+        "plant": {
+          "name": "Plantnaam",
+          "description": "Plant-id of naam in elke taal, bv. Tomaat - handig voor een NFC-tag. De teelt in de tuin wordt zelf gevonden."
+        },
+        "bed": {
+          "name": "Bed",
+          "description": "Naam of id van het bed, als de plant in meerdere bedden staat."
+        },
         "kg": {
           "name": "Gewicht",
           "description": "Geoogste kilogram."

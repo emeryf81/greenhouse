@@ -1,3 +1,5 @@
+import type { GardenApi } from "../api";
+import "../components/quick-harvest";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Translate } from "../i18n";
@@ -25,6 +27,7 @@ export class DashboardView extends LitElement {
   @property({ attribute: false }) snapshot!: Snapshot;
   @property({ attribute: false }) plants: Map<string, Plant> = new Map();
   @property({ attribute: false }) families: Record<string, FamilyInfo> = {};
+  @property({ attribute: false }) api?: GardenApi;
   @property({ attribute: false }) t!: Translate;
   @property() lang = "en";
   @property({ type: Boolean }) admin = true;
@@ -177,6 +180,10 @@ export class DashboardView extends LitElement {
           ${due.length > 10 ? html`<button class="btn small ghost" @click=${() => this.emit("navigate", "calendar")}>${this.t("dash.show_all", { n: due.length })}</button>` : nothing}
         </section>
 
+        ${this.api && this.admin ? html`<section class="card span-12" aria-labelledby="quick-h">
+          <header><h2 id="quick-h">${this.t("quick.title")}</h2><span class="spacer"></span><span class="small muted">${this.t("quick.hint")}</span></header>
+          <hl-quick-harvest .snapshot=${snap} .api=${this.api} .t=${this.t} .plants=${this.plants} .families=${this.families} lang=${this.lang}></hl-quick-harvest>
+        </section>` : nothing}
         <section class="card span-4" aria-labelledby="weather-h">
           <header><h2 id="weather-h">${this.t("dash.weather")}</h2></header>
           ${a.weather_available ? html`

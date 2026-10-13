@@ -1035,3 +1035,21 @@ async def test_phone_notification_buttons_complete_postpone_and_close(
     hass.bus.async_fire("mobile_app_notification_action", {"action": close["action"]})
     await hass.async_block_till_done()
     assert closed == [valve]
+
+
+async def test_harvest_by_plant_name_finds_the_crop(hass: HomeAssistant, garden) -> None:
+    """``log_harvest`` with a plant name (as an NFC tag would send) books it on the one crop in the garden."""
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    crop = next(p for p in repo.data.plantings if p.plant_id == "tomato")
+    others = [p for p in repo.data.plantings if p.plant_id == "tomato" and p is not crop]
+    for p in others:
+        repo.data.plantings.remove(p)
+    crop.season = 2026  # the example plan is for next year; the harvest is today (May 2026)
+    result = await hass.services.async_call(
+        DOMAIN, "log_harvest", {"plant": "TOMAAT", "kg": 0.8}, blocking=True, return_response=True
+    )
+    assert result["harvest"]["plant_id"] == "tomato" and result["harvest"]["planting_id"] == crop.id
+    assert crop.harvest_started_on is not None
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(DOMAIN, "log_harvest", {"plant": "Mandragora", "kg": 1}, blocking=True)

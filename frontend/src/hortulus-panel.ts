@@ -335,7 +335,7 @@ export class HortulusPanel extends LitElement {
       case "settings":
         return html`<hl-settings-view .snapshot=${snap} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
       default:
-        return html`<hl-dashboard-view .snapshot=${snap} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-dashboard-view>`;
+        return html`<hl-dashboard-view .snapshot=${snap} .api=${this.api} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-dashboard-view>`;
     }
   }
 

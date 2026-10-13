@@ -432,6 +432,14 @@ log_harvest:
       example: tomato
       selector:
         text:
+    plant:
+      example: Tomaat
+      selector:
+        text:
+    bed:
+      example: Bed 1
+      selector:
+        text:
     kg:
       example: 1.2
       selector:

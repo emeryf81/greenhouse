@@ -150,6 +150,8 @@ LOG_HARVEST_SCHEMA = vol.Schema(
     {
         vol.Optional("planting_id"): cv.string,
         vol.Optional("plant_id"): cv.string,
+        vol.Optional("plant"): cv.string,
+        vol.Optional("bed"): cv.string,
         vol.Optional("kg", default=0): vol.All(vol.Coerce(float), vol.Range(min=0, max=500)),
         vol.Optional("count"): vol.All(vol.Coerce(int), vol.Range(min=0, max=10000)),
         vol.Optional("quality"): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
