@@ -93,7 +93,7 @@ with `garden_manager.export_pdf` (saved to `/config/hortulus/exports/`).
 
 ### HACS (recommended)
 
-1. HACS → ⋮ → **Custom repositories** → add `https://github.com/emeryf81/greenhouse` as *Integration*.
+1. HACS → ⋮ → **Custom repositories** → add `https://github.com/emeryf81/hortulus` as *Integration*.
 2. Install **Hortulus Garden Manager** and restart Home Assistant.
 3. **Settings → Devices & services → Add integration → Hortulus**.
 
