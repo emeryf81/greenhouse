@@ -45,6 +45,7 @@ class SeedNeed:
     plantings: list[str] = field(default_factory=list)
     stock: list[dict[str, Any]] = field(default_factory=list)  # usable packets
     status: str = "none"  # ok | check | short | none
+    to_buy: int = 0  # seeds still missing (counted seed packets only)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +55,7 @@ class SeedNeed:
             "plantings": self.plantings,
             "stock": self.stock,
             "status": self.status,
+            "to_buy": self.to_buy,
         }
 
 
@@ -87,8 +89,30 @@ def seed_needs(data: GardenData, db: PlantDatabase, season: int) -> list[SeedNee
             need.status = "short"
         else:
             need.status = "none"
+        need.to_buy = max(0, need.seeds - seeds) if need.status in ("short", "none") else 0
     order = {"none": 0, "short": 1, "check": 2, "ok": 3}
     return sorted(needs.values(), key=lambda n: (order[n.status], n.plant_id))
+
+
+def seed_todo_items(needs: list[SeedNeed], db: PlantDatabase, season: int, lang: str) -> list[dict[str, str]]:
+    """Shopping items (summary + description) for the crops that still lack seed."""
+    from .i18n import t
+
+    items = []
+    for need in needs:
+        if need.status not in ("short", "none"):
+            continue
+        plant = db.get(need.plant_id)
+        name = plant.name(lang) if plant else need.plant_id
+        key = "seeds.todo_item" if need.to_buy else "seeds.todo_item_any"
+        items.append(
+            {
+                "plant_id": need.plant_id,
+                "summary": t(key, lang, plant=name, seeds=need.to_buy),
+                "description": t("seeds.todo_description", lang, season=season, plants=need.plants),
+            }
+        )
+    return items
 
 
 # --------------------------------------------------------------------------- #

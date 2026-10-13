@@ -843,3 +843,41 @@ async def test_pump_is_never_tested_alone_and_close_stops_a_run(
     monkeypatch.setattr(type(runtime.irrigation), "running", property(lambda self: not stopped))
     valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
     assert await runtime.irrigation.async_close(valve) == "off" and stopped == [True]
+
+
+async def test_missing_seed_goes_to_a_todo_list_once(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """Seeds the plan lacks land on a HA to-do list; items already on it are not added twice."""
+    from homeassistant.core import SupportsResponse
+
+    from custom_components.garden_manager.engine.models import PlantingStatus, SowMethod
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    season = repo.data.plantings[0].season
+    for p in repo.data.plantings:
+        p.status, p.method = PlantingStatus.PLANNED, SowMethod.DIRECT_SOW
+    repo.data.seed_stock = []
+    items: list[str] = []
+    hass.states.async_set("todo.shopping_list", "0")
+
+    async def get_items(call: ServiceCall):
+        return {"todo.shopping_list": {"items": [{"summary": s} for s in items]}}
+
+    async def add_item(call: ServiceCall) -> None:
+        items.append(call.data["item"])
+
+    hass.services.async_register("todo", "get_items", get_items, supports_response=SupportsResponse.ONLY)
+    hass.services.async_register("todo", "add_item", add_item)
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/seeds/to_todo", "season": season, "entity_id": "todo.shopping_list"}
+    )
+    first = (await _result(client))["result"]
+    assert first["added"] > 0 and first["skipped"] == 0 and len(items) == first["added"]
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/seeds/to_todo", "season": season, "entity_id": "todo.shopping_list"}
+    )
+    second = (await _result(client))["result"]
+    assert second["added"] == 0 and second["skipped"] == first["added"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/seeds/to_todo", "season": season, "entity_id": "light.kitchen"})
+    assert not (await _result(client))["success"]

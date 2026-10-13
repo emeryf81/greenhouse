@@ -213,6 +213,19 @@ export class GardenApi {
     return this.call("analysis/explain", { plant_id: plantId, season: season ?? null, match_zone: matchZone });
   }
 
+  // -- seeds to a to-do list ------------------------------------------------ //
+  /** Home Assistant to-do lists (Hortulus' own week list left out). */
+  todoLists(): { entity_id: string; name: string }[] {
+    return Object.values(this.hass.states)
+      .filter((s) => s.entity_id.startsWith("todo.") && !s.entity_id.startsWith("todo.hortulus"))
+      .map((s) => ({ entity_id: s.entity_id, name: String(s.attributes.friendly_name ?? s.entity_id) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  seedsToTodo(season: number, entityId: string): Promise<{ added: number; skipped: number }> {
+    return this.call("seeds/to_todo", { season, entity_id: entityId });
+  }
+
   // -- print --------------------------------------------------------------- //
   printPreview(options: Partial<PrintOptions>): Promise<{ pages: string[] }> {
     return this.call("print/render", { options });

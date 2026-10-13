@@ -133,6 +133,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_irrigation_test,
         ws_irrigation_close,
         ws_planning,
+        ws_seeds_to_todo,
         ws_season_report,
     ):
         websocket_api.async_register_command(hass, command)
@@ -1558,6 +1559,44 @@ async def ws_planning(hass: HomeAssistant, connection: websocket_api.ActiveConne
         }
 
     connection.send_result(msg["id"], await hass.async_add_executor_job(build))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/seeds/to_todo", vol.Required("season"): int, vol.Required("entity_id"): str}
+)
+@websocket_api.async_response
+async def ws_seeds_to_todo(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Put the seeds the plan still lacks on a Home Assistant to-do list (skipping items already on it)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    entity_id = msg["entity_id"]
+    if not entity_id.startswith("todo.") or hass.states.get(entity_id) is None:
+        connection.send_error(msg["id"], "invalid_format", f"{entity_id} is not a to-do list")
+        return
+    needs = planning.seed_needs(runtime.repo.data, runtime.repo.db, msg["season"])
+    items = planning.seed_todo_items(needs, runtime.repo.db, msg["season"], runtime.coordinator.lang)
+    try:
+        current = await hass.services.async_call(
+            "todo", "get_items", {"status": ["needs_action"]}, target={"entity_id": entity_id},
+            blocking=True, return_response=True,
+        )  # fmt: skip
+        open_items = {i.get("summary") for i in (current or {}).get(entity_id, {}).get("items", [])}
+        added = 0
+        for item in items:
+            if item["summary"] in open_items:
+                continue
+            await hass.services.async_call(
+                "todo", "add_item", {"item": item["summary"], "description": item["description"]},
+                target={"entity_id": entity_id}, blocking=True,
+            )  # fmt: skip
+            added += 1
+    except (HomeAssistantError, ValueError) as err:
+        connection.send_error(msg["id"], "home_assistant_error", str(err))
+        return
+    connection.send_result(msg["id"], {"added": added, "skipped": len(items) - added, "items": items})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/report/season", vol.Required("season"): int})

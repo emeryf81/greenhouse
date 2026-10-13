@@ -387,6 +387,22 @@ MESSAGES["nl"].update(
     }
 )
 
+# Seeds to buy -> a Home Assistant to-do list.
+MESSAGES["en"].update(
+    {
+        "seeds.todo_item": "Seed: {plant} (~{seeds} seeds)",
+        "seeds.todo_item_any": "Seed: {plant}",
+        "seeds.todo_description": "For the {season} plan of Hortulus: {plants} plants.",
+    }
+)
+MESSAGES["nl"].update(
+    {
+        "seeds.todo_item": "Zaad: {plant} (~{seeds} zaden)",
+        "seeds.todo_item_any": "Zaad: {plant}",
+        "seeds.todo_description": "Voor het plan {season} in Hortulus: {plants} planten.",
+    }
+)
+
 
 # Phase 3 texts (maintenance rules, weather episodes) - registered on import.
 from . import texts_garden  # noqa: E402,F401

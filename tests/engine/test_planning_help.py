@@ -31,6 +31,10 @@ def test_seed_needs_count_plants_with_a_margin_against_the_stock(garden, db, mak
     assert set(needs) == {"carrot", "lettuce"}  # bought plants and sown crops need no seed
     assert needs["carrot"].seeds == 80 and needs["carrot"].status == "ok"
     assert needs["lettuce"].seeds == 13 and needs["lettuce"].status == "none"
+    assert needs["carrot"].to_buy == 0 and needs["lettuce"].to_buy == 13
+    items = planning.seed_todo_items(list(needs.values()), db, 2026, "nl")
+    assert [i["plant_id"] for i in items] == ["lettuce"]
+    assert items[0]["summary"].startswith("Zaad: ") and "~13 zaden" in items[0]["summary"]
 
 
 def test_successions_follow_early_crops_without_repeating_the_family(garden, db, make_planting):
