@@ -30,7 +30,7 @@ SAMPLE_INPUTS = {
         {"plant": "tomato", "tag": "kitchen-door"},
         {"plant": "tomato", "button": ["input_button.harvest"]},
     ],
-    "frost_flash_light": [{"lamp": {"entity_id": "light.porch"}}],
+    "frost_flash_light": [{"lamp": ["light.porch", "light.shed"]}],
     "urgent_task_announce": [{"speaker": "media_player.kitchen", "tts": "tts.google_translate_nl_be"}],
     "water_when_dry": [
         {
@@ -54,3 +54,47 @@ async def test_blueprint_makes_a_valid_automation(hass, path: Path):
         config = BlueprintInputs(blueprint, {"use_blueprint": {"path": path.name, "input": inputs}}).async_substitute()
         validated = await async_validate_config_item(hass, "test", {"id": "t", "alias": "t", **config})
         assert validated is not None and validated.validation_error is None, validated.validation_error
+
+
+async def test_frost_lamp_returns_to_how_it_was(hass, monkeypatch):
+    """Flash on a frost warning, then the scene snapshot puts the lamp back (on, its own brightness)."""
+    import asyncio
+
+    from homeassistant.core import ServiceCall
+    from homeassistant.helpers import script
+    from homeassistant.setup import async_setup_component
+
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr(script.asyncio, "sleep", lambda *_a, **_k: real_sleep(0))  # no real 1 s delays
+    calls: list[tuple[str, dict]] = []
+
+    async def light_service(call: ServiceCall) -> None:
+        calls.append((call.service, dict(call.data)))
+        ids = call.data["entity_id"]
+        for entity_id in [ids] if isinstance(ids, str) else ids:
+            on = call.service == "turn_on"
+            attrs = {"brightness": call.data.get("brightness", 255)} if on else {}
+            hass.states.async_set(entity_id, "on" if on else "off", attrs)
+
+    hass.services.async_register("light", "turn_on", light_service)
+    hass.services.async_register("light", "turn_off", light_service)
+    hass.states.async_set("light.porch", "on", {"brightness": 77})
+    path = next(p for p in BLUEPRINTS if p.stem == "frost_flash_light")
+    blueprints = hass.config.path("blueprints", "automation", "hortulus")
+    await hass.async_add_executor_job(lambda: Path(blueprints).mkdir(parents=True, exist_ok=True))
+    await hass.async_add_executor_job(lambda: Path(blueprints, path.name).write_text(path.read_text()))
+    assert await async_setup_component(hass, "scene", {})
+    assert await async_setup_component(
+        hass,
+        "automation",
+        {
+            "automation": {
+                "use_blueprint": {"path": f"hortulus/{path.name}", "input": {"lamp": ["light.porch"], "flashes": 1}}
+            }
+        },
+    )
+    hass.bus.async_fire("garden_manager_frost_warning", {"temp": -1})
+    await hass.async_block_till_done()
+    assert [c[0] for c in calls][:2] == ["turn_on", "turn_off"]  # the flash
+    state = hass.states.get("light.porch")
+    assert state.state == "on" and state.attributes["brightness"] == 77  # and back as it was
