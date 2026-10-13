@@ -2,6 +2,7 @@ import { LitElement, css, html, svg, nothing, type PropertyValues, type SVGTempl
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { Analysis, Bed, CompatibilityReport, FamilyInfo, Feature, Plant, Planting, Timeline, Zone } from "../types";
 import { familyColor, isActiveOn, plantMonogram, plantName, localeOf } from "../util/garden";
+import { coversOfFeature, featureLayers } from "./coverage";
 import { glyphFor, glyphSymbols, glyphUse } from "./plant-glyphs";
 import { bedRect, clampInto, extents, plantPositions, plantingRect, snap, zoneRect, type Rect } from "./geometry";
 import type { Translate } from "../i18n";
@@ -52,6 +53,7 @@ export const ZONE_STYLE: Record<string, { fill: string; stroke: string; dash: st
   greenhouse: { fill: "var(--hl-zone-greenhouse)", stroke: "var(--hl-frost-500)", dash: "none", icon: "🏡" },
   cold_frame: { fill: "var(--hl-zone-greenhouse)", stroke: "var(--hl-frost-500)", dash: "3 3", icon: "🪟" },
   orchard: { fill: "rgba(120, 170, 80, 0.16)", stroke: "#6f9a45", dash: "10 4", icon: "🍎" },
+  food_forest: { fill: "rgba(90, 140, 60, 0.20)", stroke: "#3F6B2A", dash: "12 4 2 4", icon: "🌳" },
   fruit: { fill: "rgba(200, 60, 90, 0.08)", stroke: "#c8506a", dash: "10 4", icon: "🫐" },
   herbs: { fill: "rgba(80, 110, 176, 0.09)", stroke: "#6a84c0", dash: "10 4", icon: "🌿" },
   flowers: { fill: "rgba(224, 106, 160, 0.09)", stroke: "#d27aa8", dash: "10 4", icon: "🌸" },
@@ -439,6 +441,21 @@ export class GardenCanvas extends LitElement {
     return base;
   }
 
+  /**
+   * A ground cover (lawn, terrace ...) drawn under the zones, minus whatever lies on it:
+   * a house or a zone on the lawn is no longer lawn there.
+   */
+  private renderGround(f: Feature): SVGTemplateResult {
+    const covers = this.preview ? [] : coversOfFeature(f, this.features, this.zones);
+    if (!covers.length) return this.renderFeature(f);
+    const id = `cut-${f.id}`;
+    return svg`<mask id=${id} maskUnits="userSpaceOnUse" x="-100000" y="-100000" width="200000" height="200000">
+        <rect x="-100000" y="-100000" width="200000" height="200000" fill="#fff"></rect>
+        ${covers.map((c) => svg`<rect x=${c.x} y=${c.y} width=${c.w} height=${c.h} fill="#000"></rect>`)}
+      </mask>
+      <g mask=${`url(#${id})`}>${this.renderFeature(f)}</g>`;
+  }
+
   private renderFeature(f: Feature): SVGTemplateResult {
     const r = this.effectiveRect("feature", f.id, { x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm });
     const st = FEATURE_STYLE[f.type] ?? FEATURE_STYLE.other;
@@ -627,8 +644,8 @@ export class GardenCanvas extends LitElement {
     const moistureStroke = this.showMoisture && status !== "unknown" ? MOISTURE_COLORS[status] : "rgba(46,33,24,0.45)";
     const zoneType = this.zones.find((z) => z.id === bed.zone_id)?.type ?? "outdoor";
     // Orchards sit in grass, fruit corners in mulch; herb & flower borders keep soil.
-    const open = zoneType === "orchard" || zoneType === "fruit";
-    const fill = zoneType === "orchard" ? "url(#feat-grass)" : zoneType === "fruit" ? "url(#bark-mulch)"
+    const open = zoneType === "orchard" || zoneType === "fruit" || zoneType === "food_forest";
+    const fill = zoneType === "orchard" ? "url(#feat-grass)" : zoneType === "fruit" || zoneType === "food_forest" ? "url(#bark-mulch)"
       : bed.kind === "container" ? "var(--hl-container-fill)" : bed.kind === "raised" ? "var(--hl-bed-fill-raised)" : "var(--hl-bed-fill)";
     const radius = bed.kind === "container" ? Math.min(r.w, r.h) / 4 : 4 / this.k;
     const moisture = ba?.irrigation.moisture;
@@ -905,6 +922,7 @@ export class GardenCanvas extends LitElement {
       out ? svg`<g class="dimmed">${content}</g>`
         : !editable ? svg`<g class="locked">${content}</g>`
         : this.editKind && !this.readonly ? svg`<g class="editable"><title>${name ? `${name} - ${tip}` : tip}</title>${content}</g>` : content;
+    const { ground, above } = featureLayers(this.features);
     const plantLabel = (p: Planting) => { const plant = this.plants.get(p.plant_id); return plant?.names[this.lang] ?? plant?.names.en ?? p.plant_id; };
     return html`
       <svg
@@ -920,8 +938,10 @@ export class GardenCanvas extends LitElement {
         @wheel=${this.onWheel}
       >
         <g transform=${`translate(${this.tx} ${this.ty}) scale(${this.k})`}>
-          ${this.renderGrid()} ${this.showZones ? this.zones.map((z) => layer(!!focus && z.id !== focus, this.canEdit("zone"), z.name, this.renderZone(z))) : nothing}
-          ${this.showFeatures ? this.features.map((f) => layer(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.canEdit("feature"), f.name, this.renderFeature(f))) : nothing}
+          ${this.renderGrid()}
+          ${this.showFeatures ? ground.map((f) => layer(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.canEdit("feature"), f.name, this.renderGround(f))) : nothing}
+          ${this.showZones ? this.zones.map((z) => layer(!!focus && z.id !== focus, this.canEdit("zone"), z.name, this.renderZone(z))) : nothing}
+          ${this.showFeatures ? above.map((f) => layer(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.canEdit("feature"), f.name, this.renderFeature(f))) : nothing}
           ${this.beds.map((b) => layer(!!focus && b.zone_id !== focus, this.canEdit("bed"), b.name, this.renderBed(b)))}
           ${this.showPlantings ? this.plantings.map((p) => {
             const bed = this.beds.find((b) => b.id === p.bed_id);

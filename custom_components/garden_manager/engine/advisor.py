@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
+from .eco import food_forest_layers, layer_names, month_tip
 from .i18n import t
 from .models import FeatureType, GardenData, Plant, Planting, PlantingStatus, Relation, present_in
 from .plantdb import PlantDatabase
@@ -194,7 +195,7 @@ def advise(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: 
             and tl.occupancy.end >= today
         ]
         zone = data.zone(bed.zone_id)
-        if active or (zone and zone.type.value in ("orchard", "fruit")):
+        if active or (zone and zone.type.value in ("orchard", "fruit", "food_forest")):
             continue
         weeks_left = (first_frost - today).days // 7
         if zone and zone.is_enclosed:
@@ -262,6 +263,8 @@ def advise(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: 
         )
     if data.beds and not feature_types & {FeatureType.HEDGE, FeatureType.POND, FeatureType.TREE, FeatureType.SHRUB}:
         add("habitat", "eco", "info", "habitat", handbook="home_remedies")
+    if data.settings.eco_tips:
+        _eco_advice(data, db, analysis, lang, by_bed, add)
     if any(z.is_enclosed for z in data.zones) and not any(
         z.sensors.air_temperature for z in data.zones if z.is_enclosed
     ):
@@ -270,3 +273,33 @@ def advise(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: 
     rank = {"warning": 0, "tip": 1, "info": 2}
     out.sort(key=lambda s: rank.get(s.severity, 3))
     return out
+
+
+def _eco_advice(data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: str, by_bed, add) -> None:
+    """Ecological gardening and permaculture: recommended, never required."""
+    # Food forest: the layers still missing per food-forest zone.
+    for layers in food_forest_layers(data, db, analysis.season):
+        zone = data.zone(layers.zone_id)
+        if zone is None or not layers.missing:
+            continue
+        ideas = [pid for layer in layers.missing for pid in layers.suggestions.get(layer, [])[:2]]
+        add(f"food_forest:{zone.id}", "eco", "tip", "food_forest", zone_id=zone.id, plants=ideas,
+            params={"zone": zone.name, "layers": layer_names(layers.missing, lang),
+                    "plants": ", ".join(_names(db, ideas, lang))}, handbook="food_forest")  # fmt: skip
+    # An orchard with trees could grow into a food forest.
+    for zone in data.zones:
+        if zone.type.value != "orchard" or not any(by_bed.get(b.id) for b in data.beds if b.zone_id == zone.id):
+            continue
+        add(f"food_forest_try:{zone.id}", "eco", "info", "food_forest_try", zone_id=zone.id,
+            params={"zone": zone.name}, handbook="food_forest")  # fmt: skip
+    # Mixed beds: one family only invites its pests.
+    for bed in data.beds:
+        items = by_bed.get(bed.id, [])
+        families = {pl.family for _p, pl in items if not pl.perennial}
+        if len(items) >= 3 and len(families) == 1 and all(not pl.perennial for _p, pl in items):
+            add(f"polyculture:{bed.id}", "eco", "tip", "polyculture", bed_id=bed.id,
+                params={"bed": bed.name, "family": next(iter(families))}, handbook="companions")  # fmt: skip
+    # The ecological tip of the month.
+    title, text = month_tip(analysis.today.month, lang)
+    add(f"eco_month:{analysis.today.month}", "eco", "info", "eco_month", params={"title": title, "text": text},
+        handbook="permaculture")  # fmt: skip

@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 
+from .eco import with_bio
 from .i18n import pest_advice, pest_label
 from .models import ClimateDay, GardenData, Planting, PlantingStatus
 from .plantdb import PlantDatabase
@@ -213,7 +214,7 @@ def pest_warnings(
         warning.beds = sorted({p.bed_id for p, _ in items if p.bed_id})
         warning.plants = sorted({n for _, n in items})
         warning.label = pest_label(pest, lang)
-        warning.advice = pest_advice(pest, model.action, lang)
+        warning.advice = with_bio(pest_advice(pest, model.action, lang), pest, lang, data.settings.eco_tips)
         out.append(warning)
     out.sort(key=lambda w: (w.status != "active", w.pest))
     return out

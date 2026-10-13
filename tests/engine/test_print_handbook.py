@@ -9,7 +9,7 @@ import zlib
 import pytest
 
 from custom_components.garden_manager.engine.handbook import chapter, chapters, glossary, search
-from custom_components.garden_manager.engine.maintenance import GARDEN_RULES, GREENHOUSE_RULES
+from custom_components.garden_manager.engine.maintenance import ECO_RULES, GARDEN_RULES, GREENHOUSE_RULES
 from custom_components.garden_manager.engine.models import Feature, FeatureType, TaskType, Zone, ZoneType
 from custom_components.garden_manager.engine.pdf import MM, PdfDocument, text_width, wrap
 from custom_components.garden_manager.engine.printout import (
@@ -183,8 +183,8 @@ def test_glossary_terms_link_to_existing_chapters():
 
 def test_maintenance_tasks_reference_existing_chapters():
     ids = {c.id for c in chapters("en")}
-    assert {r.handbook for r in (*GARDEN_RULES, *GREENHOUSE_RULES)} <= ids
-    assert {"soil", "perennials"} <= ids
+    assert {r.handbook for r in (*GARDEN_RULES, *GREENHOUSE_RULES, *ECO_RULES)} <= ids
+    assert {"soil", "perennials", "permaculture", "food_forest"} <= ids
 
 
 def test_handbook_search_and_fallback():

@@ -27,6 +27,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 import uuid
 
+from .eco import with_bio
 from .fertilizer import feed_dose
 from .geometry import plant_count
 from .i18n import pest_advice, pest_label, t
@@ -603,7 +604,8 @@ def live_specs(ctx: TaskContext) -> list[TaskSpec]:
                     due=today,
                     title_key="task.disease_check",
                     title_params={"plants": ", ".join(sorted(set(names))), "disease": t(f"disease.{kind}", lang)},
-                    description=t("desc.disease", lang, level=disease.level, reason=reason),
+                    description=t("desc.disease", lang, level=disease.level, reason=reason)
+                    + (f" {t('bio.disease', lang)}" if data.settings.eco_tips else ""),
                     window_start=today,
                     window_end=today + timedelta(days=1),
                     priority=TaskPriority.HIGH if disease.level == "high" else TaskPriority.NORMAL,
@@ -705,7 +707,7 @@ def pest_specs(ctx: TaskContext) -> list[TaskSpec]:
                     due=due,
                     title_key=title_key,
                     title_params={"plants": ", ".join(names), "pest": pest, "bed": bed.name if bed else ""},
-                    description=pest_advice(w.pest, w.action, lang),
+                    description=with_bio(pest_advice(w.pest, w.action, lang), w.pest, lang, ctx.data.settings.eco_tips),
                     window_start=due,
                     window_end=w.end or due + timedelta(days=7),
                     priority=TaskPriority.HIGH if w.action == "net" and w.status == "active" else TaskPriority.NORMAL,

@@ -180,6 +180,7 @@ export const ZONE_CATEGORIES: Record<string, string[]> = {
   greenhouse: ["vegetable", "herb", "fruit"],
   cold_frame: ["vegetable", "herb"],
   orchard: ["fruit"],
+  food_forest: ["fruit", "herb", "flower", "vegetable"],
   fruit: ["fruit"],
   herbs: ["herb", "flower"],
   flowers: ["flower", "herb"],

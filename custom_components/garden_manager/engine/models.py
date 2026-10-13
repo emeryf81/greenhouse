@@ -41,6 +41,7 @@ class ZoneType(StrEnum):
     FLOWERS = "flowers"  # flower / pollinator border
     GARDEN = "garden"  # ornamental garden: shrubs, borders, lawn edges
     CONTAINERS = "containers"  # planters, pots, balcony and terrace boxes
+    FOOD_FOREST = "food_forest"  # forest garden: trees, shrubs, herbs, ground cover and climbers in layers
 
 
 # What each zone type is meant to hold (used by the planner palette and autofill).
@@ -54,6 +55,7 @@ ZONE_CATEGORIES: dict[str, tuple[str, ...]] = {
     "flowers": ("flower", "herb"),
     "garden": ("flower", "herb", "fruit"),
     "containers": ("vegetable", "herb", "flower", "fruit"),
+    "food_forest": ("fruit", "herb", "flower", "vegetable"),
 }
 
 
@@ -833,6 +835,8 @@ class GardenSettings:
     elevation_m: float | None = None
     # Seasonal maintenance tasks (soil prep, greenhouse cleaning, winter rest ...)
     maintenance_tasks: bool = True
+    # Ecological gardening & permaculture: organic tips, eco calendar, food-forest advice (recommended).
+    eco_tips: bool = True
     # Move weather-sensitive jobs (sowing, planting out, spraying ...) off rainy, frosty or hot days.
     weather_aware_scheduling: bool = True
     economy: EconomySettings = field(default_factory=EconomySettings)

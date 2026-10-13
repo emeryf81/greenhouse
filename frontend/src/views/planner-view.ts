@@ -23,6 +23,7 @@ import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { alignRects, bedAt, clampInto, defaultFootprint, extents, findFreeSpot, plantCount, snap, type AlignMode, type Rect } from "../planner/geometry";
 import "../components/info";
 import { History } from "../planner/history";
+import { featureArea, siteSummary, zoneArea } from "../planner/coverage";
 
 type SaveState = "saved" | "dirty" | "saving" | "error";
 
@@ -50,11 +51,11 @@ const FEATURE_SIZE: Record<FeatureType, [number, number]> = {
   stone_path: [300, 80], wood_path: [300, 80], stepping_stones: [300, 50], bark_path: [300, 60], decking: [400, 300],
   wall: [400, 20], carport: [300, 500], shrub: [150, 150], pool: [800, 400], seating: [300, 250],
 };
-const ZONE_TYPES: ZoneType[] = ["outdoor", "garden", "greenhouse", "cold_frame", "containers", "orchard", "fruit", "herbs", "flowers"];
+const ZONE_TYPES: ZoneType[] = ["outdoor", "garden", "greenhouse", "cold_frame", "containers", "orchard", "food_forest", "fruit", "herbs", "flowers"];
 /** Zones whose plants live in one big "bed" (trees, bushes, herb & flower borders). */
-const OPEN_ZONES: ZoneType[] = ["orchard", "fruit", "herbs", "flowers", "garden"];
+const OPEN_ZONES: ZoneType[] = ["orchard", "food_forest", "fruit", "herbs", "flowers", "garden"];
 const ZONE_SIZE: Record<ZoneType, [number, number]> = {
-  outdoor: [600, 400], greenhouse: [300, 200], cold_frame: [150, 80], orchard: [1000, 800], fruit: [600, 300], herbs: [300, 200], flowers: [400, 150],
+  outdoor: [600, 400], greenhouse: [300, 200], cold_frame: [150, 80], orchard: [1000, 800], food_forest: [1200, 800], fruit: [600, 300], herbs: [300, 200], flowers: [400, 150],
   garden: [800, 600], containers: [400, 200],
 };
 /** The planning steps, in order: terrain, growing zones, beds, perennials, annuals. */
@@ -1392,8 +1393,9 @@ export class PlannerView extends LitElement {
         ${this.renderFeatureGroups()}
         <div class="divider"></div>
         <h4>${this.t("planner.your_elements")} (${this.draft.features.length})</h4>
+        ${this.renderSiteSummary()}
         ${this.renderItemRows("feature", this.draft.features.map((f) => [f.id, FEATURE_STYLE[f.type]?.icon || "▭", f.name,
-          `${this.t(`feature.${f.type}`)} · ${(f.width_cm / 100).toFixed(1)} × ${(f.length_cm / 100).toFixed(1)} m`]))}
+          `${this.t(`feature.${f.type}`)} · ${this.m2(featureArea(f, this.draft.features, this.draft.zones).net)}`]))}
         <button class="btn primary" @click=${() => this.goStep("zones")}>${this.t("planner.next")}: ${this.t("planner.step.zones")} ›</button>
       </div>
     </aside>`;
@@ -1411,7 +1413,7 @@ export class PlannerView extends LitElement {
         <div class="divider"></div>
         <h4>${this.t("planner.your_zones")} (${this.draft.zones.length})</h4>
         ${this.draft.zones.length ? this.renderItemRows("zone", this.draft.zones.map((z) => [z.id, ZONE_STYLE[z.type]?.icon ?? "", z.name,
-          `${this.t(`settings.zone_type.${z.type}`)} · ${(z.width_cm / 100).toFixed(1)} × ${(z.length_cm / 100).toFixed(1)} m`]))
+          `${this.t(`settings.zone_type.${z.type}`)} · ${this.m2(zoneArea(z, this.draft.features).net)}`]))
           : html`<p class="xs muted">${this.t("planner.no_zones")}</p>`}
         <div class="row wrap">
           <button class="btn" @click=${() => this.goStep("site")}>‹ ${this.t("planner.step.site")}</button>
@@ -1419,6 +1421,26 @@ export class PlannerView extends LitElement {
         </div>
       </div>
     </aside>`;
+  }
+
+  private m2(v: number): string {
+    return `${v.toLocaleString(this.lang, { maximumFractionDigits: v < 10 ? 1 : 0 })} m²`;
+  }
+
+  /** "42 m² (of 50 m²; 8 m² taken by what lies on it)" - a house on the lawn is no longer lawn. */
+  private areaText(a: { net: number; gross: number; covered: number }): string {
+    return a.covered > 0.05
+      ? this.t("planner.area_net", { net: this.m2(a.net), gross: this.m2(a.gross), covered: this.m2(a.covered) })
+      : this.t("planner.area", { area: this.m2(a.gross) });
+  }
+
+  /** Lawn, borders, paving, buildings and growing area - what is left of each after overlaps. */
+  private renderSiteSummary(): TemplateResult | typeof nothing {
+    if (!this.draft.features.length && !this.draft.zones.length) return nothing;
+    const s = siteSummary(this.draft.features, this.draft.zones);
+    const row = (key: string, v: number) => (v > 0 ? html`<span class="chip">${this.t(`planner.site_sum.${key}`)} ${this.m2(v)}</span>` : nothing);
+    return html`<div class="row wrap site-sum" title=${this.t("planner.site_sum_hint")}>
+      ${row("lawn", s.lawn)} ${row("borders", s.borders)} ${row("paved", s.paved)} ${row("built", s.built)} ${row("growing", s.growing)}</div>`;
   }
 
   /** A clickable list of the items of this step: select on the map, details with one more click. */
@@ -1867,6 +1889,7 @@ export class PlannerView extends LitElement {
             @change=${(e: Event) => this.updateSelected({ width_cm: Number((e.target as HTMLInputElement).value) })} /></label>
           <label class="field">${this.t("planner.length")}<input type="number" min="10" step="10" .value=${String(f.length_cm)} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ length_cm: Number((e.target as HTMLInputElement).value) })} /></label>
+          <p class="full xs muted">${this.areaText(featureArea(f, this.draft.features, this.draft.zones))}</p>
           <label class="field full">${this.t("task.notes")}<textarea rows="2" .value=${f.notes} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ notes: (e.target as HTMLTextAreaElement).value })}></textarea></label>
         </div>
@@ -1997,6 +2020,7 @@ export class PlannerView extends LitElement {
             @change=${(e: Event) => this.updateSelected({ width_cm: Number((e.target as HTMLInputElement).value) })} /></label>
           <label class="field">${this.t("planner.length")}<input type="number" min="50" step="10" .value=${String(z.length_cm)} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ length_cm: Number((e.target as HTMLInputElement).value) })} /></label>
+          <p class="full xs muted">${this.areaText(zoneArea(z, this.draft.features))}</p>
           <label class="field">${this.t("planner.shade")}<input type="number" min="0" max="100" step="5" .value=${String(z.microclimate.shade_pct)} ?disabled=${ro}
             @change=${(e: Event) => this.updateSelected({ shade_pct: Number((e.target as HTMLInputElement).value) }, "microclimate")} /></label>
           <label class="field row" style="flex-direction:row;align-items:center"><input type="checkbox" .checked=${z.microclimate.heated} ?disabled=${ro}

@@ -237,6 +237,17 @@ await step("crops timeline: a bar per crop, bed by bed", async () => {
   assert.ok((await page.locator("hl-crop-gantt .bar").count()) > 5);
 });
 
+await step("settings: drop-downs list only entities that fit", async () => {
+  await open("settings");
+  const view = page.locator("hl-settings-view");
+  const opts = async (id) => view.locator(`select#${id} option`).evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
+  assert.deepEqual(await opts("w"), ["weather.home"]);
+  assert.deepEqual(await opts("tts"), ["tts.google_nl"]);
+  const pump = await opts("pump");
+  assert.ok(pump.includes("valve.bed_1") && !pump.includes("light.porch") && !pump.some((x) => x.startsWith("sensor.")), pump.join());
+  assert.ok((await view.locator("fieldset.picks input[type=checkbox]").count()) >= 2, "notify / speaker tick-boxes");
+});
+
 await step("wall screen: clock and big tick-boxes, back to Today", async () => {
   await page.goto(`${base}?tab=wall&lang=nl`);
   await page.locator("hl-wall-view .clock").waitFor();

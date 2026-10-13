@@ -8,6 +8,7 @@ import { photosEnabled, setPhotosEnabled } from "../components/plant-image";
 import type { Bed, HomeAssistant, PlanDoc, Plant, SensorMapping, Settings, Snapshot, Zone } from "../types";
 import { download, formatDate, plantName, localeOf } from "../util/garden";
 import { persons } from "../util/people";
+import { entityLabel, fittingEntities, type EntityKind, type EntityLike } from "../util/entities";
 import "../components/info";
 
 const PRESETS = ["nl_be", "uk_south", "uk_north", "de_central", "fr_north", "scandinavia_south", "mediterranean", "au_melbourne", "nz_christchurch", "za_highveld"];
@@ -19,20 +20,6 @@ const PRESET_LABEL: Record<string, string> = {
 const ZONES_USDA = Array.from({ length: 13 }, (_, i) => [`${i + 1}a`, `${i + 1}b`]).flat();
 
 type SensorKey = keyof SensorMapping;
-const SENSOR_FILTER: Record<SensorKey, { domains: string[]; deviceClass?: string }> = {
-  soil_moisture: { domains: ["sensor"], deviceClass: "moisture" },
-  soil_temperature: { domains: ["sensor"], deviceClass: "temperature" },
-  air_temperature: { domains: ["sensor"], deviceClass: "temperature" },
-  air_humidity: { domains: ["sensor"], deviceClass: "humidity" },
-  light: { domains: ["sensor"], deviceClass: "illuminance" },
-  rain: { domains: ["sensor", "binary_sensor"] },
-  par: { domains: ["sensor"] },
-  ec: { domains: ["sensor"], deviceClass: "conductivity" },
-  npk_n: { domains: ["sensor"] },
-  npk_p: { domains: ["sensor"] },
-  npk_k: { domains: ["sensor"] },
-  leaf_wetness: { domains: ["sensor", "binary_sensor"] },
-};
 const GOALS = ["fresh", "storage", "herbs", "pollinators", "winter", "perennials", "easy"];
 
 @customElement("hl-settings-view")
@@ -66,46 +53,75 @@ export class SettingsView extends LitElement {
       .form-grid .full { grid-column: 1 / -1; }
       .item { border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); padding: var(--hl-s3); display: flex; flex-direction: column; gap: var(--hl-s2); background: var(--hl-surface-2); }
       .item h4 { display: flex; align-items: center; gap: var(--hl-s2); }
+      .picks { border: 1px solid var(--hl-border, rgba(0,0,0,.12)); border-radius: var(--hl-r2, 8px); padding: var(--hl-s2) var(--hl-s3); display: flex; flex-wrap: wrap; gap: var(--hl-s2) var(--hl-s4); }
+      .picks legend { font-size: var(--hl-fs-xs); color: var(--hl-text-muted); padding: 0 4px; }
       .check { flex-direction: row !important; align-items: center; gap: var(--hl-s2) !important; color: var(--hl-text) !important; }
       .state { font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
     `,
   ];
 
   // -- helpers ----------------------------------------------------------- //
-  private entityOptions(key: SensorKey | "weather" | "irrigation" | "tts" | "media_player" | "vent" | "shade" | "pump" | "meter" | "butt"): string[] {
-    const states = Object.values(this.hass?.states ?? {});
-    const filter =
-      key === "weather" ? { domains: ["weather"] }
-      : key === "irrigation" ? { domains: ["switch", "valve", "input_boolean"] }
-      : key === "tts" ? { domains: ["tts"] }
-      : key === "media_player" ? { domains: ["media_player"] }
-      : key === "vent" ? { domains: ["cover", "switch", "fan"] }
-      : key === "shade" ? { domains: ["cover", "switch"] }
-      : key === "pump" ? { domains: ["switch", "valve", "input_boolean"] }
-      : key === "meter" || key === "butt" ? { domains: ["sensor", "input_number"] }
-      : SENSOR_FILTER[key];
-    return states
-      .filter((s) => filter.domains.includes(s.entity_id.split(".")[0]))
-      .filter((s) => !("deviceClass" in filter) || !filter.deviceClass || s.attributes.device_class === filter.deviceClass)
-      .map((s) => s.entity_id)
-      .sort();
+  private entityOptions(key: EntityKind): EntityLike[] {
+    return fittingEntities(key, this.hass?.states as Record<string, EntityLike> | undefined);
   }
 
-  private entityInput(id: string, key: Parameters<SettingsView["entityOptions"]>[0], value: string | null | undefined, onChange: (v: string | null) => void, label: string): TemplateResult {
-    const listId = `list-${key}`;
+  /** True when Home Assistant gave us entities to pick from (otherwise: a plain text field). */
+  private get hasEntities(): boolean {
+    return Object.keys(this.hass?.states ?? {}).length > 0;
+  }
+
+  /** A drop-down of only the entities that fit this setting; the current value stays listed even when gone. */
+  private entityInput(id: string, key: EntityKind, value: string | null | undefined, onChange: (v: string | null) => void, label: string): TemplateResult {
     const st = value ? this.hass?.states[value] : undefined;
+    const reading = value ? html`<span class="state">${st ? `${st.state} ${(st.attributes.unit_of_measurement as string) ?? ""}` : `⚠ ${this.t("settings.entity_missing")}`}</span>` : nothing;
+    if (!this.hasEntities) {
+      return html`<label class="field">${label}
+        <input .value=${value ?? ""} placeholder=${`${key}.…`} ?disabled=${!this.admin} id=${id}
+          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value.trim() || null)} />${reading}</label>`;
+    }
+    const options = this.entityOptions(key);
     return html`<label class="field">${label}
-      <input list=${listId} .value=${value ?? ""} placeholder=${`${({ weather: "weather", irrigation: "switch", tts: "tts", media_player: "media_player", vent: "cover" } as Record<string, string>)[key] ?? "sensor"}.…`} ?disabled=${!this.admin} id=${id}
-        aria-invalid=${value && !st ? "true" : "false"}
-        @change=${(e: Event) => onChange((e.target as HTMLInputElement).value.trim() || null)} />
-      ${value ? html`<span class="state">${st ? `${st.state} ${(st.attributes.unit_of_measurement as string) ?? ""}` : "⚠ not found"}</span>` : nothing}
-    </label>`;
+      <select id=${id} ?disabled=${!this.admin} aria-invalid=${value && !st ? "true" : "false"}
+        @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value || null)}>
+        <option value="" ?selected=${!value}>${options.length ? this.t("settings.entity_none") : this.t("settings.entity_no_match")}</option>
+        ${value && !options.some((o) => o.entity_id === value) ? html`<option value=${value} selected>${value}</option>` : nothing}
+        ${options.map((o) => html`<option value=${o.entity_id} ?selected=${o.entity_id === value}>${entityLabel(o)}</option>`)}
+      </select>${reading}</label>`;
   }
 
-  private datalists(): TemplateResult {
-    const keys = ["soil_moisture", "soil_temperature", "air_temperature", "air_humidity", "light", "rain", "par", "ec", "npk_n", "npk_p", "npk_k",
-      "leaf_wetness", "weather", "irrigation", "tts", "media_player", "vent", "shade", "pump", "meter", "butt"] as const;
-    return html`${keys.map((k) => html`<datalist id=${`list-${k}`}>${this.entityOptions(k).map((e) => html`<option value=${e}></option>`)}</datalist>`)}`;
+  /** Several entities or services at once (notify services, speakers): tick boxes, or a text field without HA. */
+  private multiPick(label: string, values: string[], options: { id: string; label: string }[], onChange: (v: string[]) => void, placeholder: string): TemplateResult {
+    if (!options.length && !values.length) {
+      return html`<label class="field">${label}<input placeholder=${placeholder} ?disabled=${!this.admin}
+        @change=${(e: Event) => onChange((e.target as HTMLInputElement).value.split(",").map((x) => x.trim()).filter(Boolean))} />
+        <span class="xs muted">${this.t("settings.entity_no_match")}</span></label>`;
+    }
+    const all = [...options, ...values.filter((v) => !options.some((o) => o.id === v)).map((v) => ({ id: v, label: `${v} ⚠` }))];
+    const toggle = (id: string, on: boolean) => onChange(on ? [...values.filter((v) => v !== id), id] : values.filter((v) => v !== id));
+    return html`<fieldset class="field picks"><legend>${label}</legend>
+      ${all.map((o) => html`<label class="check"><input type="checkbox" .checked=${values.includes(o.id)} ?disabled=${!this.admin}
+        @change=${(e: Event) => toggle(o.id, (e.target as HTMLInputElement).checked)} />${o.label}</label>`)}
+    </fieldset>`;
+  }
+
+  private notifyPerson(id: string, name: string, value: string): TemplateResult {
+    const save = (v: string) => this.saveSettings({ person_notify: { [id]: v.trim() } });
+    const options = this.notifyOptions();
+    if (!options.length) {
+      return html`<label class="field">${name}<input placeholder="notify.mobile_app_…" .value=${value}
+        @change=${(e: Event) => save((e.target as HTMLInputElement).value)} /></label>`;
+    }
+    return html`<label class="field">${name}<select @change=${(e: Event) => save((e.target as HTMLSelectElement).value)}>
+      <option value="" ?selected=${!value}>${this.t("settings.entity_none")}</option>
+      ${value && !options.some((o) => o.id === value) ? html`<option value=${value} selected>${value} ⚠</option>` : nothing}
+      ${options.map((o) => html`<option value=${o.id} ?selected=${o.id === value}>${o.label}</option>`)}</select></label>`;
+  }
+
+  private notifyOptions(): { id: string; label: string }[] {
+    return Object.keys(this.hass?.services?.notify ?? {})
+      .filter((s) => s !== "send_message")
+      .map((s) => ({ id: `notify.${s}`, label: `notify.${s}` }))
+      .sort((a, b) => a.id.localeCompare(b.id));
   }
 
   private async saveSettings(patch: Partial<Settings> | Record<string, unknown>): Promise<void> {
@@ -323,23 +339,21 @@ export class SettingsView extends LitElement {
       </div>
       <label class="field check"><input type="checkbox" .checked=${s.maintenance_tasks ?? true}
         @change=${(e: Event) => this.saveSettings({ maintenance_tasks: (e.target as HTMLInputElement).checked })} />${this.t("settings.maintenance_tasks")}</label>
+      <label class="field check"><input type="checkbox" .checked=${s.eco_tips ?? true}
+        @change=${(e: Event) => this.saveSettings({ eco_tips: (e.target as HTMLInputElement).checked })} />${this.t("settings.eco_tips")}</label>
     </section>`;
   }
 
   private renderNotifications(): TemplateResult {
     const n = this.snapshot.settings.notifications;
     const set = (patch: Partial<Settings["notifications"]>) => this.saveSettings({ notifications: patch });
-    const list = (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean);
-    const notifyServices = Object.keys(this.hass?.services?.notify ?? {}).map((s) => `notify.${s}`);
     return html`<section class="card stack" aria-labelledby="s-notify">
       <h2 id="s-notify">${this.t("settings.notifications")}</h2>
       <label class="field check"><input type="checkbox" .checked=${n.persistent} @change=${(e: Event) => set({ persistent: (e.target as HTMLInputElement).checked })} />${this.t("settings.persistent")}</label>
-      <label class="field">${this.t("settings.notify_services")}
-        <input list="notify-services" .value=${n.notify_services.join(", ")} @change=${(e: Event) => set({ notify_services: list((e.target as HTMLInputElement).value) })} />
-        <datalist id="notify-services">${notifyServices.map((s) => html`<option value=${s}></option>`)}</datalist></label>
+      ${this.multiPick(this.t("settings.notify_services"), n.notify_services, this.notifyOptions(), (v) => set({ notify_services: v }), "notify.mobile_app_…")}
       ${this.entityInput("tts", "tts", n.tts_entity, (v) => set({ tts_entity: v }), this.t("settings.tts"))}
-      <label class="field">${this.t("settings.tts_players")}<input list="list-media_player" .value=${n.tts_media_players.join(", ")}
-        @change=${(e: Event) => set({ tts_media_players: list((e.target as HTMLInputElement).value) })} /></label>
+      ${this.multiPick(this.t("settings.tts_players"), n.tts_media_players, this.entityOptions("media_player").map((o) => ({ id: o.entity_id, label: entityLabel(o) })),
+        (v) => set({ tts_media_players: v }), "media_player.…")}
       <div class="form-grid">
         <label class="field">${this.t("settings.digest")}<input type="time" .value=${n.digest_time} @change=${(e: Event) => set({ digest_time: (e.target as HTMLInputElement).value })} /></label>
         <span></span>
@@ -418,7 +432,6 @@ export class SettingsView extends LitElement {
     const assignment = s.assignment ?? {};
     const notify = s.person_notify ?? {};
     const people = persons();
-    const notifyServices = Object.keys(this.hass?.services?.notify ?? {}).map((x) => `notify.${x}`);
     const types = ["water", "harvest", "sow_indoor", "sow_direct", "transplant", "weed", "pest_check", "feed", "ventilate", "prune", "clean_greenhouse", "tool_care"];
     const who = (key: string) => html`<select @change=${(e: Event) => this.saveSettings({ assignment: { [key]: (e.target as HTMLSelectElement).value } })}>
       <option value="" ?selected=${!assignment[key]}>${this.t(key === "*" ? "settings.nobody" : "settings.default_person")}</option>
@@ -431,10 +444,7 @@ export class SettingsView extends LitElement {
           <div class="form-grid" style="margin-top:8px">${types.map((ty) => html`<label class="field">${this.t(`type.${ty}`)}${who(ty)}</label>`)}</div>
         </details>
         <h3>${this.t("settings.person_notify")}</h3>
-        <datalist id="notify-person">${notifyServices.map((x) => html`<option value=${x}></option>`)}</datalist>
-        <div class="form-grid">${people.map((p) => html`<label class="field">${p.name}
-          <input list="notify-person" placeholder="notify.mobile_app_…" .value=${notify[p.id] ?? ""}
-            @change=${(e: Event) => this.saveSettings({ person_notify: { [p.id]: (e.target as HTMLInputElement).value.trim() } })} /></label>`)}</div>
+        <div class="form-grid">${people.map((p) => this.notifyPerson(p.id, p.name, notify[p.id] ?? ""))}</div>
         <p class="xs muted">${this.t("settings.person_notify_hint")}</p>`}
       <h3>${this.t("settings.voice")}</h3>
       <p class="xs muted">${this.t("settings.voice_hint")}</p>
@@ -505,7 +515,6 @@ export class SettingsView extends LitElement {
               <span class="swatch ${th}"></span><b>${this.t(`theme.${th}`)}</b><small>${this.t(`theme.${th}.hint`)}</small></button>`)}
           </div></div>
       </section>
-      ${this.datalists()}
     `;
   }
 }
