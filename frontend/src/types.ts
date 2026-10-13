@@ -616,6 +616,7 @@ export interface Snapshot {
     hourly: ForecastPoint[];
     error: string | null;
   };
+  archived_seasons?: number[];
 }
 
 export interface PlanDoc { zones: Zone[]; beds: Bed[]; plantings: Planting[]; features: Feature[] }

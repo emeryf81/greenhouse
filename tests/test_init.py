@@ -287,3 +287,27 @@ async def test_digest_follows_settings_changed_in_panel(
     await hass.async_block_till_done()
     digest = [c for c in pushes if c.data["title"] == "Garden today"]
     assert len(digest) == 1 and "tasks today" in digest[0].data["message"]
+
+
+async def test_old_seasons_are_archived_and_still_reportable(hass: HomeAssistant, setup_garden, hass_ws_client) -> None:
+    from custom_components.garden_manager.engine.models import Planting, PlantingStatus
+
+    entry, _ = setup_garden
+    runtime = entry.runtime_data
+    repo = runtime.repo
+    repo.data.plantings.append(
+        Planting(
+            id="ancient", plant_id="tomato", bed_id=repo.data.beds[0].id, season=2015, status=PlantingStatus.FINISHED
+        )
+    )
+    runtime.coordinator._archived_for = None
+    await runtime.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert all(p.id != "ancient" for p in repo.data.plantings)
+    assert "2015" in repo.archive and repo.archive["2015"]["plantings"][0]["id"] == "ancient"
+    assert any(p.id == "ancient" for p in repo.data_for_season(2015).plantings)
+
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "garden_manager/report/season", "season": 2015})
+    msg = await client.receive_json()
+    assert msg["success"] and any(c["plant_id"] == "tomato" for c in msg["result"]["crops"])

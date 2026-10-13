@@ -229,6 +229,7 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
         "harvest_log": [to_dict(e) for e in data.harvest_log[-300:]],
         "journal": [to_dict(e) for e in data.journal[-200:]],
         "seed_stock": [to_dict(e) for e in data.seed_stock],
+        "archived_seasons": sorted(int(k) for k in runtime.repo.archive if k.isdigit()),
         "irrigation_status": {
             "running": runtime.irrigation.running,
             "bed_id": runtime.irrigation.status.bed_id,
@@ -1731,5 +1732,7 @@ def ws_season_report(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     if runtime is not None:
         connection.send_result(
             msg["id"],
-            planning.season_report(runtime.repo.data, runtime.repo.db, msg["season"], today=dt_util.now().date()),
+            planning.season_report(
+                runtime.repo.data_for_season(msg["season"]), runtime.repo.db, msg["season"], today=dt_util.now().date()
+            ),
         )
