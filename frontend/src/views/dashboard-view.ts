@@ -43,6 +43,7 @@ export class DashboardView extends LitElement {
         background: radial-gradient(600px 220px at 85% 10%, rgba(255, 255, 255, 0.7), transparent 70%),
           radial-gradient(400px 200px at 0% 120%, rgba(255, 255, 255, 0.35), transparent 70%); }
       :host-context([dark]) .hero::before { opacity: 0.08; }
+      .hero .wall { position: absolute; top: 16px; right: 16px; background: color-mix(in srgb, var(--hl-surface) 55%, transparent); }
       .hero .art { position: absolute; right: 18px; top: -6px; height: 150%; opacity: 0.9; z-index: -1; pointer-events: none; }
       .hero .eyebrow { color: color-mix(in srgb, var(--hl-hero-ink) 70%, transparent); }
       .hero h1 { font-size: clamp(28px, 3.4vw, 42px); color: var(--hl-hero-ink); margin: 6px 0 2px; }
@@ -155,6 +156,7 @@ export class DashboardView extends LitElement {
         <div class="eyebrow">${formatDate(today, this.lang, { weekday: "long", day: "numeric", month: "long" })} · ${this.t("common.season", { year: a.season })}</div>
         <h1>${this.greeting()}</h1>
         <p class="lede">${this.t(`dash.lede.${this.seasonOf(today)}`)}</p>
+        <button class="btn small ghost wall" @click=${() => this.emit("navigate", "wall")}><ha-icon icon="mdi:tablet-dashboard"></ha-icon>${this.t("wall.open")}</button>
         <div class="stats">
           <div class="stat"><div class="v">${due.length}</div><div class="l">${this.t("dash.stat_tasks")}</div></div>
           <div class="stat"><div class="v">${minutes}<small>min</small></div><div class="l">${this.t("dash.stat_work")}</div></div>

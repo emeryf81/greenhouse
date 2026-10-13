@@ -16,6 +16,7 @@ import { makeTranslator, normalizeLang, type Translate } from "./i18n";
 import { shared, themes, tokens } from "./styles/tokens";
 import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "./types";
 import "./views/weather-view";
+import "./views/wall-view";
 import { celebrate } from "./util/celebrate";
 import { themeAttribute, themeChoice } from "./util/theme";
 import "./views/dashboard-view";
@@ -37,7 +38,7 @@ import "./components/modal";
 import "./components/plant-detail";
 import { familyColor, plantName } from "./util/garden";
 
-type Tab = "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
+type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string }[] = [
   { id: "dashboard", icon: "mdi:home-variant-outline" },
   { id: "planner", icon: "mdi:sprout" },
@@ -52,6 +53,7 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: "analysis", icon: "mdi:stethoscope" },
   { id: "print", icon: "mdi:printer-outline" },
   { id: "settings", icon: "mdi:cog-outline" },
+  { id: "wall", icon: "mdi:tablet-dashboard" }, // the wall screen: no menu, reached from Today
 ];
 /** The menu: seven places, the related tabs of a place in a row underneath. */
 type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "knowledge" | "manage";
@@ -463,6 +465,14 @@ export class HortulusPanel extends LitElement {
   }
 
   render(): TemplateResult {
+    if (this.tab === "wall" && this.snapshot && this.api) {
+      return html`<hl-wall-view .snapshot=${this.snapshot} .hass=${this.hass} .t=${this.t} lang=${this.uiLang}
+          .plants=${new Map(this.plants.map((p) => [p.id, p]))} .families=${this.families}
+          @navigate=${(e: CustomEvent<Tab>) => this.navigate(e.detail)}
+          @complete-task=${(e: CustomEvent<Task>) => this.completeTask(e.detail)}
+          @hl-celebrate=${(e: CustomEvent<{ x: number; y: number }>) => celebrate(this.renderRoot as ShadowRoot, e.detail.x, e.detail.y)}></hl-wall-view>
+        ${this.toastMsg ? html`<div class="toast" role="status" aria-live="polite">${this.toastMsg}</div>` : nothing}`;
+    }
     return html`
       <header class="appbar">
         ${this.narrow ? html`<button class="icon-btn" aria-label="Menu" @click=${() => this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }))}>

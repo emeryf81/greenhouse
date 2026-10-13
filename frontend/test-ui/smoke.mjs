@@ -168,6 +168,14 @@ await step("menu: seven places, the garden's tabs underneath", async () => {
   assert.ok(days >= 7, `only ${days} days`);
 });
 
+await step("wall screen: clock and big tick-boxes, back to Today", async () => {
+  await page.goto(`${base}?tab=wall&lang=nl`);
+  await page.locator("hl-wall-view .clock").waitFor();
+  assert.ok((await page.locator("hl-wall-view .tick").count()) > 0, "no tasks on the wall");
+  await page.locator("hl-wall-view .exit").click();
+  await page.locator("hl-dashboard-view").waitFor();
+});
+
 await step("crops on a phone: one card per crop", async () => {
   await page.setViewportSize({ width: 400, height: 860 });
   await open("crops");
