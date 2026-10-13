@@ -104,10 +104,10 @@ export class CropGantt extends LitElement {
   render(): TemplateResult {
     const months = Array.from({ length: 12 }, (_, i) => new Date(this.start + (i + 0.5) * (this.span / 12)).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { month: "short" }));
     // grouped by bed id (two beds may share a name); crops without a bed together under "–"
-    const byBed = new Map<string, { name: string; rows: CropRow[] }>();
+    const byBed = new Map<string | null, { name: string; rows: CropRow[] }>();
     for (const r of this.rows.filter((x) => x.timeline)) {
-      const key = r.bed ? r.planting.bed_id ?? r.bed : "–";
-      const group = byBed.get(key) ?? { name: r.bed ?? "–", rows: [] };
+      const key = r.bed === null ? null : r.planting.bed_id ?? r.bed;
+      const group = byBed.get(key) ?? { name: r.bed || "–", rows: [] };
       group.rows.push(r);
       byBed.set(key, group);
     }
