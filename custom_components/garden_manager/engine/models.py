@@ -788,6 +788,27 @@ class WaterSettings:
 
 
 @dataclass(slots=True)
+class EconomySettings:
+    """Shop prices and costs for the harvest-versus-cost overview."""
+
+    currency: str = "€"
+    water_price_m3: float = 5.0  # mains water incl. levies
+    prices: dict[str, float] = field(default_factory=dict)  # plant id -> price per kg (overrides the defaults)
+
+
+@dataclass(slots=True)
+class Expense:
+    """Money spent on the garden (seeds, plants, compost, tools ...)."""
+
+    id: str
+    day: date
+    season: int
+    category: Literal["seeds", "plants", "soil", "fertilizer", "tools", "water", "protection", "other"] = "other"
+    amount: float = 0.0
+    note: str = ""
+
+
+@dataclass(slots=True)
 class GardenSettings:
     region: RegionProfile = field(default_factory=RegionProfile)
     weather_entity: str | None = None
@@ -814,6 +835,7 @@ class GardenSettings:
     maintenance_tasks: bool = True
     # Move weather-sensitive jobs (sowing, planting out, spraying ...) off rainy, frosty or hot days.
     weather_aware_scheduling: bool = True
+    economy: EconomySettings = field(default_factory=EconomySettings)
 
 
 @dataclass(slots=True)
@@ -835,10 +857,21 @@ class ClimateDay:
 
 @dataclass(slots=True)
 class WaterBalance:
-    """Root-zone depletion bucket per bed (used when no moisture sensor)."""
+    """Root-zone depletion bucket per bed (used when no moisture sensor).
+
+    With a moisture sensor the bucket is set from the reading once a day and
+    the bed learns ``et_factor``: how much faster (or slower) it really dries
+    out than the model predicts.  That keeps the bucket honest for the days
+    the sensor is off or flat.
+    """
 
     day: date | None = None
     depletion_mm: float = 0.0
+    et_factor: float = 1.0
+    calibrated_on: date | None = None  # last day the bucket was set from the sensor
+    calibrated_mm: float | None = None  # sensor depletion on that day
+    model_et_mm: float = 0.0  # modelled crop ET since then (factor 1), dry days only
+    wet_since: bool = False  # rain or irrigation since the calibration: no learning
 
 
 @dataclass(slots=True)
@@ -928,6 +961,7 @@ class GardenData:
     journal: list[JournalEntry] = field(default_factory=list)
     seed_stock: list[SeedPacket] = field(default_factory=list)
     water_log: list[WaterReading] = field(default_factory=list)
+    expenses: list[Expense] = field(default_factory=list)
     # Garden plans per season.  ``zones``/``beds``/``features`` above are the
     # plan of ``layout_season`` - the garden as it is now; ``layouts`` holds the
     # plans of other seasons (archived years, next year's draft).  A new year

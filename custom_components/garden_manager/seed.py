@@ -43,6 +43,8 @@ from .const import (
 )
 from .engine.models import (
     BedKind,
+    Feature,
+    FeatureType,
     GardenBed,
     GardenData,
     Hemisphere,
@@ -255,3 +257,62 @@ def add_example_plan(data: GardenData, db: PlantDatabase, today: date) -> None:
                 )
                 series, _ = expand_succession(base, lettuce, anchors, zone, count=3)
                 data.plantings += series
+
+
+STARTER_SIZES: dict[str, tuple[int, float, float]] = {
+    # size -> (raised beds, long side m, short side m); the rows run along the long side
+    "small": (2, 2.4, 1.2),
+    "medium": (3, 3.0, 1.2),
+    "large": (4, 3.6, 1.2),
+}
+
+
+def starter_garden(
+    size: str, *, greenhouse: bool, language: str, today: date, db: PlantDatabase, base: GardenData
+) -> GardenData:
+    """A ready-made beginner's garden: raised beds, a herb pot, optionally a greenhouse, and a first plan.
+
+    Built in a fresh document with the settings (region, weather ...) of ``base``;
+    the caller copies the zones, beds, features and plantings over.
+    """
+    beds, width, length = STARTER_SIZES.get(size, STARTER_SIZES["medium"])
+    names = {"nl": ("Bak", "Kruidenpot", "Serre"), "fr": ("Carré", "Pot d'aromates", "Serre")}.get(
+        language, ("Bed", "Herb pot", "Greenhouse")
+    )
+    areas: list[dict[str, Any]] = [
+        {CONF_AREA_NAME: f"{names[0]} {i + 1}", CONF_AREA_TYPE: "outdoor", CONF_WIDTH_M: width, CONF_LENGTH_M: length}
+        for i in range(beds)
+    ]
+    areas.append({CONF_AREA_NAME: names[1], CONF_AREA_TYPE: AREA_CONTAINER, CONF_WIDTH_M: 0.6, CONF_LENGTH_M: 0.6})
+    if greenhouse:
+        areas.append({CONF_AREA_NAME: names[2], CONF_AREA_TYPE: AREA_GREENHOUSE, CONF_WIDTH_M: 3.0, CONF_LENGTH_M: 2.0})
+    data = build_initial_data(
+        {CONF_AREAS: areas, CONF_IMPORT_EXAMPLE: True},
+        latitude=None,
+        time_zone=None,
+        language=language,
+        today=today,
+        db=db,
+    )
+    data.settings = base.settings  # keep the gardener's region, weather and notifications
+    data.plantings.clear()
+    add_example_plan(data, db, today)
+    outdoor = next((z for z in data.zones if z.type is ZoneType.OUTDOOR), None)
+    if outdoor is not None:
+        labels = {"nl": ("Pad", "Regenton", "Compost"), "fr": ("Allée", "Récupérateur d'eau", "Compost")}.get(
+            language, ("Path", "Water butt", "Compost")
+        )
+        data.features = [
+            Feature(
+                _id("ft"),
+                labels[0],
+                FeatureType.PATH,
+                x_cm=0,
+                y_cm=outdoor.length_cm,
+                width_cm=outdoor.width_cm,
+                length_cm=60,
+            ),
+            Feature(_id("ft"), labels[1], FeatureType.WATER_BUTT, x_cm=-80, y_cm=0, width_cm=60, length_cm=60),
+            Feature(_id("ft"), labels[2], FeatureType.COMPOST, x_cm=-120, y_cm=100, width_cm=100, length_cm=100),
+        ]
+    return data

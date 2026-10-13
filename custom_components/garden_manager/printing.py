@@ -95,11 +95,11 @@ def photo_loader(config_dir: Path) -> Callable[..., Image | None]:
     return load
 
 
-def print_context(runtime: GardenRuntime) -> PrintContext:
+def print_context(runtime: GardenRuntime, season: int | None = None) -> PrintContext:
     analysis = runtime.coordinator.data
     title = runtime.coordinator.config_entry.title or "Hortulus"
     return PrintContext(
-        data=runtime.repo.data,
+        data=runtime.repo.data_for_season(season) if season else runtime.repo.data,
         db=runtime.repo.db,
         timelines=dict(analysis.timelines) if analysis else {},
         today=analysis.today if analysis else dt_util.now().date(),
@@ -123,12 +123,12 @@ def options_from_query(query: dict[str, str], lang: str) -> PrintOptions:
 
 
 async def async_render_pdf(hass: HomeAssistant, runtime: GardenRuntime, opts: PrintOptions) -> bytes:
-    ctx = print_context(runtime)
+    ctx = print_context(runtime, opts.season)
     return await hass.async_add_executor_job(render_pdf, ctx, opts)
 
 
 async def async_render_svg(hass: HomeAssistant, runtime: GardenRuntime, opts: PrintOptions) -> list[str]:
-    ctx = print_context(runtime)
+    ctx = print_context(runtime, opts.season)
     return await hass.async_add_executor_job(render_svg, ctx, opts)
 
 

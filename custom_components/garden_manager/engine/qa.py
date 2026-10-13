@@ -116,16 +116,56 @@ L: dict[str, dict[str, str]] = {
             "failed": "mislukt",
         },
     },
+    "fr": {
+        "not_planted": "{plant} ne figure pas dans votre plan cette saison.",
+        "planting": "{bed} : {status}, {stage}.",
+        "harvest": "Période de récolte : {start} - {end}.",
+        "not_bearing": "Encore trop jeune pour porter des fruits (à partir de {season}).",
+        "moisture": "Sol de {bed} : {state}{pct}.",
+        "next_tasks": "Prochaines tâches : {tasks}.",
+        "no_tasks": "Aucune tâche en cours pour le moment.",
+        "sow_window": "{kind} : {start} - {end}.",
+        "maturity": "Prêt {min}-{max} jours après {from_}.",
+        "pests": "Surveillez : {list}.",
+        "friends": "Bons voisins : {list}.",
+        "enemies": "À tenir à l'écart de : {list}.",
+        "water_need": "Besoin en eau : {level} ; apportez plutôt 10-20 l/m² en une fois que quelques gouttes chaque jour.",
+        "feed_need": "Besoin en nutriments : {level}{interval}.",
+        "feed_interval": ", fertiliser environ tous les {days} jours",
+        "gh_temp": "Actuellement {temp} °C dans {zone}.",
+        "gh_action": "Conseil : {action}.",
+        "frost_risk": "Risque de gel : {level}.",
+        "disease_risk": "Risque de maladies cryptogamiques : {level}.",
+        "open_tasks": "{n} tâches pour aujourd'hui ou en retard.",
+        "gaps": "Pas de récolte en : {months}.",
+        "coverage_ok": "Quelque chose à récolter chaque mois - bravo !",
+        "what_next": "Ensuite dans la rotation après {families} : légumineuses, puis légumes-feuilles, puis légumes-racines (ou un engrais vert entre les deux).",
+        "tools_for": "Pour {task} : {tools}.",
+        "shopping_item": "{name} : {qty} {unit} ({reason})",
+        "status_label": {
+            "planned": "prévu",
+            "sown_indoors": "semé à l'abri",
+            "sown": "semé",
+            "transplanted": "planté",
+            "harvesting": "en récolte",
+            "finished": "terminé",
+            "failed": "raté",
+        },
+    },
 }
 LEVEL = {
     "en": {"low": "low", "medium": "medium", "high": "high"},
     "nl": {"low": "laag", "medium": "matig", "high": "hoog"},
+    "fr": {"low": "faible", "medium": "moyen", "high": "élevé"},
 }
 STAGE = {
     "en": {"not_planted": "not started", "germination": "germinating", "seedling": "seedling", "vegetative": "growing",
            "flowering": "flowering", "fruiting": "fruiting", "harvest": "ready to harvest", "finished": "finished"},
     "nl": {"not_planted": "nog niet gestart", "germination": "kiemt", "seedling": "zaailing", "vegetative": "groeit",
            "flowering": "bloeit", "fruiting": "zet vruchten", "harvest": "oogstklaar", "finished": "afgelopen"},
+    "fr": {"not_planted": "pas encore commencé", "germination": "en germination", "seedling": "plantule",
+           "vegetative": "en croissance", "flowering": "en fleur", "fruiting": "en fructification",
+           "harvest": "prêt à récolter", "finished": "terminé"},
 }  # fmt: skip
 
 
@@ -149,8 +189,13 @@ class Answer:
         return asdict(self)
 
 
+def _lk(lang: str) -> str:
+    """Catalogue key for ``lang``: the languages written out here, else English."""
+    return lang if lang in ("nl", "fr") else "en"
+
+
 def _l(key: str, lang: str, **kw: Any) -> str:
-    table = L["nl" if lang == "nl" else "en"]
+    table = L[_lk(lang)]
     return str(table.get(key, L["en"][key])).format(**kw)
 
 
@@ -179,7 +224,7 @@ def _kb(answer: Answer, problem: str, lang: str) -> None:
     entry = PROBLEMS.get(problem)
     if not entry:
         return
-    block = entry.get("nl" if lang == "nl" else "en") or entry["en"]
+    block = entry.get(_lk(lang)) or entry["en"]
     answer.causes += block["causes"]
     answer.actions += block["actions"]
     answer.remedies += block["remedies"]
@@ -200,9 +245,9 @@ def _plant_status(answer: Answer, plant: Plant, data: GardenData, analysis: Gard
     for p in mine:
         bed = data.bed(p.bed_id)
         ph = analysis.phenology.get(p.id)
-        stage = STAGE["nl" if lang == "nl" else "en"].get(ph.stage, ph.stage) if ph else "-"
+        stage = STAGE[_lk(lang)].get(ph.stage, ph.stage) if ph else "-"
         answer.status.append(_l("planting", lang, bed=bed.name if bed else "?",
-                                status=L["nl" if lang == "nl" else "en"]["status_label"].get(p.status.value, p.status.value),  # type: ignore[union-attr]
+                                status=L[_lk(lang)]["status_label"].get(p.status.value, p.status.value),  # type: ignore[union-attr]
                                 stage=stage))  # fmt: skip
         tl = analysis.timelines.get(p.id)
         if tl and plant.harvestable:
@@ -231,7 +276,7 @@ def _plant_facts(
     answer: Answer, plant: Plant, problem: str, db: PlantDatabase, analysis: GardenAnalysis, lang: str
 ) -> None:
     anchors = analysis.anchors
-    lv = LEVEL["nl" if lang == "nl" else "en"]
+    lv = LEVEL[_lk(lang)]
     if problem in ("when_sow", "status", "what_to_do"):
         for kind, windows in (("indoor_sow", plant.sowing.indoor_sow), ("direct_sow", plant.sowing.direct_sow),
                               ("transplant", plant.sowing.transplant)):  # fmt: skip
@@ -268,10 +313,10 @@ def _plant_facts(
             )
         for pest in plant.pests if problem in ("pests", "what_to_do") else ():
             if pest in PESTS:
-                answer.remedies.insert(0, PESTS[pest]["nl" if lang == "nl" else "en"])
+                answer.remedies.insert(0, PESTS[pest].get(_lk(lang)) or PESTS[pest]["en"])
         for dis in plant.diseases if problem in ("disease", "what_to_do") else ():
             if dis in DISEASES:
-                answer.remedies.insert(0, DISEASES[dis]["nl" if lang == "nl" else "en"])
+                answer.remedies.insert(0, DISEASES[dis].get(_lk(lang)) or DISEASES[dis]["en"])
     if problem in ("companions", "status"):
         friends, enemies = [], []
         for other in db.all():
@@ -307,7 +352,7 @@ def _plant_facts(
             if t(f"pollination.{plant.pollination}", lang) != f"pollination.{plant.pollination}"
             else plant.pollination,
         )
-    tips = plant.tips.get("nl" if lang == "nl" else "en") or plant.tips.get("en") or []
+    tips = plant.tips.get(_lk(lang)) or plant.tips.get("en") or []
     answer.remedies += [tip for tip in tips if tip not in answer.remedies]
 
 

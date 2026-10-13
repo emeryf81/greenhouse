@@ -79,7 +79,8 @@
    "id": "alpine_strawberry",
    "names": {
     "en": "Alpine strawberry",
-    "nl": "Bosaardbei"
+    "nl": "Bosaardbei",
+    "fr": "Fraise des bois"
    },
    "scientific_name": "Fragaria vesca",
    "family": "Rosaceae",
@@ -99,6 +100,9 @@
     ],
     "nl": [
      "Geen uitlopers - perfecte rand langs paden en onder fruitbomen; verdraagt schaduw."
+    ],
+    "fr": [
+     "Pas de stolons - une bordure parfaite le long des allées et sous les arbres fruitiers ; supporte l'ombre."
     ]
    },
    "companions": [
@@ -191,7 +195,8 @@
    "id": "angelica",
    "names": {
     "en": "Angelica",
-    "nl": "Engelwortel"
+    "nl": "Engelwortel",
+    "fr": "Angélique"
    },
    "scientific_name": "Angelica archangelica",
    "family": "Apiaceae",
@@ -209,6 +214,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -276,7 +285,8 @@
    "id": "anise",
    "names": {
     "en": "Anise",
-    "nl": "Anijs"
+    "nl": "Anijs",
+    "fr": "Anis vert"
    },
    "scientific_name": "Pimpinella anisum",
    "family": "Apiaceae",
@@ -293,6 +303,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -373,7 +387,8 @@
    "id": "anise_hyssop",
    "names": {
     "en": "Anise hyssop",
-    "nl": "Anijsnetel"
+    "nl": "Anijsnetel",
+    "fr": "Agastache anisée"
    },
    "scientific_name": "Agastache foeniculum",
    "family": "Lamiaceae",
@@ -383,6 +398,9 @@
     ],
     "nl": [
      "Bloeit 3 maanden - een van de beste bijenplanten."
+    ],
+    "fr": [
+     "Fleurit pendant 3 mois - l'une des meilleures plantes mellifères."
     ]
    },
    "companions": [],
@@ -460,7 +478,8 @@
    "id": "apple",
    "names": {
     "en": "Apple",
-    "nl": "Appel"
+    "nl": "Appel",
+    "fr": "Pommier"
    },
    "scientific_name": "Malus domestica",
    "family": "Rosaceae",
@@ -581,6 +600,12 @@
      "Schurftresistente rassen: Topaz, Santana, Rubinola, Reinette van Orleans.",
      "Lijmband rond de stam in oktober houdt de vleugelloze wintervlinder-wijfjes tegen.",
      "Heermoesthee (100 g gedroogde heermoes 30 min koken in 1 l water, 1:5 verdunnen) versterkt het blad tegen schurft."
+    ],
+    "fr": [
+     "Plantez une deuxième variété (ou un pommier d'ornement) à moins de 50 m, qui fleurit en même temps.",
+     "Variétés résistantes à la tavelure : Topaz, Santana, Rubinola, Reinette d'Orléans.",
+     "Une bande de glu autour du tronc en octobre arrête les femelles aptères de la cheimatobie.",
+     "La décoction de prêle (faites bouillir 100 g de prêle séchée dans 1 l d'eau pendant 30 min, diluez à 1:5) renforce les feuilles contre la tavelure."
     ]
    },
    "companions": [
@@ -702,7 +727,8 @@
    "id": "apple_mint",
    "names": {
     "en": "Apple mint",
-    "nl": "Appelmunt"
+    "nl": "Appelmunt",
+    "fr": "Menthe pomme"
    },
    "scientific_name": "Mentha suaveolens",
    "family": "Lamiaceae",
@@ -716,6 +742,9 @@
     ],
     "nl": [
      "Kweek in een ingegraven emmer - munt woekert."
+    ],
+    "fr": [
+     "Cultivez-la dans un seau enterré - la menthe est envahissante."
     ]
    },
    "companions": [],
@@ -793,7 +822,8 @@
    "id": "apricot",
    "names": {
     "en": "Apricot",
-    "nl": "Abrikoos"
+    "nl": "Abrikoos",
+    "fr": "Abricotier"
    },
    "scientific_name": "Prunus armeniaca",
    "family": "Rosaceae",
@@ -900,6 +930,9 @@
     ],
     "nl": [
      "Plant tegen een warme zuidmuur; ze bloeit vóór de bijen vliegen."
+    ],
+    "fr": [
+     "Plantez contre un mur chaud exposé au sud ; il fleurit avant que les abeilles ne volent."
     ]
    },
    "companions": [],
@@ -976,7 +1009,8 @@
    "id": "aronia",
    "names": {
     "en": "Aronia (chokeberry)",
-    "nl": "Appelbes"
+    "nl": "Appelbes",
+    "fr": "Aronia (aronie noire)"
    },
    "scientific_name": "Aronia melanocarpa",
    "family": "Rosaceae",
@@ -1015,6 +1049,9 @@
     ],
     "nl": [
      "Zeer rijk aan antioxidanten; best gekookt of in sap. Prachtige herfstkleur."
+    ],
+    "fr": [
+     "Très riche en antioxydants ; meilleure cuite ou en jus. Belles couleurs d'automne."
     ]
    },
    "companions": [],
@@ -1083,7 +1120,8 @@
    "id": "asparagus",
    "names": {
     "en": "Asparagus",
-    "nl": "Asperge"
+    "nl": "Asperge",
+    "fr": "Asperge"
    },
    "scientific_name": "Asparagus officinalis",
    "family": "Asparagaceae",
@@ -1130,6 +1168,9 @@
     ],
     "nl": [
      "Niet oogsten in jaar 1, licht in jaar 2, volledig vanaf jaar 3 tot 24 juni."
+    ],
+    "fr": [
+     "Ne récoltez pas la 1re année, légèrement la 2e, puis pleinement à partir de la 3e année jusqu'au 24 juin."
     ]
    },
    "icon": "asparagus",
@@ -1209,7 +1250,8 @@
    "id": "aubergine",
    "names": {
     "en": "Aubergine / Eggplant",
-    "nl": "Aubergine"
+    "nl": "Aubergine",
+    "fr": "Aubergine"
    },
    "scientific_name": "Solanum melongena",
    "family": "Solanaceae",
@@ -1280,6 +1322,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -1287,7 +1333,8 @@
    "id": "basil",
    "names": {
     "en": "Basil",
-    "nl": "Basilicum"
+    "nl": "Basilicum",
+    "fr": "Basilic"
    },
    "scientific_name": "Ocimum basilicum",
    "variety": "Genovese",
@@ -1435,6 +1482,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -1508,7 +1559,8 @@
    "id": "bay_laurel",
    "names": {
     "en": "Bay laurel",
-    "nl": "Laurier"
+    "nl": "Laurier",
+    "fr": "Laurier-sauce"
    },
    "scientific_name": "Laurus nobilis",
    "family": "Lauraceae",
@@ -1523,6 +1575,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -1598,7 +1653,8 @@
    "id": "beefsteak_tomato",
    "names": {
     "en": "Beefsteak tomato",
-    "nl": "Vleestomaat"
+    "nl": "Vleestomaat",
+    "fr": "Tomate cœur de bœuf"
    },
    "scientific_name": "Solanum lycopersicum (beefsteak)",
    "family": "Solanaceae",
@@ -1641,6 +1697,9 @@
     ],
     "nl": [
      "In Vlaanderen best onder glas; schud de bloeitrossen 's ochtends voor betere bestuiving."
+    ],
+    "fr": [
+     "Chez nous, de préférence sous serre ; secouez les bouquets en fleurs en milieu de matinée pour aider la pollinisation."
     ]
    },
    "companions": [
@@ -1672,7 +1731,8 @@
    "id": "beetroot",
    "names": {
     "en": "Beetroot",
-    "nl": "Rode biet"
+    "nl": "Rode biet",
+    "fr": "Betterave rouge"
    },
    "scientific_name": "Beta vulgaris",
    "family": "Amaranthaceae",
@@ -1806,6 +1866,9 @@
     ],
     "nl": [
      "Zaai bij koel weer; spinazie schiet door bij lange dagen en hitte."
+    ],
+    "fr": [
+     "Semez par temps frais : l'épinard monte en graines avec les jours longs et la chaleur."
     ]
    }
   },
@@ -1886,7 +1949,8 @@
    "id": "bergamot",
    "names": {
     "en": "Bee balm (bergamot)",
-    "nl": "Bergamotplant"
+    "nl": "Bergamotplant",
+    "fr": "Monarde (bergamote)"
    },
    "scientific_name": "Monarda didyma",
    "family": "Lamiaceae",
@@ -1896,6 +1960,9 @@
     ],
     "nl": [
      "Magneet voor bijen en zweefvliegen; blad voor 'Earl Grey'-thee."
+    ],
+    "fr": [
+     "Attire abeilles et syrphes ; les feuilles parfument un thé façon « Earl Grey »."
     ]
    },
    "companions": [],
@@ -1973,7 +2040,8 @@
    "id": "blackberry",
    "names": {
     "en": "Thornless blackberry",
-    "nl": "Doornloze braam"
+    "nl": "Doornloze braam",
+    "fr": "Mûre sans épines (ronce)"
    },
    "scientific_name": "Rubus fruticosus",
    "family": "Rosaceae",
@@ -2050,6 +2118,9 @@
     ],
     "nl": [
      "Doornloze rassen: Loch Ness, Thornfree, Triple Crown."
+    ],
+    "fr": [
+     "Variétés sans épines : Loch Ness, Thornfree, Triple Crown."
     ]
    },
    "companions": [
@@ -2136,7 +2207,8 @@
    "id": "blackcurrant",
    "names": {
     "en": "Blackcurrant",
-    "nl": "Zwarte bes"
+    "nl": "Zwarte bes",
+    "fr": "Cassis"
    },
    "scientific_name": "Ribes nigrum",
    "family": "Grossulariaceae",
@@ -2218,6 +2290,10 @@
     "nl": [
      "Plant 5 cm dieper dan in de pot: nieuwe scheuten komen van onder de grond.",
      "Pluk dikke ronde knoppen (rondknopmijt) in de winter af en vernietig ze."
+    ],
+    "fr": [
+     "Plantez 5 cm plus profond que dans le pot : les nouvelles pousses partent du sol.",
+     "En hiver, cueillez les bourgeons gonflés et ronds (phytopte du cassis) et brûlez-les."
     ]
    },
    "companions": [
@@ -2306,7 +2382,8 @@
    "id": "blueberry",
    "names": {
     "en": "Blueberry",
-    "nl": "Blauwe bes"
+    "nl": "Blauwe bes",
+    "fr": "Myrtillier"
    },
    "scientific_name": "Vaccinium corymbosum",
    "family": "Ericaceae",
@@ -2372,6 +2449,10 @@
     "nl": [
      "Heeft zure grond nodig: plant in een groot gat of kuip met turfvrije rhododendronaarde.",
      "Plant twee rassen voor een veel grotere oogst."
+    ],
+    "fr": [
+     "Exige un sol acide : plantez dans un grand trou ou un bac rempli de terreau pour plantes de terre de bruyère sans tourbe.",
+     "Plantez deux variétés pour une récolte bien plus abondante."
     ]
    },
    "companions": [
@@ -2455,7 +2536,8 @@
    "id": "borage",
    "names": {
     "en": "Borage",
-    "nl": "Bernagie"
+    "nl": "Bernagie",
+    "fr": "Bourrache"
    },
    "scientific_name": "Borago officinalis",
    "family": "Boraginaceae",
@@ -2473,6 +2555,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -2562,7 +2647,8 @@
    "id": "borlotti_bean",
    "names": {
     "en": "Borlotti / drying bean",
-    "nl": "Droogboon (borlotti)"
+    "nl": "Droogboon (borlotti)",
+    "fr": "Haricot à écosser (borlotti)"
    },
    "scientific_name": "Phaseolus vulgaris",
    "family": "Fabaceae",
@@ -2581,6 +2667,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -2588,7 +2678,8 @@
    "id": "broad_bean",
    "names": {
     "en": "Broad bean / Fava",
-    "nl": "Tuinboon"
+    "nl": "Tuinboon",
+    "fr": "Fève"
    },
    "scientific_name": "Vicia faba",
    "family": "Fabaceae",
@@ -2735,6 +2826,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -2831,7 +2926,8 @@
    "id": "broccoli",
    "names": {
     "en": "Broccoli",
-    "nl": "Broccoli"
+    "nl": "Broccoli",
+    "fr": "Brocoli"
    },
    "scientific_name": "Brassica oleracea var. italica",
    "family": "Brassicaceae",
@@ -2852,6 +2948,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -2947,7 +3047,8 @@
    "id": "brussels_sprouts",
    "names": {
     "en": "Brussels sprouts",
-    "nl": "Spruitkool"
+    "nl": "Spruitkool",
+    "fr": "Chou de Bruxelles"
    },
    "scientific_name": "Brassica oleracea var. gemmifera",
    "family": "Brassicaceae",
@@ -2978,6 +3079,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -3042,7 +3147,8 @@
    "id": "buckwheat",
    "names": {
     "en": "Buckwheat",
-    "nl": "Boekweit"
+    "nl": "Boekweit",
+    "fr": "Sarrasin"
    },
    "scientific_name": "Fagopyrum esculentum",
    "family": "Polygonaceae",
@@ -3052,6 +3158,9 @@
     ],
     "nl": [
      "Snelste zomergroenbemester (6 weken); maakt fosfor vrij; onderwerken bij de bloei."
+    ],
+    "fr": [
+     "L'engrais vert d'été le plus rapide (6 semaines) ; mobilise le phosphore ; enfouissez-le à la floraison."
     ]
    },
    "companions": [
@@ -3074,7 +3183,8 @@
    "id": "bush_bean",
    "names": {
     "en": "French bean (bush)",
-    "nl": "Stamboon"
+    "nl": "Stamboon",
+    "fr": "Haricot nain"
    },
    "scientific_name": "Phaseolus vulgaris",
    "family": "Fabaceae",
@@ -3222,6 +3332,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -3310,7 +3424,8 @@
    "id": "butternut",
    "names": {
     "en": "Butternut squash",
-    "nl": "Butternut"
+    "nl": "Butternut",
+    "fr": "Courge butternut"
    },
    "scientific_name": "Cucurbita moschata",
    "family": "Cucurbitaceae",
@@ -3329,6 +3444,10 @@
     "nl": [
      "Plant op een heuveltje compost; wekelijks melkspray (1:9) houdt echte meeldauw tegen.",
      "Geen vruchtzetting? Bestuif met de hand: wrijf 's ochtends een mannelijke bloem op de vrouwelijke."
+    ],
+    "fr": [
+     "Plantez sur une butte de compost ; une pulvérisation de lait (1:9) chaque semaine freine l'oïdium.",
+     "Pas de fruits ? Pollinisez à la main : frottez une fleur mâle sur la fleur femelle le matin."
     ]
    }
   },
@@ -3336,7 +3455,8 @@
    "id": "cabbage",
    "names": {
     "en": "Cabbage",
-    "nl": "Kool (sluitkool)"
+    "nl": "Kool (sluitkool)",
+    "fr": "Chou pommé"
    },
    "scientific_name": "Brassica oleracea var. capitata",
    "family": "Brassicaceae",
@@ -3495,6 +3615,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -3561,7 +3685,8 @@
    "id": "calendula",
    "names": {
     "en": "Pot marigold / Calendula",
-    "nl": "Goudsbloem"
+    "nl": "Goudsbloem",
+    "fr": "Souci"
    },
    "scientific_name": "Calendula officinalis",
    "family": "Asteraceae",
@@ -3587,6 +3712,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -3662,7 +3791,8 @@
    "id": "cape_gooseberry",
    "names": {
     "en": "Cape gooseberry",
-    "nl": "Ananaskers"
+    "nl": "Ananaskers",
+    "fr": "Physalis (coqueret du Pérou)"
    },
    "scientific_name": "Physalis peruviana",
    "family": "Solanaceae",
@@ -3693,6 +3823,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -3761,7 +3895,8 @@
    "id": "caraway",
    "names": {
     "en": "Caraway",
-    "nl": "Karwij"
+    "nl": "Karwij",
+    "fr": "Carvi"
    },
    "scientific_name": "Carum carvi",
    "family": "Apiaceae",
@@ -3779,6 +3914,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -3844,7 +3983,8 @@
    "id": "cardoon",
    "names": {
     "en": "Cardoon",
-    "nl": "Kardoen"
+    "nl": "Kardoen",
+    "fr": "Cardon"
    },
    "scientific_name": "Cynara cardunculus",
    "family": "Asteraceae",
@@ -3875,6 +4015,9 @@
     ],
     "nl": [
      "De distelbloemen zijn een bijenmagneet."
+    ],
+    "fr": [
+     "Ses fleurs de chardon attirent les abeilles comme un aimant."
     ]
    },
    "companions": [],
@@ -3886,7 +4029,8 @@
    "id": "carrot",
    "names": {
     "en": "Carrot",
-    "nl": "Wortel"
+    "nl": "Wortel",
+    "fr": "Carotte"
    },
    "scientific_name": "Daucus carota subsp. sativus",
    "family": "Apiaceae",
@@ -4072,6 +4216,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -4151,7 +4299,8 @@
    "id": "catnip",
    "names": {
     "en": "Catnip",
-    "nl": "Kattenkruid"
+    "nl": "Kattenkruid",
+    "fr": "Herbe aux chats"
    },
    "scientific_name": "Nepeta cataria",
    "family": "Lamiaceae",
@@ -4173,6 +4322,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -4269,7 +4422,8 @@
    "id": "cauliflower",
    "names": {
     "en": "Cauliflower",
-    "nl": "Bloemkool"
+    "nl": "Bloemkool",
+    "fr": "Chou-fleur"
    },
    "scientific_name": "Brassica oleracea var. botrytis",
    "family": "Brassicaceae",
@@ -4292,6 +4446,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -4390,7 +4548,8 @@
    "id": "cavolo_nero",
    "names": {
     "en": "Cavolo nero",
-    "nl": "Palmkool"
+    "nl": "Palmkool",
+    "fr": "Chou palmier (cavolo nero)"
    },
    "scientific_name": "Brassica oleracea var. palmifolia",
    "family": "Brassicaceae",
@@ -4402,6 +4561,9 @@
     ],
     "nl": [
      "Pluk de onderste bladeren; de plant groeit als een palmpje door tot het voorjaar."
+    ],
+    "fr": [
+     "Cueillez les feuilles du bas ; la plante continue de monter comme un palmier jusqu'au printemps."
     ]
    },
    "companions": [
@@ -4486,7 +4648,8 @@
    "id": "celeriac",
    "names": {
     "en": "Celeriac",
-    "nl": "Knolselderij"
+    "nl": "Knolselderij",
+    "fr": "Céleri-rave"
    },
    "scientific_name": "Apium graveolens var. rapaceum",
    "family": "Apiaceae",
@@ -4552,6 +4715,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -4628,7 +4795,8 @@
    "id": "celery",
    "names": {
     "en": "Celery",
-    "nl": "Bleekselderij"
+    "nl": "Bleekselderij",
+    "fr": "Céleri branche"
    },
    "scientific_name": "Apium graveolens var. dulce",
    "family": "Apiaceae",
@@ -4661,6 +4829,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -4733,7 +4905,8 @@
    "id": "chamomile",
    "names": {
     "en": "German chamomile",
-    "nl": "Echte kamille"
+    "nl": "Echte kamille",
+    "fr": "Camomille allemande"
    },
    "scientific_name": "Matricaria chamomilla",
    "family": "Asteraceae",
@@ -4753,6 +4926,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -4828,7 +5005,8 @@
    "id": "cherry_tomato",
    "names": {
     "en": "Cherry tomato",
-    "nl": "Kerstomaat"
+    "nl": "Kerstomaat",
+    "fr": "Tomate cerise"
    },
    "scientific_name": "Solanum lycopersicum var. cerasiforme",
    "family": "Solanaceae",
@@ -4881,6 +5059,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -4954,7 +5136,8 @@
    "id": "chervil",
    "names": {
     "en": "Chervil",
-    "nl": "Kervel"
+    "nl": "Kervel",
+    "fr": "Cerfeuil"
    },
    "scientific_name": "Anthriscus cerefolium",
    "family": "Apiaceae",
@@ -4972,6 +5155,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -5039,7 +5226,8 @@
    "id": "chervil_winter",
    "names": {
     "en": "Winter chervil",
-    "nl": "Winterkervel"
+    "nl": "Winterkervel",
+    "fr": "Cerfeuil d'hiver"
    },
    "scientific_name": "Anthriscus cerefolium (winter)",
    "family": "Apiaceae",
@@ -5049,6 +5237,9 @@
     ],
     "nl": [
      "In de herfst gezaaide kervel geeft de hele winter vers groen onder vliesdoek."
+    ],
+    "fr": [
+     "Semé en automne, le cerfeuil donne de la verdure fraîche tout l'hiver sous voile."
     ]
    },
    "companions": [],
@@ -5143,7 +5334,8 @@
    "id": "chickpea",
    "names": {
     "en": "Chickpea",
-    "nl": "Kikkererwt"
+    "nl": "Kikkererwt",
+    "fr": "Pois chiche"
    },
    "scientific_name": "Cicer arietinum",
    "family": "Fabaceae",
@@ -5153,6 +5345,9 @@
     ],
     "nl": [
      "Houdt van een warme droge zomer - een zonnige verhoogde bak is ideaal."
+    ],
+    "fr": [
+     "Aime un été chaud et sec - un bac surélevé ensoleillé est idéal."
     ]
    },
    "companions": [
@@ -5230,7 +5425,8 @@
    "id": "chicory_witloof",
    "names": {
     "en": "Belgian endive (witloof)",
-    "nl": "Witloof"
+    "nl": "Witloof",
+    "fr": "Chicon (endive)"
    },
    "scientific_name": "Cichorium intybus var. foliosum",
    "family": "Asteraceae",
@@ -5253,6 +5449,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -5329,7 +5529,8 @@
    "id": "chili_pepper",
    "names": {
     "en": "Chili pepper",
-    "nl": "Chilipeper"
+    "nl": "Chilipeper",
+    "fr": "Piment"
    },
    "scientific_name": "Capsicum annuum / C. chinense",
    "family": "Solanaceae",
@@ -5362,6 +5563,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -5428,7 +5633,8 @@
    "id": "chinese_artichoke",
    "names": {
     "en": "Chinese artichoke (crosne)",
-    "nl": "Japanse andoorn (crosne)"
+    "nl": "Japanse andoorn (crosne)",
+    "fr": "Crosne du Japon"
    },
    "scientific_name": "Stachys affinis",
    "family": "Lamiaceae",
@@ -5446,6 +5652,9 @@
     ],
     "nl": [
      "Laat de knolletjes in de grond en oogst naar behoefte de hele winter; inperken - het woekert."
+    ],
+    "fr": [
+     "Laissez les tubercules en terre et arrachez-les au besoin tout l'hiver ; contenez-le - il s'étend."
     ]
    },
    "companions": [],
@@ -5526,7 +5735,8 @@
    "id": "chinese_cabbage",
    "names": {
     "en": "Chinese cabbage",
-    "nl": "Chinese kool"
+    "nl": "Chinese kool",
+    "fr": "Chou chinois"
    },
    "scientific_name": "Brassica rapa subsp. pekinensis",
    "family": "Brassicaceae",
@@ -5549,6 +5759,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -5637,7 +5851,8 @@
    "id": "chives",
    "names": {
     "en": "Chives",
-    "nl": "Bieslook"
+    "nl": "Bieslook",
+    "fr": "Ciboulette"
    },
    "scientific_name": "Allium schoenoprasum",
    "family": "Amaryllidaceae",
@@ -5675,6 +5890,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -5746,7 +5965,8 @@
    "id": "claytonia_red",
    "names": {
     "en": "Pink purslane",
-    "nl": "Roze winterpostelein"
+    "nl": "Roze winterpostelein",
+    "fr": "Claytone de Sibérie"
    },
    "scientific_name": "Claytonia sibirica",
    "family": "Montiaceae",
@@ -5756,6 +5976,9 @@
     ],
     "nl": [
      "Schaduwminnende, zichzelf uitzaaiende sla met eetbare bloemen."
+    ],
+    "fr": [
+     "Salade vivace qui aime l'ombre, se ressème seule et porte des fleurs comestibles."
     ]
    },
    "companions": [],
@@ -5840,7 +6063,8 @@
    "id": "comfrey",
    "names": {
     "en": "Comfrey",
-    "nl": "Smeerwortel"
+    "nl": "Smeerwortel",
+    "fr": "Consoude"
    },
    "scientific_name": "Symphytum officinale",
    "family": "Boraginaceae",
@@ -5860,6 +6084,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -5934,7 +6161,8 @@
    "id": "coriander",
    "names": {
     "en": "Coriander / Cilantro",
-    "nl": "Koriander"
+    "nl": "Koriander",
+    "fr": "Coriandre"
    },
    "scientific_name": "Coriandrum sativum",
    "family": "Apiaceae",
@@ -5958,6 +6186,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -6028,7 +6260,8 @@
    "id": "cornflower",
    "names": {
     "en": "Cornflower",
-    "nl": "Korenbloem"
+    "nl": "Korenbloem",
+    "fr": "Bleuet"
    },
    "scientific_name": "Centaurea cyanus",
    "family": "Asteraceae",
@@ -6048,6 +6281,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -6132,7 +6369,8 @@
    "id": "cos_lettuce",
    "names": {
     "en": "Romaine (cos) lettuce",
-    "nl": "Bindsla (romaine)"
+    "nl": "Bindsla (romaine)",
+    "fr": "Laitue romaine"
    },
    "scientific_name": "Lactuca sativa var. longifolia",
    "family": "Asteraceae",
@@ -6142,6 +6380,9 @@
     ],
     "nl": [
      "Beter bestand tegen hitte en doorschieten dan kropsla."
+    ],
+    "fr": [
+     "Supporte mieux la chaleur et monte moins vite en graines que la laitue pommée."
     ]
    },
    "companions": [],
@@ -6211,7 +6452,8 @@
    "id": "cosmos",
    "names": {
     "en": "Cosmos",
-    "nl": "Cosmea"
+    "nl": "Cosmea",
+    "fr": "Cosmos"
    },
    "scientific_name": "Cosmos bipinnatus",
    "family": "Asteraceae",
@@ -6231,6 +6473,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -6238,7 +6484,8 @@
    "id": "courgette",
    "names": {
     "en": "Courgette / Zucchini",
-    "nl": "Courgette"
+    "nl": "Courgette",
+    "fr": "Courgette"
    },
    "scientific_name": "Cucurbita pepo",
    "family": "Cucurbitaceae",
@@ -6405,6 +6652,10 @@
     "nl": [
      "Plant op een heuveltje compost; wekelijks melkspray (1:9) houdt echte meeldauw tegen.",
      "Geen vruchtzetting? Bestuif met de hand: wrijf 's ochtends een mannelijke bloem op de vrouwelijke."
+    ],
+    "fr": [
+     "Plantez sur une butte de compost ; une pulvérisation de lait (1:9) chaque semaine freine l'oïdium.",
+     "Pas de fruits ? Pollinisez à la main : frottez une fleur mâle sur la fleur femelle le matin."
     ]
    }
   },
@@ -6479,7 +6730,8 @@
    "id": "cranberry",
    "names": {
     "en": "Cranberry",
-    "nl": "Cranberry (grote veenbes)"
+    "nl": "Cranberry (grote veenbes)",
+    "fr": "Canneberge"
    },
    "scientific_name": "Vaccinium macrocarpon",
    "family": "Ericaceae",
@@ -6520,6 +6772,9 @@
     ],
     "nl": [
      "Zure, natte grond; een wintergroene bodembedekker."
+    ],
+    "fr": [
+     "Sol acide et tourbeux ; un couvre-sol persistant."
     ]
    },
    "companions": [],
@@ -6594,7 +6849,8 @@
    "id": "crimson_clover",
    "names": {
     "en": "Crimson clover",
-    "nl": "Incarnaatklaver"
+    "nl": "Incarnaatklaver",
+    "fr": "Trèfle incarnat"
    },
    "scientific_name": "Trifolium incarnatum",
    "family": "Fabaceae",
@@ -6611,6 +6867,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -6699,7 +6959,8 @@
    "id": "cucamelon",
    "names": {
     "en": "Cucamelon",
-    "nl": "Muismeloen"
+    "nl": "Muismeloen",
+    "fr": "Concombre à confire (cucamelon)"
    },
    "scientific_name": "Melothria scabra",
    "family": "Cucurbitaceae",
@@ -6711,6 +6972,9 @@
     ],
     "nl": [
      "Druifgrote 'mini-watermeloentjes' die smaken naar komkommer en limoen; heeft een klimrek nodig."
+    ],
+    "fr": [
+     "« Mini-pastèques » de la taille d'un grain de raisin, au goût de concombre et de citron vert ; a besoin d'un treillis."
     ]
    },
    "companions": [
@@ -6733,7 +6997,8 @@
    "id": "cucumber",
    "names": {
     "en": "Cucumber",
-    "nl": "Komkommer"
+    "nl": "Komkommer",
+    "fr": "Concombre"
    },
    "scientific_name": "Cucumis sativus",
    "family": "Cucurbitaceae",
@@ -6962,6 +7227,10 @@
     "nl": [
      "Plant op een heuveltje compost; wekelijks melkspray (1:9) houdt echte meeldauw tegen.",
      "Geen vruchtzetting? Bestuif met de hand: wrijf 's ochtends een mannelijke bloem op de vrouwelijke."
+    ],
+    "fr": [
+     "Plantez sur une butte de compost ; une pulvérisation de lait (1:9) chaque semaine freine l'oïdium.",
+     "Pas de fruits ? Pollinisez à la main : frottez une fleur mâle sur la fleur femelle le matin."
     ]
    }
   },
@@ -7046,7 +7315,8 @@
    "id": "cumin",
    "names": {
     "en": "Cumin",
-    "nl": "Komijn"
+    "nl": "Komijn",
+    "fr": "Cumin"
    },
    "scientific_name": "Cuminum cyminum",
    "family": "Apiaceae",
@@ -7056,6 +7326,9 @@
     ],
     "nl": [
      "Heeft een lange warme zomer nodig - makkelijkst in de serre."
+    ],
+    "fr": [
+     "A besoin d'un été long et chaud - plus facile en serre."
     ]
    },
    "companions": [],
@@ -7140,7 +7413,8 @@
    "id": "curry_plant",
    "names": {
     "en": "Curry plant",
-    "nl": "Kerrieplant"
+    "nl": "Kerrieplant",
+    "fr": "Immortelle d'Italie (plante curry)"
    },
    "scientific_name": "Helichrysum italicum",
    "family": "Asteraceae",
@@ -7150,6 +7424,9 @@
     ],
     "nl": [
      "Zilverblad ruikt naar kerrie; geurplant, geen kerriekruid."
+    ],
+    "fr": [
+     "Les feuilles argentées sentent le curry ; un aromate, pas l'épice curry."
     ]
    },
    "companions": [],
@@ -7217,7 +7494,8 @@
    "id": "daikon",
    "names": {
     "en": "Daikon",
-    "nl": "Daikon (Japanse rammenas)"
+    "nl": "Daikon (Japanse rammenas)",
+    "fr": "Radis daikon"
    },
    "scientific_name": "Raphanus sativus var. longipinnatus",
    "family": "Brassicaceae",
@@ -7227,6 +7505,9 @@
     ],
     "nl": [
      "Breekt verdichte grond open - ook een prima groenbemester."
+    ],
+    "fr": [
+     "Ameublit les sols tassés - aussi un excellent engrais vert « radis décompacteur »."
     ]
    },
    "companions": [],
@@ -7301,7 +7582,8 @@
    "id": "dill",
    "names": {
     "en": "Dill",
-    "nl": "Dille"
+    "nl": "Dille",
+    "fr": "Aneth"
    },
    "scientific_name": "Anethum graveolens",
    "family": "Apiaceae",
@@ -7325,6 +7607,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -7387,7 +7673,8 @@
    "id": "early_potato",
    "names": {
     "en": "Early potato",
-    "nl": "Vroege aardappel"
+    "nl": "Vroege aardappel",
+    "fr": "Pomme de terre primeur"
    },
    "scientific_name": "Solanum tuberosum (first early)",
    "family": "Solanaceae",
@@ -7422,6 +7709,10 @@
     "nl": [
      "Laat pootaardappelen 4-6 weken voorkiemen op een lichte vorstvrije plaats.",
      "Vroege rassen ontsnappen vaak aan phytophthora - Première, Frieslander, Annabelle."
+    ],
+    "fr": [
+     "Faites germer les plants de pommes de terre 4-6 semaines dans un endroit clair et hors gel.",
+     "Les variétés hâtives échappent souvent au mildiou - Première, Frieslander, Annabelle."
     ]
    },
    "companions": [
@@ -7525,7 +7816,8 @@
    "id": "echinacea",
    "names": {
     "en": "Echinacea",
-    "nl": "Zonnehoed"
+    "nl": "Zonnehoed",
+    "fr": "Échinacée pourpre"
    },
    "scientific_name": "Echinacea purpurea",
    "family": "Asteraceae",
@@ -7542,6 +7834,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -7611,7 +7907,8 @@
    "id": "echium",
    "names": {
     "en": "Viper's bugloss",
-    "nl": "Slangenkruid"
+    "nl": "Slangenkruid",
+    "fr": "Vipérine"
    },
    "scientific_name": "Echium vulgare",
    "family": "Boraginaceae",
@@ -7621,6 +7918,9 @@
     ],
     "nl": [
      "Top-3 bijenplant: de hele dag nectar."
+    ],
+    "fr": [
+     "Dans le top 3 des plantes mellifères : du nectar toute la journée."
     ]
    },
    "companions": [],
@@ -7714,7 +8014,8 @@
    "id": "edamame",
    "names": {
     "en": "Edamame / Soybean",
-    "nl": "Edamame (sojaboon)"
+    "nl": "Edamame (sojaboon)",
+    "fr": "Edamame (soja)"
    },
    "scientific_name": "Glycine max",
    "family": "Fabaceae",
@@ -7733,6 +8034,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -7805,7 +8110,8 @@
    "id": "elderberry",
    "names": {
     "en": "Elderberry",
-    "nl": "Vlier"
+    "nl": "Vlier",
+    "fr": "Sureau noir"
    },
    "scientific_name": "Sambucus nigra",
    "family": "Viburnaceae",
@@ -7851,6 +8157,10 @@
     "nl": [
      "Bloesem (juni) voor siroop, bessen enkel gekookt - rauw zijn ze licht giftig.",
      "Vlierbladthee op planten gespoten weert bladluis en muizen."
+    ],
+    "fr": [
+     "Les fleurs (juin) pour le sirop, les baies uniquement cuites - crues, elles sont légèrement toxiques.",
+     "Un purin de feuilles de sureau pulvérisé sur les plantes éloigne pucerons et souris."
     ]
    },
    "companions": [],
@@ -7932,7 +8242,8 @@
    "id": "elephant_garlic",
    "names": {
     "en": "Elephant garlic",
-    "nl": "Olifantsknoflook"
+    "nl": "Olifantsknoflook",
+    "fr": "Ail éléphant"
    },
    "scientific_name": "Allium ampeloprasum var. ampeloprasum",
    "family": "Amaryllidaceae",
@@ -7951,6 +8262,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -8035,7 +8350,8 @@
    "id": "endive",
    "names": {
     "en": "Endive",
-    "nl": "Andijvie"
+    "nl": "Andijvie",
+    "fr": "Chicorée frisée / scarole"
    },
    "scientific_name": "Cichorium endivia",
    "family": "Asteraceae",
@@ -8058,6 +8374,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -8127,7 +8447,8 @@
    "id": "fenugreek",
    "names": {
     "en": "Fenugreek",
-    "nl": "Fenegriek"
+    "nl": "Fenegriek",
+    "fr": "Fenugrec"
    },
    "scientific_name": "Trigonella foenum-graecum",
    "family": "Fabaceae",
@@ -8144,6 +8465,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -8222,7 +8547,8 @@
    "id": "feverfew",
    "names": {
     "en": "Feverfew",
-    "nl": "Moederkruid"
+    "nl": "Moederkruid",
+    "fr": "Grande camomille"
    },
    "scientific_name": "Tanacetum parthenium",
    "family": "Asteraceae",
@@ -8242,6 +8568,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -8307,7 +8637,8 @@
    "id": "field_beans",
    "names": {
     "en": "Field bean (green manure)",
-    "nl": "Veldboon (groenbemester)"
+    "nl": "Veldboon (groenbemester)",
+    "fr": "Féverole (engrais vert)"
    },
    "scientific_name": "Vicia faba var. minor",
    "family": "Fabaceae",
@@ -8317,6 +8648,9 @@
     ],
     "nl": [
      "Diepe wortels openen de ondergrond; maai in het voorjaar vóór de bloei."
+    ],
+    "fr": [
+     "Ses racines profondes ouvrent le sous-sol ; fauchez au printemps avant la floraison."
     ]
    },
    "companions": [],
@@ -8395,7 +8729,8 @@
    "id": "fig",
    "names": {
     "en": "Fig",
-    "nl": "Vijg"
+    "nl": "Vijg",
+    "fr": "Figuier"
    },
    "scientific_name": "Ficus carica",
    "family": "Moraceae",
@@ -8461,6 +8796,9 @@
     ],
     "nl": [
      "Beperk de wortels (tegels in het plantgat of een grote pot) voor vruchten i.p.v. bladeren."
+    ],
+    "fr": [
+     "Limitez les racines (dalles dans le trou de plantation ou grand pot) pour avoir des fruits plutôt que des feuilles."
     ]
    },
    "companions": [],
@@ -8548,7 +8886,8 @@
    "id": "florence_fennel",
    "names": {
     "en": "Florence fennel",
-    "nl": "Knolvenkel"
+    "nl": "Knolvenkel",
+    "fr": "Fenouil bulbeux"
    },
    "scientific_name": "Foeniculum vulgare var. azoricum",
    "family": "Apiaceae",
@@ -8594,6 +8933,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -8675,7 +9018,8 @@
    "id": "garden_cress",
    "names": {
     "en": "Garden cress",
-    "nl": "Tuinkers"
+    "nl": "Tuinkers",
+    "fr": "Cresson alénois"
    },
    "scientific_name": "Lepidium sativum",
    "family": "Brassicaceae",
@@ -8695,6 +9039,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -8702,7 +9050,8 @@
    "id": "garlic",
    "names": {
     "en": "Garlic",
-    "nl": "Knoflook"
+    "nl": "Knoflook",
+    "fr": "Ail"
    },
    "scientific_name": "Allium sativum",
    "family": "Amaryllidaceae",
@@ -8871,6 +9220,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -8950,7 +9303,8 @@
    "id": "garlic_chives",
    "names": {
     "en": "Garlic chives",
-    "nl": "Chinese bieslook"
+    "nl": "Chinese bieslook",
+    "fr": "Ciboulette chinoise (ciboule de Chine)"
    },
    "scientific_name": "Allium tuberosum",
    "family": "Amaryllidaceae",
@@ -8971,6 +9325,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -9058,7 +9416,8 @@
    "id": "gherkin",
    "names": {
     "en": "Gherkin",
-    "nl": "Augurk"
+    "nl": "Augurk",
+    "fr": "Cornichon"
    },
    "scientific_name": "Cucumis sativus",
    "family": "Cucurbitaceae",
@@ -9091,6 +9450,10 @@
     "nl": [
      "Plant op een heuveltje compost; wekelijks melkspray (1:9) houdt echte meeldauw tegen.",
      "Geen vruchtzetting? Bestuif met de hand: wrijf 's ochtends een mannelijke bloem op de vrouwelijke."
+    ],
+    "fr": [
+     "Plantez sur une butte de compost ; une pulvérisation de lait (1:9) chaque semaine freine l'oïdium.",
+     "Pas de fruits ? Pollinisez à la main : frottez une fleur mâle sur la fleur femelle le matin."
     ]
    }
   },
@@ -9162,7 +9525,8 @@
    "id": "globe_artichoke",
    "names": {
     "en": "Globe artichoke",
-    "nl": "Artisjok"
+    "nl": "Artisjok",
+    "fr": "Artichaut"
    },
    "scientific_name": "Cynara cardunculus var. scolymus",
    "family": "Asteraceae",
@@ -9191,6 +9555,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -9263,7 +9631,8 @@
    "id": "goji",
    "names": {
     "en": "Goji berry",
-    "nl": "Gojibes"
+    "nl": "Gojibes",
+    "fr": "Goji"
    },
    "scientific_name": "Lycium barbarum",
    "family": "Solanaceae",
@@ -9334,6 +9703,9 @@
     ],
     "nl": [
      "Verdraagt arme droge grond en zilte wind."
+    ],
+    "fr": [
+     "Supporte les sols pauvres et secs et le vent salé."
     ]
    },
    "companions": [],
@@ -9410,7 +9782,8 @@
    "id": "gooseberry",
    "names": {
     "en": "Gooseberry",
-    "nl": "Kruisbes"
+    "nl": "Kruisbes",
+    "fr": "Groseillier à maquereau"
    },
    "scientific_name": "Ribes uva-crispa",
    "family": "Grossulariaceae",
@@ -9500,6 +9873,9 @@
     ],
     "nl": [
      "Meeldauwresistent: Invicta, Hinnonmäki Röd, Pax."
+    ],
+    "fr": [
+     "Résistantes à l'oïdium : Invicta, Hinnonmäki Röd, Pax."
     ]
    },
    "companions": [],
@@ -9576,7 +9952,8 @@
    "id": "grape",
    "names": {
     "en": "Grape (table)",
-    "nl": "Druif (tafel)"
+    "nl": "Druif (tafel)",
+    "fr": "Vigne (raisin de table)"
    },
    "scientific_name": "Vitis vinifera",
    "family": "Vitaceae",
@@ -9662,6 +10039,11 @@
      "Resistente buitenrassen: Boskoop Glory, Phoenix, Muscat bleu, Vanessa.",
      "Steek trossen in organzazakjes tegen wespen.",
      "Een melkspray (1 deel melk : 9 delen water) wekelijks helpt tegen echte meeldauw."
+    ],
+    "fr": [
+     "Variétés résistantes pour l'extérieur : Boskoop Glory, Phoenix, Muscat bleu, Vanessa.",
+     "Ensachez les grappes dans des sachets en organza contre les guêpes.",
+     "Une pulvérisation hebdomadaire de lait (1 part de lait : 9 parts d'eau) aide contre l'oïdium."
     ]
    },
    "companions": [
@@ -9770,7 +10152,8 @@
    "id": "greek_basil",
    "names": {
     "en": "Greek bush basil",
-    "nl": "Griekse basilicum"
+    "nl": "Griekse basilicum",
+    "fr": "Basilic grec"
    },
    "scientific_name": "Ocimum basilicum var. minimum",
    "family": "Lamiaceae",
@@ -9780,6 +10163,9 @@
     ],
     "nl": [
      "Compacte bol, kleine blaadjes - ideaal in potten."
+    ],
+    "fr": [
+     "Boule compacte, feuilles minuscules - idéal en pot."
     ]
    },
    "companions": [],
@@ -9857,7 +10243,8 @@
    "id": "hazelnut",
    "names": {
     "en": "Hazelnut",
-    "nl": "Hazelaar"
+    "nl": "Hazelaar",
+    "fr": "Noisetier"
    },
    "scientific_name": "Corylus avellana",
    "family": "Betulaceae",
@@ -9910,6 +10297,9 @@
     ],
     "nl": [
      "Windbestuiving: plant twee rassen (bv. Cosford + Webb's Prize) voor noten."
+    ],
+    "fr": [
+     "Pollinisé par le vent : plantez deux variétés (p. ex. Cosford + Webb's Prize) pour avoir des noisettes."
     ]
    },
    "companions": [],
@@ -9993,7 +10383,8 @@
    "id": "herb_fennel",
    "names": {
     "en": "Fennel (herb)",
-    "nl": "Venkel (kruid)"
+    "nl": "Venkel (kruid)",
+    "fr": "Fenouil (aromatique)"
    },
    "scientific_name": "Foeniculum vulgare",
    "family": "Apiaceae",
@@ -10014,6 +10405,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -10102,7 +10497,8 @@
    "id": "hokkaido",
    "names": {
     "en": "Red kuri squash (Hokkaido)",
-    "nl": "Hokkaido-pompoen"
+    "nl": "Hokkaido-pompoen",
+    "fr": "Potimarron (Hokkaido)"
    },
    "scientific_name": "Cucurbita maxima 'Uchiki Kuri'",
    "family": "Cucurbitaceae",
@@ -10113,6 +10509,9 @@
     ],
     "nl": [
      "Eetbare schil; bewaart 4-6 maanden op 12-15 °C. Top na 4 vruchten per plant."
+    ],
+    "fr": [
+     "Peau comestible ; se conserve 4-6 mois à 12-15 °C. Pincez après 4 fruits par plant."
     ]
    },
    "companions": [
@@ -10212,7 +10611,8 @@
    "id": "holy_basil",
    "names": {
     "en": "Holy basil / Tulsi",
-    "nl": "Heilige basilicum (tulsi)"
+    "nl": "Heilige basilicum (tulsi)",
+    "fr": "Basilic sacré (tulsi)"
    },
    "scientific_name": "Ocimum tenuiflorum",
    "family": "Lamiaceae",
@@ -10229,6 +10629,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -10301,7 +10705,8 @@
    "id": "honeyberry",
    "names": {
     "en": "Honeyberry (haskap)",
-    "nl": "Honingbes"
+    "nl": "Honingbes",
+    "fr": "Camérisier (baie de mai)"
    },
    "scientific_name": "Lonicera caerulea",
    "family": "Caprifoliaceae",
@@ -10372,6 +10777,9 @@
     ],
     "nl": [
      "Eerste fruit van het jaar (mei-juni); heeft een tweede ras nodig voor bestuiving."
+    ],
+    "fr": [
+     "Premier fruit de l'année (mai-juin) ; a besoin d'une deuxième variété pour la pollinisation."
     ]
    },
    "companions": [],
@@ -10442,7 +10850,8 @@
    "id": "horseradish",
    "names": {
     "en": "Horseradish",
-    "nl": "Mierikswortel"
+    "nl": "Mierikswortel",
+    "fr": "Raifort"
    },
    "scientific_name": "Armoracia rusticana",
    "family": "Brassicaceae",
@@ -10472,6 +10881,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -10552,7 +10965,8 @@
    "id": "hyssop",
    "names": {
     "en": "Hyssop",
-    "nl": "Hysop"
+    "nl": "Hysop",
+    "fr": "Hysope"
    },
    "scientific_name": "Hyssopus officinalis",
    "family": "Lamiaceae",
@@ -10583,6 +10997,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -10660,7 +11078,8 @@
    "id": "ice_plant",
    "names": {
     "en": "Ice plant",
-    "nl": "IJskruid"
+    "nl": "IJskruid",
+    "fr": "Ficoïde glaciale"
    },
    "scientific_name": "Mesembryanthemum crystallinum",
    "family": "Aizoaceae",
@@ -10670,6 +11089,9 @@
     ],
     "nl": [
      "Knapperige zilte bladeren; gedijt bij hitte en droogte."
+    ],
+    "fr": [
+     "Feuilles croquantes et salées ; prospère dans la chaleur et la sécheresse."
     ]
    },
    "companions": [],
@@ -10758,7 +11180,8 @@
    "id": "iceberg_lettuce",
    "names": {
     "en": "Iceberg lettuce",
-    "nl": "IJsbergsla"
+    "nl": "IJsbergsla",
+    "fr": "Laitue iceberg"
    },
    "scientific_name": "Lactuca sativa var. capitata (crisphead)",
    "family": "Asteraceae",
@@ -10768,6 +11191,9 @@
     ],
     "nl": [
      "Wil gelijkmatig vocht voor een vaste krop."
+    ],
+    "fr": [
+     "A besoin d'une humidité régulière pour former une pomme ferme."
     ]
    },
    "companions": [],
@@ -10839,7 +11265,8 @@
    "id": "jerusalem_artichoke",
    "names": {
     "en": "Jerusalem artichoke",
-    "nl": "Aardpeer"
+    "nl": "Aardpeer",
+    "fr": "Topinambour"
    },
    "scientific_name": "Helianthus tuberosus",
    "family": "Asteraceae",
@@ -10868,6 +11295,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -10940,7 +11371,8 @@
    "id": "jostaberry",
    "names": {
     "en": "Jostaberry",
-    "nl": "Jostabes"
+    "nl": "Jostabes",
+    "fr": "Josta (casseille)"
    },
    "scientific_name": "Ribes × nidigrolaria",
    "family": "Grossulariaceae",
@@ -11014,6 +11446,9 @@
     ],
     "nl": [
      "Resistent tegen meeldauw en rondknopmijt - een zorgeloze zwarte bes."
+    ],
+    "fr": [
+     "Résiste à l'oïdium et au phytopte - un cassis sans souci."
     ]
    },
    "companions": [],
@@ -11025,7 +11460,8 @@
    "id": "kale",
    "names": {
     "en": "Kale",
-    "nl": "Boerenkool"
+    "nl": "Boerenkool",
+    "fr": "Chou frisé (kale)"
    },
    "scientific_name": "Brassica oleracea var. sabellica",
    "family": "Brassicaceae",
@@ -11193,6 +11629,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -11265,7 +11705,8 @@
    "id": "kiwi_berry",
    "names": {
     "en": "Kiwi berry",
-    "nl": "Kiwibes"
+    "nl": "Kiwibes",
+    "fr": "Kiwaï (kiwi de Sibérie)"
    },
    "scientific_name": "Actinidia arguta",
    "family": "Actinidiaceae",
@@ -11326,6 +11767,9 @@
     ],
     "nl": [
      "Heeft een mannelijke plant nodig (1 per 6 vrouwelijke) tenzij je zelfbestuivend 'Issai' kiest."
+    ],
+    "fr": [
+     "A besoin d'un pied mâle (1 pour 6 femelles), sauf si vous choisissez l'autofertile 'Issai'."
     ]
    },
    "companions": [],
@@ -11435,7 +11879,8 @@
    "id": "kohlrabi",
    "names": {
     "en": "Kohlrabi",
-    "nl": "Koolrabi"
+    "nl": "Koolrabi",
+    "fr": "Chou-rave"
    },
    "scientific_name": "Brassica oleracea var. gongylodes",
    "family": "Brassicaceae",
@@ -11465,6 +11910,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -11546,7 +11995,8 @@
    "id": "komatsuna",
    "names": {
     "en": "Komatsuna",
-    "nl": "Komatsuna"
+    "nl": "Komatsuna",
+    "fr": "Komatsuna"
    },
    "scientific_name": "Brassica rapa var. perviridis",
    "family": "Brassicaceae",
@@ -11556,6 +12006,9 @@
     ],
     "nl": [
      "Zeer winterharde Japanse spinaziemosterd: wintersla in de serre."
+    ],
+    "fr": [
+     "Moutarde-épinard japonaise très résistante au froid : salade d'hiver sous serre."
     ]
    },
    "companions": [],
@@ -11631,7 +12084,8 @@
    "id": "lambs_lettuce",
    "names": {
     "en": "Lamb's lettuce / Corn salad",
-    "nl": "Veldsla"
+    "nl": "Veldsla",
+    "fr": "Mâche"
    },
    "scientific_name": "Valerianella locusta",
    "family": "Caprifoliaceae",
@@ -11648,6 +12102,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -11728,7 +12185,8 @@
    "id": "lavender",
    "names": {
     "en": "Lavender",
-    "nl": "Lavendel"
+    "nl": "Lavendel",
+    "fr": "Lavande"
    },
    "scientific_name": "Lavandula angustifolia",
    "family": "Lamiaceae",
@@ -11753,6 +12211,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -11834,7 +12296,8 @@
    "id": "leaf_celery",
    "names": {
     "en": "Leaf celery",
-    "nl": "Snijselderij"
+    "nl": "Snijselderij",
+    "fr": "Céleri à couper"
    },
    "scientific_name": "Apium graveolens var. secalinum",
    "family": "Apiaceae",
@@ -11858,6 +12321,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -11865,7 +12332,8 @@
    "id": "leek",
    "names": {
     "en": "Leek",
-    "nl": "Prei"
+    "nl": "Prei",
+    "fr": "Poireau"
    },
    "scientific_name": "Allium ampeloprasum var. porrum",
    "family": "Amaryllidaceae",
@@ -12022,6 +12490,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -12102,7 +12574,8 @@
    "id": "lemon_balm",
    "names": {
     "en": "Lemon balm",
-    "nl": "Citroenmelisse"
+    "nl": "Citroenmelisse",
+    "fr": "Mélisse"
    },
    "scientific_name": "Melissa officinalis",
    "family": "Lamiaceae",
@@ -12120,6 +12593,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -12204,7 +12681,8 @@
    "id": "lemon_basil",
    "names": {
     "en": "Lemon basil",
-    "nl": "Citroenbasilicum"
+    "nl": "Citroenbasilicum",
+    "fr": "Basilic citron"
    },
    "scientific_name": "Ocimum × citriodorum",
    "family": "Lamiaceae",
@@ -12221,6 +12699,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -12294,7 +12776,8 @@
    "id": "lemon_thyme",
    "names": {
     "en": "Lemon thyme",
-    "nl": "Citroentijm"
+    "nl": "Citroentijm",
+    "fr": "Thym citron"
    },
    "scientific_name": "Thymus × citriodorus",
    "family": "Lamiaceae",
@@ -12318,6 +12801,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -12391,7 +12878,8 @@
    "id": "lemon_verbena",
    "names": {
     "en": "Lemon verbena",
-    "nl": "Citroenverbena"
+    "nl": "Citroenverbena",
+    "fr": "Verveine citronnelle"
    },
    "scientific_name": "Aloysia citrodora",
    "family": "Verbenaceae",
@@ -12406,6 +12894,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -12487,7 +12978,8 @@
    "id": "lemongrass",
    "names": {
     "en": "Lemongrass",
-    "nl": "Citroengras"
+    "nl": "Citroengras",
+    "fr": "Citronnelle"
    },
    "scientific_name": "Cymbopogon citratus",
    "family": "Poaceae",
@@ -12502,6 +12994,9 @@
     ],
     "nl": [
      "Plant in blokken, niet in één rij: windbestuiving."
+    ],
+    "fr": [
+     "Plantez en carré, pas en une seule rangée : la pollinisation se fait par le vent."
     ]
    }
   },
@@ -12509,7 +13004,8 @@
    "id": "lettuce",
    "names": {
     "en": "Lettuce",
-    "nl": "Sla"
+    "nl": "Sla",
+    "fr": "Laitue"
    },
    "scientific_name": "Lactuca sativa",
    "variety": "Butterhead",
@@ -12677,6 +13173,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -12763,7 +13263,8 @@
    "id": "loose_leaf_lettuce",
    "names": {
     "en": "Loose-leaf lettuce",
-    "nl": "Pluksla"
+    "nl": "Pluksla",
+    "fr": "Laitue à couper"
    },
    "scientific_name": "Lactuca sativa var. crispa",
    "family": "Asteraceae",
@@ -12775,6 +13276,9 @@
     ],
     "nl": [
      "Pluk enkel buitenste bladeren - één zaaiing voedt je twee maanden."
+    ],
+    "fr": [
+     "Ne cueillez que les feuilles extérieures - un seul semis vous nourrit pendant deux mois."
     ]
    },
    "companions": [],
@@ -12859,7 +13363,8 @@
    "id": "lovage",
    "names": {
     "en": "Lovage",
-    "nl": "Lavas (maggiplant)"
+    "nl": "Lavas (maggiplant)",
+    "fr": "Livèche (ache de montagne)"
    },
    "scientific_name": "Levisticum officinale",
    "family": "Apiaceae",
@@ -12877,6 +13382,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -12942,7 +13451,8 @@
    "id": "lupin_green_manure",
    "names": {
     "en": "Blue lupin",
-    "nl": "Blauwe lupine"
+    "nl": "Blauwe lupine",
+    "fr": "Lupin bleu"
    },
    "scientific_name": "Lupinus angustifolius",
    "family": "Fabaceae",
@@ -12952,6 +13462,9 @@
     ],
     "nl": [
      "Gedijt op arme zandgrond en maakt die diep los."
+    ],
+    "fr": [
+     "Prospère en sol sableux pauvre et l'ameublit en profondeur."
     ]
    },
    "companions": [],
@@ -12964,7 +13477,8 @@
    "id": "marigold",
    "names": {
     "en": "French marigold",
-    "nl": "Afrikaantje"
+    "nl": "Afrikaantje",
+    "fr": "Œillet d'Inde"
    },
    "scientific_name": "Tagetes patula",
    "family": "Asteraceae",
@@ -13121,6 +13635,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -13204,7 +13722,8 @@
    "id": "marjoram",
    "names": {
     "en": "Sweet marjoram",
-    "nl": "Marjolein"
+    "nl": "Marjolein",
+    "fr": "Marjolaine"
    },
    "scientific_name": "Origanum majorana",
    "family": "Lamiaceae",
@@ -13228,6 +13747,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -13301,7 +13824,8 @@
    "id": "marrowfat_pea",
    "names": {
     "en": "Marrowfat pea",
-    "nl": "Kapucijner"
+    "nl": "Kapucijner",
+    "fr": "Pois ridé à écosser (capucijner)"
    },
    "scientific_name": "Pisum sativum var. arvense",
    "family": "Fabaceae",
@@ -13311,6 +13835,9 @@
     ],
     "nl": [
      "Een Vlaamse klassieker: oogst droge peulen, dop en bewaar."
+    ],
+    "fr": [
+     "Un classique flamand : récoltez les gousses sèches, écossez et conservez."
     ]
    },
    "companions": [],
@@ -13388,7 +13915,8 @@
    "id": "medlar",
    "names": {
     "en": "Medlar",
-    "nl": "Mispel"
+    "nl": "Mispel",
+    "fr": "Néflier"
    },
    "scientific_name": "Mespilus germanica",
    "family": "Rosaceae",
@@ -13484,6 +14012,9 @@
     ],
     "nl": [
      "Oogst na de eerste vorst en laat ze 2-3 weken binnen 'beten' (zacht worden)."
+    ],
+    "fr": [
+     "Récoltez après les premières gelées et laissez-les blettir 2-3 semaines à l'intérieur."
     ]
    },
    "companions": [],
@@ -13576,7 +14107,8 @@
    "id": "melon",
    "names": {
     "en": "Melon",
-    "nl": "Meloen"
+    "nl": "Meloen",
+    "fr": "Melon"
    },
    "scientific_name": "Cucumis melo",
    "family": "Cucurbitaceae",
@@ -13629,6 +14161,10 @@
     "nl": [
      "Plant op een heuveltje compost; wekelijks melkspray (1:9) houdt echte meeldauw tegen.",
      "Geen vruchtzetting? Bestuif met de hand: wrijf 's ochtends een mannelijke bloem op de vrouwelijke."
+    ],
+    "fr": [
+     "Plantez sur une butte de compost ; une pulvérisation de lait (1:9) chaque semaine freine l'oïdium.",
+     "Pas de fruits ? Pollinisez à la main : frottez une fleur mâle sur la fleur femelle le matin."
     ]
    }
   },
@@ -13710,7 +14246,8 @@
    "id": "mizuna",
    "names": {
     "en": "Mizuna",
-    "nl": "Mizuna"
+    "nl": "Mizuna",
+    "fr": "Mizuna"
    },
    "scientific_name": "Brassica rapa var. nipposinica",
    "family": "Brassicaceae",
@@ -13731,6 +14268,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -13809,7 +14350,8 @@
    "id": "mugwort",
    "names": {
     "en": "Mugwort",
-    "nl": "Bijvoet"
+    "nl": "Bijvoet",
+    "fr": "Armoise commune"
    },
    "scientific_name": "Artemisia vulgaris",
    "family": "Asteraceae",
@@ -13826,6 +14368,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -13898,7 +14444,8 @@
    "id": "mulberry",
    "names": {
     "en": "Black mulberry",
-    "nl": "Zwarte moerbei"
+    "nl": "Zwarte moerbei",
+    "fr": "Mûrier noir"
    },
    "scientific_name": "Morus nigra",
    "family": "Moraceae",
@@ -13937,6 +14484,9 @@
     ],
     "nl": [
      "Leg een laken onder de boom en schud: rijpe moerbeien vallen."
+    ],
+    "fr": [
+     "Étendez un drap sous l'arbre et secouez : les mûres mûres tombent."
     ]
    },
    "companions": [],
@@ -14021,7 +14571,8 @@
    "id": "mustard_greens",
    "names": {
     "en": "Mustard greens",
-    "nl": "Bladmosterd"
+    "nl": "Bladmosterd",
+    "fr": "Moutarde de Chine (moutarde à feuilles)"
    },
    "scientific_name": "Brassica juncea",
    "family": "Brassicaceae",
@@ -14042,6 +14593,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -14121,7 +14676,8 @@
    "id": "mustard_seed",
    "names": {
     "en": "Mustard (for seed/green manure)",
-    "nl": "Gele mosterd (groenbemester)"
+    "nl": "Gele mosterd (groenbemester)",
+    "fr": "Moutarde blanche (graines/engrais vert)"
    },
    "scientific_name": "Sinapis alba",
    "family": "Brassicaceae",
@@ -14143,6 +14699,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -14222,7 +14782,8 @@
    "id": "nasturtium",
    "names": {
     "en": "Nasturtium",
-    "nl": "Oost-Indische kers"
+    "nl": "Oost-Indische kers",
+    "fr": "Capucine"
    },
    "scientific_name": "Tropaeolum majus",
    "family": "Tropaeolaceae",
@@ -14248,6 +14809,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -14317,7 +14881,8 @@
    "id": "nigella",
    "names": {
     "en": "Black cumin (nigella)",
-    "nl": "Zwarte komijn"
+    "nl": "Zwarte komijn",
+    "fr": "Nigelle (cumin noir)"
    },
    "scientific_name": "Nigella sativa",
    "family": "Ranunculaceae",
@@ -14327,6 +14892,9 @@
     ],
     "nl": [
      "Mooie blauwe bloemen, daarna zaaddozen voor brood."
+    ],
+    "fr": [
+     "Jolies fleurs bleues, puis des capsules de graines pour le pain."
     ]
    },
    "companions": [],
@@ -14415,7 +14983,8 @@
    "id": "nz_spinach",
    "names": {
     "en": "New Zealand spinach",
-    "nl": "Nieuw-Zeelandse spinazie"
+    "nl": "Nieuw-Zeelandse spinazie",
+    "fr": "Tétragone (épinard de Nouvelle-Zélande)"
    },
    "scientific_name": "Tetragonia tetragonioides",
    "family": "Aizoaceae",
@@ -14438,6 +15007,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -14500,7 +15072,8 @@
    "id": "oca",
    "names": {
     "en": "Oca",
-    "nl": "Oca"
+    "nl": "Oca",
+    "fr": "Oca du Pérou"
    },
    "scientific_name": "Oxalis tuberosa",
    "family": "Oxalidaceae",
@@ -14510,6 +15083,9 @@
     ],
     "nl": [
      "Knollen vormen pas als de dagen korten: oogst eind november."
+    ],
+    "fr": [
+     "Les tubercules ne se forment que lorsque les jours raccourcissent : récoltez fin novembre."
     ]
    },
    "companions": [],
@@ -14590,7 +15166,8 @@
    "id": "okra",
    "names": {
     "en": "Okra",
-    "nl": "Okra"
+    "nl": "Okra",
+    "fr": "Gombo"
    },
    "scientific_name": "Abelmoschus esculentus",
    "family": "Malvaceae",
@@ -14607,6 +15184,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -14614,7 +15194,8 @@
    "id": "onion",
    "names": {
     "en": "Onion",
-    "nl": "Ui"
+    "nl": "Ui",
+    "fr": "Oignon"
    },
    "scientific_name": "Allium cepa",
    "variety": "From sets",
@@ -14777,6 +15358,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -14846,7 +15431,8 @@
    "id": "orache",
    "names": {
     "en": "Orache",
-    "nl": "Melde"
+    "nl": "Melde",
+    "fr": "Arroche"
    },
    "scientific_name": "Atriplex hortensis",
    "family": "Amaranthaceae",
@@ -14863,6 +15449,9 @@
     ],
     "nl": [
      "Zaai bij koel weer; spinazie schiet door bij lange dagen en hitte."
+    ],
+    "fr": [
+     "Semez par temps frais : l'épinard monte en graines avec les jours longs et la chaleur."
     ]
    }
   },
@@ -14943,7 +15532,8 @@
    "id": "oregano",
    "names": {
     "en": "Oregano",
-    "nl": "Oregano"
+    "nl": "Oregano",
+    "fr": "Origan"
    },
    "scientific_name": "Origanum vulgare",
    "family": "Lamiaceae",
@@ -14967,6 +15557,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -15047,7 +15641,8 @@
    "id": "pak_choi",
    "names": {
     "en": "Pak choi",
-    "nl": "Paksoi"
+    "nl": "Paksoi",
+    "fr": "Pak-choï"
    },
    "scientific_name": "Brassica rapa subsp. chinensis",
    "family": "Brassicaceae",
@@ -15066,6 +15661,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -15073,7 +15672,8 @@
    "id": "parsley",
    "names": {
     "en": "Parsley",
-    "nl": "Peterselie"
+    "nl": "Peterselie",
+    "fr": "Persil"
    },
    "scientific_name": "Petroselinum crispum",
    "family": "Apiaceae",
@@ -15187,6 +15787,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -15250,7 +15854,8 @@
    "id": "parsnip",
    "names": {
     "en": "Parsnip",
-    "nl": "Pastinaak"
+    "nl": "Pastinaak",
+    "fr": "Panais"
    },
    "scientific_name": "Pastinaca sativa",
    "family": "Apiaceae",
@@ -15279,6 +15884,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -15366,7 +15975,8 @@
    "id": "patisson",
    "names": {
     "en": "Patty pan squash",
-    "nl": "Patisson"
+    "nl": "Patisson",
+    "fr": "Pâtisson"
    },
    "scientific_name": "Cucurbita pepo var. patissonina",
    "family": "Cucurbitaceae",
@@ -15378,6 +15988,9 @@
     ],
     "nl": [
      "Pluk op 8-10 cm - zoals courgette."
+    ],
+    "fr": [
+     "Cueillez à 8-10 cm - comme la courgette."
     ]
    },
    "companions": [],
@@ -15390,7 +16003,8 @@
    "id": "pea",
    "names": {
     "en": "Garden pea",
-    "nl": "Doperwt"
+    "nl": "Doperwt",
+    "fr": "Petit pois"
    },
    "scientific_name": "Pisum sativum",
    "family": "Fabaceae",
@@ -15542,6 +16156,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -15614,7 +16232,8 @@
    "id": "peach",
    "names": {
     "en": "Peach",
-    "nl": "Perzik"
+    "nl": "Perzik",
+    "fr": "Pêcher"
    },
    "scientific_name": "Prunus persica",
    "family": "Rosaceae",
@@ -15726,6 +16345,10 @@
     "nl": [
      "Bestuif de vroege bloei met een zacht penseel - in maart vliegen weinig insecten.",
      "Krulziekte-resistent: Amsden, Redhaven, 'Avalon Pride'."
+    ],
+    "fr": [
+     "Pollinisez les fleurs précoces avec un pinceau doux - peu d'insectes volent en mars.",
+     "Résistantes à la cloque : Amsden, Redhaven, 'Avalon Pride'."
     ]
    },
    "companions": [
@@ -15812,7 +16435,8 @@
    "id": "pear",
    "names": {
     "en": "Pear",
-    "nl": "Peer"
+    "nl": "Peer",
+    "fr": "Poirier"
    },
    "scientific_name": "Pyrus communis",
    "family": "Rosaceae",
@@ -15929,6 +16553,11 @@
      "Pluk peren licht onrijp en laat ze binnen narijpen; aan de boom worden ze melig.",
      "Perenroest overwintert op jeneverbes - vermijd Juniperus in de buurt.",
      "Goede bestuiverparen: Conference met Doyenné du Comice of Beurré Hardy."
+    ],
+    "fr": [
+     "Cueillez les poires un peu avant maturité et laissez-les mûrir à l'intérieur ; sur l'arbre, elles deviennent farineuses.",
+     "La rouille grillagée du poirier passe l'hiver sur le genévrier - évitez les Juniperus à proximité.",
+     "Bons couples pollinisateurs : Conférence avec Doyenné du Comice ou Beurré Hardy."
     ]
    },
    "companions": [
@@ -16018,7 +16647,8 @@
    "id": "peppermint",
    "names": {
     "en": "Peppermint",
-    "nl": "Pepermunt"
+    "nl": "Pepermunt",
+    "fr": "Menthe poivrée"
    },
    "scientific_name": "Mentha × piperita",
    "family": "Lamiaceae",
@@ -16046,6 +16676,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -16130,7 +16764,8 @@
    "id": "perilla",
    "names": {
     "en": "Shiso / Perilla",
-    "nl": "Shiso"
+    "nl": "Shiso",
+    "fr": "Shiso / périlla"
    },
    "scientific_name": "Perilla frutescens",
    "family": "Lamiaceae",
@@ -16147,6 +16782,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -16211,7 +16850,8 @@
    "id": "phacelia",
    "names": {
     "en": "Phacelia",
-    "nl": "Phacelia"
+    "nl": "Phacelia",
+    "fr": "Phacélie"
    },
    "scientific_name": "Phacelia tanacetifolia",
    "family": "Boraginaceae",
@@ -16230,6 +16870,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -16310,7 +16953,8 @@
    "id": "pineapple_sage",
    "names": {
     "en": "Pineapple sage",
-    "nl": "Ananassalie"
+    "nl": "Ananassalie",
+    "fr": "Sauge ananas"
    },
    "scientific_name": "Salvia elegans",
    "family": "Lamiaceae",
@@ -16320,6 +16964,9 @@
     ],
     "nl": [
      "Rode herfstbloemen voor late hommels; vorstvrij overwinteren."
+    ],
+    "fr": [
+     "Fleurs rouges en automne pour les bourdons tardifs ; hivernage hors gel."
     ]
    },
    "companions": [],
@@ -16397,7 +17044,8 @@
    "id": "plum",
    "names": {
     "en": "Plum",
-    "nl": "Pruim"
+    "nl": "Pruim",
+    "fr": "Prunier"
    },
    "scientific_name": "Prunus domestica",
    "family": "Rosaceae",
@@ -16491,6 +17139,10 @@
     "nl": [
      "Zelfbestuivende rassen: Victoria, Reine Claude d'Oullins, Opal.",
      "Stut zwaar beladen takken - pruimenhout breekt makkelijk."
+    ],
+    "fr": [
+     "Variétés autofertiles : Victoria, Reine-Claude d'Oullins, Opal.",
+     "Étayez les branches très chargées - le bois du prunier casse facilement."
     ]
    },
    "companions": [
@@ -16576,7 +17228,8 @@
    "id": "poached_egg_plant",
    "names": {
     "en": "Poached egg plant",
-    "nl": "Moerasbloem"
+    "nl": "Moerasbloem",
+    "fr": "Limnanthe (fleur aux œufs pochés)"
    },
    "scientific_name": "Limnanthes douglasii",
    "family": "Limnanthaceae",
@@ -16586,6 +17239,9 @@
     ],
     "nl": [
      "Rand van het groentebed: zweefvliegen waarvan de larven bladluis eten."
+    ],
+    "fr": [
+     "En bordure du potager : elle attire les syrphes, dont les larves mangent les pucerons."
     ]
    },
    "companions": [
@@ -16697,7 +17353,8 @@
    "id": "pointed_cabbage",
    "names": {
     "en": "Pointed cabbage",
-    "nl": "Spitskool"
+    "nl": "Spitskool",
+    "fr": "Chou pointu"
    },
    "scientific_name": "Brassica oleracea var. capitata f. alba (conical)",
    "family": "Brassicaceae",
@@ -16708,6 +17365,9 @@
     ],
     "nl": [
      "Snel, zoet en mals - zaai elke 4 weken voor een continue aanvoer."
+    ],
+    "fr": [
+     "Rapide, sucré et tendre - semez toutes les 4 semaines pour une récolte continue."
     ]
    },
    "companions": [
@@ -16811,7 +17471,8 @@
    "id": "pole_bean",
    "names": {
     "en": "Climbing French bean",
-    "nl": "Stokboon"
+    "nl": "Stokboon",
+    "fr": "Haricot à rames"
    },
    "scientific_name": "Phaseolus vulgaris",
    "family": "Fabaceae",
@@ -16852,6 +17513,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -16915,7 +17580,8 @@
    "id": "potato",
    "names": {
     "en": "Potato",
-    "nl": "Aardappel"
+    "nl": "Aardappel",
+    "fr": "Pomme de terre"
    },
    "scientific_name": "Solanum tuberosum",
    "family": "Solanaceae",
@@ -17019,6 +17685,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -17107,7 +17777,8 @@
    "id": "pumpkin",
    "names": {
     "en": "Pumpkin / Winter squash",
-    "nl": "Pompoen"
+    "nl": "Pompoen",
+    "fr": "Potiron / courge d'hiver"
    },
    "scientific_name": "Cucurbita maxima",
    "family": "Cucurbitaceae",
@@ -17175,6 +17846,10 @@
     "nl": [
      "Plant op een heuveltje compost; wekelijks melkspray (1:9) houdt echte meeldauw tegen.",
      "Geen vruchtzetting? Bestuif met de hand: wrijf 's ochtends een mannelijke bloem op de vrouwelijke."
+    ],
+    "fr": [
+     "Plantez sur une butte de compost ; une pulvérisation de lait (1:9) chaque semaine freine l'oïdium.",
+     "Pas de fruits ? Pollinisez à la main : frottez une fleur mâle sur la fleur femelle le matin."
     ]
    }
   },
@@ -17259,7 +17934,8 @@
    "id": "purple_basil",
    "names": {
     "en": "Purple basil",
-    "nl": "Paarse basilicum"
+    "nl": "Paarse basilicum",
+    "fr": "Basilic pourpre"
    },
    "scientific_name": "Ocimum basilicum 'Purpurascens'",
    "family": "Lamiaceae",
@@ -17269,6 +17945,9 @@
     ],
     "nl": [
      "Kleuraccent in salades en tussen tomaten."
+    ],
+    "fr": [
+     "Touche de couleur dans les salades et entre les tomates."
     ]
    },
    "companions": [],
@@ -17372,7 +18051,8 @@
    "id": "purple_sprouting_broccoli",
    "names": {
     "en": "Purple sprouting broccoli",
-    "nl": "Paarse broccoli (winter)"
+    "nl": "Paarse broccoli (winter)",
+    "fr": "Brocoli violet à jets"
    },
    "scientific_name": "Brassica oleracea var. italica",
    "family": "Brassicaceae",
@@ -17384,6 +18064,9 @@
     ],
     "nl": [
      "Vult de 'hongerperiode' in maart-april. Steun tegen de winterwind."
+    ],
+    "fr": [
+     "Comble la période de soudure en mars-avril. Tuteurez contre le vent d'hiver."
     ]
    },
    "companions": [],
@@ -17459,7 +18142,8 @@
    "id": "purslane",
    "names": {
     "en": "Summer purslane",
-    "nl": "Postelein"
+    "nl": "Postelein",
+    "fr": "Pourpier"
    },
    "scientific_name": "Portulaca oleracea",
    "family": "Portulacaceae",
@@ -17476,6 +18160,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -17548,7 +18235,8 @@
    "id": "quince",
    "names": {
     "en": "Quince",
-    "nl": "Kweepeer"
+    "nl": "Kweepeer",
+    "fr": "Cognassier"
    },
    "scientific_name": "Cydonia oblonga",
    "family": "Rosaceae",
@@ -17645,6 +18333,9 @@
     ],
     "nl": [
      "Bewaar kweeperen apart - hun geur trekt in appels en peren."
+    ],
+    "fr": [
+     "Conservez les coings à part - leur parfum imprègne pommes et poires."
     ]
    },
    "companions": [],
@@ -17733,7 +18424,8 @@
    "id": "radicchio",
    "names": {
     "en": "Radicchio",
-    "nl": "Roodlof"
+    "nl": "Roodlof",
+    "fr": "Chicorée rouge (radicchio)"
    },
    "scientific_name": "Cichorium intybus var. foliosum",
    "family": "Asteraceae",
@@ -17752,6 +18444,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -17759,7 +18455,8 @@
    "id": "radish",
    "names": {
     "en": "Radish",
-    "nl": "Radijs"
+    "nl": "Radijs",
+    "fr": "Radis"
    },
    "scientific_name": "Raphanus sativus",
    "family": "Brassicaceae",
@@ -17906,6 +18603,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -17978,7 +18679,8 @@
    "id": "raspberry_autumn",
    "names": {
     "en": "Raspberry (autumn)",
-    "nl": "Framboos (herfst)"
+    "nl": "Framboos (herfst)",
+    "fr": "Framboisier (remontant)"
    },
    "scientific_name": "Rubus idaeus 'Autumn Bliss'",
    "family": "Rosaceae",
@@ -18056,6 +18758,9 @@
     ],
     "nl": [
      "De makkelijkste framboos: weinig steun nodig als je ze kort houdt."
+    ],
+    "fr": [
+     "Le framboisier le plus facile : pas besoin de palissage si vous le gardez court."
     ]
    },
    "companions": [
@@ -18142,7 +18847,8 @@
    "id": "raspberry_summer",
    "names": {
     "en": "Raspberry (summer)",
-    "nl": "Framboos (zomer)"
+    "nl": "Framboos (zomer)",
+    "fr": "Framboisier (non remontant)"
    },
    "scientific_name": "Rubus idaeus",
    "family": "Rosaceae",
@@ -18224,6 +18930,10 @@
     "nl": [
      "Draadsteun op 60, 120 en 170 cm.",
      "Pluk om de 2-3 dagen bij droog weer; verwijder overrijpe vruchten tegen Drosophila suzukii."
+    ],
+    "fr": [
+     "Palissage sur fils à 60, 120 et 170 cm.",
+     "Cueillez tous les 2-3 jours par temps sec ; retirez les fruits trop mûrs contre Drosophila suzukii."
     ]
    },
    "companions": [
@@ -18344,7 +19054,8 @@
    "id": "red_cabbage",
    "names": {
     "en": "Red cabbage",
-    "nl": "Rodekool"
+    "nl": "Rodekool",
+    "fr": "Chou rouge"
    },
    "scientific_name": "Brassica oleracea var. capitata f. rubra",
    "family": "Brassicaceae",
@@ -18363,6 +19074,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -18435,7 +19150,8 @@
    "id": "redcurrant",
    "names": {
     "en": "Redcurrant",
-    "nl": "Rode bes"
+    "nl": "Rode bes",
+    "fr": "Groseillier rouge"
    },
    "scientific_name": "Ribes rubrum",
    "family": "Grossulariaceae",
@@ -18526,6 +19242,10 @@
     "nl": [
      "Pluk hele trosjes en ris de bessen af met een vork.",
      "Verdraagt halfschaduw - ideaal tegen een noordschutting."
+    ],
+    "fr": [
+     "Cueillez les grappes entières et égrappez avec une fourchette.",
+     "Supporte la mi-ombre - parfait pour une clôture exposée au nord."
     ]
    },
    "companions": [
@@ -18609,7 +19329,8 @@
    "id": "rhubarb",
    "names": {
     "en": "Rhubarb",
-    "nl": "Rabarber"
+    "nl": "Rabarber",
+    "fr": "Rhubarbe"
    },
    "scientific_name": "Rheum rhabarbarum",
    "family": "Polygonaceae",
@@ -18634,6 +19355,9 @@
     ],
     "nl": [
      "Stop met oogsten na half juni zodat de plant herstelt; blad is giftig (maar goed voor een luizenspray)."
+    ],
+    "fr": [
+     "Arrêtez de tirer les tiges après la mi-juin pour que la plante récupère ; les feuilles sont toxiques (mais bonnes pour un purin anti-pucerons)."
     ]
    },
    "icon": "rhubarb",
@@ -18719,7 +19443,8 @@
    "id": "rocket",
    "names": {
     "en": "Rocket / Arugula",
-    "nl": "Rucola"
+    "nl": "Rucola",
+    "fr": "Roquette"
    },
    "scientific_name": "Eruca vesicaria subsp. sativa",
    "family": "Brassicaceae",
@@ -18740,6 +19465,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -18819,7 +19548,8 @@
    "id": "roman_chamomile",
    "names": {
     "en": "Roman chamomile",
-    "nl": "Roomse kamille"
+    "nl": "Roomse kamille",
+    "fr": "Camomille romaine"
    },
    "scientific_name": "Chamaemelum nobile",
    "family": "Asteraceae",
@@ -18829,6 +19559,9 @@
     ],
     "nl": [
      "Een geurend gazonalternatief voor smalle paadjes."
+    ],
+    "fr": [
+     "Une alternative parfumée au gazon pour les petites allées."
     ]
    },
    "companions": [],
@@ -18930,7 +19663,8 @@
    "id": "romanesco",
    "names": {
     "en": "Romanesco",
-    "nl": "Romanesco"
+    "nl": "Romanesco",
+    "fr": "Chou romanesco"
    },
    "scientific_name": "Brassica oleracea var. botrytis 'Romanesco'",
    "family": "Brassicaceae",
@@ -18940,6 +19674,9 @@
     ],
     "nl": [
      "Wil gelijkmatig vocht; elke stress geeft kleine roosjes."
+    ],
+    "fr": [
+     "A besoin d'une humidité constante ; le moindre stress donne de petites pommes."
     ]
    },
    "companions": [],
@@ -19007,7 +19744,8 @@
    "id": "root_parsley",
    "names": {
     "en": "Root parsley",
-    "nl": "Wortelpeterselie"
+    "nl": "Wortelpeterselie",
+    "fr": "Persil tubéreux"
    },
    "scientific_name": "Petroselinum crispum var. tuberosum",
    "family": "Apiaceae",
@@ -19029,6 +19767,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -19109,7 +19851,8 @@
    "id": "rosemary",
    "names": {
     "en": "Rosemary",
-    "nl": "Rozemarijn"
+    "nl": "Rozemarijn",
+    "fr": "Romarin"
    },
    "scientific_name": "Salvia rosmarinus",
    "family": "Lamiaceae",
@@ -19141,6 +19884,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -19218,7 +19965,8 @@
    "id": "rue",
    "names": {
     "en": "Rue",
-    "nl": "Wijnruit"
+    "nl": "Wijnruit",
+    "fr": "Rue officinale"
    },
    "scientific_name": "Ruta graveolens",
    "family": "Rutaceae",
@@ -19240,6 +19988,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -19328,7 +20079,8 @@
    "id": "runner_bean",
    "names": {
     "en": "Runner bean",
-    "nl": "Pronkboon"
+    "nl": "Pronkboon",
+    "fr": "Haricot d'Espagne"
    },
    "scientific_name": "Phaseolus coccineus",
    "family": "Fabaceae",
@@ -19369,6 +20121,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -19440,7 +20196,8 @@
    "id": "saffron",
    "names": {
     "en": "Saffron crocus",
-    "nl": "Saffraankrokus"
+    "nl": "Saffraankrokus",
+    "fr": "Crocus à safran"
    },
    "scientific_name": "Crocus sativus",
    "family": "Iridaceae",
@@ -19459,6 +20216,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -19538,7 +20298,8 @@
    "id": "sage",
    "names": {
     "en": "Sage",
-    "nl": "Salie"
+    "nl": "Salie",
+    "fr": "Sauge officinale"
    },
    "scientific_name": "Salvia officinalis",
    "family": "Lamiaceae",
@@ -19559,6 +20320,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -19636,7 +20401,8 @@
    "id": "salad_burnet",
    "names": {
     "en": "Salad burnet",
-    "nl": "Pimpernel"
+    "nl": "Pimpernel",
+    "fr": "Pimprenelle"
    },
    "scientific_name": "Sanguisorba minor",
    "family": "Rosaceae",
@@ -19651,6 +20417,9 @@
     ],
     "nl": [
      "Mulch, spit niet onder fruit: de voedingswortels zitten ondiep."
+    ],
+    "fr": [
+     "Paillez, ne bêchez pas sous les fruitiers : les racines nourricières sont superficielles."
     ]
    }
   },
@@ -19714,7 +20483,8 @@
    "id": "salsify",
    "names": {
     "en": "Salsify",
-    "nl": "Haverwortel"
+    "nl": "Haverwortel",
+    "fr": "Salsifis"
    },
    "scientific_name": "Tragopogon porrifolius",
    "family": "Asteraceae",
@@ -19724,6 +20494,9 @@
     ],
     "nl": [
      "Diepe, steenvrije grond; de paarse bloemen in jaar 2 trekken bijen."
+    ],
+    "fr": [
+     "Sol profond et sans cailloux ; ses fleurs violettes de 2e année attirent les abeilles."
     ]
    },
    "companions": [],
@@ -19806,7 +20579,8 @@
    "id": "samphire",
    "names": {
     "en": "Samphire",
-    "nl": "Zeekraal"
+    "nl": "Zeekraal",
+    "fr": "Salicorne"
    },
    "scientific_name": "Salicornia europaea",
    "family": "Amaranthaceae",
@@ -19816,6 +20590,9 @@
     ],
     "nl": [
      "Geef wekelijks water met zout (10 g zeezout per liter)."
+    ],
+    "fr": [
+     "Arrosez une fois par semaine à l'eau salée (10 g de sel marin par litre)."
     ]
    },
    "companions": [],
@@ -19900,7 +20677,8 @@
    "id": "santolina",
    "names": {
     "en": "Cotton lavender",
-    "nl": "Heiligenbloem"
+    "nl": "Heiligenbloem",
+    "fr": "Santoline"
    },
    "scientific_name": "Santolina chamaecyparissus",
    "family": "Asteraceae",
@@ -19914,6 +20692,9 @@
     ],
     "nl": [
      "Laag geschoren randje voor kruidenbedden; gedroogde takjes houden motten uit de kast."
+    ],
+    "fr": [
+     "Bordure basse taillée pour les carrés d'aromatiques ; les brins séchés éloignent les mites des armoires."
     ]
    },
    "companions": [],
@@ -20016,7 +20797,8 @@
    "id": "savoy_cabbage",
    "names": {
     "en": "Savoy cabbage",
-    "nl": "Savooiekool"
+    "nl": "Savooiekool",
+    "fr": "Chou de Milan"
    },
    "scientific_name": "Brassica oleracea var. sabauda",
    "family": "Brassicaceae",
@@ -20035,6 +20817,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -20097,7 +20883,8 @@
    "id": "scorzonera",
    "names": {
     "en": "Scorzonera",
-    "nl": "Schorseneer"
+    "nl": "Schorseneer",
+    "fr": "Scorsonère"
    },
    "scientific_name": "Scorzonera hispanica",
    "family": "Asteraceae",
@@ -20116,6 +20903,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -20189,7 +20980,8 @@
    "id": "sea_buckthorn",
    "names": {
     "en": "Sea buckthorn",
-    "nl": "Duindoorn"
+    "nl": "Duindoorn",
+    "fr": "Argousier"
    },
    "scientific_name": "Hippophae rhamnoides",
    "family": "Elaeagnaceae",
@@ -20260,6 +21052,9 @@
     ],
     "nl": [
      "Tweehuizig: plant 1 mannelijke per 6 vrouwelijke planten. Bindt stikstof."
+    ],
+    "fr": [
+     "Dioïque : plantez 1 mâle pour au maximum 6 femelles. Fixe l'azote."
     ]
    },
    "companions": [],
@@ -20328,7 +21123,8 @@
    "id": "sea_kale",
    "names": {
     "en": "Sea kale",
-    "nl": "Zeekool"
+    "nl": "Zeekool",
+    "fr": "Chou marin (crambe)"
    },
    "scientific_name": "Crambe maritima",
    "family": "Brassicaceae",
@@ -20358,6 +21154,9 @@
     ],
     "nl": [
      "Gebleekte voorjaarsscheuten smaken naar hazelnoot-asperge."
+    ],
+    "fr": [
+     "Les jeunes pousses blanchies au printemps ont un goût d'asperge et de noisette."
     ]
    },
    "companions": [],
@@ -20439,7 +21238,8 @@
    "id": "shallot",
    "names": {
     "en": "Shallot",
-    "nl": "Sjalot"
+    "nl": "Sjalot",
+    "fr": "Échalote"
    },
    "scientific_name": "Allium cepa var. aggregatum",
    "family": "Amaryllidaceae",
@@ -20458,6 +21258,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -20542,7 +21346,8 @@
    "id": "shiso_green",
    "names": {
     "en": "Green shiso",
-    "nl": "Groene shiso"
+    "nl": "Groene shiso",
+    "fr": "Shiso vert"
    },
    "scientific_name": "Perilla frutescens var. crispa",
    "family": "Lamiaceae",
@@ -20552,6 +21357,9 @@
     ],
     "nl": [
      "Zaai bovenop de grond - kiemt enkel in het licht."
+    ],
+    "fr": [
+     "Semez en surface - a besoin de lumière pour germer."
     ]
    },
    "companions": [],
@@ -20629,7 +21437,8 @@
    "id": "snow_pea",
    "names": {
     "en": "Snow pea / Mangetout",
-    "nl": "Peultje"
+    "nl": "Peultje",
+    "fr": "Pois mange-tout"
    },
    "scientific_name": "Pisum sativum var. saccharatum",
    "family": "Fabaceae",
@@ -20660,6 +21469,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -20739,7 +21552,8 @@
    "id": "sorrel",
    "names": {
     "en": "Sorrel",
-    "nl": "Zuring"
+    "nl": "Zuring",
+    "fr": "Oseille"
    },
    "scientific_name": "Rumex acetosa",
    "family": "Polygonaceae",
@@ -20755,6 +21569,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -20827,7 +21644,8 @@
    "id": "sour_cherry",
    "names": {
     "en": "Sour cherry (morello)",
-    "nl": "Zure kers (morel)"
+    "nl": "Zure kers (morel)",
+    "fr": "Griottier (cerisier acide)"
    },
    "scientific_name": "Prunus cerasus",
    "family": "Rosaceae",
@@ -20930,6 +21748,10 @@
     "nl": [
      "Morellen dragen op éénjarig hout en verdragen een noordmuur - ideaal tegen een schaduwrijke schutting.",
      "Knip scheuten met monilia (verwelkte toppen) meteen 15 cm in het gezonde hout weg."
+    ],
+    "fr": [
+     "Les griottiers fructifient sur le bois de l'an dernier et supportent un mur au nord - idéal pour une clôture ombragée.",
+     "Coupez immédiatement les rameaux atteints de moniliose (pointes flétries) 15 cm dans le bois sain."
     ]
    },
    "companions": [],
@@ -21022,7 +21844,8 @@
    "id": "spaghetti_squash",
    "names": {
     "en": "Spaghetti squash",
-    "nl": "Spaghettipompoen"
+    "nl": "Spaghettipompoen",
+    "fr": "Courge spaghetti"
    },
    "scientific_name": "Cucurbita pepo 'Vegetable Spaghetti'",
    "family": "Cucurbitaceae",
@@ -21032,6 +21855,9 @@
     ],
     "nl": [
      "Bak in zijn geheel en schraap de 'spaghetti' eruit."
+    ],
+    "fr": [
+     "Faites-la cuire entière au four, puis grattez les « spaghettis »."
     ]
    },
    "companions": [],
@@ -21111,7 +21937,8 @@
    "id": "spearmint",
    "names": {
     "en": "Spearmint",
-    "nl": "Groene munt"
+    "nl": "Groene munt",
+    "fr": "Menthe verte"
    },
    "scientific_name": "Mentha spicata",
    "family": "Lamiaceae",
@@ -21134,6 +21961,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -21141,7 +21972,8 @@
    "id": "spinach",
    "names": {
     "en": "Spinach",
-    "nl": "Spinazie"
+    "nl": "Spinazie",
+    "fr": "Épinard"
    },
    "scientific_name": "Spinacia oleracea",
    "family": "Amaranthaceae",
@@ -21272,6 +22104,9 @@
     ],
     "nl": [
      "Zaai bij koel weer; spinazie schiet door bij lange dagen en hitte."
+    ],
+    "fr": [
+     "Semez par temps frais : l'épinard monte en graines avec les jours longs et la chaleur."
     ]
    }
   },
@@ -21349,7 +22184,8 @@
    "id": "spring_onion",
    "names": {
     "en": "Spring onion",
-    "nl": "Lente-ui"
+    "nl": "Lente-ui",
+    "fr": "Oignon de printemps (cébette)"
    },
    "scientific_name": "Allium cepa / A. fistulosum",
    "family": "Amaryllidaceae",
@@ -21369,6 +22205,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -21448,7 +22288,8 @@
    "id": "st_johns_wort",
    "names": {
     "en": "St John's wort",
-    "nl": "Sint-Janskruid"
+    "nl": "Sint-Janskruid",
+    "fr": "Millepertuis"
    },
    "scientific_name": "Hypericum perforatum",
    "family": "Hypericaceae",
@@ -21458,6 +22299,9 @@
     ],
     "nl": [
      "Geneeskrachtig - interageert met veel medicijnen; vraag eerst je apotheker."
+    ],
+    "fr": [
+     "Plante médicinale - interagit avec de nombreux médicaments ; demandez conseil à un pharmacien avant usage."
     ]
    },
    "companions": [],
@@ -21548,7 +22392,8 @@
    "id": "stevia",
    "names": {
     "en": "Stevia",
-    "nl": "Stevia"
+    "nl": "Stevia",
+    "fr": "Stévia"
    },
    "scientific_name": "Stevia rebaudiana",
    "family": "Asteraceae",
@@ -21565,6 +22410,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -21644,7 +22493,8 @@
    "id": "stinging_nettle",
    "names": {
     "en": "Stinging nettle",
-    "nl": "Brandnetel"
+    "nl": "Brandnetel",
+    "fr": "Ortie"
    },
    "scientific_name": "Urtica dioica",
    "family": "Urticaceae",
@@ -21664,6 +22514,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -21733,7 +22586,8 @@
    "id": "strawberry",
    "names": {
     "en": "Strawberry",
-    "nl": "Aardbei"
+    "nl": "Aardbei",
+    "fr": "Fraisier"
    },
    "scientific_name": "Fragaria × ananassa",
    "family": "Rosaceae",
@@ -21806,6 +22660,10 @@
     "nl": [
      "Stro onder de vruchten houdt ze proper en droog.",
      "Vernieuw het bed elke 3-4 jaar met de sterkste uitlopers."
+    ],
+    "fr": [
+     "De la paille sous les fruits les garde propres et secs (d'où le nom anglais « strawberry »).",
+     "Renouvelez la planche tous les 3-4 ans à partir des stolons les plus vigoureux."
     ]
    },
    "icon": "strawberry",
@@ -21881,7 +22739,8 @@
    "id": "sugar_snap",
    "names": {
     "en": "Sugar snap pea",
-    "nl": "Suikererwt"
+    "nl": "Suikererwt",
+    "fr": "Pois gourmand (sugar snap)"
    },
    "scientific_name": "Pisum sativum var. macrocarpon",
    "family": "Fabaceae",
@@ -21912,6 +22771,10 @@
     "nl": [
      "Knip de planten na de oogst af op grondniveau - de stikstofknolletjes blijven in de grond.",
      "Top tuinbonen zodra de eerste peulen zetten: stopt de zwarte bonenluis."
+    ],
+    "fr": [
+     "Après la récolte, coupez les plants au ras du sol - les nodosités riches en azote restent en terre.",
+     "Pincez la tête des fèves dès que les premières gousses se forment : cela arrête le puceron noir."
     ]
    }
   },
@@ -21995,7 +22858,8 @@
    "id": "summer_savory",
    "names": {
     "en": "Summer savory",
-    "nl": "Bonenkruid (zomer)"
+    "nl": "Bonenkruid (zomer)",
+    "fr": "Sarriette annuelle"
    },
    "scientific_name": "Satureja hortensis",
    "family": "Lamiaceae",
@@ -22015,6 +22879,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -22093,7 +22961,8 @@
    "id": "sunflower",
    "names": {
     "en": "Sunflower",
-    "nl": "Zonnebloem"
+    "nl": "Zonnebloem",
+    "fr": "Tournesol"
    },
    "scientific_name": "Helianthus annuus",
    "family": "Asteraceae",
@@ -22115,6 +22984,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -22179,7 +23052,8 @@
    "id": "swede",
    "names": {
     "en": "Swede / Rutabaga",
-    "nl": "Koolraap"
+    "nl": "Koolraap",
+    "fr": "Rutabaga (chou-navet)"
    },
    "scientific_name": "Brassica napus var. napobrassica",
    "family": "Brassicaceae",
@@ -22205,6 +23079,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -22270,7 +23148,8 @@
    "id": "sweet_alyssum",
    "names": {
     "en": "Sweet alyssum",
-    "nl": "Zilverschildzaad"
+    "nl": "Zilverschildzaad",
+    "fr": "Alysse odorante"
    },
    "scientific_name": "Lobularia maritima",
    "family": "Brassicaceae",
@@ -22280,6 +23159,9 @@
     ],
     "nl": [
      "Kleine bloempjes voeden zweefvliegen en sluipwespen - natuurlijke bladluisbestrijding tussen de sla."
+    ],
+    "fr": [
+     "Ses petites fleurs nourrissent syrphes et guêpes parasitoïdes - une lutte naturelle contre les pucerons entre les laitues."
     ]
    },
    "companions": [
@@ -22367,7 +23249,8 @@
    "id": "sweet_cherry",
    "names": {
     "en": "Sweet cherry",
-    "nl": "Zoete kers"
+    "nl": "Zoete kers",
+    "fr": "Cerisier (cerise douce)"
    },
    "scientific_name": "Prunus avium",
    "family": "Rosaceae",
@@ -22472,6 +23355,10 @@
     "nl": [
      "Kies een zelfbestuivend ras (Stella, Lapins, Sunburst) op zwakke onderstam Gisela 5 voor kleine tuinen.",
      "Hang in mei gele vangplaten tegen de kersenvlieg."
+    ],
+    "fr": [
+     "Pour un petit jardin, choisissez une variété autofertile (Stella, Lapins, Sunburst) sur porte-greffe nanisant Gisela 5.",
+     "Suspendez des pièges jaunes englués en mai contre la mouche de la cerise."
     ]
    },
    "companions": [
@@ -22564,7 +23451,8 @@
    "id": "sweet_cicely",
    "names": {
     "en": "Sweet cicely",
-    "nl": "Roomse kervel"
+    "nl": "Roomse kervel",
+    "fr": "Cerfeuil musqué"
    },
    "scientific_name": "Myrrhis odorata",
    "family": "Apiaceae",
@@ -22582,6 +23470,10 @@
     "nl": [
      "Gaas of een vliesscherm van 60 cm houdt de wortelvlieg weg (ze vliegt laag); dun 's avonds uit.",
      "Geen verse mest: de wortels vertakken. Zaai in goed verteerde compostrijke grond."
+    ],
+    "fr": [
+     "Un filet ou une barrière de voile de 60 cm arrête la mouche de la carotte (elle vole bas) ; éclaircissez le soir.",
+     "Pas de fumier frais : les racines fourchent. Semez dans une terre riche en compost bien décomposé."
     ]
    }
   },
@@ -22663,7 +23555,8 @@
    "id": "sweet_corn",
    "names": {
     "en": "Sweet corn",
-    "nl": "Suikermaïs"
+    "nl": "Suikermaïs",
+    "fr": "Maïs doux"
    },
    "scientific_name": "Zea mays convar. saccharata",
    "family": "Poaceae",
@@ -22721,6 +23614,9 @@
     ],
     "nl": [
      "Plant in blokken, niet in één rij: windbestuiving."
+    ],
+    "fr": [
+     "Plantez en carré, pas en une seule rangée : la pollinisation se fait par le vent."
     ]
    }
   },
@@ -22792,7 +23688,8 @@
    "id": "sweet_pea",
    "names": {
     "en": "Sweet pea",
-    "nl": "Siererwt (lathyrus)"
+    "nl": "Siererwt (lathyrus)",
+    "fr": "Pois de senteur"
    },
    "scientific_name": "Lathyrus odoratus",
    "family": "Fabaceae",
@@ -22802,6 +23699,9 @@
     ],
     "nl": [
      "Niet eetbaar! Kweek op de bonenwigwam om bestuivers te lokken."
+    ],
+    "fr": [
+     "Non comestible ! Faites-le grimper sur le tipi à haricots pour attirer les pollinisateurs."
     ]
    },
    "companions": [],
@@ -22814,7 +23714,8 @@
    "id": "sweet_pepper",
    "names": {
     "en": "Sweet pepper",
-    "nl": "Paprika"
+    "nl": "Paprika",
+    "fr": "Poivron"
    },
    "scientific_name": "Capsicum annuum",
    "family": "Solanaceae",
@@ -22978,6 +23879,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -23054,7 +23959,8 @@
    "id": "sweet_potato",
    "names": {
     "en": "Sweet potato",
-    "nl": "Zoete aardappel"
+    "nl": "Zoete aardappel",
+    "fr": "Patate douce"
    },
    "scientific_name": "Ipomoea batatas",
    "family": "Convolvulaceae",
@@ -23067,6 +23973,10 @@
     "nl": [
      "Kweek uit stekjes van een winkelknol; zwart plastic mulch verwarmt de bodem.",
      "Laat knollen 1 week uitharden op 28 °C, bewaar bij 13-15 °C."
+    ],
+    "fr": [
+     "Cultivez à partir de boutures (pousses) d'un tubercule du commerce ; un paillage plastique noir réchauffe le sol.",
+     "Faites ressuyer les tubercules 1 semaine à 28 °C, puis conservez-les à 13-15 °C."
     ]
    },
    "companions": [],
@@ -23156,7 +24066,8 @@
    "id": "swiss_chard",
    "names": {
     "en": "Swiss chard",
-    "nl": "Snijbiet"
+    "nl": "Snijbiet",
+    "fr": "Poirée (bette)"
    },
    "scientific_name": "Beta vulgaris subsp. vulgaris",
    "family": "Amaranthaceae",
@@ -23188,6 +24099,9 @@
     ],
     "nl": [
      "Zaai bij koel weer; spinazie schiet door bij lange dagen en hitte."
+    ],
+    "fr": [
+     "Semez par temps frais : l'épinard monte en graines avec les jours longs et la chaleur."
     ]
    }
   },
@@ -23259,7 +24173,8 @@
    "id": "tagetes_minuta",
    "names": {
     "en": "Tagetes minuta",
-    "nl": "Afrikaantje (tagetes patula)"
+    "nl": "Afrikaantje (tagetes patula)",
+    "fr": "Tagète (œillet d'Inde)"
    },
    "scientific_name": "Tagetes patula",
    "family": "Asteraceae",
@@ -23273,6 +24188,9 @@
     ],
     "nl": [
      "Wortels onderdrukken wortelknobbelaaltjes - plant dicht, een heel seizoen vóór tomaten."
+    ],
+    "fr": [
+     "Ses racines combattent les nématodes à galles - plantez dense toute une saison avant les tomates."
     ]
    },
    "companions": [
@@ -23366,7 +24284,8 @@
    "id": "tansy",
    "names": {
     "en": "Tansy",
-    "nl": "Boerenwormkruid"
+    "nl": "Boerenwormkruid",
+    "fr": "Tanaisie"
    },
    "scientific_name": "Tanacetum vulgare",
    "family": "Asteraceae",
@@ -23392,6 +24311,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -23465,7 +24388,8 @@
    "id": "tarragon",
    "names": {
     "en": "French tarragon",
-    "nl": "Dragon"
+    "nl": "Dragon",
+    "fr": "Estragon"
    },
    "scientific_name": "Artemisia dracunculus",
    "family": "Asteraceae",
@@ -23486,6 +24410,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -23575,7 +24503,8 @@
    "id": "tatsoi",
    "names": {
     "en": "Tatsoi",
-    "nl": "Tatsoi"
+    "nl": "Tatsoi",
+    "fr": "Tatsoï"
    },
    "scientific_name": "Brassica rapa subsp. narinosa",
    "family": "Brassicaceae",
@@ -23585,6 +24514,9 @@
     ],
     "nl": [
      "Zaai na de langste dag - voorjaarszaai schiet door."
+    ],
+    "fr": [
+     "Semez après la Saint-Jean - les semis de printemps montent en graines."
     ]
    },
    "companions": [],
@@ -23662,7 +24594,8 @@
    "id": "tayberry",
    "names": {
     "en": "Tayberry",
-    "nl": "Tayberry"
+    "nl": "Tayberry",
+    "fr": "Tayberry"
    },
    "scientific_name": "Rubus fruticosus × idaeus",
    "family": "Rosaceae",
@@ -23733,6 +24666,9 @@
     ],
     "nl": [
      "Pluk als ze dieppaars zijn - een kruising van framboos en braam."
+    ],
+    "fr": [
+     "Cueillez quand le fruit est pourpre foncé - un croisement de framboise et de mûre."
     ]
    },
    "companions": [],
@@ -23821,7 +24757,8 @@
    "id": "thai_basil",
    "names": {
     "en": "Thai basil",
-    "nl": "Thaise basilicum"
+    "nl": "Thaise basilicum",
+    "fr": "Basilic thaï"
    },
    "scientific_name": "Ocimum basilicum var. thyrsiflora",
    "family": "Lamiaceae",
@@ -23856,6 +24793,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -23936,7 +24877,8 @@
    "id": "thyme",
    "names": {
     "en": "Thyme",
-    "nl": "Tijm"
+    "nl": "Tijm",
+    "fr": "Thym"
    },
    "scientific_name": "Thymus vulgaris",
    "family": "Lamiaceae",
@@ -23960,6 +24902,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -24034,7 +24980,8 @@
    "id": "tomatillo",
    "names": {
     "en": "Tomatillo",
-    "nl": "Tomatillo"
+    "nl": "Tomatillo",
+    "fr": "Tomatillo"
    },
    "scientific_name": "Physalis philadelphica",
    "family": "Solanaceae",
@@ -24065,6 +25012,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -24072,7 +25023,8 @@
    "id": "tomato",
    "names": {
     "en": "Tomato",
-    "nl": "Tomaat"
+    "nl": "Tomaat",
+    "fr": "Tomate"
    },
    "scientific_name": "Solanum lycopersicum",
    "variety": "Indeterminate (cordon)",
@@ -24342,6 +25294,10 @@
     "nl": [
      "Geef water op de grond, nooit op het blad, 's ochtends: nat blad lokt phytophthora.",
      "Verwijder bladeren onder de eerste tros en mulch met stro tegen opspattende sporen."
+    ],
+    "fr": [
+     "Arrosez le sol, jamais le feuillage, et le matin : les feuilles mouillées favorisent le mildiou.",
+     "Retirez les feuilles sous le premier bouquet et paillez avec de la paille contre les éclaboussures contaminantes."
     ]
    }
   },
@@ -24422,7 +25378,8 @@
    "id": "turnip",
    "names": {
     "en": "Turnip",
-    "nl": "Raap / meiraap"
+    "nl": "Raap / meiraap",
+    "fr": "Navet"
    },
    "scientific_name": "Brassica rapa subsp. rapa",
    "family": "Brassicaceae",
@@ -24441,6 +25398,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -24522,7 +25483,8 @@
    "id": "turnip_greens",
    "names": {
     "en": "Turnip greens (raapstelen)",
-    "nl": "Raapstelen"
+    "nl": "Raapstelen",
+    "fr": "Fanes de navet (raapstelen)"
    },
    "scientific_name": "Brassica rapa subsp. rapa",
    "family": "Brassicaceae",
@@ -24532,6 +25494,9 @@
     ],
     "nl": [
      "Snij op 20 cm - vaak volgt een tweede snede. Prima in de serre eind winter."
+    ],
+    "fr": [
+     "Coupez à 20 cm - souvent une deuxième coupe suit. Excellent sous serre en fin d'hiver."
     ]
    },
    "companions": [],
@@ -24599,7 +25564,8 @@
    "id": "turnip_rooted_chervil",
    "names": {
     "en": "Turnip-rooted chervil",
-    "nl": "Knolkervel"
+    "nl": "Knolkervel",
+    "fr": "Cerfeuil tubéreux"
    },
    "scientific_name": "Chaerophyllum bulbosum",
    "family": "Apiaceae",
@@ -24609,6 +25575,9 @@
     ],
     "nl": [
      "Zaad heeft winterkou nodig: zaai in de herfst, oogst in juli; smaakt naar kastanje."
+    ],
+    "fr": [
+     "La graine a besoin du froid de l'hiver : semez en automne, récoltez en juillet suivant ; goût de châtaigne."
     ]
    },
    "companions": [],
@@ -24692,7 +25661,8 @@
    "id": "valerian",
    "names": {
     "en": "Valerian",
-    "nl": "Valeriaan"
+    "nl": "Valeriaan",
+    "fr": "Valériane"
    },
    "scientific_name": "Valeriana officinalis",
    "family": "Caprifoliaceae",
@@ -24707,6 +25677,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -24779,7 +25752,8 @@
    "id": "verbena_bonariensis",
    "names": {
     "en": "Purpletop vervain",
-    "nl": "Patagonisch ijzerhard"
+    "nl": "Patagonisch ijzerhard",
+    "fr": "Verveine de Buenos Aires"
    },
    "scientific_name": "Verbena bonariensis",
    "family": "Verbenaceae",
@@ -24790,6 +25764,9 @@
     ],
     "nl": [
      "Doorkijkplant - zet hem tussen groenten zonder schaduw; vlinders zijn er dol op."
+    ],
+    "fr": [
+     "Transparente - plantez-la parmi les légumes sans leur faire d'ombre ; les papillons l'adorent."
     ]
    },
    "companions": [],
@@ -24875,7 +25852,8 @@
    "id": "vietnamese_coriander",
    "names": {
     "en": "Vietnamese coriander",
-    "nl": "Vietnamese koriander"
+    "nl": "Vietnamese koriander",
+    "fr": "Coriandre vietnamienne"
    },
    "scientific_name": "Persicaria odorata",
    "family": "Polygonaceae",
@@ -24885,6 +25863,9 @@
     ],
     "nl": [
      "Koriandersmaak zonder doorschieten; 's winters binnen."
+    ],
+    "fr": [
+     "Le goût de la coriandre sans montée en graines ; rentrez-la en hiver."
     ]
    },
    "companions": [],
@@ -24962,7 +25943,8 @@
    "id": "viola",
    "names": {
     "en": "Viola (horned pansy)",
-    "nl": "Hoornviooltje"
+    "nl": "Hoornviooltje",
+    "fr": "Violette cornue"
    },
    "scientific_name": "Viola cornuta",
    "family": "Violaceae",
@@ -24972,6 +25954,9 @@
     ],
     "nl": [
      "Eetbare winterbloempjes voor salades."
+    ],
+    "fr": [
+     "Fleurs d'hiver comestibles pour les salades."
     ]
    },
    "companions": [],
@@ -25045,7 +26030,8 @@
    "id": "watercress",
    "names": {
     "en": "Watercress",
-    "nl": "Waterkers"
+    "nl": "Waterkers",
+    "fr": "Cresson de fontaine"
    },
    "scientific_name": "Nasturtium officinale",
    "family": "Brassicaceae",
@@ -25064,6 +26050,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -25143,7 +26133,8 @@
    "id": "watercress_land",
    "names": {
     "en": "Land cress",
-    "nl": "Landkers"
+    "nl": "Landkers",
+    "fr": "Cresson de terre"
    },
    "scientific_name": "Barbarea verna",
    "family": "Brassicaceae",
@@ -25154,6 +26145,9 @@
     ],
     "nl": [
      "Waterkerssmaak zonder stromend water; winterharde salade."
+    ],
+    "fr": [
+     "Le goût du cresson de fontaine sans eau courante ; salade d'hiver rustique."
     ]
    },
    "companions": [],
@@ -25247,7 +26241,8 @@
    "id": "watermelon",
    "names": {
     "en": "Watermelon",
-    "nl": "Watermeloen"
+    "nl": "Watermeloen",
+    "fr": "Pastèque"
    },
    "scientific_name": "Citrullus lanatus",
    "family": "Cucurbitaceae",
@@ -25266,6 +26261,10 @@
     "nl": [
      "Plant op een heuveltje compost; wekelijks melkspray (1:9) houdt echte meeldauw tegen.",
      "Geen vruchtzetting? Bestuif met de hand: wrijf 's ochtends een mannelijke bloem op de vrouwelijke."
+    ],
+    "fr": [
+     "Plantez sur une butte de compost ; une pulvérisation de lait (1:9) chaque semaine freine l'oïdium.",
+     "Pas de fruits ? Pollinisez à la main : frottez une fleur mâle sur la fleur femelle le matin."
     ]
    }
   },
@@ -25343,7 +26342,8 @@
    "id": "welsh_onion",
    "names": {
     "en": "Welsh onion",
-    "nl": "Stengelui"
+    "nl": "Stengelui",
+    "fr": "Ciboule"
    },
    "scientific_name": "Allium fistulosum",
    "family": "Amaryllidaceae",
@@ -25367,6 +26367,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -25439,7 +26443,8 @@
    "id": "white_clover",
    "names": {
     "en": "White clover",
-    "nl": "Witte klaver"
+    "nl": "Witte klaver",
+    "fr": "Trèfle blanc"
    },
    "scientific_name": "Trifolium repens",
    "family": "Fabaceae",
@@ -25450,6 +26455,9 @@
     ],
     "nl": [
      "Levende mulch voor paden en onder fruitbomen; bindt stikstof."
+    ],
+    "fr": [
+     "Paillage vivant pour les allées et sous les arbres fruitiers ; fixe l'azote."
     ]
    },
    "companions": [],
@@ -25524,7 +26532,8 @@
    "id": "white_mustard",
    "names": {
     "en": "White mustard",
-    "nl": "Gele mosterd"
+    "nl": "Gele mosterd",
+    "fr": "Moutarde blanche"
    },
    "scientific_name": "Sinapis alba",
    "family": "Brassicaceae",
@@ -25534,6 +26543,9 @@
     ],
     "nl": [
      "Snelle herfstbedekker, maar een kruisbloemige: niet vóór kolen (knolvoet)."
+    ],
+    "fr": [
+     "Couvert d'automne rapide, mais c'est une crucifère : pas avant des choux (hernie)."
     ]
    },
    "companions": [],
@@ -25611,7 +26623,8 @@
    "id": "whitecurrant",
    "names": {
     "en": "Whitecurrant",
-    "nl": "Witte bes"
+    "nl": "Witte bes",
+    "fr": "Groseillier blanc"
    },
    "scientific_name": "Ribes rubrum (white)",
    "family": "Grossulariaceae",
@@ -25686,6 +26699,9 @@
     ],
     "nl": [
      "Zoeter dan rode bes - heerlijk vers."
+    ],
+    "fr": [
+     "Plus douce que la groseille rouge - délicieuse fraîche."
     ]
    },
    "companions": [],
@@ -25769,7 +26785,8 @@
    "id": "wild_garlic",
    "names": {
     "en": "Wild garlic / Ramsons",
-    "nl": "Daslook"
+    "nl": "Daslook",
+    "fr": "Ail des ours"
    },
    "scientific_name": "Allium ursinum",
    "family": "Amaryllidaceae",
@@ -25787,6 +26804,10 @@
     "nl": [
      "Schoffel voorzichtig - uien verdragen geen onkruid; stop met water geven 2 weken voor de oogst.",
      "Combineer met wortelen: ze maskeren elkaars geur voor de vliegen."
+    ],
+    "fr": [
+     "Binez avec soin - les alliacées détestent la concurrence des mauvaises herbes ; arrêtez d'arroser 2 semaines avant la récolte.",
+     "Associez-les aux carottes : chacune masque l'odeur de l'autre face à sa mouche."
     ]
    }
   },
@@ -25857,7 +26878,8 @@
    "id": "winter_purslane",
    "names": {
     "en": "Winter purslane / Claytonia",
-    "nl": "Winterpostelein"
+    "nl": "Winterpostelein",
+    "fr": "Claytone de Cuba (pourpier d'hiver)"
    },
    "scientific_name": "Claytonia perfoliata",
    "family": "Montiaceae",
@@ -25874,6 +26896,9 @@
     ],
     "nl": [
      "Mulch kale grond; dat voedt het bodemleven, houdt vocht vast en onderdrukt onkruid."
+    ],
+    "fr": [
+     "Paillez le sol nu : cela nourrit la vie du sol, garde l'humidité et freine les mauvaises herbes."
     ]
    }
   },
@@ -25938,7 +26963,8 @@
    "id": "winter_radish",
    "names": {
     "en": "Winter radish (black)",
-    "nl": "Winterradijs (zwarte)"
+    "nl": "Winterradijs (zwarte)",
+    "fr": "Radis noir d'hiver"
    },
    "scientific_name": "Raphanus sativus var. niger",
    "family": "Brassicaceae",
@@ -25964,6 +26990,10 @@
     "nl": [
      "Dek meteen na het planten af met insectengaas (0,8 mm): houdt koolwitje, koolvlieg en aardvlo tegen.",
      "Stevig aandrukken en een pH boven 7 (kalk) voorkomt knolvoet."
+    ],
+    "fr": [
+     "Couvrez d'un filet anti-insectes (0,8 mm) dès la plantation : il arrête la piéride du chou, la mouche du chou et l'altise.",
+     "Une plantation bien tassée et un pH au-dessus de 7 (chaulage) préviennent la hernie du chou."
     ]
    }
   },
@@ -26027,7 +27057,8 @@
    "id": "winter_rye",
    "names": {
     "en": "Winter rye",
-    "nl": "Winterrogge"
+    "nl": "Winterrogge",
+    "fr": "Seigle d'hiver"
    },
    "scientific_name": "Secale cereale",
    "family": "Poaceae",
@@ -26037,6 +27068,9 @@
     ],
     "nl": [
      "Laatst te zaaien groenbemester; maaien en onderwerken 4 weken voor het zaaien (remt kieming)."
+    ],
+    "fr": [
+     "L'engrais vert que l'on sème le plus tard ; fauchez et enfouissez 4 semaines avant le semis (il freine la germination)."
     ]
    },
    "companions": [],
@@ -26121,7 +27155,8 @@
    "id": "winter_savory",
    "names": {
     "en": "Winter savory",
-    "nl": "Bonenkruid (winter)"
+    "nl": "Bonenkruid (winter)",
+    "fr": "Sarriette des montagnes (vivace)"
    },
    "scientific_name": "Satureja montana",
    "family": "Lamiaceae",
@@ -26141,6 +27176,10 @@
     "nl": [
      "Oogst 's ochtends wanneer de oliën het sterkst zijn; knip terug na de bloei voor nieuwe groei.",
      "De meeste mediterrane kruiden willen arme, goed doorlatende grond - geen mest."
+    ],
+    "fr": [
+     "Récoltez le matin, quand les huiles essentielles sont les plus concentrées ; rabattez après la floraison pour de nouvelles pousses.",
+     "La plupart des aromatiques méditerranéennes veulent un sol pauvre et bien drainé - pas d'engrais."
     ]
    }
   },
@@ -26206,7 +27245,8 @@
    "id": "winter_vetch",
    "names": {
     "en": "Winter vetch",
-    "nl": "Winterwikke"
+    "nl": "Winterwikke",
+    "fr": "Vesce velue"
    },
    "scientific_name": "Vicia villosa",
    "family": "Fabaceae",
@@ -26216,6 +27256,9 @@
     ],
     "nl": [
      "Zaai samen met rogge: rogge geeft structuur, wikke tot 100 kg N/ha."
+    ],
+    "fr": [
+     "Semez avec du seigle : le seigle sert de tuteur, la vesce apporte jusqu'à 100 kg N/ha."
     ]
    },
    "companions": [],
@@ -26298,7 +27341,8 @@
    "id": "wormwood",
    "names": {
     "en": "Wormwood",
-    "nl": "Alsem"
+    "nl": "Alsem",
+    "fr": "Absinthe"
    },
    "scientific_name": "Artemisia absinthium",
    "family": "Asteraceae",
@@ -26324,6 +27368,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -26399,7 +27447,8 @@
    "id": "yacon",
    "names": {
     "en": "Yacon",
-    "nl": "Yacon"
+    "nl": "Yacon",
+    "fr": "Yacon"
    },
    "scientific_name": "Smallanthus sonchifolius",
    "family": "Asteraceae",
@@ -26410,6 +27459,9 @@
     ],
     "nl": [
      "Oogst als de eerste vorst het blad zwart kleurt; bewaar de kronen vorstvrij voor volgend jaar."
+    ],
+    "fr": [
+     "Récoltez quand les premières gelées ont noirci le feuillage ; gardez les souches hors gel pour l'an prochain."
     ]
    },
    "companions": [],
@@ -26494,7 +27546,8 @@
    "id": "yarrow",
    "names": {
     "en": "Yarrow",
-    "nl": "Duizendblad"
+    "nl": "Duizendblad",
+    "fr": "Achillée millefeuille"
    },
    "scientific_name": "Achillea millefolium",
    "family": "Asteraceae",
@@ -26514,6 +27567,10 @@
     "nl": [
      "Slakken houden van sla: biervallen, een ring van houtas of grit, en 's avonds rondgaan.",
      "Zaai weinig en vaak (elke 2-3 weken) voor een continue oogst."
+    ],
+    "fr": [
+     "Les limaces adorent la laitue : pièges à bière, cercle de cendre de bois ou de gravillons, et rondes le soir.",
+     "Semez peu mais souvent (toutes les 2-3 semaines) pour une récolte régulière."
     ]
    }
   },
@@ -26593,7 +27650,8 @@
    "id": "zinnia",
    "names": {
     "en": "Zinnia",
-    "nl": "Zinnia"
+    "nl": "Zinnia",
+    "fr": "Zinnia"
    },
    "scientific_name": "Zinnia elegans",
    "family": "Asteraceae",
@@ -26604,6 +27662,9 @@
     ],
     "nl": [
      "Vlinders houden van enkelbloemige soorten."
+    ],
+    "fr": [
+     "Les papillons adorent les variétés à fleurs simples."
     ]
    },
    "companions": [

@@ -1,5 +1,6 @@
 // Thin, typed wrapper around the garden_manager websocket commands.
 import type {
+  Expense,
   AdviceResult,
   HarvestEntry,
   JournalEntry,
@@ -331,7 +332,15 @@ export class GardenApi {
     return this.call("records/harvest/add", entry as Record<string, unknown>);
   }
 
-  deleteRecord(kind: "harvest" | "journal" | "seed", recordId: string): Promise<void> {
+  starterGarden(size: "small" | "medium" | "large", greenhouse: boolean): Promise<{ beds: number; plantings: number }> {
+    return this.call("garden/starter", { size, greenhouse });
+  }
+
+  saveExpense(expense: { id?: string; amount: number; category: string; day?: string; note?: string }): Promise<{ expense: Expense }> {
+    return this.call("records/expense/save", { expense });
+  }
+
+  deleteRecord(kind: "harvest" | "journal" | "seed" | "expense", recordId: string): Promise<void> {
     return this.call("records/delete", { kind, record_id: recordId });
   }
 
@@ -362,5 +371,8 @@ export class GardenApi {
   }
 }
 
+/** Prefix for photo URLs when the panel is served below a sub-path (the web version sets it); empty in Home Assistant. */
+const photoBase = (): string => (globalThis as { HORTULUS_BASE?: string }).HORTULUS_BASE ?? "";
+
 export const photoUrl = (id: string, size = "256x256"): string =>
-  id.startsWith("http") || id.startsWith("/") ? id : `/api/image/serve/${id}/${size}`;
+  id.startsWith("http") || id.startsWith("/") ? id : `${photoBase()}/api/image/serve/${id}/${size}`;

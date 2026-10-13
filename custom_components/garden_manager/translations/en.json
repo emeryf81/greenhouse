@@ -228,7 +228,8 @@
       "options": {
         "auto": "Follow Home Assistant",
         "en": "English",
-        "nl": "Nederlands"
+        "nl": "Nederlands",
+        "fr": "Français"
       }
     },
     "task_type": {
@@ -765,6 +766,10 @@
         "amount_mm": {
           "name": "Amount",
           "description": "Water this depth (mm) instead of the recommendation."
+        },
+        "only_if_needed": {
+          "name": "Only if needed",
+          "description": "Water only beds that need water after the latest recalculation (an automation picks the moment, Hortulus the need)."
         }
       }
     },
@@ -1008,7 +1013,7 @@
     },
     "install_voice_sentences": {
       "name": "Install voice sentences",
-      "description": "Copy the Hortulus sentences for Assist to /config/custom_sentences (EN and NL).",
+      "description": "Copy the Hortulus sentences for Assist to /config/custom_sentences (EN, NL and FR).",
       "fields": {
         "overwrite": {
           "name": "Overwrite",
@@ -1077,6 +1082,12 @@
     },
     "unknown_log_entry": {
       "message": "System log entry {entry} does not exist (anymore)."
+    },
+    "garden_not_empty": {
+      "message": "The starter garden can only be laid out in a garden without beds."
+    },
+    "invalid_expense": {
+      "message": "Give an amount above zero and a known kind of expense."
     }
   }
 }

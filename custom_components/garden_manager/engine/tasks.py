@@ -29,7 +29,7 @@ import uuid
 
 from .fertilizer import feed_dose
 from .geometry import plant_count
-from .i18n import t
+from .i18n import pest_advice, pest_label, t
 from .models import (
     CareRule,
     GardenBed,
@@ -51,6 +51,7 @@ from .models import (
     Zone,
     present_in,
 )
+from .pests import PestWarning
 from .plantdb import PlantDatabase
 from .region import SeasonAnchors, season_anchors, season_for_date
 from .schedule import PlantingTimeline, TimingAdvice
@@ -155,6 +156,7 @@ class TaskContext:
     nutrients: dict[str, NutrientBalance] = field(default_factory=dict)
     outlook: list[DailyOutlook] = field(default_factory=list)
     rain_water_l: float | None = None  # in the water butts now (water settings)
+    pests: list[PestWarning] = field(default_factory=list)
     horizon_days: int = GENERATION_HORIZON_DAYS
 
 
@@ -647,10 +649,72 @@ def live_specs(ctx: TaskContext) -> list[TaskSpec]:
                 zone_id=zone.id,
             )
         )
+    specs.extend(pest_specs(ctx))
     from .weather_tasks import weather_specs  # weather_tasks imports this module
 
     specs.extend(weather_specs(ctx))
     return specs
+
+
+PEST_TASK = {
+    "net": (TaskType.PROTECT, "task.pest_net", 15),
+    "check": (TaskType.PEST_CHECK, "task.pest_watch", 10),
+    "collect": (TaskType.PEST_CHECK, "task.pest_collect", 15),
+    "trap": (TaskType.PEST_CHECK, "task.pest_slugs", 15),
+}
+
+
+def pest_specs(ctx: TaskContext) -> list[TaskSpec]:
+    """Protect in time against the pests of the pest calendar (see :mod:`.pests`).
+
+    Nets go on a few days before a flight starts and stay for the generation;
+    checks repeat weekly while the pest is about; slugs get an evening round
+    after a mild, damp spell.
+    """
+    today, lang = ctx.today, ctx.lang
+    out: list[TaskSpec] = []
+    for w in ctx.pests:
+        ttype, title_key, minutes = PEST_TASK.get(w.action, PEST_TASK["check"])
+        pest = pest_label(w.pest, lang)
+        for bed_id in w.beds or [None]:
+            bed = ctx.data.bed(bed_id) if bed_id else None
+            names = (
+                sorted(
+                    {
+                        ctx.db.get(p.plant_id).name(lang)  # type: ignore[union-attr]
+                        for p in ctx.data.plantings
+                        if p.id in w.plantings and p.bed_id == bed_id and ctx.db.get(p.plant_id)
+                    }
+                )
+                or w.plants
+            )
+            if w.action == "net":
+                due = max(today, (w.start or today) - timedelta(days=3))
+                season = season_for_date(ctx.data.settings.region, today)  # one key per generation across 1 January
+                key = f"p:{w.pest}:{bed_id}:{season}:{w.generation}"
+            elif w.action == "trap":
+                due = today
+                key = f"p:{w.pest}:{bed_id}:{today.isoformat()}"
+            else:
+                due = max(today, w.start or today)
+                key = f"p:{w.pest}:{bed_id}:{due.isocalendar().year}-w{due.isocalendar().week}"
+            out.append(
+                TaskSpec(
+                    key=key,
+                    type=ttype,
+                    due=due,
+                    title_key=title_key,
+                    title_params={"plants": ", ".join(names), "pest": pest, "bed": bed.name if bed else ""},
+                    description=pest_advice(w.pest, w.action, lang),
+                    window_start=due,
+                    window_end=w.end or due + timedelta(days=7),
+                    priority=TaskPriority.HIGH if w.action == "net" and w.status == "active" else TaskPriority.NORMAL,
+                    minutes=minutes + 2 * len(names),
+                    source=TaskSource.WEATHER,
+                    bed_id=bed_id,
+                )
+            )
+    return out
 
 
 def generate_specs(ctx: TaskContext) -> list[TaskSpec]:

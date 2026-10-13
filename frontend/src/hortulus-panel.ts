@@ -37,7 +37,7 @@ import "./components/task-ui";
 import { setGlossary } from "./components/info";
 import "./components/modal";
 import "./components/plant-detail";
-import { familyColor, plantName } from "./util/garden";
+import { familyColor, plantName, familyName } from "./util/garden";
 
 type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string }[] = [
@@ -335,7 +335,7 @@ export class HortulusPanel extends LitElement {
       @closed=${() => (this.popupPlant = null)}
       @select-plant=${(e: CustomEvent<Plant>) => { this.popupPlant = e.detail; void this.updateComplete.then(() => this.renderRoot.querySelector("hl-modal")?.toTop()); }}
       @focus-planting=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusPlanting(e.detail)}>
-      <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${this.families[p.family]?.[this.uiLang as "en" | "nl"] ?? p.family}</span>
+      <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${familyName(this.families, p.family, this.uiLang) ?? p.family}</span>
       <hl-plant-detail .plant=${p} .plants=${this.plants} .families=${this.families} .snapshot=${this.snapshot} .t=${this.t} lang=${this.uiLang}></hl-plant-detail>
     </hl-modal>`;
   }
@@ -426,7 +426,7 @@ export class HortulusPanel extends LitElement {
       case "print":
         return html`<hl-print-view .snapshot=${snap} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .narrow=${this.narrow} .admin=${admin}></hl-print-view>`;
       case "settings":
-        return html`<hl-settings-view .snapshot=${snap} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
+        return html`<hl-settings-view .snapshot=${snap} .plants=${this.plants} .hass=${this.hass} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-settings-view>`;
       default:
         return html`<hl-dashboard-view .snapshot=${snap} .api=${this.api} .plants=${plantMap} .families=${this.families} .t=${this.t} .lang=${this.uiLang} .admin=${admin}></hl-dashboard-view>`;
     }

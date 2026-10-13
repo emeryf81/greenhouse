@@ -111,7 +111,9 @@ export class SeasonReportView extends LitElement {
 
   render(): TemplateResult {
     const r = this.report;
-    const seasons = Array.from({ length: 4 }, (_, i) => (this.snapshot.analysis?.season ?? new Date().getFullYear()) - i);
+    const current = this.snapshot.analysis?.season ?? new Date().getFullYear();
+    // the last four seasons plus every archived one
+    const seasons = [...new Set([...Array.from({ length: 4 }, (_, i) => current - i), ...(this.snapshot.archived_seasons ?? [])])].sort((a, b) => b - a);
     return html`<div class="stack">
       <div class="row wrap">
         ${this.pick ? html`<select style="width:auto" aria-label=${this.t("planner.season")} @change=${(e: Event) => (this.season = Number((e.target as HTMLSelectElement).value))}>

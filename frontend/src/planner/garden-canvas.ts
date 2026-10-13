@@ -1,7 +1,7 @@
 import { LitElement, css, html, svg, nothing, type PropertyValues, type SVGTemplateResult } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { Analysis, Bed, CompatibilityReport, FamilyInfo, Feature, Plant, Planting, Timeline, Zone } from "../types";
-import { familyColor, isActiveOn, plantMonogram, plantName } from "../util/garden";
+import { familyColor, isActiveOn, plantMonogram, plantName, localeOf } from "../util/garden";
 import { glyphFor, glyphSymbols, glyphUse } from "./plant-glyphs";
 import { bedRect, clampInto, extents, plantPositions, plantingRect, snap, zoneRect, type Rect } from "./geometry";
 import type { Translate } from "../i18n";
@@ -858,7 +858,7 @@ export class GardenCanvas extends LitElement {
     const tool = this.drawTool;
     if (!r || !tool || (!r.w && !r.h)) return nothing;
     const fs = 12 / this.k;
-    const m = (cm: number) => (cm / 100).toLocaleString(this.lang === "nl" ? "nl-BE" : "en-GB", { maximumFractionDigits: 1 });
+    const m = (cm: number) => (cm / 100).toLocaleString(localeOf(this.lang), { maximumFractionDigits: 1 });
     return svg`<g pointer-events="none">
       <rect x=${r.x} y=${r.y} width=${r.w} height=${r.h} rx=${4 / this.k} fill=${tool.color} fill-opacity="0.22"
         stroke=${tool.color} stroke-width="2" stroke-dasharray="6 3" vector-effect="non-scaling-stroke"></rect>

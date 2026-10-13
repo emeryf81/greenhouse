@@ -222,8 +222,13 @@ def explain_plant(
     today: date,
     match_zone: bool = True,
     timelines: Mapping[str, Any] | None = None,
+    lang: str | None = None,
 ) -> list[BedVerdict]:
-    """For every bed of ``season``'s plan: can ``plant`` go there, and if not, why not."""
+    """For every bed of ``season``'s plan: can ``plant`` go there, and if not, why not.
+
+    ``lang`` picks the language of companion-planting reasons; without it the
+    Dutch reason is preferred (historic behaviour), falling back to English.
+    """
     layout = layout_for(data, season)
     if layout is None:
         return []
@@ -245,7 +250,7 @@ def explain_plant(
             rel = db.relation(plant.id, other.plant_id)
             if rel.relation is Relation.ENEMY:
                 entry = {"code": "bad_neighbour", "params": {"plant_id": other.plant_id,
-                                                             "reason": rel.reasons.get("nl") or rel.reasons.get("en", "")}}  # fmt: skip
+                                                             "reason": rel.reasons.get(lang or "nl") or rel.reasons.get("en", "")}}  # fmt: skip
                 (reasons if rel.strength >= 2 else warnings).append(entry)
         free = _free_area(bed.width_cm, bed.length_cm, [planting_rect(p) for p in here])
         if free < need:

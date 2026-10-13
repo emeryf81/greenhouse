@@ -24,6 +24,7 @@ from .fertilizer import NutrientBalance, nutrient_balance
 from .models import (
     GardenData,
     GreenhouseAction,
+    Hemisphere,
     MoistureStatus,
     Plant,
     RiskLevel,
@@ -33,6 +34,7 @@ from .models import (
     WeatherSnapshot,
     present_in,
 )
+from .pests import PestWarning, pest_warnings
 from .phenology import PhenologyInfo, phenology, stage_kc
 from .plantdb import PlantDatabase
 from .region import SeasonAnchors, resolve_profile, season_anchors, season_bounds, season_for_date
@@ -80,6 +82,7 @@ class BedAnalysis:
     nutrients: NutrientBalance = field(default_factory=lambda: NutrientBalance(None, "unknown"))
     taw_mm: float | None = None
     depletion_mm: float | None = None
+    et_factor: float = 1.0  # learned from the moisture sensor: >1 dries faster than modelled
 
     @property
     def moisture_status(self) -> MoistureStatus:
@@ -125,6 +128,7 @@ class GardenAnalysis:
     et0_today: float | None = None
     et0_method: str | None = None
     gdd_today: float | None = None
+    pests: list[PestWarning] = field(default_factory=list)
 
     def task_context(self, data: GardenData, db: PlantDatabase) -> TaskContext:
         return TaskContext(
@@ -141,6 +145,7 @@ class GardenAnalysis:
             disease={k: z.disease for k, z in self.zones.items()},
             nutrients={k: b.nutrients for k, b in self.beds.items()},
             outlook=list(self.outlook),
+            pests=list(self.pests),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -167,6 +172,7 @@ class GardenAnalysis:
                     "nutrients": b.nutrients.to_dict(),
                     "taw_mm": b.taw_mm,
                     "depletion_mm": b.depletion_mm,
+                    "et_factor": b.et_factor,
                 }
                 for k, b in self.beds.items()
             },
@@ -191,6 +197,7 @@ class GardenAnalysis:
             "et0_today": self.et0_today,
             "et0_method": self.et0_method,
             "gdd_today": self.gdd_today,
+            "pests": [w.to_dict() for w in self.pests],
         }
 
 
@@ -390,6 +397,7 @@ def analyze(
             nutrients=nutrients,
             taw_mm=round(taw, 1) if taw else None,
             depletion_mm=depletion[0] if depletion else None,
+            et_factor=bucket.et_factor if bucket is not None else 1.0,
         )
 
         zone_frost = zones[bed.zone_id].frost if bed.zone_id in zones else outdoor_frost
@@ -549,6 +557,7 @@ def analyze(
         et0_today=today_out.et0_mm if today_out else None,
         et0_method=today_out.et0_method if today_out else None,
         gdd_today=gdd_today,
+        pests=pest_warnings(data, db, timelines, today, outlook, south=hemisphere is Hemisphere.SOUTH, lang=lang),
     )
 
 

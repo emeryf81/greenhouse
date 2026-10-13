@@ -238,3 +238,23 @@ In het tabblad **Weer**: het weer nu, een grafiek van de komende 24 uur (tempera
 ## Waar zijn Planten, Advies en Instellingen gebleven?
 
 Het menu is samengevat in zeven plaatsen: **Vandaag**, **Tuin** (Planner, Tuinplan, Teelten), **Kalender**, **Weer**, **Logboek**, **Kennis** (Planten, Advies, Handboek) en **Beheer** (Analyse, Afdrukken, Instellingen). De tabbladen van een plaats staan in een rij erboven; een plaats opent op het tabblad dat je er laatst gebruikte.
+
+## Wanneer moet ik insectengaas leggen?
+
+Hortulus volgt de **plagenkalender**: voor wortelvlieg, koolvlieg, koolwitje, uienvlieg, preimot, bladluis, aardvlo, coloradokever en andere rekent het met de warmtesom (graaddagen) van dit seizoen wanneer ze vliegen. Zolang het klimaatlogboek nog kort is, gebruikt het de gebruikelijke maanden. Slakken volgen het weer: na regen met zachte nachten. Je krijgt een taak om gaas te leggen een paar dagen vóór de vlucht, een wekelijkse controle of een slakkenronde 's avonds, en een kaart **Plagen in de tuin** op het dashboard. Alleen voor teelten die (binnenkort) in de grond staan.
+
+## Hoeveel bespaart mijn moestuin?
+
+In **Logboek → Keuken** zie je de oogst tegen winkelprijzen naast je uitgaven (zaad, plantgoed, compost, gereedschap ...) en het water volgens de watermeter. Pas prijzen per teelt en de waterprijs aan bij **Instellingen → Kosten**. Daar zie je ook wat nu oogstrijp is, met bewaartips, en een melding als je meer oogst dan jullie opeten.
+
+## Mijn bodemvochtsensor is soms offline – klopt het advies dan nog?
+
+Ja. Elke dag zet Hortulus de waterbalans van een bed met sensor gelijk aan de meting, en het leert hoe snel dat bed echt uitdroogt (bv. "15 % sneller dan berekend", op het dashboard). Valt de sensor uit, dan rekent het verder met wat het leerde.
+
+## Waar zijn mijn oude seizoenen?
+
+Seizoenen ouder dan de laatste drie gaan naar een apart archiefbestand, zodat Hortulus snel blijft. De wisselteelt houdt er nog rekening mee, en het seizoensrapport en het seizoensboek kunnen ze nog openen (kies het jaar).
+
+## Is Hortulus ook in het Frans?
+
+Ja: kies **Français** bij de taal in de opties van de integratie, of laat Hortulus de taal van Home Assistant volgen.

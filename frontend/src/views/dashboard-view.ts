@@ -1,11 +1,11 @@
 import type { GardenApi } from "../api";
 import "../components/quick-harvest";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Snapshot, Task } from "../types";
-import { addDays, familyColor, formatDate, plantName, sortTasks } from "../util/garden";
+import { addDays, familyColor, formatDate, plantName, sortTasks, localeOf } from "../util/garden";
 import { tileColor } from "../components/plant-image";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { renderTaskRow, taskPlantResolver, taskRowStyles, type TaskCtx } from "../components/task-ui";
@@ -31,11 +31,20 @@ export class DashboardView extends LitElement {
   @property({ attribute: false }) t!: Translate;
   @property() lang = "en";
   @property({ type: Boolean }) admin = true;
+  @state() private starting = false;
+  @state() private starterSize: "small" | "medium" | "large" = "medium";
+  @state() private starterGreenhouse = false;
 
   static styles = [
     shared,
     taskRowStyles,
     css`
+      .welcome { padding: 24px 28px; }
+      .welcome .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--hl-s4); margin-top: var(--hl-s3); }
+      .welcome .choice { border: 1px solid var(--hl-border); border-radius: 16px; padding: 16px; display: grid; gap: 8px; align-content: start; background: var(--hl-surface-2); }
+      .welcome .choice h3 { margin: 0; font-family: var(--hl-font-serif); }
+      .pests { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      .pests li { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
       .hero { position: relative; overflow: hidden; border-radius: 22px; margin-bottom: var(--hl-s5); padding: 28px 32px 24px;
         color: var(--hl-hero-ink); background: var(--season, var(--hl-grad-spring)); box-shadow: var(--hl-shadow-2), var(--hl-highlight);
         isolation: isolate; }
@@ -123,7 +132,7 @@ export class DashboardView extends LitElement {
       ${stuck.map((v) => html`<div class="alert critical" role="alert">
       <ha-icon icon="mdi:valve-open"></ha-icon>
       <div><b>${this.t("valve.stuck", { what: v.what === "pump" ? this.t("valve.pump") : v.what, entity: v.entity_id })}</b>
-        <div class="small">${this.t("valve.stuck_since", { time: new Date(v.since).toLocaleTimeString(this.lang === "nl" ? "nl-NL" : "en-GB", { hour: "2-digit", minute: "2-digit" }) })}</div></div>
+        <div class="small">${this.t("valve.stuck_since", { time: new Date(v.since).toLocaleTimeString(this.lang === "nl" ? "nl-NL" : localeOf(this.lang), { hour: "2-digit", minute: "2-digit" }) })}</div></div>
       <span class="spacer"></span>
       ${this.admin ? html`<button class="btn small danger" @click=${() => this.emit("close-valve", v.entity_id)}>${this.t("valve.close")}</button>` : nothing}
     </div>`)}</section>`;
@@ -139,6 +148,46 @@ export class DashboardView extends LitElement {
   private greeting(): string {
     const h = new Date().getHours();
     return this.t(h < 12 ? "dash.greeting_morning" : h < 18 ? "dash.greeting_afternoon" : "dash.greeting_evening");
+  }
+
+  /** First visit, empty garden: a ready-made starter garden, draw your own, or let the planner fill it. */
+  private renderWelcome(): TemplateResult {
+    const start = async () => {
+      if (!this.api) return;
+      this.starting = true;
+      try {
+        await this.api.starterGarden(this.starterSize, this.starterGreenhouse);
+      } catch (err) {
+        const message = this.t("common.error", { message: (err as Error).message });
+        this.dispatchEvent(new CustomEvent("hl-toast", { detail: { message }, bubbles: true, composed: true }));
+      } finally {
+        this.starting = false;
+      }
+    };
+    return html`<section class="card welcome" aria-labelledby="welcome-h">
+      <h2 id="welcome-h">${this.t("welcome.title")}</h2>
+      <p>${this.t("welcome.intro")}</p>
+      <div class="choices">
+        <div class="choice">
+          <h3>${this.t("welcome.starter")}</h3>
+          <p class="small">${this.t("welcome.starter_text")}</p>
+          <label class="field">${this.t("welcome.size")}<select @change=${(e: Event) => (this.starterSize = (e.target as HTMLSelectElement).value as "small" | "medium" | "large")}>
+            ${(["small", "medium", "large"] as const).map((s) => html`<option value=${s} ?selected=${s === this.starterSize}>${this.t(`welcome.size.${s}`)}</option>`)}</select></label>
+          <label class="field check"><input type="checkbox" .checked=${this.starterGreenhouse} @change=${(e: Event) => (this.starterGreenhouse = (e.target as HTMLInputElement).checked)} />${this.t("welcome.greenhouse")}</label>
+          <button class="btn primary" ?disabled=${this.starting || !this.api} @click=${start}>${this.t("welcome.starter_go")}</button>
+        </div>
+        <div class="choice">
+          <h3>${this.t("welcome.draw")}</h3>
+          <p class="small">${this.t("welcome.draw_text")}</p>
+          <button class="btn" @click=${() => this.emit("navigate", "layout")}>${this.t("welcome.draw_go")}</button>
+        </div>
+        <div class="choice">
+          <h3>${this.t("welcome.handbook")}</h3>
+          <p class="small">${this.t("welcome.handbook_text")}</p>
+          <button class="btn ghost" @click=${() => this.emit("navigate", "handbook")}>${this.t("welcome.handbook_go")}</button>
+        </div>
+      </div>
+    </section>`;
   }
 
   render(): TemplateResult {
@@ -174,6 +223,7 @@ export class DashboardView extends LitElement {
         </div>`)}
       </section>` : nothing}
 
+      ${!snap.beds.length && this.admin ? this.renderWelcome() : nothing}
       <div class="grid">
         <section class="card span-8" aria-labelledby="today-h">
           <header><h2 id="today-h">${this.t("dash.today_tasks")}</h2><span class="spacer"></span>
@@ -186,6 +236,15 @@ export class DashboardView extends LitElement {
           <header><h2 id="quick-h">${this.t("quick.title")}</h2><span class="spacer"></span><span class="small muted">${this.t("quick.hint")}</span></header>
           <hl-quick-harvest .snapshot=${snap} .api=${this.api} .t=${this.t} .plants=${this.plants} .families=${this.families} lang=${this.lang}></hl-quick-harvest>
         </section>` : nothing}
+        ${a.pests?.length ? html`<section class="card span-12" aria-labelledby="pests-h">
+          <header><h2 id="pests-h">${this.t("pests.title")}</h2><span class="spacer"></span><span class="small muted">${this.t("pests.hint")}</span></header>
+          <ul class="pests">${a.pests.map((w) => html`<li>
+            <span class="chip ${w.status === "active" ? "warn" : "info"}">${this.t(`pests.status.${w.status}`)}</span>
+            <div><b>${w.label.charAt(0).toUpperCase() + w.label.slice(1)}</b> · <span class="small">${w.plants.join(", ")}</span>
+              <div class="xs muted">${w.status === "soon" && w.start ? this.t("pests.from", { date: formatDate(w.start, this.lang) }) : w.end ? this.t("pests.until", { date: formatDate(w.end, this.lang) }) : ""}${w.source === "gdd" && w.gdd != null ? ` · ${this.t("pests.gdd", { gdd: Math.round(w.gdd), gen: w.generation })}` : w.source === "weather" ? ` · ${this.t("pests.weather")}` : ""}</div>
+              <div class="small">${w.advice}</div></div>
+          </li>`)}</ul>
+        </section>` : nothing}
         <section class="card span-4" aria-labelledby="weather-h">
           <header><h2 id="weather-h">${this.t("dash.weather")}</h2></header>
           ${a.weather_available ? html`
@@ -197,7 +256,7 @@ export class DashboardView extends LitElement {
               </div>`)}</div>
             <div class="divider"></div>
             <div class="kv"><span>${this.t("dash.frost_risk")}</span><span class="chip ${RISK_CHIP[a.frost.level]}">${this.t(`risk.${a.frost.level}`)}</span></div>
-            ${a.frost.plant_level_min_c != null ? html`<div class="kv"><span></span><span class="muted">${this.t("dash.min_temp", { temp: a.frost.plant_level_min_c })}${a.frost.min_at ? ` · ${new Date(a.frost.min_at).toLocaleString(this.lang === "nl" ? "nl-NL" : "en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : ""}</span></div>` : nothing}
+            ${a.frost.plant_level_min_c != null ? html`<div class="kv"><span></span><span class="muted">${this.t("dash.min_temp", { temp: a.frost.plant_level_min_c })}${a.frost.min_at ? ` · ${new Date(a.frost.min_at).toLocaleString(this.lang === "nl" ? "nl-NL" : localeOf(this.lang), { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : ""}</span></div>` : nothing}
           ` : html`<p class="small muted">${this.t("dash.forecast_missing")}</p>`}
           <div class="divider"></div>
           ${a.et0_today != null ? html`<div class="kv"><span>ET₀ ${this.t("common.today").toLowerCase()} <hl-info term="et0" .t=${this.t}></hl-info></span>
@@ -283,6 +342,8 @@ export class DashboardView extends LitElement {
           <span class="chip ${ba.nutrients.status === "balanced" ? "ok" : "warn"}">${ba.nutrients.index}/100</span></div>` : nothing}
         ${ba?.depletion_mm != null && ba.taw_mm ? html`<div class="kv xs muted"><span>${this.t("dash.water_balance")} <hl-info term="water_balance" .t=${this.t}></hl-info></span>
           <span>${Math.round(ba.depletion_mm)} / ${Math.round(ba.taw_mm)} mm</span></div>` : nothing}
+        ${ba?.et_factor != null && Math.abs(ba.et_factor - 1) >= 0.05 ? html`<div class="kv xs muted"><span>${this.t("dash.drying")}</span>
+          <span>${this.t(ba.et_factor > 1 ? "dash.drying_fast" : "dash.drying_slow", { pct: Math.round(Math.abs(ba.et_factor - 1) * 100) })}</span></div>` : nothing}
         <div class="avatars" aria-label=${this.t("dash.active_crops", { n: active.length })}>
           ${active.map((p) => {
             const plant = this.plants.get(p!.plant_id);

@@ -1,13 +1,16 @@
 import { en } from "./en";
 import { nl } from "./nl";
+import { fr } from "./fr";
 
-const CATALOGS: Record<string, Record<string, string>> = { en, nl };
+const CATALOGS: Record<string, Record<string, string>> = { en, nl, fr };
 
 export type Translate = (key: string, params?: Record<string, unknown>) => string;
 
-export const normalizeLang = (lang?: string | null): "en" | "nl" => {
+export type Lang = "en" | "nl" | "fr";
+
+export const normalizeLang = (lang?: string | null): Lang => {
   const base = (lang ?? "en").toLowerCase().split(/[-_]/)[0];
-  return base === "nl" ? "nl" : "en";
+  return base === "nl" ? "nl" : base === "fr" ? "fr" : "en";
 };
 
 /** Build a translator. Unknown keys fall back to English, then to the key. */
@@ -42,5 +45,20 @@ export const PEST_NL: Record<string, string> = {
   wireworm: "ritnaald",
 };
 
-export const tagLabel = (tag: string, lang: string): string =>
-  normalizeLang(lang) === "nl" && PEST_NL[tag] ? PEST_NL[tag] : humanize(tag);
+export const PEST_FR: Record<string, string> = {
+  aphids: "pucerons", whitefly: "aleurodes", red_spider_mite: "acariens (araignée rouge)", thrips: "thrips", slugs: "limaces",
+  cabbage_white: "piéride du chou", cabbage_root_fly: "mouche du chou", flea_beetle: "altises", carrot_fly: "mouche de la carotte",
+  onion_fly: "mouche de l'oignon", leek_moth: "teigne du poireau", pea_moth: "tordeuse du pois", birds: "oiseaux", pigeons: "pigeons",
+  black_bean_aphid: "puceron noir de la fève", bean_weevil: "bruche du haricot", leaf_miner: "mineuse",
+  late_blight: "mildiou (phytophthora)", early_blight: "alternariose (précoce)", blossom_end_rot: "nécrose apicale", botrytis: "pourriture grise",
+  powdery_mildew: "oïdium", downy_mildew: "mildiou", cucumber_mosaic_virus: "virus de la mosaïque du concombre",
+  clubroot: "hernie du chou", white_rot: "pourriture blanche", rust: "rouille", alternaria: "alternariose", leaf_spot: "taches foliaires",
+  root_rot: "pourriture des racines", anthracnose: "anthracnose", halo_blight: "graisse du haricot", chocolate_spot: "taches chocolat",
+  damping_off: "fonte des semis", ants: "fourmis", asparagus_beetle: "criocère de l'asperge", canker: "chancre", celery_fly: "mouche du céleri",
+  colorado_beetle: "doryphore", nematodes: "nématodes", scab: "gale", smut: "charbon", verticillium_wilt: "verticilliose",
+  wireworm: "taupin (ver fil de fer)",
+};
+
+const PEST_BY_LANG: Partial<Record<Lang, Record<string, string>>> = { nl: PEST_NL, fr: PEST_FR };
+
+export const tagLabel = (tag: string, lang: string): string => PEST_BY_LANG[normalizeLang(lang)]?.[tag] ?? humanize(tag);

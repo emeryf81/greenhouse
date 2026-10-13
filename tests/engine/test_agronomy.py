@@ -167,6 +167,67 @@ def test_bucket_drives_irrigation_without_sensor(garden, db, make_planting):
     assert result.beds["bed_1"].taw_mm is not None
 
 
+def test_moisture_sensor_calibrates_the_bucket_and_learns_how_fast_a_bed_dries(garden, db, make_planting):
+    from custom_components.garden_manager.engine.waterbalance import advance_water_balance, sensor_depletion
+
+    garden.plantings = [
+        make_planting("lettuce", "bed_1", 2026, status=PlantingStatus.SOWN, width_cm=200, length_cm=100)
+    ]
+    day0 = date(2026, 6, 10)
+    timelines = analyze(garden, db, WeatherSnapshot(), {}, now=datetime(2026, 6, 10, 8, tzinfo=TZ), tz=TZ).timelines
+    garden.water_balance["bed_1"] = WaterBalance(day0, 5.0)
+
+    def advance(today: date, moisture: float | None) -> WaterBalance:
+        advance_water_balance(garden, db, timelines, today, latitude=51.0, tz=TZ, moisture={"bed_1": moisture})
+        return garden.water_balance["bed_1"]
+
+    wb = advance(day0, 40.0)  # first reading sets the bucket
+    assert wb.calibrated_on == day0 and wb.depletion_mm == wb.calibrated_mm and wb.et_factor == 1.0
+    first = wb.calibrated_mm
+    wb_again = advance(day0, 10.0)  # once a day only
+    assert wb_again.calibrated_mm == first
+
+    garden.climate_log = [ClimateDay(day0 + timedelta(days=i), tmin=14.0, tmax=28.0, rain_mm=0.0) for i in range(4)]
+    taw = total_available_water(garden.beds[0].soil, db.get("lettuce").root_depth_cm * 10)
+    start = wb.calibrated_mm
+    wb = advance(day0 + timedelta(days=4), 18.0)  # four hot, dry days: the sensor fell faster than modelled
+    measured = sensor_depletion(18.0, taw, garden.beds[0], [db.get("lettuce").water_needs])
+    assert wb.depletion_mm == measured and measured > start
+    assert wb.et_factor > 1.0 and wb.model_et_mm == 0.0
+
+    # rain in between: nothing is learned from that stretch
+    factor = wb.et_factor
+    garden.climate_log += [ClimateDay(day0 + timedelta(days=i), tmin=14.0, tmax=24.0, rain_mm=12.0) for i in (4, 5)]
+    wb = advance(day0 + timedelta(days=6), 35.0)
+    assert wb.et_factor == factor
+
+    # rain logged on a day without temperatures stops learning too
+    garden.climate_log += [ClimateDay(day0 + timedelta(days=6), tmin=None, tmax=None, rain_mm=15.0)]
+    garden.climate_log += [ClimateDay(day0 + timedelta(days=i), tmin=14.0, tmax=28.0, rain_mm=0.0) for i in (7, 8, 9)]
+    wb = advance(day0 + timedelta(days=10), 15.0)
+    assert wb.et_factor == factor
+
+
+def test_greenhouse_bed_learns_nothing_when_the_sensor_matches_the_model(garden, db, make_planting):
+    """The model's lower ET under glass is part of the baseline, not something to learn again."""
+    from custom_components.garden_manager.engine.waterbalance import advance_water_balance
+    from custom_components.garden_manager.engine.watering import ENCLOSED_ET_FACTOR
+    from custom_components.garden_manager.engine.weather import et0_hargreaves
+
+    garden.plantings = [
+        make_planting("lettuce", "gh_bed", 2026, status=PlantingStatus.SOWN, width_cm=200, length_cm=100)
+    ]
+    day0 = date(2026, 6, 10)
+    timelines = analyze(garden, db, WeatherSnapshot(), {}, now=datetime(2026, 6, 10, 8, tzinfo=TZ), tz=TZ).timelines
+    garden.water_balance["gh_bed"] = WaterBalance(day0, 5.0, calibrated_on=day0 - timedelta(days=1), calibrated_mm=5.0)
+    garden.climate_log = [ClimateDay(day0, tmin=14.0, tmax=28.0, rain_mm=0.0)]
+    advance_water_balance(garden, db, timelines, day0 + timedelta(days=1), latitude=51.0, tz=TZ)
+    wb = garden.water_balance["gh_bed"]
+    modelled = wb.depletion_mm - 5.0  # what the bucket booked for that day
+    assert wb.model_et_mm == pytest.approx(modelled, abs=0.15)
+    assert wb.model_et_mm < et0_hargreaves(14.0, 28.0, 51.0, day0) * 1.0 * ENCLOSED_ET_FACTOR + 0.1
+
+
 # --------------------------------------------------------------------------- #
 # Fertiliser
 # --------------------------------------------------------------------------- #
@@ -257,6 +318,25 @@ def test_frost_lockout_also_applies_to_manual_runs(irrigated):
         outdoor_temp=0.5, force=True, bed_ids={"bed_1"}, override_mm=5.0,
     )  # fmt: skip
     assert not plan.runs and plan.skipped["bed_1"][0] == "irrigation.skip.frost"
+
+
+def test_only_if_needed_keeps_the_need_check_for_a_forced_run(irrigated):
+    """A blueprint picks the moment; when the bed turned out not to need water, nothing runs."""
+    now = datetime(2026, 7, 10, 5, 0, tzinfo=TZ)
+    no_need = IrrigationRecommendation("bed_1", action=IrrigationAction.NONE, etc_24h_mm=3.0)
+    kw = {
+        "now": now,
+        "frost_by_zone": {},
+        "outdoor_frost": None,
+        "outdoor_temp": 18.0,
+        "force": True,
+        "bed_ids": {"bed_1"},
+    }
+    assert plan_irrigation(irrigated, {"bed_1": no_need}, **kw).runs  # a manual run replaces a day of ET
+    plan = plan_irrigation(irrigated, {"bed_1": no_need}, only_if_needed=True, **kw)
+    assert not plan.runs and plan.skipped["bed_1"][0] == "irrigation.skip.not_needed"
+    irrigated.settings.irrigation.mode = "advise"  # the mode switch is still ignored: the automation decides when
+    assert plan_irrigation(irrigated, {"bed_1": _rec("bed_1")}, only_if_needed=True, **kw).runs
 
 
 def test_far_away_frost_does_not_lock(irrigated):

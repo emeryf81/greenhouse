@@ -1,0 +1,67 @@
+blueprint:
+  name: Hortulus - log a harvest with a button
+  description: >-
+    Press a button (an input_button, a Zigbee/Z-Wave button that exposes an
+    event or button entity) or scan an NFC tag to log a fixed amount of one
+    crop in Hortulus - handy by the kitchen door or on the shed.
+  domain: automation
+  source_url: https://github.com/emeryf81/hortulus/blob/main/blueprints/automation/hortulus/button_log_harvest.yaml
+  input:
+    button:
+      name: Button (optional)
+      description: An input_button, button or event entity. Every state change counts as a press.
+      default: []
+      selector:
+        entity:
+          domain: [input_button, button, event]
+          multiple: true
+    tag:
+      name: NFC tag (optional)
+      description: The tag id from Settings > Tags. Scanning it counts as a press.
+      default: ""
+      selector:
+        text:
+    plant:
+      name: Crop
+      description: Name or id of the crop, in any language (e.g. Tomaat, tomato, courgette).
+      selector:
+        text:
+    kg:
+      name: Kilograms per press
+      default: 0.5
+      selector:
+        number: {min: 0.05, max: 20, step: 0.05, unit_of_measurement: kg}
+    bed:
+      name: Bed (optional)
+      default: ""
+      selector:
+        text:
+    garden:
+      name: Garden (optional, with more than one garden)
+      default: ""
+      selector:
+        text:
+mode: queued
+variables:
+  plant: !input plant
+  kg: !input kg
+  bed: !input bed
+  garden: !input garden
+trigger:
+  - platform: state
+    entity_id: !input button
+    not_to: [unavailable, unknown]
+  - platform: tag
+    tag_id: !input tag
+condition:
+  - condition: template
+    value_template: >-
+      {{ trigger.platform == 'tag'
+         or (trigger.from_state is not none and trigger.from_state.state not in ['unavailable', 'unknown']) }}
+action:
+  - service: garden_manager.log_harvest
+    data: >-
+      {% set d = {'plant': plant, 'kg': kg} %}
+      {% if bed %}{% set d = dict(d, bed=bed) %}{% endif %}
+      {% if garden %}{% set d = dict(d, garden=garden) %}{% endif %}
+      {{ d }}

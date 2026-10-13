@@ -15,6 +15,18 @@ export function plantMonogram(name: string): string {
   return (clean.slice(0, 2) || "?").replace(/^./, (c) => c.toUpperCase());
 }
 
+/** Family name in the UI language, falling back to English (catalog data has en/nl only). */
+export function familyName(families: Record<string, FamilyInfo>, family: string, lang: string): string | undefined {
+  const info = families[family] as (FamilyInfo & Record<string, string | undefined>) | undefined;
+  return info?.[lang] ?? info?.en;
+}
+
+/** BCP-47 locale for Intl date/number formatting: Belgian for nl/fr, British English otherwise. */
+export function localeOf(lang: string | null | undefined): string {
+  const base = (lang ?? "en").toLowerCase().split(/[-_]/)[0];
+  return base === "nl" ? "nl-BE" : base === "fr" ? "fr-BE" : "en-GB";
+}
+
 export function plantName(plant: Plant | undefined, lang: string): string {
   if (!plant) return "?";
   return plant.names[lang] || plant.names.en || plant.id;
@@ -105,7 +117,7 @@ export const daysBetween = (a: string, b: string): number =>
 
 export function formatDate(iso: string | null | undefined, lang: string, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }): string {
   if (!iso) return "–";
-  return parseDate(iso).toLocaleDateString(lang === "nl" ? "nl-NL" : "en-GB", opts);
+  return parseDate(iso).toLocaleDateString(lang === "nl" ? "nl-NL" : localeOf(lang), opts);
 }
 
 /** Absolute date range of a relative window (weeks around a frost anchor). */

@@ -5,8 +5,8 @@ import type { Translate } from "../i18n";
 import { THEMES, setThemeChoice, themeChoice } from "../util/theme";
 import { shared } from "../styles/tokens";
 import { photosEnabled, setPhotosEnabled } from "../components/plant-image";
-import type { Bed, HomeAssistant, PlanDoc, SensorMapping, Settings, Snapshot, Zone } from "../types";
-import { download, formatDate } from "../util/garden";
+import type { Bed, HomeAssistant, PlanDoc, Plant, SensorMapping, Settings, Snapshot, Zone } from "../types";
+import { download, formatDate, plantName, localeOf } from "../util/garden";
 import { persons } from "../util/people";
 import "../components/info";
 
@@ -43,6 +43,7 @@ export class SettingsView extends LitElement {
   @property({ attribute: false }) t!: Translate;
   @property() lang = "en";
   @property({ type: Boolean }) admin = true;
+  @property({ attribute: false }) plants: Plant[] = [];
   @state() private busy = false;
   @state() private testing = "";
   @state() private testResult: Record<string, string> = {};
@@ -354,7 +355,7 @@ export class SettingsView extends LitElement {
         <span></span>
         <label class="field check"><input type="checkbox" .checked=${n.weekly_plan ?? true} @change=${(e: Event) => set({ weekly_plan: (e.target as HTMLInputElement).checked })} />${this.t("settings.weekly_plan")}</label>
         <label class="field">${this.t("settings.weekly_day")}<select @change=${(e: Event) => set({ weekly_plan_weekday: Number((e.target as HTMLSelectElement).value) })}>
-          ${[0, 1, 2, 3, 4, 5, 6].map((d) => html`<option value=${d} ?selected=${(n.weekly_plan_weekday ?? 6) === d}>${new Date(2024, 0, 1 + d).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { weekday: "long" })}</option>`)}
+          ${[0, 1, 2, 3, 4, 5, 6].map((d) => html`<option value=${d} ?selected=${(n.weekly_plan_weekday ?? 6) === d}>${new Date(2024, 0, 1 + d).toLocaleDateString(localeOf(this.lang), { weekday: "long" })}</option>`)}
         </select></label>
         <label class="field">${this.t("settings.weekly_time")}<input type="time" .value=${n.weekly_plan_time ?? "19:00"} @change=${(e: Event) => set({ weekly_plan_time: (e.target as HTMLInputElement).value })} /></label>
       </div>
@@ -378,6 +379,37 @@ export class SettingsView extends LitElement {
       <label class="field check"><input type="checkbox" .checked=${w.leak_alerts ?? true} ?disabled=${!w.meter_entity}
         @change=${(e: Event) => set({ leak_alerts: (e.target as HTMLInputElement).checked })} />${this.t("settings.leak_alerts")}</label>
       <p class="xs muted">${this.t("settings.water_hint")} ${this.t("settings.leak_hint")}</p>
+    </section>`;
+  }
+
+  private renderCosts(): TemplateResult {
+    const eco = this.snapshot.settings.economy ?? { currency: "€", water_price_m3: 5, prices: {} };
+    const set = (patch: Record<string, unknown>) => this.saveSettings({ economy: patch });
+    const byId = new Map(this.plants.map((p) => [p.id, p]));
+    const planted = [...new Set(this.snapshot.plantings.map((p) => p.plant_id))].filter((id) => !(id in eco.prices));
+    return html`<section class="card stack" aria-labelledby="s-costs">
+      <h2 id="s-costs">${this.t("settings.costs")}</h2>
+      <div class="form-grid">
+        <label class="field">${this.t("settings.currency")}<input maxlength="4" .value=${eco.currency}
+          @change=${(e: Event) => set({ currency: (e.target as HTMLInputElement).value.trim() || "€" })} /></label>
+        <label class="field">${this.t("settings.water_price")}<input type="number" min="0" step="0.1" .value=${String(eco.water_price_m3)}
+          @change=${(e: Event) => set({ water_price_m3: Number((e.target as HTMLInputElement).value) || 0 })} /></label>
+      </div>
+      <h3>${this.t("settings.own_prices")}</h3>
+      ${Object.entries(eco.prices).map(([id, price]) => html`<div class="row"><span>${plantName(byId.get(id), this.lang) || id}</span><span class="spacer"></span>
+        <span>${eco.currency} ${price.toLocaleString(localeOf(this.lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg</span>
+        <button class="icon-btn" aria-label=${this.t("common.delete")} @click=${() => set({ prices: { [id]: null } })}><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`)}
+      <form class="row" @submit=${(e: Event) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget as HTMLFormElement);
+        const price = Number(String(f.get("price") ?? "").replace(",", "."));
+        if (f.get("plant") && price > 0) set({ prices: { [String(f.get("plant"))]: price } });
+      }}>
+        <select name="plant">${planted.map((id) => html`<option value=${id}>${plantName(byId.get(id), this.lang) || id}</option>`)}</select>
+        <input name="price" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder=${`${eco.currency}/kg`} style="max-width:110px" />
+        <button class="btn small" type="submit" ?disabled=${!planted.length}>${this.t("common.add")}</button>
+      </form>
+      <p class="xs muted">${this.t("settings.costs_hint")}</p>
     </section>`;
   }
 
@@ -431,6 +463,7 @@ export class SettingsView extends LitElement {
             <option value="" ?selected=${!s.language}>${this.t("settings.language.auto")}</option>
             <option value="en" ?selected=${s.language === "en"}>English</option>
             <option value="nl" ?selected=${s.language === "nl"}>Nederlands</option>
+            <option value="fr" ?selected=${s.language === "fr"}>Français</option>
           </select></label>
         <label class="field">${this.t("settings.units")}<input disabled .value=${this.t("settings.units_metric")} /></label>
         <label class="field">${this.t("settings.snap")}<input type="number" min="1" max="50" .value=${String(s.snap_cm)}
@@ -457,7 +490,7 @@ export class SettingsView extends LitElement {
       <fieldset ?disabled=${!this.admin || this.busy} style="border:0;padding:0;margin:0">
         <div class="sections">
           ${this.renderRegion()} ${this.renderWeather()} ${this.renderZones()} ${this.renderBeds()} ${this.renderIrrigation()}
-          ${this.renderResources()} ${this.renderNotifications()} ${this.renderWater()} ${this.renderHousehold()} ${this.renderGeneral()}
+          ${this.renderResources()} ${this.renderNotifications()} ${this.renderWater()} ${this.renderCosts()} ${this.renderHousehold()} ${this.renderGeneral()}
         </div>
       </fieldset>
       <section class="card stack" style="margin-top:var(--hl-s4)" aria-labelledby="s-display">

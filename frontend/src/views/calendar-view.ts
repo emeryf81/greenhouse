@@ -5,7 +5,7 @@ import type { Translate } from "../i18n";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, RecordsOverview, Snapshot, Task } from "../types";
-import { TASK_COLORS, TASK_ICONS, addDays, daysBetween, familyColor, formatDate, parseDate, plantName, sortTasks, toIso } from "../util/garden";
+import { TASK_COLORS, TASK_ICONS, addDays, daysBetween, familyColor, formatDate, parseDate, plantName, sortTasks, toIso, localeOf } from "../util/garden";
 import { renderTaskRow, taskPlantResolver, taskRowStyles, type TaskCtx } from "../components/task-ui";
 
 type Mode = "month" | "week" | "list" | "timeline" | "year";
@@ -35,7 +35,7 @@ export class CalendarView extends LitElement {
   private renderYear(): TemplateResult {
     const y = this.year;
     if (!y) return html`<p class="empty">${this.t("common.loading")}</p>`;
-    const months = Array.from({ length: 12 }, (_, i) => new Date(2026, i, 1).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { month: "short" }));
+    const months = Array.from({ length: 12 }, (_, i) => new Date(2026, i, 1).toLocaleDateString(localeOf(this.lang), { month: "short" }));
     const now = new Date().getMonth();
     const order = ["harvest", "plant", "sow", "sow_indoor", "grow"];
     const bedName = this.snapshot.beds.find((b) => b.id === this.bedFilter)?.name ?? "";

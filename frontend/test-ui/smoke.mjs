@@ -156,6 +156,23 @@ await step("journal: watering per bed and season report", async () => {
   await page.locator("hl-season-report .tiles").waitFor();
 });
 
+await step("journal: kitchen, harvest value and an expense", async () => {
+  await open("journal");
+  await page.locator("hl-journal-view button[role=tab]", { hasText: "Keuken" }).click();
+  const kitchen = page.locator("hl-kitchen-economy");
+  await kitchen.locator(".money").waitFor();
+  await kitchen.locator("input[name=amount]").fill("12.50");
+  await kitchen.locator("form button[type=submit]").click();
+  const sent = await page.evaluate(() => window.__calls.find((c) => c.type.endsWith("/records/expense/save")));
+  assert.equal(sent?.expense?.amount, 12.5);
+});
+
+await step("dashboard: pest calendar card", async () => {
+  await open("dashboard");
+  const n = await page.locator("hl-dashboard-view").evaluate((el) => el.shadowRoot.querySelectorAll(".pests li").length);
+  assert.ok(n > 0, "no pest warnings shown");
+});
+
 await step("menu: seven places, the garden's tabs underneath", async () => {
   await open("crops");
   const top = await page.locator("hortulus-panel").evaluate((el) => el.shadowRoot.querySelectorAll("nav.top a").length);

@@ -1,0 +1,37 @@
+# Hortulus - phrases pour Assist (assistant vocal de Home Assistant).
+# Installées avec le service garden_manager.install_voice_sentences.
+language: fr
+intents:
+  HortulusTasksToday:
+    data:
+      - sentences:
+          - "qu'est-ce que je dois faire [aujourd'hui] (au|dans le) (jardin|potager)"
+          - "qu'est-ce que je dois faire [aujourd'hui] dans la serre"
+          - "quelles sont [mes] (tâches|travaux) (au|du) (jardin|potager) [aujourd'hui|pour aujourd'hui]"
+          - "(qu'y a-t-il|qu'est-ce qu'il y a) à faire (au|dans le) (jardin|potager) [aujourd'hui]"
+  HortulusHarvest:
+    data:
+      - sentences:
+          - "qu'est-ce que je peux récolter [aujourd'hui]"
+          - "qu'est-ce qui est (prêt à être récolté|bon à récolter|à cueillir)"
+  HortulusGreenhouse:
+    data:
+      - sentences:
+          - "(quelle température fait-il|il fait combien) dans la serre"
+          - "quelle est la température (de|dans) la serre"
+          - "(comment va|où en est) la serre"
+  HortulusWater:
+    data:
+      - sentences:
+          - "(est-ce que je dois|dois-je|faut-il) arroser [le jardin|les plantes|le potager|les planches] [aujourd'hui]"
+          - "(le jardin|les plantes|le potager) (a|ont) besoin d'eau"
+  HortulusFrost:
+    data:
+      - sentences:
+          - "(va-t-il|est-ce qu'il va) geler [cette nuit]"
+          - "(y a-t-il|est-ce qu'il y a) du gel (prévu|annoncé|en vue) [cette nuit]"
+  HortulusOverdue:
+    data:
+      - sentences:
+          - "(quelles|quelles sont les) tâches [du jardin] (en retard|oubliées)"
+          - "qu'est-ce que j'ai oublié au jardin"

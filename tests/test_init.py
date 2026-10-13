@@ -287,3 +287,53 @@ async def test_digest_follows_settings_changed_in_panel(
     await hass.async_block_till_done()
     digest = [c for c in pushes if c.data["title"] == "Garden today"]
     assert len(digest) == 1 and "tasks today" in digest[0].data["message"]
+
+
+async def test_old_seasons_are_archived_and_still_reportable(hass: HomeAssistant, setup_garden, hass_ws_client) -> None:
+    from custom_components.garden_manager.engine.models import Planting, PlantingStatus
+
+    entry, _ = setup_garden
+    runtime = entry.runtime_data
+    repo = runtime.repo
+    repo.data.plantings.append(
+        Planting(
+            id="ancient", plant_id="tomato", bed_id=repo.data.beds[0].id, season=2015, status=PlantingStatus.FINISHED
+        )
+    )
+    runtime.coordinator._archived_for = None
+    await runtime.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    # step 1: copied to the archive, still in the garden until the archive is read back
+    assert "2015" in repo.archive and repo.archive["2015"]["plantings"][0]["id"] == "ancient"
+    assert any(p.id == "ancient" for p in repo.data.plantings)
+    # step 2, at the next start-up: the stored archive holds it, so the garden lets go
+    await repo._async_load_archive()
+    runtime.coordinator._archived_for = None
+    await runtime.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert all(p.id != "ancient" for p in repo.data.plantings)
+    assert any(p.id == "ancient" for p in repo.data_for_season(2015).plantings)
+
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "garden_manager/report/season", "season": 2015})
+    msg = await client.receive_json()
+    assert msg["success"] and any(c["plant_id"] == "tomato" for c in msg["result"]["crops"])
+
+
+async def test_starter_garden_only_in_an_empty_garden(hass: HomeAssistant, setup_garden, hass_ws_client) -> None:
+    entry, _ = setup_garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "garden_manager/garden/starter", "size": "small"})
+    msg = await client.receive_json()
+    assert not msg["success"]  # the test garden already has beds
+
+    repo.data.beds, repo.data.plantings = [], []
+    region = repo.data.settings.region
+    await client.send_json({"id": 2, "type": "garden_manager/garden/starter", "size": "medium", "greenhouse": True})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    assert msg["result"]["beds"] == 5  # three raised beds, a herb pot, the greenhouse border
+    assert msg["result"]["plantings"] > 0
+    assert repo.data.settings.region is region  # the gardener's settings are kept
+    assert any(f.type.value == "compost" for f in repo.data.features)

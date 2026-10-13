@@ -145,6 +145,7 @@ RUN_IRRIGATION_SCHEMA = vol.Schema(
         vol.Optional("dry_run", default=False): cv.boolean,
         vol.Optional("beds"): vol.All(cv.ensure_list, [cv.string]),
         vol.Optional("amount_mm"): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=50)),
+        vol.Optional("only_if_needed", default=False): cv.boolean,
     }
 )
 LOG_HARVEST_SCHEMA = vol.Schema(
@@ -373,7 +374,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
                     )
                 bed_ids.add(bed.id)
         await runtime.coordinator.async_recompute()
-        plan = runtime.irrigation.build_plan(force=True, bed_ids=bed_ids, override_mm=call.data.get("amount_mm"))
+        plan = runtime.irrigation.build_plan(
+            force=True,
+            bed_ids=bed_ids,
+            override_mm=call.data.get("amount_mm"),
+            only_if_needed=call.data["only_if_needed"],
+        )
         lang = runtime.coordinator.lang
         response = plan.to_dict()
         response["skipped_reasons"] = {k: t(key, lang, **params) for k, (key, params) in plan.skipped.items()}

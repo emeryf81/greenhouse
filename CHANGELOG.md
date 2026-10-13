@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.5.0 – 2026-10
+
+### Added
+- **Français**: the whole integration in French – panel, tasks and notifications, season
+  book, handbook and glossary, plant names and tips, Assist sentences, the Home Assistant
+  screens and the tasks card. Dates and numbers in Belgian formats (fr-BE, nl-BE).
+- **Pest calendar**: when carrot fly, cabbage root fly, cabbage white, onion fly, leek
+  moth, aphids, flea beetle, Colorado beetle and others fly, from this season's
+  degree-days (calendar months while the climate log is still short), and slugs after a
+  mild, damp spell. Only for crops that are (or soon will be) in the ground. Tasks to put
+  insect mesh on a few days before a flight, weekly checks, an evening slug round, and a
+  card on the dashboard.
+- **Kitchen** (*Journal → Kitchen*): crops ready to pick with how to keep them, a surplus
+  warning with ideas to store, preserve or share, and **cost and harvest**: the harvest at
+  shop prices against your expenses and garden water. Own prices per crop and the water
+  price under *Settings → Costs*; the season book shows what the garden gave.
+- **Moisture sensors teach the model**: once a day the water balance is set from the
+  sensor and each bed learns how fast it really dries out, so the advice stays right on
+  days the sensor is offline.
+- **Blueprints**: frost warning on a lamp (which returns to how it was), log a harvest with
+  a button or an NFC tag, water a dry bed at a good moment, announce urgent garden jobs –
+  import links in the README. `run_irrigation_plan` gets `only_if_needed`: an automation
+  chooses the moment, Hortulus still decides whether the bed needs water.
+- **Starter garden**: an empty garden shows a welcome screen – lay out a ready-made garden
+  (2–4 raised beds, a herb pot, optionally a greenhouse, with a first plan), draw your own
+  or read the handbook first.
+- **Archive**: seasons older than the last three move to a separate file (crop rotation
+  still knows them), which keeps the garden fast after years of use. A season leaves the
+  garden file only after the archive holding it has been read back from disk. The season
+  report and season book still open archived seasons, including crops carried over into them.
+
+### Changed
+- The season book preview only measures photos after the pages it shows; the weather tab
+  ignores late forecasts of a replaced entity; the crop timeline groups by bed, not name.
+
 ## 1.4.0 – 2026-10
 
 ### Added

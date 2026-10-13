@@ -84,6 +84,7 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
         self.weather = WeatherSnapshot()
         self.last_merge: MergeResult | None = None
         self._forecast_fetched_at: datetime | None = None
+        self._archived_for: int | None = None  # season for which old seasons were archived
         self._unsub_tracking: CALLBACK_TYPE | None = None
         self._tracked: set[str] = set()
         self._post_compute_hooks: list[Any] = []
@@ -164,7 +165,21 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
     async def _async_update_data(self) -> GardenAnalysis:
         if self._forecast_due():
             await self.async_fetch_forecast()
+        await self._async_archive_old_seasons()
         return self._compute()
+
+    async def _async_archive_old_seasons(self) -> None:
+        """Once per season (and at start-up): move old seasons to the archive document."""
+        from .engine.region import season_for_date
+
+        season = season_for_date(self.repo.data.settings.region, dt_util.now().date())
+        if season != self._archived_for:
+            try:
+                await self.repo.async_archive_old(season)
+            except Exception:  # housekeeping must never stop the garden from updating
+                _LOGGER.exception("Archiving old seasons failed")  # tried again at the next update
+            else:
+                self._archived_for = season
 
     async def async_recompute(self) -> None:
         """Recompute from current states without touching the forecast."""
@@ -328,6 +343,7 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             analysis.today,
             latitude=data.settings.region.latitude or self.hass.config.latitude,
             tz=dt_util.get_default_time_zone(),
+            moisture={bed_id: b.irrigation.moisture for bed_id, b in analysis.beds.items()},
         )
 
         # Garden water: one meter / water-butt reading per day.
