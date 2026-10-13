@@ -130,6 +130,10 @@ await step("planner: five steps, each step edits only its own kind", async () =>
     return [r.querySelector(".toolbar details.more").getBoundingClientRect().top, r.querySelector(".toolbar .actions .btn").getBoundingClientRect().top];
   });
   assert.ok(Math.abs(tops[0] - tops[1]) < 12, `more menu on its own line: ${tops}`);
+  // back from the planner tab to the terrain: lands on the terrain step, not on the beds
+  await steps.nth(0).click();
+  await page.waitForFunction(() => document.querySelector("hortulus-panel").shadowRoot.querySelector("hl-planner-view")?.getAttribute("mode") !== "plant");
+  await page.waitForFunction(() => document.querySelector("hortulus-panel").shadowRoot.querySelector("hl-planner-view")?.shadowRoot.querySelector("hl-garden-canvas")?.editKind === "feature");
 });
 
 await step("year transition: keep everything, or tick per element, zone and perennial", async () => {

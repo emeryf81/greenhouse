@@ -81,6 +81,9 @@ export function defaultMethod(plant: Plant): SowMethod {
   return "direct_sow";
 }
 
+/** The step to open after goStep() switched between the Planner and Garden-plan tabs. */
+let nextStep: Step | null = null;
+
 @customElement("hl-planner-view")
 export class PlannerView extends LitElement {
   @property({ attribute: false }) snapshot!: Snapshot;
@@ -387,7 +390,11 @@ export class PlannerView extends LitElement {
     this.multi = [];
     this.popupOpen = false;
     if (step === "site" || step === "zones") this.focusZone = "";
-    if (wasPlant !== this.plantStep) this.go(this.plantStep ? "planner" : "layout");
+    if (wasPlant !== this.plantStep) {
+      // The other tab opens a fresh view: tell it which step was asked for.
+      nextStep = step;
+      this.go(this.plantStep ? "planner" : "layout");
+    }
   }
 
   private syncFromSnapshot(force = false): void {
@@ -413,7 +420,8 @@ export class PlannerView extends LitElement {
     }
     if (this.stepPending) {
       this.stepPending = false;
-      this.step = this.defaultStep();
+      this.step = nextStep ?? this.defaultStep();
+      nextStep = null;
     }
   }
 
