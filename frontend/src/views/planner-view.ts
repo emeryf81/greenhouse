@@ -939,7 +939,8 @@ export class PlannerView extends LitElement {
       Object.assign(p, { x_cm: c.x, y_cm: c.y, width_cm: c.w, length_cm: c.h });
       touched.push(bed.id);
     } else {
-      const item = (sel.kind === "bed" ? doc.beds : doc.zones).find((i) => i.id === sel.id)!;
+      const item = (sel.kind === "bed" ? doc.beds : sel.kind === "zone" ? doc.zones : doc.features).find((i) => i.id === sel.id);
+      if (!item) return;
       if (resize) {
         item.width_cm = Math.max(10, item.width_cm + dx);
         item.length_cm = Math.max(10, item.length_cm + dy);
@@ -1485,7 +1486,7 @@ export class PlannerView extends LitElement {
       </aside>`;
     }
     const beds = this.draft.beds.filter((b) => b.zone_id === zone.id);
-    const ro = !this.admin;
+    const ro = !this.admin || this.step !== "zones"; // the zone itself is edited in the zones step
     return html`<aside class="pane" aria-label=${zone.name}>
       <header><button class="icon-btn" aria-label=${this.t("planner.whole_garden")} @click=${() => this.closeZone()}><ha-icon icon="mdi:arrow-left"></ha-icon></button>
         <h3>${ZONE_STYLE[zone.type]?.icon} ${zone.name}</h3></header>

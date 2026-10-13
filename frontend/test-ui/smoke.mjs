@@ -117,6 +117,16 @@ await step("planner: five steps, each step edits only its own kind", async () =>
   let l = await layers();
   assert.equal(l.kind, "feature");
   assert.ok(l.editable > 0 && l.locked > 0, JSON.stringify(l)); // elements pickable, zones and beds locked
+  // an element picked on the terrain moves with the arrow keys
+  const el = page.locator("hl-garden-canvas g.editable").first();
+  const b0 = await el.boundingBox();
+  await page.mouse.click(b0.x + b0.width / 2, b0.y + b0.height / 2);
+  await page.keyboard.press("ArrowRight");
+  await page.waitForFunction((x0) => {
+    const g = document.querySelector("hortulus-panel").shadowRoot.querySelector("hl-planner-view").shadowRoot
+      .querySelector("hl-garden-canvas").shadowRoot.querySelector("g.editable");
+    return g && g.getBoundingClientRect().x > x0;
+  }, b0.x);
   await steps.nth(1).click();
   assert.equal((await layers()).kind, "zone");
   await steps.nth(2).click();
