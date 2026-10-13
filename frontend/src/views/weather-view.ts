@@ -9,6 +9,7 @@
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Translate } from "../i18n";
+import { localeOf } from "../util/garden";
 import { shared } from "../styles/tokens";
 import type { HomeAssistant, Snapshot } from "../types";
 
@@ -160,7 +161,7 @@ export class WeatherView extends LitElement {
   }
 
   private fmtDay(iso: string, opts: Intl.DateTimeFormatOptions): string {
-    return new Date(iso).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", opts);
+    return new Date(iso).toLocaleDateString(localeOf(this.lang), opts);
   }
 
   private sky(c: string | undefined): string {
@@ -222,7 +223,7 @@ export class WeatherView extends LitElement {
       ${hrs.map((h, i) => (i % 3 === 0 ? svg`
         <circle cx=${x(i)} cy=${y(h.temperature ?? 0)} r="3" fill="#e08a2e"/>
         <text x=${x(i)} y=${y(h.temperature ?? 0) - 9} text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">${Math.round(h.temperature ?? 0)}°</text>
-        <text x=${x(i)} y=${H - 10} text-anchor="middle" font-size="11" fill="var(--hl-text-muted)">${new Date(h.datetime).toLocaleTimeString(this.lang === "nl" ? "nl-BE" : "en-GB", { hour: "2-digit" })}</text>` : nothing))}
+        <text x=${x(i)} y=${H - 10} text-anchor="middle" font-size="11" fill="var(--hl-text-muted)">${new Date(h.datetime).toLocaleTimeString(localeOf(this.lang), { hour: "2-digit" })}</text>` : nothing))}
     </svg>`;
   }
 

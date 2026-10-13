@@ -10,7 +10,7 @@ import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { AnalysisIssue, AnalysisResult, ExplainResult, FamilyInfo, Plant, Snapshot } from "../types";
-import { download, familyColor, plantName } from "../util/garden";
+import { download, familyColor, plantName, localeOf } from "../util/garden";
 import { explainReason } from "../util/reasons";
 import "../components/plant-image";
 import "./journal-view";
@@ -258,7 +258,7 @@ export class AnalysisView extends LitElement {
   // -- errors ------------------------------------------------------------------ //
   private renderErrors(): TemplateResult {
     const errors = this.result?.errors ?? [];
-    const time = (iso: string) => new Date(iso).toLocaleString(this.lang === "nl" ? "nl-NL" : "en-GB",
+    const time = (iso: string) => new Date(iso).toLocaleString(this.lang === "nl" ? "nl-NL" : localeOf(this.lang),
       { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
     return html`<section class="card stack" aria-labelledby="errs">
       <h2 id="errs"><ha-icon icon="mdi:alert-circle-outline"></ha-icon> ${this.t("analysis.errors_title")}</h2>

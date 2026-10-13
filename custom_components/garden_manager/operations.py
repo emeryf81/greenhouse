@@ -748,6 +748,23 @@ def op_delete_record(runtime: GardenRuntime, kind: str, record_id: str) -> None:
     runtime.repo.async_changed("records")
 
 
+@callback
+def op_starter_garden(runtime: GardenRuntime, size: str, greenhouse: bool) -> dict[str, int]:
+    """Lay out a beginner's garden with a first plan - only in a garden that has no beds yet."""
+    from .seed import starter_garden
+
+    data = runtime.repo.data
+    if data.beds or data.plantings:
+        raise _err("garden_not_empty")
+    built = starter_garden(
+        size, greenhouse=greenhouse, language=runtime.coordinator.lang, today=dt_util.now().date(),
+        db=runtime.repo.db, base=data,
+    )  # fmt: skip
+    data.zones, data.beds, data.features, data.plantings = built.zones, built.beds, built.features, built.plantings
+    runtime.repo.async_changed("plan")
+    return {"beds": len(data.beds), "plantings": len(data.plantings)}
+
+
 EXPENSE_CATEGORIES = ("seeds", "plants", "soil", "fertilizer", "tools", "water", "protection", "other")
 
 

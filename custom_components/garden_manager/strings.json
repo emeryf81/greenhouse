@@ -1077,6 +1077,12 @@
     },
     "unknown_log_entry": {
       "message": "System log entry {entry} does not exist (anymore)."
+    },
+    "garden_not_empty": {
+      "message": "The starter garden can only be laid out in a garden without beds."
+    },
+    "invalid_expense": {
+      "message": "Give an amount above zero and a known kind of expense."
     }
   }
 }

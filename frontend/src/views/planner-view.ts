@@ -8,7 +8,7 @@ import type {
   AutofillResult, Bed, BedKind, CompatibilityReport, ExplainResult, FamilyInfo, PairFinding, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
   PlantingStatus, Resources, Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
 } from "../types";
-import { ZONE_CATEGORIES, addDays, daysBetween, download, familyColor, formatDate, layoutOf, plantName, presentIn, uid } from "../util/garden";
+import { ZONE_CATEGORIES, addDays, daysBetween, download, familyColor, formatDate, layoutOf, plantName, presentIn, uid, familyName } from "../util/garden";
 import "../components/year-transition";
 import { explainReason, summarizeReasons } from "../util/reasons";
 import "../components/modal";
@@ -1445,7 +1445,7 @@ export class PlannerView extends LitElement {
           <label class="row small"><span class="visually-hidden">${this.t("lib.family")}</span>
             <select @change=${(e: Event) => (this.familyFilter = (e.target as HTMLSelectElement).value)}>
               <option value="" ?selected=${!this.familyFilter}>${this.t("lib.family")}: ${this.t("common.all")}</option>
-              ${families.map((f) => html`<option value=${f} ?selected=${this.familyFilter === f}>${this.families[f]?.[this.lang as "en" | "nl"] ?? f}</option>`)}
+              ${families.map((f) => html`<option value=${f} ?selected=${this.familyFilter === f}>${familyName(this.families, f, this.lang) ?? f}</option>`)}
             </select></label>
           ${focus ? html`<p class="xs zone-filter">${ZONE_STYLE[focus.type]?.icon} ${this.t("planner.palette_for_zone", { zone: focus.name })}</p>` : nothing}
           <p class="xs muted">${this.t("planner.palette_hint")}</p>
@@ -1476,7 +1476,7 @@ export class PlannerView extends LitElement {
           </div>
           <p class="xs muted">${this.t("planner.legend.border")}</p>
           <div class="legend">
-            ${families.map((f) => html`<span><span class="family-dot" style=${`background:${familyColor(this.families, f)}`}></span>${this.families[f]?.[this.lang as "en" | "nl"] ?? f}</span>`)}
+            ${families.map((f) => html`<span><span class="family-dot" style=${`background:${familyColor(this.families, f)}`}></span>${familyName(this.families, f, this.lang) ?? f}</span>`)}
           </div>
           </div>
         </div>
@@ -1791,7 +1791,7 @@ export class PlannerView extends LitElement {
             : html`<span class="family-dot" style="width:14px;height:14px"></span>`}
           <h3>${plantName(plant, this.lang)}</h3>
         </div>
-        <p class="xs muted">${plant?.scientific_name} · ${this.families[plant?.family ?? ""]?.[this.lang as "en" | "nl"] ?? plant?.family} · ${bed?.name}</p>
+        <p class="xs muted">${plant?.scientific_name} · ${familyName(this.families, plant?.family ?? "", this.lang) ?? plant?.family} · ${bed?.name}</p>
         <div class="row wrap">
           <button class="btn small" @click=${() => this.explainHere(p)}><ha-icon icon="mdi:help-circle-outline"></ha-icon>${this.t("planner.why_here")}</button>
           <button class="btn small ghost" @click=${() => this.emit("focus-crop", { planting_id: p.id, season: this.season })}><ha-icon icon="mdi:table"></ha-icon>${this.t("planner.to_crops")}</button>
@@ -1954,7 +1954,7 @@ export class PlannerView extends LitElement {
       for (const r of this.snapshot.rotation_history ?? []) if (r.bed_id === bed.id && r.season === season) out.add(r.family);
       return [...out];
     };
-    const label = (f: string) => this.families[f]?.[this.lang as "en" | "nl"] ?? f;
+    const label = (f: string) => familyName(this.families, f, this.lang) ?? f;
     return html`<div class="rotation" role="table" aria-label=${this.t("planner.rotation_strip")}>
       <p class="xs muted">${this.t("planner.rotation_strip")}</p>
       <div class="rot-row">${seasons.map((season) => {

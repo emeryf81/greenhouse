@@ -311,3 +311,22 @@ async def test_old_seasons_are_archived_and_still_reportable(hass: HomeAssistant
     await client.send_json({"id": 1, "type": "garden_manager/report/season", "season": 2015})
     msg = await client.receive_json()
     assert msg["success"] and any(c["plant_id"] == "tomato" for c in msg["result"]["crops"])
+
+
+async def test_starter_garden_only_in_an_empty_garden(hass: HomeAssistant, setup_garden, hass_ws_client) -> None:
+    entry, _ = setup_garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "garden_manager/garden/starter", "size": "small"})
+    msg = await client.receive_json()
+    assert not msg["success"]  # the test garden already has beds
+
+    repo.data.beds, repo.data.plantings = [], []
+    region = repo.data.settings.region
+    await client.send_json({"id": 2, "type": "garden_manager/garden/starter", "size": "medium", "greenhouse": True})
+    msg = await client.receive_json()
+    assert msg["success"], msg
+    assert msg["result"]["beds"] == 5  # three raised beds, a herb pot, the greenhouse border
+    assert msg["result"]["plantings"] > 0
+    assert repo.data.settings.region is region  # the gardener's settings are kept
+    assert any(f.type.value == "compost" for f in repo.data.features)

@@ -63,6 +63,7 @@ from .operations import (
     op_save_seed,
     op_save_settings,
     op_save_soil_test,
+    op_starter_garden,
     op_undo,
     op_update_planting,
     op_update_plantings,
@@ -113,6 +114,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_harvest_add,
         ws_record_delete,
         ws_expense_save,
+        ws_starter_garden,
         ws_journal_save,
         ws_seed_save,
         ws_soil_save,
@@ -1048,6 +1050,22 @@ def ws_record_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     runtime = _require_runtime(hass, connection, msg)
     if runtime is not None:
         _ws_op(connection, msg, lambda: op_delete_record(runtime, msg["kind"], msg["record_id"]) or {})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/garden/starter",
+        vol.Optional("garden_id"): str,
+        vol.Optional("size", default="medium"): vol.In(["small", "medium", "large"]),
+        vol.Optional("greenhouse", default=False): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_starter_garden(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is not None:
+        _ws_op(connection, msg, lambda: op_starter_garden(runtime, msg["size"], msg["greenhouse"]))
 
 
 @websocket_api.websocket_command(

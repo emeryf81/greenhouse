@@ -4,7 +4,7 @@ import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Snapshot, Window } from "../types";
-import { familyColor, plantName } from "../util/garden";
+import { familyColor, plantName, familyName } from "../util/garden";
 import "../components/info";
 import "../components/plant-image";
 import "../components/modal";
@@ -75,7 +75,7 @@ export class LibraryView extends LitElement {
       .filter((p) => this.filter !== "greenhouse" || p.greenhouse.suitability === "yes")
       .filter((p) => this.filter !== "quick" || p.days_to_maturity[0] <= 50)
       .filter((p) => this.filter !== "custom" || p.source !== "builtin")
-      .filter((p) => !q || [p.id, p.scientific_name, p.family, this.families[p.family]?.[this.lang as "en" | "nl"] ?? "", ...Object.values(p.names)].some((s) => s.toLowerCase().includes(q)))
+      .filter((p) => !q || [p.id, p.scientific_name, p.family, familyName(this.families, p.family, this.lang) ?? "", ...Object.values(p.names)].some((s) => s.toLowerCase().includes(q)))
       .sort((a, b) => plantName(a, this.lang).localeCompare(plantName(b, this.lang)));
   }
 
@@ -87,7 +87,7 @@ export class LibraryView extends LitElement {
           @input=${(e: Event) => (this.query = (e.target as HTMLInputElement).value)} />
         <label class="row small"><span class="visually-hidden">${this.t("lib.family")}</span>
           <select style="width:auto" @change=${(e: Event) => (this.family = (e.target as HTMLSelectElement).value)}>
-            ${["", ...families].map((f) => html`<option value=${f} ?selected=${f === this.family}>${f ? (this.families[f]?.[this.lang as "en" | "nl"] ?? f) : `${this.t("lib.family")}: ${this.t("common.all")}`}</option>`)}
+            ${["", ...families].map((f) => html`<option value=${f} ?selected=${f === this.family}>${f ? (familyName(this.families, f, this.lang) ?? f) : `${this.t("lib.family")}: ${this.t("common.all")}`}</option>`)}
           </select>
         </label>
         <label class="row small"><span class="visually-hidden">${this.t("lib.category")}</span>
@@ -137,7 +137,7 @@ export class LibraryView extends LitElement {
         closeLabel=${this.t("common.close")} prevLabel=${this.t("common.previous")} nextLabel=${this.t("common.next")}
         @prev=${() => (this.selected = list[i - 1])} @next=${() => (this.selected = list[i + 1])}
         @closed=${() => (this.selected = null)} @select-plant=${(e: CustomEvent<Plant>) => this.showPlant(e.detail)}>
-        <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${this.families[p.family]?.[this.lang as "en" | "nl"] ?? p.family}</span>
+        <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${familyName(this.families, p.family, this.lang) ?? p.family}</span>
         <hl-plant-detail .plant=${p} .plants=${this.plants} .families=${this.families} .snapshot=${this.snapshot} .t=${this.t} lang=${this.lang}></hl-plant-detail>
         ${this.admin ? html`<div slot="actions" class="row">
           <button class="btn" @click=${() => (this.editing = { plant: structuredClone(p), mode: p.source === "custom" ? "custom" : "override" })}>
@@ -215,7 +215,7 @@ export class LibraryView extends LitElement {
   private renderEditor(): TemplateResult {
     const { plant: p, mode } = this.editing!;
     const sel = (name: string, value: string, options: string[], prefix: string) => html`
-      <select name=${name}>${options.map((o) => html`<option value=${o} ?selected=${o === value}>${prefix ? this.t(`${prefix}.${o}`) : (this.families[o]?.[this.lang as "en" | "nl"] ?? o)}</option>`)}</select>`;
+      <select name=${name}>${options.map((o) => html`<option value=${o} ?selected=${o === value}>${prefix ? this.t(`${prefix}.${o}`) : (familyName(this.families, o, this.lang) ?? o)}</option>`)}</select>`;
     const win = (prefix: string, label: string, w: Window | undefined) => html`
       <label class="row small"><input type="checkbox" name=${`${prefix}_on`} ?checked=${!!w} />${label}</label>
       <label class="field">${this.t("lib.from")} (${this.t("lib.weeks")})<input name=${`${prefix}_start`} type="number" min="-30" max="30" .value=${String(w?.start_week ?? -4)} /></label>

@@ -8,7 +8,7 @@ import { photoUrl, type GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, JournalEntry, Plant, Planting, RecordsOverview, SeedPacket, Snapshot, SyslogEntry, SyslogSummary } from "../types";
-import { familyColor, formatDate, plantName, presentIn } from "../util/garden";
+import { familyColor, formatDate, plantName, presentIn, localeOf } from "../util/garden";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import "../components/date-input";
 import "../components/water-chart";
@@ -486,7 +486,7 @@ export class JournalView extends LitElement {
   }
 
   private renderSystem(): TemplateResult {
-    const time = (iso: string) => new Date(iso).toLocaleString(this.lang === "nl" ? "nl-NL" : "en-GB",
+    const time = (iso: string) => new Date(iso).toLocaleString(this.lang === "nl" ? "nl-NL" : localeOf(this.lang),
       { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
     return html`<section class="card stack" aria-labelledby="sys-h">
       <h2 id="sys-h"><ha-icon icon="mdi:history"></ha-icon> ${this.t("journal.system")}</h2>

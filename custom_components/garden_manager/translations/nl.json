@@ -1077,6 +1077,12 @@
     },
     "unknown_log_entry": {
       "message": "Logboekregel {entry} bestaat niet (meer)."
+    },
+    "garden_not_empty": {
+      "message": "De begintuin kan alleen in een tuin zonder bedden aangelegd worden."
+    },
+    "invalid_expense": {
+      "message": "Geef een bedrag boven nul en een bekende soort uitgave."
     }
   }
 }

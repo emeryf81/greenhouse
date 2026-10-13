@@ -8,7 +8,7 @@ import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, Plant, Planting } from "../types";
 import type { CropRow } from "../views/crops-view";
-import { addDays, familyColor, formatDate, plantName } from "../util/garden";
+import { addDays, familyColor, formatDate, plantName, localeOf } from "../util/garden";
 
 const DAY = 86_400_000;
 const toMs = (iso: string) => Date.parse(`${iso}T12:00:00`);
@@ -102,7 +102,7 @@ export class CropGantt extends LitElement {
   }
 
   render(): TemplateResult {
-    const months = Array.from({ length: 12 }, (_, i) => new Date(this.start + (i + 0.5) * (this.span / 12)).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { month: "short" }));
+    const months = Array.from({ length: 12 }, (_, i) => new Date(this.start + (i + 0.5) * (this.span / 12)).toLocaleDateString(localeOf(this.lang), { month: "short" }));
     // grouped by bed id (two beds may share a name); crops without a bed together under "–"
     const byBed = new Map<string | null, { name: string; rows: CropRow[] }>();
     for (const r of this.rows.filter((x) => x.timeline)) {

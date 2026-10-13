@@ -332,6 +332,10 @@ export class GardenApi {
     return this.call("records/harvest/add", entry as Record<string, unknown>);
   }
 
+  starterGarden(size: "small" | "medium" | "large", greenhouse: boolean): Promise<{ beds: number; plantings: number }> {
+    return this.call("garden/starter", { size, greenhouse });
+  }
+
   saveExpense(expense: { id?: string; amount: number; category: string; day?: string; note?: string }): Promise<{ expense: Expense }> {
     return this.call("records/expense/save", { expense });
   }

@@ -11,7 +11,7 @@ import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { shared } from "../styles/tokens";
 import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "../types";
 import { celebrateAt } from "../util/celebrate";
-import { familyColor, formatDate, sortTasks } from "../util/garden";
+import { familyColor, formatDate, sortTasks, localeOf } from "../util/garden";
 import { weatherGlyph } from "./weather-view";
 
 @customElement("hl-wall-view")
@@ -93,7 +93,7 @@ export class WallView extends LitElement {
     const a = this.snapshot.analysis;
     const today = a?.today ?? "";
     const tasks = sortTasks(this.snapshot.tasks.filter((x) => x.status === "open" && x.due <= today)).slice(0, 8);
-    const loc = this.lang === "nl" ? "nl-BE" : "en-GB";
+    const loc = localeOf(this.lang);
     const wid = this.snapshot.settings.weather_entity;
     const w = wid ? this.hass.states[wid] : undefined;
     const beds = this.snapshot.beds.filter((b) => a?.beds[b.id]?.irrigation?.moisture != null);

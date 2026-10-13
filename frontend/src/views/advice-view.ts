@@ -7,7 +7,7 @@ import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { AdviceResult, Plant, PlanDoc, Planting, QaAnswer, QaOptions, Snapshot, Suggestion, Supplies } from "../types";
-import { familyColor, plantName, presentIn, uid } from "../util/garden";
+import { familyColor, plantName, presentIn, uid, localeOf } from "../util/garden";
 import { defaultFootprint, findFreeSpot } from "../planner/geometry";
 import { glyphFor, glyphIcon } from "../planner/plant-glyphs";
 import { defaultMethod } from "./planner-view";
@@ -311,7 +311,7 @@ export class AdviceView extends LitElement {
     const cov = this.advice?.coverage;
     if (!cov) return html``;
     const now = new Date().getMonth();
-    const month = (i: number) => new Date(2026, i, 1).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { month: "short" });
+    const month = (i: number) => new Date(2026, i, 1).toLocaleDateString(localeOf(this.lang), { month: "short" });
     return html`<section class="card stack" aria-labelledby="cov-h">
       <h2 id="cov-h"><ha-icon icon="mdi:calendar-sync-outline"></ha-icon> ${this.t("advice.coverage")}</h2>
       <div class="months" role="list">

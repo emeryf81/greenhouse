@@ -37,7 +37,7 @@ import "./components/task-ui";
 import { setGlossary } from "./components/info";
 import "./components/modal";
 import "./components/plant-detail";
-import { familyColor, plantName } from "./util/garden";
+import { familyColor, plantName, familyName } from "./util/garden";
 
 type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string }[] = [
@@ -335,7 +335,7 @@ export class HortulusPanel extends LitElement {
       @closed=${() => (this.popupPlant = null)}
       @select-plant=${(e: CustomEvent<Plant>) => { this.popupPlant = e.detail; void this.updateComplete.then(() => this.renderRoot.querySelector("hl-modal")?.toTop()); }}
       @focus-planting=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusPlanting(e.detail)}>
-      <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${this.families[p.family]?.[this.uiLang as "en" | "nl"] ?? p.family}</span>
+      <span slot="subheading" class="small muted"><i>${p.scientific_name}</i> · ${familyName(this.families, p.family, this.uiLang) ?? p.family}</span>
       <hl-plant-detail .plant=${p} .plants=${this.plants} .families=${this.families} .snapshot=${this.snapshot} .t=${this.t} lang=${this.uiLang}></hl-plant-detail>
     </hl-modal>`;
   }

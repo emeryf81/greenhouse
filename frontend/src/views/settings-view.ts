@@ -6,7 +6,7 @@ import { THEMES, setThemeChoice, themeChoice } from "../util/theme";
 import { shared } from "../styles/tokens";
 import { photosEnabled, setPhotosEnabled } from "../components/plant-image";
 import type { Bed, HomeAssistant, PlanDoc, Plant, SensorMapping, Settings, Snapshot, Zone } from "../types";
-import { download, formatDate, plantName } from "../util/garden";
+import { download, formatDate, plantName, localeOf } from "../util/garden";
 import { persons } from "../util/people";
 import "../components/info";
 
@@ -355,7 +355,7 @@ export class SettingsView extends LitElement {
         <span></span>
         <label class="field check"><input type="checkbox" .checked=${n.weekly_plan ?? true} @change=${(e: Event) => set({ weekly_plan: (e.target as HTMLInputElement).checked })} />${this.t("settings.weekly_plan")}</label>
         <label class="field">${this.t("settings.weekly_day")}<select @change=${(e: Event) => set({ weekly_plan_weekday: Number((e.target as HTMLSelectElement).value) })}>
-          ${[0, 1, 2, 3, 4, 5, 6].map((d) => html`<option value=${d} ?selected=${(n.weekly_plan_weekday ?? 6) === d}>${new Date(2024, 0, 1 + d).toLocaleDateString(this.lang === "nl" ? "nl-BE" : "en-GB", { weekday: "long" })}</option>`)}
+          ${[0, 1, 2, 3, 4, 5, 6].map((d) => html`<option value=${d} ?selected=${(n.weekly_plan_weekday ?? 6) === d}>${new Date(2024, 0, 1 + d).toLocaleDateString(localeOf(this.lang), { weekday: "long" })}</option>`)}
         </select></label>
         <label class="field">${this.t("settings.weekly_time")}<input type="time" .value=${n.weekly_plan_time ?? "19:00"} @change=${(e: Event) => set({ weekly_plan_time: (e.target as HTMLInputElement).value })} /></label>
       </div>
@@ -463,6 +463,7 @@ export class SettingsView extends LitElement {
             <option value="" ?selected=${!s.language}>${this.t("settings.language.auto")}</option>
             <option value="en" ?selected=${s.language === "en"}>English</option>
             <option value="nl" ?selected=${s.language === "nl"}>Nederlands</option>
+            <option value="fr" ?selected=${s.language === "fr"}>Français</option>
           </select></label>
         <label class="field">${this.t("settings.units")}<input disabled .value=${this.t("settings.units_metric")} /></label>
         <label class="field">${this.t("settings.snap")}<input type="number" min="1" max="50" .value=${String(s.snap_cm)}

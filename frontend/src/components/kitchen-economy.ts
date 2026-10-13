@@ -7,7 +7,7 @@ import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
 import type { Expense, RecordsOverview } from "../types";
-import { formatDate } from "../util/garden";
+import { formatDate, localeOf } from "../util/garden";
 
 const CATEGORIES = ["seeds", "plants", "soil", "fertilizer", "tools", "water", "protection", "other"] as const;
 
@@ -43,7 +43,7 @@ export class KitchenEconomy extends LitElement {
 
   private money(v: number): string {
     const cur = this.overview?.economics?.currency ?? "€";
-    return `${cur} ${v.toLocaleString(this.lang === "nl" ? "nl-BE" : "en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${cur} ${v.toLocaleString(localeOf(this.lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   private async save(ev: Event): Promise<void> {
