@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from .migrations import STORAGE_MINOR_VERSION, STORAGE_VERSION, migrate
-from .models import GardenBed, GardenData, Plant, Planting, RotationRecord, Zone
+from .models import Feature, GardenBed, GardenData, GardenLayout, Plant, Planting, RotationRecord, Zone
 from .serde import from_dict, to_dict
 
 FORMAT = "hortulus-plan"
@@ -29,6 +29,9 @@ def export_plan(
         "exported_at": now.isoformat(),
         "zones": [to_dict(z) for z in data.zones],
         "beds": [to_dict(b) for b in data.beds],
+        "features": [to_dict(f) for f in data.features],
+        "layouts": {season: to_dict(layout) for season, layout in data.layouts.items()},
+        "layout_season": data.layout_season,
         "plantings": [to_dict(p) for p in plantings],
         "custom_plants": [to_dict(p) for p in data.custom_plants],
         "plant_overrides": to_dict(data.plant_overrides),
@@ -49,6 +52,10 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
     * ``replace``: layout + plantings are replaced (tasks of removed plantings
       are dropped on the next generation run).
     * ``merge``: items are upserted by id; nothing is deleted.
+
+    Zones, beds, garden elements and the per-season plans (``layouts``) all
+    come along, so an export from one Hortulus (the website, another Home
+    Assistant) rebuilds the whole garden map.
     """
     if doc.get("format") != FORMAT:
         raise PlanImportError("Not a Hortulus plan file (missing format: hortulus-plan)")
@@ -57,6 +64,8 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         upgraded = migrate(dict(doc), int(major_s), int(minor_s or 1))
         zones = [from_dict(Zone, z) for z in upgraded.get("zones", [])]
         beds = [from_dict(GardenBed, b) for b in upgraded.get("beds", [])]
+        features = [from_dict(Feature, f) for f in upgraded.get("features", [])]
+        layouts = {str(k): from_dict(GardenLayout, v) for k, v in (upgraded.get("layouts") or {}).items()}
         plantings = [from_dict(Planting, p) for p in upgraded.get("plantings", [])]
         plants = [from_dict(Plant, p) for p in upgraded.get("custom_plants", [])]
         history = [from_dict(RotationRecord, r) for r in upgraded.get("rotation_history", [])]
@@ -87,6 +96,30 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
             bed.soil_tests = stored_tests[bed.id]
     data.zones = upsert(data.zones, zones)
     data.beds = upsert(data.beds, beds)
+    # Garden elements (paths, sheds, trees ...) and the per-season plans travel with the zones.
+    # An older file without them leaves the elements already in the garden alone.
+    if "features" in upgraded or mode == "replace":
+        data.features = upsert(data.features, features)
+    if mode == "replace":
+        data.layouts = layouts
+        data.layout_season = upgraded.get("layout_season")
+    else:
+        # Merge never deletes: a season in both files keeps its stored items, the file's win by id
+        # (as for the active map). The active season stays: the merged zones join the current map.
+        for season, incoming in layouts.items():
+            stored = data.layouts.get(season)
+            data.layouts[season] = (
+                incoming
+                if stored is None
+                else GardenLayout(
+                    zones=upsert(stored.zones, incoming.zones),
+                    beds=upsert(stored.beds, incoming.beds),
+                    features=upsert(stored.features, incoming.features),
+                    saved_at=incoming.saved_at or stored.saved_at,
+                )
+            )
+        if data.layout_season is None:
+            data.layout_season = upgraded.get("layout_season")
     data.plantings = upsert(data.plantings, plantings)
     data.custom_plants = upsert(data.custom_plants, plants)
     overrides = upgraded.get("plant_overrides") or {}
@@ -100,6 +133,8 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
     return {
         "zones": len(zones),
         "beds": len(beds),
+        "features": len(features),
+        "layouts": len(layouts),
         "plantings": len(plantings),
         "custom_plants": len(plants),
         "rotation_history": len(history),

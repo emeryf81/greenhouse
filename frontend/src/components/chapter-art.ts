@@ -65,6 +65,8 @@ const SCENES: Record<string, Scene> = {
   tools: { sky: "#f0efea", ground: "#8a6a45", pieces: [["leafy", GREEN, 24, 0.9], ["carrot", ORANGE, 46, 0.9]], extra: SPADE + `<g transform="translate(-30 0)">${CAN}</g>` },
   home_remedies: { sky: "#f4eef4", ground: "#7a5d3e", pieces: [["herb", GREEN, 18, 1], ["flower", ORANGE, 38, 0.9], ["garlic", "#efe3cf", 58, 0.9]], extra: JAR },
   year_round: { sky: "#eef2f7", ground: "#8a6a45", pieces: [["leek", GREEN, 14, 1], ["kale", GREEN, 32, 1], ["tomato", RED, 50, 0.9], ["lettuce", GREEN, 68, 0.8]], extra: SUN + `<g transform="translate(-40 0)">${SNOW}</g>` },
+  permaculture: { sky: "#eef4ea", ground: "#6b4f33", pieces: [["herb", GREEN, 14, 1], ["flower", PURPLE, 32, 0.9], ["bean", GREEN, 50, 1], ["flower", ORANGE, 68, 0.8]], extra: MULCH + BUG },
+  food_forest: { sky: "#edf3e6", ground: "#5f7a3a", pieces: [["tree_apple", RED, 14, 1.5], ["berry_bush", PURPLE, 38, 1], ["herb", GREEN, 56, 0.9], ["strawberry", RED, 70, 0.7]], extra: SUN },
   sensors: { sky: "#e9f0f4", ground: "#7a5d3e", pieces: [["lettuce", GREEN, 20, 0.9], ["tomato", RED, 42, 1], ["pepper", RED, 62, 0.9]], extra: SENSOR },
 };
 

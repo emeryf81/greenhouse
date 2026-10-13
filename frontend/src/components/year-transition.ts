@@ -30,6 +30,8 @@ export class YearTransition extends LitElement {
   @state() private features = new Set<string>();
   @state() private carry = new Set<string>();
   @state() private activate = true;
+  /** "all": the whole terrain, every zone with its beds and every perennial; "pick": tick what to keep. */
+  @state() private keepMode: "all" | "pick" = "all";
   @state() private busy = false;
   @state() private error = "";
 
@@ -47,6 +49,10 @@ export class YearTransition extends LitElement {
       .warn { color: var(--hl-warning); }
       .row.end { justify-content: flex-end; }
       .choice { display: flex; flex-direction: column; gap: 6px; }
+      .choice label { padding: 8px 10px; border: 1px solid var(--hl-border); border-radius: var(--hl-r-md); cursor: pointer; }
+      .choice label.on { border-color: var(--hl-leaf-500); background: var(--hl-leaf-100); }
+      .group-head { display: flex; align-items: center; gap: 8px; margin: var(--hl-s2) 0 4px; }
+      .group-head h4 { margin: 0; }
     `,
   ];
 
@@ -64,6 +70,7 @@ export class YearTransition extends LitElement {
       this.features = new Set(pre.features.map((f) => f.id));
       this.carry = new Set(pre.candidates.filter((c) => c.selected).map((c) => c.planting_id));
       this.activate = pre.is_live;
+      this.keepAll();
     } catch (err) {
       this.error = (err as Error).message ?? String(err);
     }
@@ -74,6 +81,26 @@ export class YearTransition extends LitElement {
     if (on) next.add(id);
     else next.delete(id);
     return next;
+  }
+
+  /** "Keep everything": all elements, all zones (with their beds) and every perennial. */
+  private keepAll(): void {
+    const pre = this.preview!;
+    this.keepMode = "all";
+    this.zones = new Set(pre.zones.map((z) => z.id));
+    this.features = new Set(pre.features.map((f) => f.id));
+    const perennials = pre.candidates.filter((c) => c.reason === "perennial").map((c) => c.planting_id);
+    this.carry = new Set([...this.carry, ...perennials]);
+  }
+
+  /** "All / none" for one list of ticks. */
+  private groupToggle(ids: string[], set: Set<string>, assign: (next: Set<string>) => void): TemplateResult {
+    const all = ids.length > 0 && ids.every((id) => set.has(id));
+    return html`<button class="btn small ghost" @click=${() => {
+      const next = new Set(set);
+      ids.forEach((id) => (all ? next.delete(id) : next.add(id)));
+      assign(next);
+    }}>${this.t(all ? "year.none_of_them" : "year.all_of_them")}</button>`;
   }
 
   /** Beds that will exist next year with the current choices. */
@@ -137,27 +164,43 @@ export class YearTransition extends LitElement {
           .plants=${new Map(this.plants.map((x) => [x.id, x]))} .families=${this.families}></hl-season-report></details>
 
       <section>
+        <h3><ha-icon icon="mdi:help-circle-outline"></ha-icon>${this.t("year.what_keep", { to })}</h3>
+        <div class="choice">
+          <label class="row ${this.keepMode === "all" ? "on" : ""}"><input type="radio" name="keep" .checked=${this.keepMode === "all"} @change=${() => this.keepAll()} />
+            <span><b>${this.t("year.keep_all")}</b><br /><span class="xs muted">${this.t("year.keep_all_hint", {
+              elements: pre.features.length, zones: pre.zones.length, beds: pre.beds.length, perennials: perennials.length })}</span></span></label>
+          <label class="row ${this.keepMode === "pick" ? "on" : ""}"><input type="radio" name="keep" .checked=${this.keepMode === "pick"} @change=${() => (this.keepMode = "pick")} />
+            <span><b>${this.t("year.keep_pick")}</b><br /><span class="xs muted">${this.t("year.keep_pick_hint")}</span></span></label>
+        </div>
+      </section>
+
+      <section>
         <h3><ha-icon icon="mdi:floor-plan"></ha-icon>${this.t("year.plan")}</h3>
         ${pre.target_exists ? html`<div class="choice">
           <label class="row"><input type="radio" name="layout" .checked=${this.layout === "keep"} @change=${() => (this.layout = "keep")} />${this.t("year.keep", { to })}</label>
           <label class="row"><input type="radio" name="layout" .checked=${this.layout === "copy"} @change=${() => (this.layout = "copy")} />${this.t("year.copy", { from })}</label>
         </div>` : html`<p class="small muted">${this.t("year.copy_hint", { from, to })}</p>`}
-        ${this.layout === "copy" ? html`
-          <h4>${this.t("planner.zones")}</h4>
-          <div class="list">${pre.zones.map((z) => html`<label class="item ${this.zones.has(z.id) ? "" : "off"}">
-            <input type="checkbox" .checked=${this.zones.has(z.id)} @change=${(e: Event) => (this.zones = this.toggle(this.zones, z.id, (e.target as HTMLInputElement).checked))} />
-            <span>${ZONE_STYLE[z.type]?.icon ?? ""} ${z.name}<small>${this.t(`settings.zone_type.${z.type}`)} · ${this.t("planner.n_beds", { n: pre.beds.filter((b) => b.zone_id === z.id).length })}</small></span>
-          </label>`)}</div>
-          ${pre.features.length ? html`<h4>${this.t("year.elements")}</h4>
+        ${this.layout === "copy" && this.keepMode === "pick" ? html`
+          ${pre.features.length ? html`<div class="group-head"><h4>${this.t("year.elements")}</h4>
+            ${this.groupToggle(pre.features.map((f) => f.id), this.features, (n) => (this.features = n))}</div>
             <div class="list">${pre.features.map((f) => html`<label class="item ${this.features.has(f.id) ? "" : "off"}">
               <input type="checkbox" .checked=${this.features.has(f.id)} @change=${(e: Event) => (this.features = this.toggle(this.features, f.id, (e.target as HTMLInputElement).checked))} />
               <span>${FEATURE_STYLE[f.type]?.icon ?? ""} ${f.name}<small>${this.t(`feature.${f.type}`)}</small></span>
-            </label>`)}</div>` : nothing}` : nothing}
+            </label>`)}</div>` : nothing}
+          <div class="group-head"><h4>${this.t("year.zones_with_beds")}</h4>
+            ${this.groupToggle(pre.zones.map((z) => z.id), this.zones, (n) => (this.zones = n))}</div>
+          <div class="list">${pre.zones.map((z) => html`<label class="item ${this.zones.has(z.id) ? "" : "off"}">
+            <input type="checkbox" .checked=${this.zones.has(z.id)} @change=${(e: Event) => (this.zones = this.toggle(this.zones, z.id, (e.target as HTMLInputElement).checked))} />
+            <span>${ZONE_STYLE[z.type]?.icon ?? ""} ${z.name}<small>${this.t(`settings.zone_type.${z.type}`)} · ${this.t("planner.n_beds", { n: pre.beds.filter((b) => b.zone_id === z.id).length })}</small></span>
+          </label>`)}</div>` : this.layout === "copy" ? html`<p class="small muted">${this.t("year.plan_all")}</p>` : nothing}
       </section>
 
       <section>
         <h3><ha-icon icon="mdi:tree-outline"></ha-icon>${this.t("year.perennials")}</h3>
-        ${perennials.length ? html`<div class="list">${perennials.map(crop)}</div>` : html`<p class="small muted">${this.t("year.none")}</p>`}
+        ${!perennials.length ? html`<p class="small muted">${this.t("year.none")}</p>`
+          : this.keepMode === "all" ? html`<p class="small muted">${this.t("year.perennials_all", { n: perennials.filter((c) => beds.has(c.bed_id)).length })}</p>`
+          : html`<div class="group-head">${this.groupToggle(perennials.map((c) => c.planting_id), this.carry, (n) => (this.carry = n))}</div>
+            <div class="list">${perennials.map(crop)}</div>`}
         <h3 style="margin-top:var(--hl-s3)"><ha-icon icon="mdi:snowflake"></ha-icon>${this.t("year.overwinter")}</h3>
         ${overwinter.length ? html`<div class="list">${overwinter.map(crop)}</div>` : html`<p class="small muted">${this.t("year.none")}</p>`}
         <p class="xs muted">${this.t("year.not_chosen", { to })}</p>

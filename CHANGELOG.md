@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.6.0 – 2026-10
+
+### Added
+- **Planner in five steps**: site, growing zones, beds, perennials, annuals. Each item can
+  only be selected, moved and edited in its own step (the rest is dimmed and locked);
+  tooltips explain every step. One click selects, a second click (or *Details*, or Enter)
+  opens the details.
+- **New season: what do you keep?** Keep everything (all elements, zones and perennials) or
+  tick per element, zone and perennial.
+- **Overlap**: a house, path, driveway, hedge or growing zone on a lawn (or terrace,
+  border ...) takes that area away from it – on the map, in the print and in the m² shown.
+  A tree or shrub does not.
+- **Ecological gardening and permaculture** (recommended, never required; *Settings →
+  Ecological tips*): an organic answer with every pest warning and disease check (nettle
+  extract, horsetail tea, trap crops, natural enemies), work for a living garden in the
+  calendar (flower strip, horsetail tea, no-dig mulch, wild corner, insect hotel, drinking
+  dish), an eco tip of the month, mixed-bed advice and two new handbook chapters.
+- **Food forest**: a new zone type, built in seven layers; the advice shows which layers are
+  still missing and suggests plants. An orchard with trees is invited to grow into one.
+- **Entity drop-downs** in the settings: every field (valve, pump, sensors, weather, TTS,
+  speakers, notify services, vent, shade, water meter) lists only the entities that fit.
+
+### Fixed
+- Export → import of a plan now brings the site elements and the season layouts along,
+  not only the zones.
+- The *more* menu in the Garden Planner toolbar stays on the same row.
+- Frost blueprint: two automations on different lamps no longer overwrite each other's
+  saved state.
+
 ## 1.5.0 – 2026-10
 
 ### Added

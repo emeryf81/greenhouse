@@ -265,7 +265,7 @@ def shopping_list(
     def open_zone(bed_id: str) -> bool:
         bed = data.bed(bed_id)
         zone = data.zone(bed.zone_id) if bed else None
-        return bool(zone and zone.type.value in ("orchard", "fruit"))
+        return bool(zone and zone.type.value in ("orchard", "fruit", "food_forest"))
 
     def cultivated_m2(bed_id: str, group: list) -> float:
         """Orchards and fruit corners: only the planted area counts, not the grass around it."""

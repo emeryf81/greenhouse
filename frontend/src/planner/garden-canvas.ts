@@ -2,6 +2,7 @@ import { LitElement, css, html, svg, nothing, type PropertyValues, type SVGTempl
 import { customElement, property, query, state } from "lit/decorators.js";
 import type { Analysis, Bed, CompatibilityReport, FamilyInfo, Feature, Plant, Planting, Timeline, Zone } from "../types";
 import { familyColor, isActiveOn, plantMonogram, plantName, localeOf } from "../util/garden";
+import { coversOfFeature, featureLayers } from "./coverage";
 import { glyphFor, glyphSymbols, glyphUse } from "./plant-glyphs";
 import { bedRect, clampInto, extents, plantPositions, plantingRect, snap, zoneRect, type Rect } from "./geometry";
 import type { Translate } from "../i18n";
@@ -52,6 +53,7 @@ export const ZONE_STYLE: Record<string, { fill: string; stroke: string; dash: st
   greenhouse: { fill: "var(--hl-zone-greenhouse)", stroke: "var(--hl-frost-500)", dash: "none", icon: "🏡" },
   cold_frame: { fill: "var(--hl-zone-greenhouse)", stroke: "var(--hl-frost-500)", dash: "3 3", icon: "🪟" },
   orchard: { fill: "rgba(120, 170, 80, 0.16)", stroke: "#6f9a45", dash: "10 4", icon: "🍎" },
+  food_forest: { fill: "rgba(90, 140, 60, 0.20)", stroke: "#3F6B2A", dash: "12 4 2 4", icon: "🌳" },
   fruit: { fill: "rgba(200, 60, 90, 0.08)", stroke: "#c8506a", dash: "10 4", icon: "🫐" },
   herbs: { fill: "rgba(80, 110, 176, 0.09)", stroke: "#6a84c0", dash: "10 4", icon: "🌿" },
   flowers: { fill: "rgba(224, 106, 160, 0.09)", stroke: "#d27aa8", dash: "10 4", icon: "🌸" },
@@ -96,6 +98,8 @@ interface DragState {
   mode: "move" | "resize" | "pan" | "draw";
   /** The item under the pointer: a click without moving opens it ("item-click"). */
   clicked?: { kind: ItemKind; id: string };
+  /** The clicked item was already the selection before this press: the click opens it. */
+  wasSelected?: boolean;
   kind?: ItemKind;
   id?: string;
   pointerId: number;
@@ -154,6 +158,13 @@ export class GardenCanvas extends LitElement {
   @property({ type: Boolean }) readonly = false;
   /** Planting mode: zones, beds and elements can be selected but not moved or resized. */
   @property({ type: Boolean }) lockLayout = false;
+  /**
+   * The kind of item this planning step works on (terrain elements, zones, beds or plants).
+   * Other items stay visible but cannot be picked, so a click reaches the right one.  Empty: all.
+   */
+  @property() editKind: ItemKind | "" = "";
+  /** With ``editKind`` "planting": which plants this step edits (perennials or annuals). */
+  @property({ attribute: false }) editPlanting: ((p: Planting) => boolean) | null = null;
   /** Zone being edited in "zone map" mode (others are dimmed and locked). */
   @property() focusZone = "";
   /** While set, dragging on the canvas draws a new rectangle (zone, bed, element). */
@@ -167,6 +178,7 @@ export class GardenCanvas extends LitElement {
   @query("svg") private svgEl!: SVGSVGElement;
 
   private drag: DragState | null = null;
+  private lastClick = { key: "", at: 0 };
   private pendingSelect: Selection | null = null;
   private fitted = false;
   private resizeObserver?: ResizeObserver;
@@ -179,6 +191,8 @@ export class GardenCanvas extends LitElement {
       svg.panning { cursor: grabbing; }
       svg.drawing, svg.drawing * { cursor: crosshair !important; }
       .dimmed { opacity: 0.22; pointer-events: none; filter: grayscale(0.6); }
+      .locked { pointer-events: none; opacity: 0.55; }
+      .editable { cursor: grab; }
       .zone-rect { stroke-width: 1.5; vector-effect: non-scaling-stroke; }
       .bed-rect { vector-effect: non-scaling-stroke; cursor: move; }
       .planting { cursor: move; }
@@ -298,6 +312,7 @@ export class GardenCanvas extends LitElement {
     }
     if (kind && id) {
       const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+      const wasSelected = this.selection?.kind === kind && this.selection.id === id && this.multi.length <= 1;
       const inGroup = this.multi.some((m) => m.kind === kind && m.id === id);
       if (!(inGroup && !additive && !resize)) {
         this.dispatchEvent(new CustomEvent<Selection>("select", { detail: { kind, id, additive } }));
@@ -308,11 +323,11 @@ export class GardenCanvas extends LitElement {
       const origin = this.rectOf(kind, id);
       if (!origin || this.readonly || (this.lockLayout && kind !== "planting")) {
         this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
-          startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: { kind, id } };
+          startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: { kind, id }, wasSelected };
         return;
       }
       this.drag = { mode: resize ? "resize" : "move", kind, id, pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin,
-        startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: resize ? undefined : { kind, id } };
+        startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: resize ? undefined : { kind, id }, wasSelected };
     } else {
       this.dispatchEvent(new CustomEvent<Selection | null>("select", { detail: null }));
       this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
@@ -385,7 +400,12 @@ export class GardenCanvas extends LitElement {
     this.pendingSelect = null;
     if (pending && !d.moved) this.dispatchEvent(new CustomEvent<Selection>("select", { detail: pending }));
     if (d.clicked && !d.moved && !(ev.shiftKey || ev.ctrlKey || ev.metaKey)) {
-      this.dispatchEvent(new CustomEvent<Selection>("item-click", { detail: { kind: d.clicked.kind, id: d.clicked.id } }));
+      // One click selects ("item-click"); clicking the selected item again (or a double click) opens its details ("item-open").
+      const key = `${d.clicked.kind}:${d.clicked.id}`;
+      const now = Date.now();
+      const again = d.wasSelected || (this.lastClick.key === key && now - this.lastClick.at < 450);
+      this.lastClick = again ? { key: "", at: 0 } : { key, at: now };
+      this.dispatchEvent(new CustomEvent<Selection>(again ? "item-open" : "item-click", { detail: { kind: d.clicked.kind, id: d.clicked.id } }));
     }
     if (!preview || !d.moved || d.mode === "pan") return;
     let targetBedId: string | undefined;
@@ -422,6 +442,21 @@ export class GardenCanvas extends LitElement {
       return { ...base, x: base.x + (p.rect.x - origin.x), y: base.y + (p.rect.y - origin.y) };
     }
     return base;
+  }
+
+  /**
+   * A ground cover (lawn, terrace ...) drawn under the zones, minus whatever lies on it:
+   * a house or a zone on the lawn is no longer lawn there.
+   */
+  private renderGround(f: Feature): SVGTemplateResult {
+    const covers = this.preview ? [] : coversOfFeature(f, this.features, this.zones);
+    if (!covers.length) return this.renderFeature(f);
+    const id = `cut-${f.id}`;
+    return svg`<mask id=${id} maskUnits="userSpaceOnUse" x="-100000" y="-100000" width="200000" height="200000">
+        <rect x="-100000" y="-100000" width="200000" height="200000" fill="#fff"></rect>
+        ${covers.map((c) => svg`<rect x=${c.x} y=${c.y} width=${c.w} height=${c.h} fill="#000"></rect>`)}
+      </mask>
+      <g mask=${`url(#${id})`}>${this.renderFeature(f)}</g>`;
   }
 
   private renderFeature(f: Feature): SVGTemplateResult {
@@ -612,8 +647,8 @@ export class GardenCanvas extends LitElement {
     const moistureStroke = this.showMoisture && status !== "unknown" ? MOISTURE_COLORS[status] : "rgba(46,33,24,0.45)";
     const zoneType = this.zones.find((z) => z.id === bed.zone_id)?.type ?? "outdoor";
     // Orchards sit in grass, fruit corners in mulch; herb & flower borders keep soil.
-    const open = zoneType === "orchard" || zoneType === "fruit";
-    const fill = zoneType === "orchard" ? "url(#feat-grass)" : zoneType === "fruit" ? "url(#bark-mulch)"
+    const open = zoneType === "orchard" || zoneType === "fruit" || zoneType === "food_forest";
+    const fill = zoneType === "orchard" ? "url(#feat-grass)" : zoneType === "fruit" || zoneType === "food_forest" ? "url(#bark-mulch)"
       : bed.kind === "container" ? "var(--hl-container-fill)" : bed.kind === "raised" ? "var(--hl-bed-fill-raised)" : "var(--hl-bed-fill)";
     const radius = bed.kind === "container" ? Math.min(r.w, r.h) / 4 : 4 / this.k;
     const moisture = ba?.irrigation.moisture;
@@ -876,9 +911,22 @@ export class GardenCanvas extends LitElement {
     return !(cx >= z.x_cm && cx <= z.x_cm + z.width_cm && cy >= z.y_cm && cy <= z.y_cm + z.length_cm);
   }
 
+  /** Can this item be picked in the current planning step? */
+  private canEdit(kind: ItemKind, planting?: Planting): boolean {
+    if (!this.editKind) return true;
+    if (kind !== this.editKind) return false;
+    return kind !== "planting" || !planting || !this.editPlanting || this.editPlanting(planting);
+  }
+
   render() {
     const focus = this.focusZone;
-    const dim = (out: boolean, content: unknown) => (out ? svg`<g class="dimmed">${content}</g>` : content);
+    const tip = this.t?.("planner.item_tip") ?? "";
+    const layer = (out: boolean, editable: boolean, name: string, content: unknown) =>
+      out ? svg`<g class="dimmed">${content}</g>`
+        : !editable ? svg`<g class="locked">${content}</g>`
+        : this.editKind && !this.readonly ? svg`<g class="editable"><title>${name ? `${name} - ${tip}` : tip}</title>${content}</g>` : content;
+    const { ground, above } = featureLayers(this.features);
+    const plantLabel = (p: Planting) => { const plant = this.plants.get(p.plant_id); return plant?.names[this.lang] ?? plant?.names.en ?? p.plant_id; };
     return html`
       <svg
         tabindex="0"
@@ -893,12 +941,14 @@ export class GardenCanvas extends LitElement {
         @wheel=${this.onWheel}
       >
         <g transform=${`translate(${this.tx} ${this.ty}) scale(${this.k})`}>
-          ${this.renderGrid()} ${this.showZones ? this.zones.map((z) => dim(!!focus && z.id !== focus, this.renderZone(z))) : nothing}
-          ${this.showFeatures ? this.features.map((f) => dim(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.renderFeature(f))) : nothing}
-          ${this.beds.map((b) => dim(!!focus && b.zone_id !== focus, this.renderBed(b)))}
+          ${this.renderGrid()}
+          ${this.showFeatures ? ground.map((f) => layer(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.canEdit("feature"), f.name, this.renderGround(f))) : nothing}
+          ${this.showZones ? this.zones.map((z) => layer(!!focus && z.id !== focus, this.canEdit("zone"), z.name, this.renderZone(z))) : nothing}
+          ${this.showFeatures ? above.map((f) => layer(this.outside({ x: f.x_cm, y: f.y_cm, w: f.width_cm, h: f.length_cm }), this.canEdit("feature"), f.name, this.renderFeature(f))) : nothing}
+          ${this.beds.map((b) => layer(!!focus && b.zone_id !== focus, this.canEdit("bed"), b.name, this.renderBed(b)))}
           ${this.showPlantings ? this.plantings.map((p) => {
             const bed = this.beds.find((b) => b.id === p.bed_id);
-            return dim(!!focus && bed?.zone_id !== focus, this.renderPlanting(p));
+            return layer(!!focus && bed?.zone_id !== focus, this.canEdit("planting", p), plantLabel(p), this.renderPlanting(p));
           }) : nothing} ${this.showPlantings ? this.renderLinks() : nothing}
           ${this.renderMulti()} ${this.renderSelection()} ${this.renderGhost()} ${this.renderDrawRect()}
         </g>

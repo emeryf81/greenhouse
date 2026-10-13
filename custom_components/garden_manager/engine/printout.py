@@ -22,6 +22,7 @@ from datetime import date, timedelta
 import math
 from typing import Any
 
+from .coverage import feature_layers
 from .fertilizer import bed_fertilizer_plan
 from .geometry import plant_count, plant_positions
 from .i18n import normalize_lang
@@ -86,7 +87,7 @@ LABELS: dict[str, dict[str, str]] = {
         "house": "House", "driveway": "Driveway", "street": "Street", "parking": "Parking",
         "play": "Play area", "beehive": "Beehive",
         "terrace": "Terrace", "lawn": "Lawn", "flowerbed": "Flower bed", "fence": "Fence", "pond": "Pond",
-        "orchard": "Orchard", "fruit": "Soft fruit", "herbs": "Herb garden", "flowers": "Flower garden",
+        "orchard": "Orchard", "food_forest": "Food forest", "fruit": "Soft fruit", "herbs": "Herb garden", "flowers": "Flower garden",
         "zone_garden": "Ornamental garden", "zone_containers": "Planters & pots",
         "stone_path": "Stone path", "wood_path": "Wooden path", "stepping_stones": "Stepping stones",
         "bark_path": "Bark path", "decking": "Decking", "wall": "Wall", "carport": "Carport / garage",
@@ -116,7 +117,7 @@ LABELS: dict[str, dict[str, str]] = {
         "house": "Huis", "driveway": "Oprit", "street": "Straat", "parking": "Parking",
         "play": "Speelhoek", "beehive": "Bijenkast",
         "terrace": "Terras", "lawn": "Gazon", "flowerbed": "Bloemperk", "fence": "Omheining", "pond": "Vijver",
-        "orchard": "Boomgaard", "fruit": "Kleinfruit", "herbs": "Kruidentuin", "flowers": "Bloementuin",
+        "orchard": "Boomgaard", "food_forest": "Voedselbos", "fruit": "Kleinfruit", "herbs": "Kruidentuin", "flowers": "Bloementuin",
         "zone_garden": "Siertuin", "zone_containers": "Bloembakken & potten",
         "stone_path": "Stenen pad", "wood_path": "Houten pad", "stepping_stones": "Stapstenen",
         "bark_path": "Schorspad", "decking": "Vlonder", "wall": "Muur", "carport": "Carport / garage",
@@ -146,7 +147,7 @@ LABELS: dict[str, dict[str, str]] = {
         "house": "Maison", "driveway": "Allée de garage", "street": "Rue", "parking": "Parking",
         "play": "Coin jeux", "beehive": "Ruche",
         "terrace": "Terrasse", "lawn": "Pelouse", "flowerbed": "Massif de fleurs", "fence": "Clôture", "pond": "Mare",
-        "orchard": "Verger", "fruit": "Petits fruits", "herbs": "Jardin d'aromatiques", "flowers": "Jardin de fleurs",
+        "orchard": "Verger", "food_forest": "Forêt comestible", "fruit": "Petits fruits", "herbs": "Jardin d'aromatiques", "flowers": "Jardin de fleurs",
         "zone_garden": "Jardin d'agrément", "zone_containers": "Jardinières et pots",
         "stone_path": "Allée en pierre", "wood_path": "Allée en bois", "stepping_stones": "Pas japonais",
         "bark_path": "Allée en écorces", "decking": "Platelage", "wall": "Mur", "carport": "Carport / garage",
@@ -274,6 +275,7 @@ ZONE_COLORS: dict[str, tuple[str, str]] = {
     "greenhouse": ("#5DA9C9", "#2D7898"),
     "cold_frame": ("#8FB8C9", "#4F8399"),
     "orchard": ("#9CC46A", "#5F8F45"),
+    "food_forest": ("#7FA35A", "#3F6B2A"),
     "fruit": ("#D27A8E", "#A8506A"),
     "herbs": ("#8FA3D6", "#4F6FB0"),
     "garden": ("#6E965A", "#7A9A5A"),
@@ -484,6 +486,25 @@ def draw_map(
         return oy + (cm - y0) * scale
 
     result = MapResult(scale)
+    ground, above = feature_layers(features)
+
+    def draw_feature(f: Feature) -> None:
+        result.features.add(f.type)
+        color, pattern = FEATURE_STYLE[f.type]
+        color = theme.col(color)
+        fx, fy, fw, fh = X(f.x_cm), Y(f.y_cm), f.width_cm * scale, f.length_cm * scale
+        if f.type in (FeatureType.TREE, FeatureType.WATER_BUTT, FeatureType.SHRUB):
+            r = min(fw, fh) / 2
+            s.circle(fx + fw / 2, fy + fh / 2, r, fill=_mix(color, 0.35), stroke=color, width=0.3)
+        else:
+            s.rect(fx, fy, fw, fh, fill=_mix(color, 0.3), stroke=color, width=0.25)
+            s.hatch(fx, fy, fw, fh, pattern, color, spacing=2.0)
+        if fw > 12 and fh > 4:
+            s.text(fx + fw / 2, fy + fh / 2 + 1.0, ellipsize(f.name, fw - 2, 6), size=6, color=INK, anchor="middle")
+
+    # Ground covers first: zones and other elements drawn on them take their piece (a house on the lawn).
+    for f in ground:
+        draw_feature(f)
     for z in zones:
         result.zone_types.add(z.type)
         zx, zy, zw, zh = X(z.x_cm), Y(z.y_cm), z.width_cm * scale, z.length_cm * scale
@@ -499,19 +520,8 @@ def draw_map(
             zx + 1.5, zy + zh - 1.5, ellipsize(z.name, zw - 3, 7, True), size=7, bold=True, color=theme.zone_stroke(z)
         )
 
-    for f in features:
-        result.features.add(f.type)
-        color, pattern = FEATURE_STYLE[f.type]
-        color = theme.col(color)
-        fx, fy, fw, fh = X(f.x_cm), Y(f.y_cm), f.width_cm * scale, f.length_cm * scale
-        if f.type in (FeatureType.TREE, FeatureType.WATER_BUTT, FeatureType.SHRUB):
-            r = min(fw, fh) / 2
-            s.circle(fx + fw / 2, fy + fh / 2, r, fill=_mix(color, 0.35), stroke=color, width=0.3)
-        else:
-            s.rect(fx, fy, fw, fh, fill=_mix(color, 0.3), stroke=color, width=0.25)
-            s.hatch(fx, fy, fw, fh, pattern, color, spacing=2.0)
-        if fw > 12 and fh > 4:
-            s.text(fx + fw / 2, fy + fh / 2 + 1.0, ellipsize(f.name, fw - 2, 6), size=6, color=INK, anchor="middle")
+    for f in above:
+        draw_feature(f)
 
     bed_ids = {b.id for b in beds}
     items = _season_plantings(ctx, season, bed_ids) if plantings else []

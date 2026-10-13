@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
+from . import eco  # noqa: F401  (registers the eco task texts)
 from .fertilizer import bed_fertilizer_plan
 from .i18n import t
 from .models import PlantingStatus, TaskPriority, TaskSource, TaskType, present_in
@@ -95,6 +96,27 @@ GARDEN_RULES: tuple[Rule, ...] = (
     Rule("gutters", TaskType.CLEAN, "first_frost", 4, 30, "garden", TaskPriority.LOW, handbook="watering"),
     Rule("nest_boxes", TaskType.CLEAN, "first_frost", 6, 30, "garden", TaskPriority.LOW, handbook="pests"),
     Rule("storage_check", TaskType.CHECK, "first_frost", 9, 20, "garden", TaskPriority.LOW, handbook="harvest"),
+)
+# Ecological gardening (GardenSettings.eco_tips): helpers, soil life and habitat.
+ECO_RULES: tuple[Rule, ...] = (
+    Rule(
+        "eco_insect_hotel", TaskType.CLEAN, "last_frost", -6, 20, "garden", TaskPriority.LOW, handbook="home_remedies"
+    ),
+    Rule("eco_stems", TaskType.CUT_BACK, "last_frost", -2, 30, "garden", TaskPriority.LOW, handbook="home_remedies"),
+    Rule(
+        "eco_flower_strip",
+        TaskType.SOW_DIRECT,
+        "last_frost",
+        1,
+        30,
+        "garden",
+        TaskPriority.LOW,
+        handbook="home_remedies",
+    ),
+    Rule("eco_horsetail", TaskType.MAKE_FEED, "last_frost", 4, 30, "garden", TaskPriority.LOW, handbook="diseases"),
+    Rule("eco_water_dish", TaskType.CHECK, "last_frost", 9, 10, "garden", TaskPriority.LOW, handbook="home_remedies"),
+    Rule("eco_no_dig", TaskType.MULCH, "first_frost", 1, 60, "garden", TaskPriority.LOW, handbook="nodig"),
+    Rule("eco_wild_corner", TaskType.CHECK, "first_frost", 2, 30, "garden", TaskPriority.LOW, handbook="home_remedies"),
 )
 GREENHOUSE_RULES: tuple[Rule, ...] = (
     Rule("gh_spring_clean", TaskType.CLEAN_GREENHOUSE, "last_frost", -12, 120, "greenhouse", handbook="greenhouse"),
@@ -216,11 +238,14 @@ def maintenance_specs(ctx: TaskContext) -> list[TaskSpec]:
     for season in seasons:
         for rule in GARDEN_RULES:
             add_rule(rule, season, "garden", {})
+        if data.settings.eco_tips:
+            for rule in ECO_RULES:
+                add_rule(rule, season, "garden", {})
         for zone in data.zones:
             if zone.is_enclosed:
                 for rule in GREENHOUSE_RULES:
                     add_rule(rule, season, zone.id, {"zone": zone.name}, zone.id)
-            elif zone.type.value in ("orchard", "fruit") and _zone_has_plants(data, zone.id):
+            elif zone.type.value in ("orchard", "fruit", "food_forest") and _zone_has_plants(data, zone.id):
                 for rule in ORCHARD_RULES:
                     add_rule(rule, season, zone.id, {"zone": zone.name}, zone.id)
 

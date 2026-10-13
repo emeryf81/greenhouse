@@ -4,7 +4,7 @@
 export type ISODate = string; // "2026-04-20"
 export type ISODateTime = string;
 
-export type ZoneType = "outdoor" | "greenhouse" | "cold_frame" | "orchard" | "fruit" | "herbs" | "flowers" | "garden" | "containers";
+export type ZoneType = "outdoor" | "greenhouse" | "cold_frame" | "orchard" | "fruit" | "herbs" | "flowers" | "garden" | "containers" | "food_forest";
 export type BedKind = "in_ground" | "raised" | "container";
 export type SoilType = "sandy" | "loam" | "clay" | "silt" | "peat" | "chalk" | "potting_mix";
 export type Wind = "sheltered" | "moderate" | "exposed";
@@ -558,6 +558,7 @@ export interface Settings {
   open_meteo?: boolean;
   elevation_m?: number | null;
   maintenance_tasks?: boolean;
+  eco_tips?: boolean;
 }
 
 export interface ForecastPoint {
