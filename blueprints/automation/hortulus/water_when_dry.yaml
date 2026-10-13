@@ -1,0 +1,58 @@
+blueprint:
+  name: Hortulus - water a dry bed at a good moment
+  description: >-
+    When Hortulus says a bed needs water, run the Hortulus irrigation plan
+    for that bed early in the morning (or in the evening) - never during frost
+    lockout and never while another run is busy. Hortulus itself still checks
+    frost, rain and the amount.
+  domain: automation
+  source_url: https://github.com/emeryf81/hortulus/blob/main/blueprints/automation/hortulus/water_when_dry.yaml
+  input:
+    needs_water:
+      name: Needs-water sensor of the bed
+      selector:
+        entity:
+          domain: binary_sensor
+          integration: garden_manager
+    bed:
+      name: Bed name
+      description: As shown in Hortulus (e.g. Bed 1).
+      selector:
+        text:
+    at_time:
+      name: Time to water
+      default: "06:30:00"
+      selector:
+        time:
+    lockout:
+      name: Irrigation lockout sensor
+      selector:
+        entity:
+          domain: binary_sensor
+          integration: garden_manager
+    running:
+      name: Irrigation running sensor
+      selector:
+        entity:
+          domain: binary_sensor
+          integration: garden_manager
+mode: single
+variables:
+  bed: !input bed
+trigger:
+  - platform: time
+    at: !input at_time
+condition:
+  - condition: state
+    entity_id: !input needs_water
+    state: "on"
+  - condition: state
+    entity_id: !input lockout
+    state: "off"
+  - condition: state
+    entity_id: !input running
+    state: "off"
+action:
+  - service: garden_manager.run_irrigation_plan
+    data:
+      beds: ["{{ bed }}"]

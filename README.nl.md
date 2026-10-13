@@ -139,6 +139,15 @@ Open daarna **Hortulus** in de zijbalk. Meer: [CONFIGURATIE](docs/nl/CONFIGURATI
 
 Voorbeelden: [automatiseringen](examples/automations.yaml) en [dashboard](examples/dashboard.yaml).
 
+## Blueprints
+
+Kant-en-klare automatiseringen - klik om ze in Home Assistant te importeren:
+
+- [**Vorstwaarschuwing op een lamp**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Ffrost_flash_light.yaml): een lamp knippert blauw (en je telefoon krijgt een bericht) als er vorst komt.
+- [**Oogst loggen met een knop**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Fbutton_log_harvest.yaml): een knop of NFC-tag logt een vaste hoeveelheid van één teelt.
+- [**Een droog bed op een goed moment water geven**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Fwater_when_dry.yaml): start het bewateringsplan voor een dorstig bed op het uur dat jij kiest, nooit tijdens de vorstblokkering.
+- [**Dringende tuinklussen omroepen**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Furgent_task_announce.yaml): dringende klussen (vorstdoek, schaduw, een plaagvlucht) worden uitgesproken op een speaker.
+
 ## Ontwikkelen
 
 ```bash

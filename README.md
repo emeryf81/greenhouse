@@ -145,6 +145,15 @@ Then open **Hortulus** in the sidebar. Details: [CONFIGURATION](docs/en/CONFIGUR
 Full reference: [ENTITY_REFERENCE](docs/en/ENTITY_REFERENCE.md) · Example
 [automations](examples/automations.yaml) and [dashboard](examples/dashboard.yaml).
 
+## Blueprints
+
+Ready-made automations - click to import them into Home Assistant:
+
+- [**Frost warning on a lamp**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Ffrost_flash_light.yaml): a lamp flashes blue (and your phone gets a message) when frost is coming.
+- [**Log a harvest with a button**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Fbutton_log_harvest.yaml): a button or NFC tag logs a fixed amount of one crop.
+- [**Water a dry bed at a good moment**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Fwater_when_dry.yaml): runs the irrigation plan for a thirsty bed at the hour you choose, never in frost lockout.
+- [**Announce urgent garden jobs**](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Femeryf81%2Fhortulus%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fhortulus%2Furgent_task_announce.yaml): urgent jobs (frost cover, shading, a pest flight) are spoken on a speaker.
+
 ## How the horticultural logic works (short)
 
 * **Windows** are stored as weeks relative to the *average last spring frost* /

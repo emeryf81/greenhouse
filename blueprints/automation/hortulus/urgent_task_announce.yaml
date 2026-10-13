@@ -1,0 +1,57 @@
+blueprint:
+  name: Hortulus - announce urgent garden jobs
+  description: >-
+    When an urgent or high-priority job becomes due in Hortulus (frost cover,
+    shading the greenhouse, a pest flight starting), it is announced on a
+    speaker during the hours you choose.
+  domain: automation
+  source_url: https://github.com/emeryf81/hortulus/blob/main/blueprints/automation/hortulus/urgent_task_announce.yaml
+  input:
+    speaker:
+      name: Speaker
+      selector:
+        entity:
+          domain: media_player
+    tts:
+      name: TTS entity
+      description: For example tts.google_translate_nl_be or tts.home_assistant_cloud.
+      selector:
+        entity:
+          domain: tts
+    from_time:
+      name: Not before
+      default: "08:00:00"
+      selector:
+        time:
+    until_time:
+      name: Not after
+      default: "21:00:00"
+      selector:
+        time:
+    priorities:
+      name: Priorities
+      default: [urgent, high]
+      selector:
+        select:
+          multiple: true
+          options: [urgent, high, normal, low]
+mode: queued
+max: 5
+variables:
+  priorities: !input priorities
+trigger:
+  - platform: event
+    event_type: garden_manager_task_due
+condition:
+  - condition: template
+    value_template: "{{ trigger.event.data.priority in priorities }}"
+  - condition: time
+    after: !input from_time
+    before: !input until_time
+action:
+  - service: tts.speak
+    target:
+      entity_id: !input tts
+    data:
+      media_player_entity_id: !input speaker
+      message: "Hortulus: {{ trigger.event.data.title }}"

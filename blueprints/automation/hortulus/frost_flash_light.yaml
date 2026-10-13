@@ -1,0 +1,60 @@
+blueprint:
+  name: Hortulus - frost warning on a lamp
+  description: >-
+    When Hortulus warns for frost, a lamp of your choice flashes blue a few
+    times (and optionally a message goes to your phone), so nobody forgets
+    the fleece over the young plants.
+  domain: automation
+  source_url: https://github.com/emeryf81/hortulus/blob/main/blueprints/automation/hortulus/frost_flash_light.yaml
+  input:
+    lamp:
+      name: Lamp
+      selector:
+        target:
+          entity:
+            domain: light
+    flashes:
+      name: Number of flashes
+      default: 3
+      selector:
+        number: {min: 1, max: 10, step: 1}
+    color:
+      name: Colour
+      default: [0, 120, 255]
+      selector:
+        color_rgb:
+    notify_service:
+      name: Notify service (optional)
+      description: For example notify.mobile_app_phone. Leave empty for the lamp only.
+      default: ""
+      selector:
+        text:
+mode: single
+variables:
+  notify_service: !input notify_service
+trigger:
+  - platform: event
+    event_type: garden_manager_frost_warning
+action:
+  - repeat:
+      count: !input flashes
+      sequence:
+        - service: light.turn_on
+          target: !input lamp
+          data:
+            rgb_color: !input color
+            brightness_pct: 100
+        - delay: {seconds: 1}
+        - service: light.turn_off
+          target: !input lamp
+        - delay: {seconds: 1}
+  - if:
+      - condition: template
+        value_template: "{{ notify_service | length > 0 }}"
+    then:
+      - service: "{{ notify_service }}"
+        data:
+          title: Hortulus
+          message: >-
+            Frost expected{% if trigger.event.data.temp is defined %} ({{ trigger.event.data.temp }} °C){% endif %}:
+            cover the tender plants.
