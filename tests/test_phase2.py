@@ -975,3 +975,63 @@ async def test_water_counted_with_every_valve_closed_is_a_leak(hass: HomeAssista
         hass.states.async_set("sensor.garden_water", str(600 + minute), {"unit_of_measurement": "L"})
         irrigation.async_watch(start + timedelta(minutes=minute))
     assert irrigation.leak is None
+
+
+async def test_phone_notification_buttons_complete_postpone_and_close(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The digest carries Done / Tomorrow; pressing them on the phone changes the tasks; a stuck valve gets Close."""
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+
+    from custom_components.garden_manager.engine.models import Task, TaskStatus, TaskType
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    repo = runtime.repo
+    today = dt_util.now().date()
+    sent: list[dict[str, Any]] = []
+
+    async def phone(call: ServiceCall) -> None:
+        sent.append(dict(call.data))
+
+    hass.services.async_register("notify", "mobile_app_phone", phone)
+    repo.data.settings.notifications.notify_services = ["notify.mobile_app_phone"]
+    repo.data.tasks = [Task("only", TaskType.WEED, "Wieden", today)]
+    await runtime.notifier.async_send_digest(runtime.coordinator.data)
+    await hass.async_block_till_done()
+    actions = sent[-1]["data"]["actions"]
+    assert [a["title"] for a in actions][:2] == ["Done", "Tomorrow"] or [a["title"] for a in actions][:2] == [
+        "Gedaan",
+        "Morgen",
+    ]
+    hass.bus.async_fire("mobile_app_notification_action", {"action": actions[1]["action"]})  # tomorrow
+    await hass.async_block_till_done()
+    assert repo.data.task("only").due == today + timedelta(days=1)
+
+    repo.data.notified.clear()
+    await runtime.notifier.async_send_overdue(runtime.coordinator.data)  # nothing overdue: no buttons needed
+    repo.data.tasks.append(Task("two", TaskType.MULCH, "Mulchen", today))
+    done = runtime.notifier.actions.for_tasks([repo.data.task("two")], "en")[0]
+    hass.bus.async_fire("mobile_app_notification_action", {"action": done["action"]})
+    await hass.async_block_till_done()
+    assert repo.data.task("two").status is TaskStatus.DONE
+    # a used button does nothing the second time, a foreign action is ignored
+    hass.bus.async_fire("mobile_app_notification_action", {"action": done["action"]})
+    hass.bus.async_fire("mobile_app_notification_action", {"action": "OTHER_APP_THING"})
+    await hass.async_block_till_done()
+
+    valve = "valve.greenhouse_drip"
+    closed: list[str] = []
+
+    async def fake_close(entity_id: str) -> str:
+        closed.append(entity_id)
+        return "closed"
+
+    monkeypatch.setattr(runtime.irrigation, "async_close", fake_close)
+    close = runtime.notifier.actions.for_valve(valve, "nl")[0]
+    assert close["title"] == "Kraan dicht"
+    hass.bus.async_fire("mobile_app_notification_action", {"action": close["action"]})
+    await hass.async_block_till_done()
+    assert closed == [valve]

@@ -397,6 +397,10 @@ MESSAGES["en"].update(
         "seeds.todo_item": "Seed: {plant} (~{seeds} seeds)",
         "seeds.todo_item_any": "Seed: {plant}",
         "seeds.todo_description": "For the {season} plan of Hortulus: {plants} plants.",
+        "action.done": "Done",
+        "action.tomorrow": "Tomorrow",
+        "action.water_now": "Water now",
+        "action.close_valve": "Close valve",
     }
 )
 MESSAGES["nl"].update(
@@ -404,6 +408,10 @@ MESSAGES["nl"].update(
         "seeds.todo_item": "Zaad: {plant} (~{seeds} zaden)",
         "seeds.todo_item_any": "Zaad: {plant}",
         "seeds.todo_description": "Voor het plan {season} in Hortulus: {plants} planten.",
+        "action.done": "Gedaan",
+        "action.tomorrow": "Morgen",
+        "action.water_now": "Water nu",
+        "action.close_valve": "Kraan dicht",
     }
 )
 

@@ -379,12 +379,19 @@ class IrrigationController:
             from .engine.i18n import t
 
             lang = self.coordinator.lang
+            data = None
+            if code in ("valve_stuck", "valve_not_closed") and getattr(self.notifier, "actions", None):
+                data = {
+                    "tag": f"hortulus_valve_{entity_id}",
+                    "actions": self.notifier.actions.for_valve(entity_id, lang),
+                }
             self.hass.async_create_task(
                 self.notifier.async_send(
                     t("notify.valve_title", lang),
                     t(f"notify.{code}", lang, entity=entity_id, what=what, **params),
                     notification_id=f"hortulus_valve_{entity_id}",
                     tts=False,
+                    data=data,
                 )
             )
 
