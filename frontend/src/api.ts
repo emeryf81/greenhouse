@@ -40,6 +40,9 @@ import type { CropRow } from "./views/crops-view";
 const D = "garden_manager";
 
 export class GardenApi {
+  /** The garden (config entry) this panel shows; "" = the first one. */
+  gardenId = "";
+
   constructor(private hass: HomeAssistant) {}
 
   setHass(hass: HomeAssistant): void {
@@ -47,11 +50,12 @@ export class GardenApi {
   }
 
   private call<T>(type: string, payload: Record<string, unknown> = {}): Promise<T> {
-    return this.hass.connection.sendMessagePromise<T>({ type: `${D}/${type}`, ...payload });
+    const garden = this.gardenId ? { garden_id: this.gardenId } : {};
+    return this.hass.connection.sendMessagePromise<T>({ type: `${D}/${type}`, ...garden, ...payload });
   }
 
   subscribe(cb: (snapshot: Snapshot) => void): Promise<() => Promise<void>> {
-    return this.hass.connection.subscribeMessage<Snapshot>(cb, { type: `${D}/subscribe` });
+    return this.hass.connection.subscribeMessage<Snapshot>(cb, { type: `${D}/subscribe`, ...(this.gardenId ? { garden_id: this.gardenId } : {}) });
   }
 
   plants(): Promise<{ plants: Plant[]; families: Record<string, FamilyInfo>; overrides: Record<string, unknown> }> {
@@ -234,6 +238,7 @@ export class GardenApi {
   /** Download the PDF through the authenticated HTTP view. */
   async printPdf(options: Partial<PrintOptions>): Promise<{ blob: Blob; filename: string }> {
     const query = new URLSearchParams();
+    if (this.gardenId) query.set("garden_id", this.gardenId);
     for (const [key, value] of Object.entries(options)) {
       if (value === null || value === undefined || value === "") continue;
       query.set(key, Array.isArray(value) ? value.join(",") : String(value));
@@ -246,7 +251,7 @@ export class GardenApi {
   }
 
   exportPdfToConfig(options: Partial<PrintOptions>): Promise<unknown> {
-    return this.hass.callService(D, "export_pdf", options as Record<string, unknown>);
+    return this.hass.callService(D, "export_pdf", { ...(options as Record<string, unknown>), ...(this.gardenId ? { garden: this.gardenId } : {}) });
   }
 
   // -- handbook ------------------------------------------------------------ //

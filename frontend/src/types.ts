@@ -576,6 +576,9 @@ export interface Snapshot {
   diagnosis?: { error: number; warning: number; info: number } | null;
   harvest_log?: HarvestEntry[];
   journal?: JournalEntry[];
+  /** This garden's config entry, and every garden in this Home Assistant. */
+  entry_id?: string;
+  gardens?: { entry_id: string; title: string }[];
   seed_stock?: SeedPacket[];
   irrigation_log?: { bed_id: string; at: ISODateTime; mm: number; liters: number; minutes: number; source: string }[];
   irrigation_status?: {

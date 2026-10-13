@@ -1053,3 +1053,35 @@ async def test_harvest_by_plant_name_finds_the_crop(hass: HomeAssistant, garden)
     assert crop.harvest_started_on is not None
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(DOMAIN, "log_harvest", {"plant": "Mandragora", "kg": 1}, blocking=True)
+
+
+async def test_two_gardens_side_by_side(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """A second garden has its own data; the panel picks it with ``garden_id``, services with ``garden``."""
+    entry, _calls = garden
+    second = MockConfigEntry(domain=DOMAIN, data={**ENTRY, "storage_key": f"{DOMAIN}.garden_two"}, title="Volkstuin")
+    second.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second.entry_id)
+    await hass.async_block_till_done()
+    first_repo, second_repo = entry.runtime_data.repo, second.runtime_data.repo
+    assert first_repo is not second_repo and second_repo.key == f"{DOMAIN}.garden_two"
+
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/subscribe", "garden_id": second.entry_id})
+    assert (await client.receive_json())["success"]
+    snap = (await client.receive_json())["event"]
+    assert snap["entry_id"] == second.entry_id
+    assert {g["title"] for g in snap["gardens"]} == {"Hortulus", "Volkstuin"}
+
+    before = len(first_repo.data.harvest_log)
+    await hass.services.async_call(
+        DOMAIN, "log_harvest", {"plant_id": "tomato", "kg": 1, "garden": "volkstuin"}, blocking=True
+    )
+    assert len(second_repo.data.harvest_log) == 1 and len(first_repo.data.harvest_log) == before
+    await hass.services.async_call(DOMAIN, "log_harvest", {"plant_id": "tomato", "kg": 1}, blocking=True)
+    assert len(first_repo.data.harvest_log) == before + 1  # no garden named: the first one
+
+    # unloading one garden keeps the panel for the other
+    assert await hass.config_entries.async_unload(second.entry_id)
+    from homeassistant.components.frontend import DATA_PANELS
+
+    assert "hortulus" in hass.data.get(DATA_PANELS, {})

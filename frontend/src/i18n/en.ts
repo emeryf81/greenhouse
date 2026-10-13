@@ -60,6 +60,7 @@ export const en: Record<string, string> = {
   "quick.save": "Save harvest",
   "quick.reset": "Reset",
   "quick.saved": "{kg} kg of {plant} recorded. Enjoy!",
+  "app.garden": "Garden",
   "dash.today_tasks": "Today's tasks",
   "dash.no_tasks": "Nothing to do today. Enjoy the garden!",
   "dash.show_all": "Show all {n} tasks in the calendar",

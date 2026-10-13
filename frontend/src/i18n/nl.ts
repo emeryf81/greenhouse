@@ -59,6 +59,7 @@ export const nl: Record<string, string> = {
   "quick.save": "Oogst bewaren",
   "quick.reset": "Opnieuw",
   "quick.saved": "{kg} kg {plant} genoteerd. Smakelijk!",
+  "app.garden": "Tuin",
   "dash.today_tasks": "Taken voor vandaag",
   "dash.no_tasks": "Niets te doen vandaag. Geniet van de tuin!",
   "dash.show_all": "Alle {n} taken tonen in de kalender",

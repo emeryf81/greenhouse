@@ -41,6 +41,7 @@ from .engine.models import GardenResources, LayoutMode, PlantingStatus, SowMetho
 from .engine.planio import PlanImportError, export_plan
 from .engine.printout import COLOR_MODES, DOCUMENTS, PAGE_SIZES, PrintOptions
 from .engine.serde import from_dict, to_dict
+from .gardens import pick, service_garden
 from .operations import (
     op_add_planting,
     op_add_task,
@@ -216,10 +217,35 @@ EXPORT_PDF_SCHEMA = vol.Schema(
 
 
 def _runtime(hass: HomeAssistant) -> GardenRuntime:
-    entries = hass.config_entries.async_loaded_entries(DOMAIN)
-    if not entries:
+    runtime = pick(hass, service_garden.get())
+    if runtime is None:
         raise ServiceValidationError(translation_domain=DOMAIN, translation_key="not_loaded")
-    return entries[0].runtime_data
+    return runtime
+
+
+def _with_garden(schema: Any) -> Any:
+    """Accept ``garden`` (entry id or title) on every service, next to its own fields."""
+
+    def validate(data: Any) -> Any:
+        data = dict(data)
+        garden = data.pop("garden", None)
+        out = schema(data)
+        return {**out, "garden": cv.string(garden)} if garden is not None else out
+
+    return validate
+
+
+def _for_garden(handler: Any) -> Any:
+    """Run a service handler for the garden named by ``garden`` (default: the first)."""
+
+    async def run(call: ServiceCall) -> ServiceResponse:
+        token = service_garden.set(call.data.get("garden"))
+        try:
+            return await handler(call)
+        finally:
+            service_garden.reset(token)
+
+    return run
 
 
 @callback
@@ -485,4 +511,6 @@ def async_setup_services(hass: HomeAssistant) -> None:
         ("install_voice_sentences", install_sentences, INSTALL_SENTENCES_SCHEMA, SupportsResponse.OPTIONAL),
     ]
     for name, handler, schema, supports in reg:
-        hass.services.async_register(DOMAIN, name, handler, schema=schema, supports_response=supports)
+        hass.services.async_register(
+            DOMAIN, name, _for_garden(handler), schema=_with_garden(schema), supports_response=supports
+        )

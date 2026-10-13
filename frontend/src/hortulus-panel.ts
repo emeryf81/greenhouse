@@ -108,6 +108,8 @@ export class HortulusPanel extends LitElement {
       nav.top a[aria-current="page"]::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 16px; height: 2px; margin-left: -8px;
         border-radius: 2px; background: var(--hl-accent); }
       .view { animation: hl-rise var(--hl-dur-slow) var(--hl-ease) both; }
+      select.garden { width: auto; min-height: 34px; padding: 4px 30px 4px 12px; border-radius: 999px; font-weight: 600; flex: none;
+        background-color: var(--hl-leaf-50); border-color: var(--hl-leaf-300); }
       nav a:focus-visible { outline: 2px solid var(--hl-focus); outline-offset: 2px; }
       nav a .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #fff;
         display: inline-grid; place-items: center; line-height: 1; }
@@ -167,7 +169,29 @@ export class HortulusPanel extends LitElement {
     }
   }
 
+  /** Show another garden: remember it, subscribe to it, load its plants. */
+  private async switchGarden(id: string): Promise<void> {
+    if (!this.api || id === (this.snapshot?.entry_id ?? "")) return;
+    try {
+      localStorage.setItem("hortulus.garden", id);
+    } catch {
+      /* private mode */
+    }
+    await this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    this.api.gardenId = id;
+    this.snapshot = null;
+    await this.connect();
+  }
+
   private async connect(): Promise<void> {
+    if (this.api && !this.api.gardenId) {
+      try {
+        this.api.gardenId = localStorage.getItem("hortulus.garden") ?? "";
+      } catch {
+        /* private mode */
+      }
+    }
     try {
       await this.loadPlants();
       void this.loadGlossary();
@@ -369,7 +393,11 @@ export class HortulusPanel extends LitElement {
       <header class="appbar">
         ${this.narrow ? html`<button class="icon-btn" aria-label="Menu" @click=${() => this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }))}>
           <ha-icon icon="mdi:menu"></ha-icon></button>` : nothing}
-        <div class="brand">${emblem(30)}<span>Hortulus</span>${this.narrow ? nothing : html`<small>${this.t("app.tagline")}</small>`}</div>
+        <div class="brand">${emblem(30)}<span>Hortulus</span>${this.narrow || (this.snapshot?.gardens?.length ?? 0) > 1 ? nothing : html`<small>${this.t("app.tagline")}</small>`}</div>
+        ${(this.snapshot?.gardens?.length ?? 0) > 1 ? html`<select class="garden" aria-label=${this.t("app.garden")}
+            @change=${(e: Event) => this.switchGarden((e.target as HTMLSelectElement).value)}>
+          ${this.snapshot!.gardens!.map((g) => html`<option value=${g.entry_id} ?selected=${g.entry_id === this.snapshot!.entry_id}>${g.title}</option>`)}
+        </select>` : nothing}
         ${this.renderNav("top")}
         ${this.narrow ? html`<span style="flex:1"></span>
           <button class="icon-btn" aria-label=${this.t("nav.journal")} @click=${() => this.navigate("journal")}><ha-icon icon="mdi:notebook-outline"></ha-icon></button>

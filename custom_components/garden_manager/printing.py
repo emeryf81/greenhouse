@@ -19,6 +19,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, EXPORT_URL, PRINT_DIR, PRINT_URL
 from .engine.pdf import Image
 from .engine.printout import PrintContext, PrintOptions, filename, render_pdf, render_svg
+from .gardens import pick
 
 if TYPE_CHECKING:
     from . import GardenRuntime
@@ -161,11 +162,10 @@ class PrintView(HomeAssistantView):
 
     async def get(self, request: web.Request) -> web.Response:
         hass = request.app[KEY_HASS]
-        entries = hass.config_entries.async_loaded_entries(DOMAIN)
-        if not entries:
-            return web.Response(status=HTTPStatus.NOT_FOUND, text="Hortulus is not loaded")
-        runtime: GardenRuntime = entries[0].runtime_data
         query = dict(request.query)
+        runtime = pick(hass, query.pop("garden_id", None))
+        if runtime is None:
+            return web.Response(status=HTTPStatus.NOT_FOUND, text="Hortulus is not loaded")
         fmt = query.pop("format", "pdf")
         try:
             opts = options_from_query(query, runtime.coordinator.lang)

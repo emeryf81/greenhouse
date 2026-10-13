@@ -5,6 +5,7 @@
 //   days: 0                    # 0 = today + overdue, 7 = the coming week
 //   assignee: me               # optional: me | person.xyz | unassigned
 //   max: 8                     # optional: maximum rows
+//   garden: Volkstuin          # optional: which garden (title or entry id) when you have more than one
 //   water: true                # optional: watering today, a running run, a stuck valve or leak (with Close)
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -21,6 +22,7 @@ export interface CardConfig {
   assignee?: string;
   max?: number;
   water?: boolean;
+  garden?: string;
 }
 
 const STRINGS = {
@@ -88,7 +90,7 @@ export class HortulusTasksCard extends LitElement {
       this.tasks = snap.tasks;
       this.snap = snap;
       this.error = false;
-    }, { type: `${DOMAIN}/subscribe` });
+    }, { type: `${DOMAIN}/subscribe`, ...(this.config.garden ? { garden_id: this.config.garden } : {}) });
     this.unsub.catch(() => {
       this.error = true;
       this.unsub = undefined;
@@ -110,7 +112,7 @@ export class HortulusTasksCard extends LitElement {
   private async complete(task: Task): Promise<void> {
     this.busy = new Set(this.busy).add(task.id);
     try {
-      await this.hass!.connection.sendMessagePromise({ type: `${DOMAIN}/tasks/action`, task_id: task.id, action: "complete" });
+      await this.hass!.connection.sendMessagePromise({ type: `${DOMAIN}/tasks/action`, task_id: task.id, action: "complete", ...(this.config.garden ? { garden_id: this.config.garden } : {}) });
       this.failed = false;
     } catch {
       this.failed = true;
@@ -123,7 +125,7 @@ export class HortulusTasksCard extends LitElement {
 
   private async closeValve(entityId: string): Promise<void> {
     try {
-      await this.hass!.connection.sendMessagePromise({ type: `${DOMAIN}/irrigation/close`, entity_id: entityId });
+      await this.hass!.connection.sendMessagePromise({ type: `${DOMAIN}/irrigation/close`, entity_id: entityId, ...(this.config.garden ? { garden_id: this.config.garden } : {}) });
     } catch {
       this.failed = true;
     }
