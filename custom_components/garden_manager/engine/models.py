@@ -835,10 +835,21 @@ class ClimateDay:
 
 @dataclass(slots=True)
 class WaterBalance:
-    """Root-zone depletion bucket per bed (used when no moisture sensor)."""
+    """Root-zone depletion bucket per bed (used when no moisture sensor).
+
+    With a moisture sensor the bucket is set from the reading once a day and
+    the bed learns ``et_factor``: how much faster (or slower) it really dries
+    out than the model predicts.  That keeps the bucket honest for the days
+    the sensor is off or flat.
+    """
 
     day: date | None = None
     depletion_mm: float = 0.0
+    et_factor: float = 1.0
+    calibrated_on: date | None = None  # last day the bucket was set from the sensor
+    calibrated_mm: float | None = None  # sensor depletion on that day
+    model_et_mm: float = 0.0  # modelled crop ET since then (factor 1), dry days only
+    wet_since: bool = False  # rain or irrigation since the calibration: no learning
 
 
 @dataclass(slots=True)

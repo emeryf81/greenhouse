@@ -328,6 +328,7 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             analysis.today,
             latitude=data.settings.region.latitude or self.hass.config.latitude,
             tz=dt_util.get_default_time_zone(),
+            moisture={bed_id: b.irrigation.moisture for bed_id, b in analysis.beds.items()},
         )
 
         # Garden water: one meter / water-butt reading per day.

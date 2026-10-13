@@ -167,6 +167,40 @@ def test_bucket_drives_irrigation_without_sensor(garden, db, make_planting):
     assert result.beds["bed_1"].taw_mm is not None
 
 
+def test_moisture_sensor_calibrates_the_bucket_and_learns_how_fast_a_bed_dries(garden, db, make_planting):
+    from custom_components.garden_manager.engine.waterbalance import advance_water_balance, sensor_depletion
+
+    garden.plantings = [
+        make_planting("lettuce", "bed_1", 2026, status=PlantingStatus.SOWN, width_cm=200, length_cm=100)
+    ]
+    day0 = date(2026, 6, 10)
+    timelines = analyze(garden, db, WeatherSnapshot(), {}, now=datetime(2026, 6, 10, 8, tzinfo=TZ), tz=TZ).timelines
+    garden.water_balance["bed_1"] = WaterBalance(day0, 5.0)
+
+    def advance(today: date, moisture: float | None) -> WaterBalance:
+        advance_water_balance(garden, db, timelines, today, latitude=51.0, tz=TZ, moisture={"bed_1": moisture})
+        return garden.water_balance["bed_1"]
+
+    wb = advance(day0, 40.0)  # first reading sets the bucket
+    assert wb.calibrated_on == day0 and wb.depletion_mm == wb.calibrated_mm and wb.et_factor == 1.0
+    wb_again = advance(day0, 10.0)  # once a day only
+    assert wb_again.calibrated_mm == wb.calibrated_mm
+
+    garden.climate_log = [ClimateDay(day0 + timedelta(days=i), tmin=14.0, tmax=28.0, rain_mm=0.0) for i in range(4)]
+    taw = total_available_water(garden.beds[0].soil, db.get("lettuce").root_depth_cm * 10)
+    start = wb.calibrated_mm
+    wb = advance(day0 + timedelta(days=4), 18.0)  # four hot, dry days: the sensor fell faster than modelled
+    measured = sensor_depletion(18.0, taw, garden.beds[0], [db.get("lettuce").water_needs])
+    assert wb.depletion_mm == measured and measured > start
+    assert wb.et_factor > 1.0 and wb.model_et_mm == 0.0
+
+    # rain in between: nothing is learned from that stretch
+    factor = wb.et_factor
+    garden.climate_log += [ClimateDay(day0 + timedelta(days=i), tmin=14.0, tmax=24.0, rain_mm=12.0) for i in (4, 5)]
+    wb = advance(day0 + timedelta(days=6), 35.0)
+    assert wb.et_factor == factor
+
+
 # --------------------------------------------------------------------------- #
 # Fertiliser
 # --------------------------------------------------------------------------- #

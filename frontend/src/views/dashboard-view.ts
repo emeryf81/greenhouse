@@ -283,6 +283,8 @@ export class DashboardView extends LitElement {
           <span class="chip ${ba.nutrients.status === "balanced" ? "ok" : "warn"}">${ba.nutrients.index}/100</span></div>` : nothing}
         ${ba?.depletion_mm != null && ba.taw_mm ? html`<div class="kv xs muted"><span>${this.t("dash.water_balance")} <hl-info term="water_balance" .t=${this.t}></hl-info></span>
           <span>${Math.round(ba.depletion_mm)} / ${Math.round(ba.taw_mm)} mm</span></div>` : nothing}
+        ${ba?.et_factor != null && Math.abs(ba.et_factor - 1) >= 0.05 ? html`<div class="kv xs muted"><span>${this.t("dash.drying")}</span>
+          <span>${this.t(ba.et_factor > 1 ? "dash.drying_fast" : "dash.drying_slow", { pct: Math.round(Math.abs(ba.et_factor - 1) * 100) })}</span></div>` : nothing}
         <div class="avatars" aria-label=${this.t("dash.active_crops", { n: active.length })}>
           ${active.map((p) => {
             const plant = this.plants.get(p!.plant_id);

@@ -80,6 +80,7 @@ class BedAnalysis:
     nutrients: NutrientBalance = field(default_factory=lambda: NutrientBalance(None, "unknown"))
     taw_mm: float | None = None
     depletion_mm: float | None = None
+    et_factor: float = 1.0  # learned from the moisture sensor: >1 dries faster than modelled
 
     @property
     def moisture_status(self) -> MoistureStatus:
@@ -167,6 +168,7 @@ class GardenAnalysis:
                     "nutrients": b.nutrients.to_dict(),
                     "taw_mm": b.taw_mm,
                     "depletion_mm": b.depletion_mm,
+                    "et_factor": b.et_factor,
                 }
                 for k, b in self.beds.items()
             },
@@ -390,6 +392,7 @@ def analyze(
             nutrients=nutrients,
             taw_mm=round(taw, 1) if taw else None,
             depletion_mm=depletion[0] if depletion else None,
+            et_factor=bucket.et_factor if bucket is not None else 1.0,
         )
 
         zone_frost = zones[bed.zone_id].frost if bed.zone_id in zones else outdoor_frost

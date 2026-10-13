@@ -359,6 +359,7 @@ export interface Analysis {
       nutrients?: NutrientBalance;
       taw_mm?: number | null;
       depletion_mm?: number | null;
+      et_factor?: number;
     }
   >;
   zones: Record<
