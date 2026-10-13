@@ -24,6 +24,7 @@ from .fertilizer import NutrientBalance, nutrient_balance
 from .models import (
     GardenData,
     GreenhouseAction,
+    Hemisphere,
     MoistureStatus,
     Plant,
     RiskLevel,
@@ -33,6 +34,7 @@ from .models import (
     WeatherSnapshot,
     present_in,
 )
+from .pests import PestWarning, pest_warnings
 from .phenology import PhenologyInfo, phenology, stage_kc
 from .plantdb import PlantDatabase
 from .region import SeasonAnchors, resolve_profile, season_anchors, season_bounds, season_for_date
@@ -126,6 +128,7 @@ class GardenAnalysis:
     et0_today: float | None = None
     et0_method: str | None = None
     gdd_today: float | None = None
+    pests: list[PestWarning] = field(default_factory=list)
 
     def task_context(self, data: GardenData, db: PlantDatabase) -> TaskContext:
         return TaskContext(
@@ -142,6 +145,7 @@ class GardenAnalysis:
             disease={k: z.disease for k, z in self.zones.items()},
             nutrients={k: b.nutrients for k, b in self.beds.items()},
             outlook=list(self.outlook),
+            pests=list(self.pests),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -193,6 +197,7 @@ class GardenAnalysis:
             "et0_today": self.et0_today,
             "et0_method": self.et0_method,
             "gdd_today": self.gdd_today,
+            "pests": [w.to_dict() for w in self.pests],
         }
 
 
@@ -552,6 +557,7 @@ def analyze(
         et0_today=today_out.et0_mm if today_out else None,
         et0_method=today_out.et0_method if today_out else None,
         gdd_today=gdd_today,
+        pests=pest_warnings(data, db, timelines, today, outlook, south=hemisphere is Hemisphere.SOUTH, lang=lang),
     )
 
 

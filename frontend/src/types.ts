@@ -392,6 +392,23 @@ export interface Analysis {
   et0_today?: number | null;
   et0_method?: string | null;
   gdd_today?: number | null;
+  pests?: PestWarning[];
+}
+
+export interface PestWarning {
+  pest: string;
+  status: "active" | "soon";
+  action: "net" | "check" | "collect" | "trap";
+  source: "gdd" | "calendar" | "weather";
+  start: ISODate | null;
+  end: ISODate | null;
+  generation: number;
+  gdd: number | null;
+  plantings: string[];
+  beds: string[];
+  plants: string[];
+  label: string;
+  advice: string;
 }
 
 export interface NutrientBalance {

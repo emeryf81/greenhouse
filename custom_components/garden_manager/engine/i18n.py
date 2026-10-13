@@ -416,5 +416,56 @@ MESSAGES["nl"].update(
 )
 
 
+# Pest calendar (engine/pests.py) - task titles and advice.
+MESSAGES["en"].update(
+    {
+        "task.pest_net": "Cover {plants} in {bed} against {pest}",
+        "task.pest_watch": "Look for {pest} on {plants} in {bed}",
+        "task.pest_collect": "Pick {pest} off {plants} in {bed}",
+        "task.pest_slugs": "Evening slug round in {bed} ({plants})",
+        "desc.pest_net": "{pest} is about: put insect mesh over the crop before it flies, tuck the edges in and keep it on for the whole flight.",
+        "desc.pest_check": "{pest} is about: look under the leaves and at the growing tips; act early while there are only a few.",
+        "desc.pest_collect": "{pest} is about: pick the beetles and larvae off by hand into soapy water, check under the leaves too.",
+        "desc.pest_trap": "{pest}: collect them by torchlight after dark, set beer traps or boards, and protect young plants.",
+        "desc.pest.carrot_fly": "Carrot fly flies low: cover with fine insect mesh (or a 60 cm barrier) from sowing, thin in the evening and firm the soil afterwards.",
+        "desc.pest.cabbage_root_fly": "Cabbage root fly lays eggs at the stem: fit collars around young brassicas or cover them with insect mesh.",
+        "desc.pest.cabbage_white": "Cover brassicas with butterfly net (mesh 5-7 mm) and check under the leaves weekly for yellow eggs.",
+        "desc.pest.onion_fly": "Cover onions and leeks with fine insect mesh; remove yellowing, wilting plants with the maggots.",
+        "desc.pest.leek_moth": "Cover leeks with fine insect mesh during the flights; cut off affected leaves with the caterpillars.",
+        "desc.pest.aphids": "Squash small colonies, spray with water or soft soap, and leave the ladybirds and hoverflies to work.",
+        "desc.pest.slugs": "A mild, damp spell: collect slugs after dark, set beer traps and keep seedlings protected.",
+    }
+)
+MESSAGES["nl"].update(
+    {
+        "task.pest_net": "{plants} in {bed} afdekken tegen {pest}",
+        "task.pest_watch": "{plants} in {bed} nakijken op {pest}",
+        "task.pest_collect": "{pest} rapen van {plants} in {bed}",
+        "task.pest_slugs": "Slakkenronde 's avonds in {bed} ({plants})",
+        "desc.pest_net": "{pest} vliegt: leg insectengaas over de teelt vóór de vlucht, stop de randen in en laat het de hele vlucht liggen.",
+        "desc.pest_check": "{pest} is actief: kijk onder de bladeren en in de groeitoppen; grijp vroeg in, nu het er nog weinig zijn.",
+        "desc.pest_collect": "{pest} is actief: raap kevers en larven met de hand in zeepwater, kijk ook onder de bladeren.",
+        "desc.pest_trap": "{pest}: raap ze 's avonds met een zaklamp, zet bierval of plankjes en bescherm jonge planten.",
+        "desc.pest.carrot_fly": "De wortelvlieg vliegt laag: dek af met fijn insectengaas (of een scherm van 60 cm) vanaf het zaaien, dun 's avonds uit en druk de grond daarna aan.",
+        "desc.pest.cabbage_root_fly": "De koolvlieg legt eitjes aan de stengel: leg koolkragen rond jonge kolen of dek ze af met insectengaas.",
+        "desc.pest.cabbage_white": "Dek kolen af met vlindernet (maas 5-7 mm) en kijk wekelijks onder de bladeren naar gele eitjes.",
+        "desc.pest.onion_fly": "Dek uien en prei af met fijn insectengaas; haal vergelende, slappe planten met de maden weg.",
+        "desc.pest.leek_moth": "Dek prei af met fijn insectengaas tijdens de vluchten; knip aangetaste bladeren met de rupsjes weg.",
+        "desc.pest.aphids": "Druk kleine kolonies plat, spuit met water of zachte zeep en laat lieveheersbeestjes en zweefvliegen hun werk doen.",
+        "desc.pest.slugs": "Zacht en vochtig weer: raap slakken na zonsondergang, zet bierval en bescherm zaailingen.",
+    }
+)
+
+
+def pest_advice(pest: str, action: str, lang: str | None = "en") -> str:
+    """Pest-specific advice when there is one, otherwise the advice for the kind of action."""
+    key = f"desc.pest.{pest}"
+    catalog = MESSAGES[normalize_lang(lang)]
+    if key in catalog or key in MESSAGES["en"]:
+        return t(key, lang)
+    label = pest_label(pest, lang)
+    return t(f"desc.pest_{action}", lang, pest=label[:1].upper() + label[1:])
+
+
 # Phase 3 texts (maintenance rules, weather episodes) - registered on import.
 from . import texts_garden  # noqa: E402,F401

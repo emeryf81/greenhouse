@@ -36,6 +36,8 @@ export class DashboardView extends LitElement {
     shared,
     taskRowStyles,
     css`
+      .pests { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      .pests li { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; }
       .hero { position: relative; overflow: hidden; border-radius: 22px; margin-bottom: var(--hl-s5); padding: 28px 32px 24px;
         color: var(--hl-hero-ink); background: var(--season, var(--hl-grad-spring)); box-shadow: var(--hl-shadow-2), var(--hl-highlight);
         isolation: isolate; }
@@ -185,6 +187,15 @@ export class DashboardView extends LitElement {
         ${this.api && this.admin ? html`<section class="card span-12" aria-labelledby="quick-h">
           <header><h2 id="quick-h">${this.t("quick.title")}</h2><span class="spacer"></span><span class="small muted">${this.t("quick.hint")}</span></header>
           <hl-quick-harvest .snapshot=${snap} .api=${this.api} .t=${this.t} .plants=${this.plants} .families=${this.families} lang=${this.lang}></hl-quick-harvest>
+        </section>` : nothing}
+        ${a.pests?.length ? html`<section class="card span-12" aria-labelledby="pests-h">
+          <header><h2 id="pests-h">${this.t("pests.title")}</h2><span class="spacer"></span><span class="small muted">${this.t("pests.hint")}</span></header>
+          <ul class="pests">${a.pests.map((w) => html`<li>
+            <span class="chip ${w.status === "active" ? "warn" : "info"}">${this.t(`pests.status.${w.status}`)}</span>
+            <div><b>${w.label.charAt(0).toUpperCase() + w.label.slice(1)}</b> · <span class="small">${w.plants.join(", ")}</span>
+              <div class="xs muted">${w.status === "soon" && w.start ? this.t("pests.from", { date: formatDate(w.start, this.lang) }) : w.end ? this.t("pests.until", { date: formatDate(w.end, this.lang) }) : ""}${w.source === "gdd" && w.gdd != null ? ` · ${this.t("pests.gdd", { gdd: Math.round(w.gdd), gen: w.generation })}` : w.source === "weather" ? ` · ${this.t("pests.weather")}` : ""}</div>
+              <div class="small">${w.advice}</div></div>
+          </li>`)}</ul>
         </section>` : nothing}
         <section class="card span-4" aria-labelledby="weather-h">
           <header><h2 id="weather-h">${this.t("dash.weather")}</h2></header>
