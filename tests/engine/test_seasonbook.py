@@ -145,6 +145,27 @@ def test_preview_shows_the_first_pages_as_svg(garden, db, make_planting):
     assert any("data:image/jpeg;base64," in p for p in pages)
 
 
+def test_preview_only_measures_photos_past_the_shown_pages(garden, db, make_planting, tmp_path):
+    from custom_components.garden_manager.engine.seasonbook import render_book_svg
+    from custom_components.garden_manager.printing import photo_size
+
+    calls: list[bool] = []
+
+    def photos(_id: str, _gray: bool, probe: bool = False) -> Image | None:
+        calls.append(probe)
+        img = Image.from_jpeg(_jpeg())
+        return Image(b"", img.width, img.height) if probe else img
+
+    pages = render_book_svg(
+        _ctx(_year(garden, make_planting), db, photos), PrintOptions.from_dict({"document": "book", "lang": "nl"}), 2
+    )
+    assert len(pages) == 2 and True in calls  # later photos: size only, no decoding
+    path = tmp_path / "p.jpg"
+    path.write_bytes(_jpeg())
+    size = photo_size(path)
+    assert size is not None and size.data == b"" and size.width > 0
+
+
 def test_helpers():
     assert safe("Tomaten 🌱 gezaaid → binnen") == "Tomaten  gezaaid -> binnen"
     assert fmt_num(2400.0, "nl", 0) == "2.400" and fmt_num(1.25, "nl", 2) == "1,25" and fmt_num(3.0, "en") == "3"
