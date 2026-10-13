@@ -260,10 +260,10 @@ def add_example_plan(data: GardenData, db: PlantDatabase, today: date) -> None:
 
 
 STARTER_SIZES: dict[str, tuple[int, float, float]] = {
-    # size -> (raised beds, width m, length m)
-    "small": (2, 1.2, 2.4),
-    "medium": (3, 1.2, 3.0),
-    "large": (4, 1.2, 3.6),
+    # size -> (raised beds, long side m, short side m); the rows run along the long side
+    "small": (2, 2.4, 1.2),
+    "medium": (3, 3.0, 1.2),
+    "large": (4, 3.6, 1.2),
 }
 
 
