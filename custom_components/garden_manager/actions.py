@@ -51,25 +51,27 @@ class NotificationActions:
             if len(open_tasks) == 1:
                 out.append({"action": f"{PREFIX}DONE_{token}", "title": t("action.done", lang)})
             out.append({"action": f"{PREFIX}LATER_{token}", "title": t("action.tomorrow", lang)})
-        if self.water_offer():
-            out.append({"action": f"{PREFIX}WATER", "title": t("action.water_now", lang)})
+        if beds := self.thirsty_beds():
+            # a token per garden: with two gardens, "Water now" only waters the one it came from
+            out.append({"action": f"{PREFIX}WATER_{self._token(sorted(beds))}", "title": t("action.water_now", lang)})
         return out[:3]
 
     def for_valve(self, entity_id: str, lang: str) -> list[dict[str, str]]:
         return [{"action": f"{PREFIX}CLOSE_{self._token([entity_id])}", "title": t("action.close_valve", lang)}]
 
-    def water_offer(self) -> bool:
-        """Offer "Water now" when a bed with a valve needs water and nothing runs."""
+    def thirsty_beds(self) -> set[str]:
+        """Beds with a valve whose recommendation is to water (none while a run is going)."""
         runtime = self.runtime
         if runtime is None or runtime.irrigation.running or runtime.coordinator.data is None:
-            return False
+            return set()
         data = runtime.repo.data
+        out = set()
         for bed_id, state in runtime.coordinator.data.beds.items():
             bed = data.bed(bed_id)
             rec = getattr(state, "irrigation", None)
             if bed and bed.irrigation_entity and rec is not None and str(getattr(rec, "action", "")) == "water":
-                return True
-        return False
+                out.add(bed_id)
+        return out
 
     @callback
     def handle(self, event: Event) -> None:
@@ -86,16 +88,16 @@ class NotificationActions:
         if runtime is None:
             return
         try:
-            if kind == "WATER":
-                plan = runtime.irrigation.build_plan()
-                if not runtime.irrigation.async_start(plan, source="manual"):
-                    _LOGGER.info("Water now: nothing to water or already running")
-                return
             values = self._tokens.pop(token, None)
             if values is None:
-                _LOGGER.info("Notification action %s is no longer valid", kind)
+                _LOGGER.debug("Notification action %s is not ours or no longer valid", kind)
                 return
-            if kind == "DONE":
+            if kind == "WATER":
+                # the beds that asked for water, also in advise mode (the press is the go-ahead)
+                plan = runtime.irrigation.build_plan(force=True, bed_ids=set(values))
+                if not runtime.irrigation.async_start(plan, source="manual"):
+                    _LOGGER.info("Water now: nothing to water or already running")
+            elif kind == "DONE":
                 for task_id in values:
                     op_complete_task(self.hass, runtime, task_id)
             elif kind == "LATER":

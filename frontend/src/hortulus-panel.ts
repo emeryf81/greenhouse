@@ -237,8 +237,8 @@ export class HortulusPanel extends LitElement {
     await this.connect();
   }
 
-  private async connect(): Promise<void> {
-    if (this.api && !this.api.gardenId) {
+  private async connect(retried = false): Promise<void> {
+    if (this.api && !this.api.gardenId && !retried) {
       try {
         this.api.gardenId = localStorage.getItem("hortulus.garden") ?? "";
       } catch {
@@ -260,7 +260,19 @@ export class HortulusPanel extends LitElement {
         if (this.openTask) this.openTask = snap.tasks.find((t) => t.id === this.openTask!.id) ?? null;
       });
     } catch (err) {
-      this.error = (err as { code?: string }).code === "not_loaded" ? this.t("common.not_loaded") : String((err as Error).message ?? err);
+      const notLoaded = (err as { code?: string }).code === "not_loaded";
+      if (notLoaded && this.api?.gardenId && !retried) {
+        // the remembered garden was removed: forget it and show the first garden instead
+        this.api.gardenId = "";
+        try {
+          localStorage.removeItem("hortulus.garden");
+        } catch {
+          /* private mode */
+        }
+        await this.connect(true);
+        return;
+      }
+      this.error = notLoaded ? this.t("common.not_loaded") : String((err as Error).message ?? err);
     }
   }
 

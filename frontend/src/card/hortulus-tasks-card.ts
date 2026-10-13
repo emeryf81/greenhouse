@@ -58,7 +58,16 @@ export class HortulusTasksCard extends LitElement {
 
   setConfig(config: CardConfig): void {
     if (!config) throw new Error("Invalid configuration");
+    const gardenChanged = (config.garden ?? "") !== (this.config.garden ?? "");
     this.config = { days: 0, max: 8, ...config };
+    if (gardenChanged && this.unsub) {
+      // another garden: drop the old subscription and follow the new one
+      void this.unsub.then((off) => off()).catch(() => undefined);
+      this.unsub = undefined;
+      this.snap = null;
+      this.tasks = null;
+      if (this.hass && this.isConnected) this.subscribe();
+    }
   }
 
   getCardSize(): number {
@@ -136,7 +145,9 @@ export class HortulusTasksCard extends LitElement {
     if (this.config.water === false || !this.snap) return nothing;
     const s = this.s;
     const st = this.snap.irrigation_status;
-    const liters = (this.snap.irrigation_log ?? []).filter((e) => e.at.slice(0, 10) === today).reduce((a, e) => a + e.liters, 0);
+    const liters = (this.snap.irrigation_log ?? [])
+      .filter((e) => new Date(e.at).toLocaleDateString("sv-SE") === today) // the browser's calendar day, like `today`
+      .reduce((a, e) => a + e.liters, 0);
     const bed = (id: string | null) => this.snap?.beds?.find((b) => b.id === id)?.name ?? "";
     const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(s.lang === "nl" ? "nl-BE" : "en-GB", { hour: "2-digit", minute: "2-digit" }) : "");
     const rows: TemplateResult[] = [];

@@ -196,6 +196,8 @@ def jpeg_info(data: bytes) -> tuple[int, int, int] | None:
             i += 1 if marker == 0xFF else 2
             continue
         (length,) = struct.unpack(">H", data[i + 2 : i + 4])
+        if length < 2:
+            return None  # a corrupt segment: do not guess the size
         if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
             height, width = struct.unpack(">HH", data[i + 5 : i + 9])
             components = data[i + 9]

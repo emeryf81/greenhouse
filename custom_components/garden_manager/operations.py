@@ -682,12 +682,12 @@ def resolve_plant_id(runtime: GardenRuntime, ref: str | None) -> str:
     raise _err("unknown_plant", plant=text or "-")
 
 
-def _harvest_planting(runtime: GardenRuntime, plant_id: str, bed_id: str | None) -> Planting | None:
-    """The one crop of this plant that is in the garden now (optionally in ``bed_id``), if it is unambiguous."""
+def _harvest_planting(runtime: GardenRuntime, plant_id: str, bed_id: str | None, day: date) -> Planting | None:
+    """The one crop of this plant in the garden on ``day`` (optionally in ``bed_id``), if it is unambiguous."""
     from .engine.region import season_for_date
 
     data = runtime.repo.data
-    season = season_for_date(data.settings.region, dt_util.now().date())
+    season = season_for_date(data.settings.region, day)
     plant = runtime.repo.db.get(plant_id)
     live = [
         p for p in data.plantings
@@ -705,8 +705,10 @@ def op_log_harvest(runtime: GardenRuntime, raw: Mapping[str, Any]) -> HarvestEnt
         raise _err("unknown_planting", planting=raw["planting_id"])
     bed = resolve_bed(runtime, raw["bed"]) if raw.get("bed") else None
     plant_id = planting.plant_id if planting else resolve_plant_id(runtime, raw.get("plant_id") or raw.get("plant"))
+    raw_day = raw.get("day") or dt_util.now().date()
+    harvest_day = raw_day if isinstance(raw_day, date) else date.fromisoformat(str(raw_day))
     if planting is None:
-        planting = _harvest_planting(runtime, plant_id, bed.id if bed else raw.get("bed_id"))
+        planting = _harvest_planting(runtime, plant_id, bed.id if bed else raw.get("bed_id"), harvest_day)
     kg = float(raw.get("kg") or 0)
     count = int(raw["count"]) if raw.get("count") not in (None, "") else None
     if kg < 0 or (count is not None and count < 0) or (kg == 0 and not count):

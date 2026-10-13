@@ -394,8 +394,8 @@ MESSAGES["nl"].update(
 # Seeds to buy -> a Home Assistant to-do list.
 MESSAGES["en"].update(
     {
-        "seeds.todo_item": "Seed: {plant} (~{seeds} seeds)",
         "seeds.todo_item_any": "Seed: {plant}",
+        "seeds.todo_amount": "About {seeds} seeds.",
         "seeds.todo_description": "For the {season} plan of Hortulus: {plants} plants.",
         "action.done": "Done",
         "action.tomorrow": "Tomorrow",
@@ -405,8 +405,8 @@ MESSAGES["en"].update(
 )
 MESSAGES["nl"].update(
     {
-        "seeds.todo_item": "Zaad: {plant} (~{seeds} zaden)",
         "seeds.todo_item_any": "Zaad: {plant}",
+        "seeds.todo_amount": "Ongeveer {seeds} zaden.",
         "seeds.todo_description": "Voor het plan {season} in Hortulus: {plants} planten.",
         "action.done": "Gedaan",
         "action.tomorrow": "Morgen",

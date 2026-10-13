@@ -138,6 +138,7 @@ async def test_irrigation_dry_run_and_run_with_pump_interlock(
         # The switch domain belongs to Hortulus' own platform in this test,
         # so record at the controller boundary instead of mocking services.
         switched.append((entity_id, on))
+        hass.states.async_set(entity_id, "on" if on else "off")  # the valve reports open: the pump may start
 
     monkeypatch.setattr(controllers, "_switch", fake_switch)
 
@@ -947,7 +948,7 @@ async def test_a_valve_that_shuts_by_itself_ends_the_run_and_is_reported(
     monkeypatch.setattr(controllers.asyncio, "sleep", fake_sleep)
     assert irrigation.async_start(irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=20), source="service")
     await hass.async_block_till_done(wait_background_tasks=True)
-    assert repo.data.irrigation_log[-1].minutes == 2.0
+    assert repo.data.irrigation_log[-1].minutes == 1.5  # last seen open at 90 s, closed at the 120 s check
     assert any(e["summary"][0]["key"] == "valve_closed_early" for e in repo.syslog if e["source"] == "error")
 
 
@@ -1036,6 +1037,27 @@ async def test_phone_notification_buttons_complete_postpone_and_close(
     await hass.async_block_till_done()
     assert closed == [valve]
 
+    # "Water now" carries this garden's token and waters only the beds that asked for it (also in advise mode)
+    bed = next(b for b in repo.data.beds if b.irrigation_entity)
+    started: list[set[str]] = []
+    monkeypatch.setattr(runtime.notifier.actions, "thirsty_beds", lambda: {bed.id})
+    real_build = runtime.irrigation.build_plan
+
+    def build(**kw):
+        assert kw.get("force") is True  # the press is the go-ahead, also in advise mode
+        started.append(kw.get("bed_ids"))
+        return real_build(**kw)
+
+    monkeypatch.setattr(runtime.irrigation, "build_plan", build)
+    monkeypatch.setattr(runtime.irrigation, "async_start", lambda plan, source="auto": True)
+    water = next(a for a in runtime.notifier.actions.for_tasks([], "en") if a["action"].startswith("HORTULUS_WATER_"))
+    hass.bus.async_fire("mobile_app_notification_action", {"action": "HORTULUS_WATER_deadbeef"})  # another garden's
+    await hass.async_block_till_done()
+    assert started == []
+    hass.bus.async_fire("mobile_app_notification_action", {"action": water["action"]})
+    await hass.async_block_till_done()
+    assert started == [{bed.id}]
+
 
 async def test_harvest_by_plant_name_finds_the_crop(hass: HomeAssistant, garden) -> None:
     """``log_harvest`` with a plant name (as an NFC tag would send) books it on the one crop in the garden."""
@@ -1085,3 +1107,42 @@ async def test_two_gardens_side_by_side(hass: HomeAssistant, garden, hass_ws_cli
     from homeassistant.components.frontend import DATA_PANELS
 
     assert "hortulus" in hass.data.get(DATA_PANELS, {})
+
+
+async def test_the_pump_waits_for_a_valve_that_reports_open(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A valve that never reports open gets no pump and no water booked; it is reported."""
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.pump_entity = "switch.pump"
+    switched: list[tuple[str, bool]] = []
+    real_sleep = asyncio.sleep
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        switched.append((entity_id, on))  # the valve never changes state
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    hass.states.async_set("switch.valve_bed_1", "off")
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    before = len(repo.data.irrigation_log)
+    assert irrigation.async_start(irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=5), source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert ("switch.pump", True) not in switched
+    assert len(repo.data.irrigation_log) == before
+    assert any(e["summary"][0]["key"] == "valve_did_not_open" for e in repo.syslog if e["source"] == "error")
+
+
+def test_valve_timer_chunks_and_jpeg_guard() -> None:
+    from custom_components.garden_manager.controllers import _chunks
+    from custom_components.garden_manager.engine.pdf import jpeg_info
+
+    assert _chunks(25, 10) == [9, 9, 7]
+    assert _chunks(3, 1) == [0.75, 0.75, 0.75, 0.75]  # a one-minute timer still splits
+    assert _chunks(5, None) == [5]
+    assert jpeg_info(b"\xff\xd8\xff\xe0\x00\x00" + b"\x00" * 20) is None  # a zero-length segment

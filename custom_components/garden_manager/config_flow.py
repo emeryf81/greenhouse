@@ -303,7 +303,11 @@ class GardenConfigFlow(ConfigFlow, domain=DOMAIN):
             if others:
                 # a second (third ...) garden: its own storage, a title to tell them apart
                 self._data[CONF_STORAGE_KEY] = f"{DOMAIN}.garden_{uuid.uuid4().hex[:8]}"
-                return self.async_create_entry(title=f"{BRAND} {len(others) + 1}", data=self._data)
+                taken = {(e.title or "").casefold() for e in others}
+                n = 2
+                while f"{BRAND} {n}".casefold() in taken:
+                    n += 1
+                return self.async_create_entry(title=f"{BRAND} {n}", data=self._data)
             return self.async_create_entry(title=BRAND, data=self._data)
         region = resolve_profile(region_from_conf(self._data[CONF_REGION], None, None))
         areas = "\n".join(

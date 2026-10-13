@@ -104,12 +104,15 @@ def seed_todo_items(needs: list[SeedNeed], db: PlantDatabase, season: int, lang:
             continue
         plant = db.get(need.plant_id)
         name = plant.name(lang) if plant else need.plant_id
-        key = "seeds.todo_item" if need.to_buy else "seeds.todo_item_any"
+        # the summary names only the crop, so a changed quantity does not add a second item
+        description = t("seeds.todo_description", lang, season=season, plants=need.plants)
+        if need.to_buy:
+            description = f"{t('seeds.todo_amount', lang, seeds=need.to_buy)} {description}"
         items.append(
             {
                 "plant_id": need.plant_id,
-                "summary": t(key, lang, plant=name, seeds=need.to_buy),
-                "description": t("seeds.todo_description", lang, season=season, plants=need.plants),
+                "summary": t("seeds.todo_item_any", lang, plant=name),
+                "description": description,
             }
         )
     return items

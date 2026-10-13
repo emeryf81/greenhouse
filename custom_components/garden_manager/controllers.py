@@ -20,6 +20,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
+import math
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import ATTR_ENTITY_ID
@@ -88,9 +89,10 @@ async def _switch(hass: HomeAssistant, entity_id: str, on: bool) -> None:
 
 def _chunks(minutes: float, valve_max_min: float | None) -> list[float]:
     """Split a run so each opening stays inside the valve's own timer."""
-    if not valve_max_min or valve_max_min <= TIMER_MARGIN_MIN:
+    if not valve_max_min or valve_max_min <= 0:
         return [minutes]
-    step = valve_max_min - TIMER_MARGIN_MIN
+    # a short timer keeps a quarter of its length as margin (1 min -> 45 s openings)
+    step = valve_max_min - min(TIMER_MARGIN_MIN, valve_max_min / 4)
     out = []
     left = minutes
     while left > 1e-6:
@@ -209,6 +211,8 @@ class IrrigationController:
                                 await asyncio.sleep(REOPEN_PAUSE_S)
                             held, closed_early = await self._open_for(run.entity_id, pump, chunk * 60, touched)
                             ran_s += held
+                            if held == 0 and not closed_early:
+                                break  # the valve never opened (reported by _open_for)
                             if closed_early:
                                 self._problem(run.entity_id, "valve_closed_early", self._state(run.entity_id),
                                               bed_id=run.bed_id, minutes=round(ran_s / 60, 1))  # fmt: skip
@@ -253,12 +257,21 @@ class IrrigationController:
         """
         touched.add(entity_id)
         await _switch(self.hass, entity_id, True)
+        seen_open = False
         if pump:
+            # the pump only ever runs against a valve that reported open
+            state = await self._wait_for(entity_id, True)
+            if _is_open(state) is not True:
+                await _switch(self.hass, entity_id, False)
+                touched.discard(entity_id)
+                self._problem(entity_id, "valve_did_not_open", state)
+                return 0.0, False
+            seen_open = True
             await asyncio.sleep(VALVE_SETTLE_S)
             await _switch(self.hass, pump, True)
         started = dt_util.now()
         held = 0.0
-        seen_open = False
+        last_open = 0.0  # held seconds at the last sample that saw the valve open
         closed_early = False
         done = False
         try:
@@ -267,9 +280,13 @@ class IrrigationController:
                 await asyncio.sleep(step)
                 held += step
                 is_open = _is_open(self._state(entity_id))
-                seen_open = seen_open or is_open is True
-                if seen_open and is_open is False and held < seconds:
+                if is_open is True:
+                    seen_open = True
+                    last_open = held
+                elif seen_open and is_open is False:
+                    # shut by itself (also at the last sample): book only the time it was seen open
                     closed_early = True
+                    held = last_open
                     break
             done = True
         finally:
@@ -294,6 +311,8 @@ class IrrigationController:
         try:
             value = float(state.state)
         except (TypeError, ValueError):
+            return None
+        if not math.isfinite(value):
             return None
         unit = str(state.attributes.get("unit_of_measurement", "")).lower()
         return value if unit in ("l", "liter", "litre", "liters", "litres") else value * 1000

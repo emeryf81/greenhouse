@@ -66,12 +66,14 @@ export class QuickHarvest extends LitElement {
   }
 
   private async save(): Promise<void> {
-    if (!this.picked || this.kg <= 0) return;
+    const picked = this.picked;
+    const kg = this.kg;
+    if (!picked || kg <= 0) return;
     this.busy = true;
     try {
-      await this.api.logHarvest({ planting_id: this.picked.id, kg: Math.round(this.kg * 1000) / 1000 });
+      await this.api.logHarvest({ planting_id: picked.id, kg: Math.round(kg * 1000) / 1000 });
       celebrateAt(this.renderRoot.querySelector(".kg"));
-      this.done = this.t("quick.saved", { kg: this.kg.toLocaleString(this.lang, { maximumFractionDigits: 2 }), plant: plantName(this.plants.get(this.picked.plant_id), this.lang) });
+      this.done = this.t("quick.saved", { kg: kg.toLocaleString(this.lang, { maximumFractionDigits: 2 }), plant: plantName(this.plants.get(picked.plant_id), this.lang) });
       this.picked = null;
       this.kg = 0;
     } catch (err) {
@@ -88,7 +90,7 @@ export class QuickHarvest extends LitElement {
       <div class="crops" role="group" aria-label=${this.t("quick.title")}>
         ${ready.map((p) => {
           const plant = this.plants.get(p.plant_id);
-          return html`<button class="crop" aria-pressed=${String(this.picked?.id === p.id)}
+          return html`<button class="crop" aria-pressed=${String(this.picked?.id === p.id)} ?disabled=${this.busy}
               @click=${() => { this.picked = this.picked?.id === p.id ? null : p; this.kg = 0; this.done = ""; }}>
             <span class="ic">${plant ? glyphIcon(glyphFor(plant), plant.color || familyColor(this.families, plant.family), 20) : nothing}</span>
             <span>${plantName(plant, this.lang) || p.plant_id}<br /><small>${this.bedName(p.bed_id)}</small></span>

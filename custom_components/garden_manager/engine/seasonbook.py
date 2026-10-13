@@ -1527,6 +1527,8 @@ def render_book_svg(ctx, opts, limit: int = 16) -> list[str]:
 
     def factory(w: float, h: float) -> Surface:
         page = SvgPage(w, h)
+        if len(pages) >= limit:
+            page.image = lambda *_a, **_k: None  # type: ignore[method-assign]  # not shown: skip the photo
         pages.append(page)
         return page
 

@@ -75,7 +75,8 @@ export class SeasonReportView extends LitElement {
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (err) {
-      this.error = (err as Error).message;
+      // a failed download must not replace the report that is on screen
+      this.dispatchEvent(new CustomEvent("hl-toast", { detail: { message: this.t("common.error", { message: (err as Error).message }) }, bubbles: true, composed: true }));
     } finally {
       this.bookBusy = false;
     }
