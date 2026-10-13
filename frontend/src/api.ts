@@ -371,5 +371,8 @@ export class GardenApi {
   }
 }
 
+/** Prefix for photo URLs when the panel is served below a sub-path (the web version sets it); empty in Home Assistant. */
+const photoBase = (): string => (globalThis as { HORTULUS_BASE?: string }).HORTULUS_BASE ?? "";
+
 export const photoUrl = (id: string, size = "256x256"): string =>
-  id.startsWith("http") || id.startsWith("/") ? id : `/api/image/serve/${id}/${size}`;
+  id.startsWith("http") || id.startsWith("/") ? id : `${photoBase()}/api/image/serve/${id}/${size}`;
