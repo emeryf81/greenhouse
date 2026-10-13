@@ -285,3 +285,23 @@ In the **Weather** tab: the weather now, a chart of the next 24 hours (temperatu
 ## Where did Plants, Advice and Settings go?
 
 The menu now has seven places: **Today**, **Garden** (Planner, Garden plan, Crops), **Calendar**, **Weather**, **Journal**, **Knowledge** (Plants, Advice, Handbook) and **Manage** (Analysis, Print, Settings). A place's tabs sit in a row above the page; a place reopens on the tab you used last.
+
+## When should I put insect mesh on?
+
+Hortulus follows a **pest calendar**: for carrot fly, cabbage root fly, cabbage white, onion fly, leek moth, aphids, flea beetle, Colorado beetle and others it works out from this season's degree-days when they fly. While the climate log is still short, it uses the usual months. Slugs follow the weather: rain with mild nights. You get a task to put mesh on a few days before a flight, a weekly check or an evening slug round, and a **Pests in the garden** card on the dashboard. Only for crops that are (or soon will be) in the ground.
+
+## How much does my kitchen garden save?
+
+*Journal → Kitchen* shows the harvest at shop prices next to your expenses (seeds, plants, compost, tools ...) and the water from the meter. Adjust prices per crop and the water price under *Settings → Costs*. The same tab shows what is ready to pick, with tips to keep it, and a warning when you pick more than you eat.
+
+## My moisture sensor is sometimes offline – is the advice still right?
+
+Yes. Every day Hortulus sets the water balance of a bed with a sensor from the reading, and it learns how fast that bed really dries out (e.g. "15% faster than modelled", on the dashboard). When the sensor drops out it carries on with what it learned.
+
+## Where are my old seasons?
+
+Seasons older than the last three move to a separate archive file so Hortulus stays fast. Crop rotation still takes them into account, and the season report and season book can still open them (pick the year).
+
+## Is Hortulus available in French?
+
+Yes: choose **Français** as the language in the integration options, or let Hortulus follow Home Assistant's language.
