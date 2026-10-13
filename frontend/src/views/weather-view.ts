@@ -134,6 +134,8 @@ export class WeatherView extends LitElement {
 
   private unsubscribe(): void {
     this.generation++; // a late message from a replaced subscription is ignored
+    this.daily = []; // no forecast of the previous entity until the new one arrives
+    this.hourly = [];
     for (const u of this.unsubs) void u.then((off) => off()).catch(() => undefined);
     this.unsubs = [];
   }
