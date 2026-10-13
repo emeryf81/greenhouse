@@ -32,6 +32,15 @@
   Home Assistant to-do list (e.g. the shopping list) in one click, without duplicates.
 - **Tasks card**: watering today, a run in progress, a valve left open (with *Close*) and
   leaks.
+- **Weather tab**: the weather now, a 24-hour chart (temperature over rain), the coming ten
+  days with a temperature range bar and frost / heat tags, what it means for the garden
+  (frost nights, hot days, rain so watering can wait, a dry spell, beds that need water) and a
+  **rain radar** – a radar camera from Home Assistant when there is one (e.g. Buienradar),
+  else Buienradar's public map for the Netherlands or Belgium, refreshed every 5 minutes.
+- **A calmer menu**: seven places instead of thirteen tabs – *Today*, *Garden* (Planner,
+  Garden plan, Crops), *Calendar*, *Weather*, *Journal*, *Knowledge* (Plants, Advice,
+  Handbook) and *Manage* (Analysis, Print, Settings), with the tabs of a place in a row
+  underneath; a place reopens on the tab you used last. Links and URLs stay the same.
 - **A new look**: serif display type (the same voice as the season book), a dashboard hero in
   the colours of the season with botanical line art and stat tiles, a glass app bar, softer
   depth, refined buttons, alerts, tables and weather tiles, views that fade in, a skeleton

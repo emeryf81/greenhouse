@@ -670,6 +670,7 @@ export interface HomeAssistant {
   locale?: { language: string };
   themes?: { darkMode?: boolean };
   user?: { id: string; is_admin: boolean; name: string };
+  config?: { country?: string | null; latitude?: number; longitude?: number };
   connection: {
     sendMessagePromise<T>(msg: Record<string, unknown>): Promise<T>;
     subscribeMessage<T>(cb: (msg: T) => void, msg: Record<string, unknown>): Promise<() => Promise<void>>;

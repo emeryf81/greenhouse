@@ -229,3 +229,12 @@ Op **Vandaag** staat **Snel oogsten**: tik een gewas dat nu te oogsten is, tel h
 ## Kan ik ontbrekend zaad op mijn boodschappenlijst zetten?
 
 In **Teelten → Zaden** zie je per gewas hoeveel je nog moet kopen. Met **… op de lijst zetten** komt wat ontbreekt op een takenlijst van Home Assistant (bv. de boodschappenlijst); wat er al op staat, wordt niet dubbel gezet.
+
+
+## Waar vind ik het weer en de buienradar?
+
+In het tabblad **Weer**: het weer nu, een grafiek van de komende 24 uur (temperatuur en regen), de komende tien dagen met vorst- en hittelabels, wat het betekent voor de tuin (vorstnachten, warme dagen, regen zodat water geven kan wachten, een droge periode) en een **buienradar**. Heb je in Home Assistant een radarcamera (bv. de Buienradar-integratie), dan toont Hortulus die; anders de publieke kaart van Buienradar voor Nederland of België. De verwachting komt van de weerentiteit die je bij **Instellingen › Weer & buitensensoren** kiest.
+
+## Waar zijn Planten, Advies en Instellingen gebleven?
+
+Het menu is samengevat in zeven plaatsen: **Vandaag**, **Tuin** (Planner, Tuinplan, Teelten), **Kalender**, **Weer**, **Logboek**, **Kennis** (Planten, Advies, Handboek) en **Beheer** (Analyse, Afdrukken, Instellingen). De tabbladen van een plaats staan in een rij erboven; een plaats opent op het tabblad dat je er laatst gebruikte.

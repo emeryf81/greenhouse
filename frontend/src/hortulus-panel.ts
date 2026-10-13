@@ -15,6 +15,7 @@ import { emblem } from "./brand";
 import { makeTranslator, normalizeLang, type Translate } from "./i18n";
 import { shared, tokens } from "./styles/tokens";
 import type { FamilyInfo, HomeAssistant, Plant, Snapshot, Task } from "./types";
+import "./views/weather-view";
 import "./views/dashboard-view";
 import "./views/planner-view";
 import "./views/library-view";
@@ -34,21 +35,34 @@ import "./components/modal";
 import "./components/plant-detail";
 import { familyColor, plantName } from "./util/garden";
 
-type Tab = "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
-const TABS: { id: Tab; icon: string; mobile: boolean }[] = [
-  { id: "dashboard", icon: "mdi:home-variant-outline", mobile: true },
-  { id: "layout", icon: "mdi:floor-plan", mobile: false },
-  { id: "planner", icon: "mdi:sprout", mobile: true },
-  { id: "crops", icon: "mdi:format-list-bulleted-square", mobile: true },
-  { id: "library", icon: "mdi:sprout-outline", mobile: true },
-  { id: "calendar", icon: "mdi:calendar-month-outline", mobile: true },
-  { id: "journal", icon: "mdi:notebook-outline", mobile: false },
-  { id: "advice", icon: "mdi:chat-question-outline", mobile: true },
-  { id: "analysis", icon: "mdi:stethoscope", mobile: false },
-  { id: "handbook", icon: "mdi:book-open-page-variant-outline", mobile: true },
-  { id: "print", icon: "mdi:printer-outline", mobile: false },
-  { id: "settings", icon: "mdi:cog-outline", mobile: false },
+type Tab = "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
+const TABS: { id: Tab; icon: string }[] = [
+  { id: "dashboard", icon: "mdi:home-variant-outline" },
+  { id: "planner", icon: "mdi:sprout" },
+  { id: "layout", icon: "mdi:floor-plan" },
+  { id: "crops", icon: "mdi:format-list-bulleted-square" },
+  { id: "calendar", icon: "mdi:calendar-month-outline" },
+  { id: "weather", icon: "mdi:weather-partly-rainy" },
+  { id: "journal", icon: "mdi:notebook-outline" },
+  { id: "library", icon: "mdi:sprout-outline" },
+  { id: "advice", icon: "mdi:chat-question-outline" },
+  { id: "handbook", icon: "mdi:book-open-page-variant-outline" },
+  { id: "analysis", icon: "mdi:stethoscope" },
+  { id: "print", icon: "mdi:printer-outline" },
+  { id: "settings", icon: "mdi:cog-outline" },
 ];
+/** The menu: seven places, the related tabs of a place in a row underneath. */
+type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "knowledge" | "manage";
+const GROUPS: { id: Group; icon: string; tabs: Tab[] }[] = [
+  { id: "today", icon: "mdi:home-variant-outline", tabs: ["dashboard"] },
+  { id: "garden", icon: "mdi:sprout", tabs: ["planner", "layout", "crops"] },
+  { id: "calendar", icon: "mdi:calendar-month-outline", tabs: ["calendar"] },
+  { id: "weather", icon: "mdi:weather-partly-rainy", tabs: ["weather"] },
+  { id: "journal", icon: "mdi:notebook-outline", tabs: ["journal"] },
+  { id: "knowledge", icon: "mdi:book-open-page-variant-outline", tabs: ["library", "advice", "handbook"] },
+  { id: "manage", icon: "mdi:tune-variant", tabs: ["analysis", "print", "settings"] },
+];
+const groupOf = (tab: Tab): (typeof GROUPS)[number] => GROUPS.find((g) => g.tabs.includes(tab)) ?? GROUPS[0];
 
 @customElement("hortulus-panel")
 export class HortulusPanel extends LitElement {
@@ -58,6 +72,7 @@ export class HortulusPanel extends LitElement {
   @property({ attribute: false }) panel?: unknown;
 
   @state() private snapshot: Snapshot | null = null;
+  @state() private lastInGroup: Partial<Record<Group, Tab>> = {};
   @state() private plants: Plant[] = [];
   @state() private families: Record<string, FamilyInfo> = {};
   @state() private tab: Tab = "dashboard";
@@ -108,6 +123,20 @@ export class HortulusPanel extends LitElement {
       nav.top a[aria-current="page"]::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 16px; height: 2px; margin-left: -8px;
         border-radius: 2px; background: var(--hl-accent); }
       .view { animation: hl-rise var(--hl-dur-slow) var(--hl-ease) both; }
+      :host([narrow]) .bottom-nav a[aria-current="page"] { box-shadow: none; background: var(--hl-leaf-100); border-radius: 14px; }
+      :host([narrow]) .bottom-nav { backdrop-filter: saturate(1.6) blur(14px); background: color-mix(in srgb, var(--hl-surface) 86%, transparent); }
+      nav.sub { display: inline-flex; gap: 2px; padding: 4px; margin: 0 0 var(--hl-s4); border-radius: 999px; overflow-x: auto; max-width: 100%;
+        background: color-mix(in srgb, var(--hl-surface-2) 85%, transparent); border: 1px solid color-mix(in srgb, var(--hl-border) 70%, transparent);
+        scrollbar-width: none; }
+      nav.sub a { display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; height: 34px; border-radius: 999px; white-space: nowrap;
+        color: var(--hl-text-muted); text-decoration: none; font-weight: 500; font-size: var(--hl-fs-sm); --mdc-icon-size: 17px;
+        transition: background var(--hl-dur) var(--hl-ease), color var(--hl-dur) var(--hl-ease); }
+      nav.sub a:hover { color: var(--hl-text); }
+      nav.sub a[aria-current="page"] { background: var(--hl-surface); color: var(--hl-primary); font-weight: 600; box-shadow: var(--hl-shadow-1); }
+      nav.sub a .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #fff;
+        display: inline-grid; place-items: center; line-height: 1; }
+      nav.sub a .badge.bad { background: var(--hl-danger); }
+      nav.sub a .badge.warn { background: var(--hl-warning); }
       select.garden { width: auto; min-height: 34px; padding: 4px 30px 4px 12px; border-radius: 999px; font-weight: 600; flex: none;
         background-color: var(--hl-leaf-50); border-color: var(--hl-leaf-300); }
       nav a:focus-visible { outline: 2px solid var(--hl-focus); outline-offset: 2px; }
@@ -239,6 +268,7 @@ export class HortulusPanel extends LitElement {
     history.pushState(null, "", path);
     window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
     this.tab = tab;
+    this.lastInGroup = { ...this.lastInGroup, [groupOf(tab).id]: tab };
   }
 
   private openPlant(id: string): void {
@@ -344,6 +374,8 @@ export class HortulusPanel extends LitElement {
       case "library":
         return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
+      case "weather":
+        return html`<hl-weather-view .snapshot=${snap} .hass=${this.hass} .t=${this.t} .lang=${this.uiLang}></hl-weather-view>`;
       case "calendar":
         return html`<hl-calendar-view .snapshot=${snap} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .plants=${plantMap} .families=${this.families}></hl-calendar-view>`;
       case "journal":
@@ -371,10 +403,30 @@ export class HortulusPanel extends LitElement {
     return html`<span class="badge ${d.error ? "bad" : "warn"}" title=${this.t("analysis.badge", { errors: d.error, warnings: d.warning })}>${n}</span>`;
   }
 
+  /** Open a place: the tab you used last there, else its first tab. */
+  private openGroup(group: (typeof GROUPS)[number], e: Event): void {
+    const last = this.lastInGroup[group.id];
+    this.navigate(last && group.tabs.includes(last) ? last : group.tabs[0], e);
+  }
+
+  /** The tabs of the current place, as a row under the app bar. */
+  private renderSubnav(): TemplateResult | typeof nothing {
+    const group = groupOf(this.tab);
+    if (group.tabs.length < 2) return nothing;
+    return html`<nav class="sub" aria-label=${this.t(`nav.group.${group.id}`)}>
+      ${group.tabs.map((id) => {
+        const tab = TABS.find((x) => x.id === id)!;
+        return html`<a href="#" aria-current=${id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(id, e)}>
+          <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${id}`)}${id === "analysis" ? this.renderBadge() : nothing}</a>`;
+      })}
+    </nav>`;
+  }
+
   private renderNav(cls: string): TemplateResult {
+    const current = groupOf(this.tab).id;
     return html`<nav class=${cls} aria-label="Hortulus">
-      ${TABS.filter((tab) => cls !== "bottom-nav" || tab.mobile).map((tab) => html`<a href="#" aria-current=${tab.id === this.tab ? "page" : "false"} @click=${(e: Event) => this.navigate(tab.id, e)}>
-        <ha-icon icon=${tab.icon}></ha-icon>${this.t(`nav.${tab.id}`)}${tab.id === "analysis" ? this.renderBadge() : nothing}</a>`)}
+      ${GROUPS.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>
+        <ha-icon icon=${g.icon}></ha-icon>${this.t(g.tabs.length > 1 ? `nav.group.${g.id}` : `nav.${g.tabs[0]}`)}${g.tabs.includes("analysis") ? this.renderBadge() : nothing}</a>`)}
     </nav>`;
   }
 
@@ -400,8 +452,6 @@ export class HortulusPanel extends LitElement {
         </select>` : nothing}
         ${this.renderNav("top")}
         ${this.narrow ? html`<span style="flex:1"></span>
-          <button class="icon-btn" aria-label=${this.t("nav.journal")} @click=${() => this.navigate("journal")}><ha-icon icon="mdi:notebook-outline"></ha-icon></button>
-          <button class="icon-btn" aria-label=${this.t("nav.print")} @click=${() => this.navigate("print")}><ha-icon icon="mdi:printer-outline"></ha-icon></button>
           <button class="icon-btn" aria-label=${this.t("nav.settings")} aria-pressed=${String(this.tab === "settings")} @click=${() => this.navigate("settings")}>
             <ha-icon icon="mdi:cog-outline"></ha-icon></button>` : nothing}
       </header>
@@ -420,7 +470,7 @@ export class HortulusPanel extends LitElement {
         @focus-crop=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusCrop(e.detail)}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}>
         ${this.error ? html`<div class="card error">${emblem(56)}<p>${this.error}</p></div>`
-          : this.snapshot ? keyed(this.tab, html`<div class="view">${this.renderTab()}</div>`) : this.renderLoading()}
+          : this.snapshot ? html`${this.renderSubnav()}${keyed(this.tab, html`<div class="view">${this.renderTab()}</div>`)}` : this.renderLoading()}
       </main>
       ${this.renderNav("bottom-nav")}
       ${this.snapshot && (this.openTask || this.creatingTask) ? html`<hl-task-dialog .task=${this.openTask} .create=${this.creatingTask} .snapshot=${this.snapshot}

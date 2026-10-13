@@ -276,3 +276,12 @@ Yes, with the Home Assistant app: the morning digest and reminders carry **Done*
 ## Can missing seed go on my shopping list?
 
 **Crops → Seeds** shows per crop how many seeds to buy. **Add … to the list** puts what is missing on a Home Assistant to-do list (e.g. the shopping list); items already on it are not added twice.
+
+
+## Where do I find the weather and the rain radar?
+
+In the **Weather** tab: the weather now, a chart of the next 24 hours (temperature and rain), the coming ten days with frost and heat tags, what it means for the garden (frost nights, hot days, rain so watering can wait, a dry spell) and a **rain radar**. If Home Assistant has a radar camera (e.g. the Buienradar integration), Hortulus shows it; otherwise Buienradar's public map for the Netherlands or Belgium. The forecast comes from the weather entity chosen under **Settings › Weather & outdoor sensors**.
+
+## Where did Plants, Advice and Settings go?
+
+The menu now has seven places: **Today**, **Garden** (Planner, Garden plan, Crops), **Calendar**, **Weather**, **Journal**, **Knowledge** (Plants, Advice, Handbook) and **Manage** (Analysis, Print, Settings). A place's tabs sit in a row above the page; a place reopens on the tab you used last.

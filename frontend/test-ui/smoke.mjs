@@ -60,7 +60,7 @@ const modal = () => page.locator("hl-modal");
 const modalOpen = () => page.locator("hl-modal dialog[open]").first().waitFor();
 const modalTitle = () => modal().first().evaluate((m) => m.shadowRoot.querySelector("h2")?.textContent ?? "");
 
-const TABS = ["dashboard", "layout", "planner", "crops", "library", "calendar", "journal", "advice", "analysis", "handbook", "print", "settings"];
+const TABS = ["dashboard", "layout", "planner", "crops", "library", "calendar", "weather", "journal", "advice", "analysis", "handbook", "print", "settings"];
 for (const lang of ["nl", "en"]) {
   for (const tab of TABS) {
     await step(`${lang}: ${tab} renders`, async () => {
@@ -154,6 +154,18 @@ await step("journal: watering per bed and season report", async () => {
   await page.locator("hl-water-chart svg").first().waitFor();
   await page.locator("hl-journal-view button[role=tab]", { hasText: "Seizoensrapport" }).click();
   await page.locator("hl-season-report .tiles").waitFor();
+});
+
+await step("menu: seven places, the garden's tabs underneath", async () => {
+  await open("crops");
+  const top = await page.locator("hortulus-panel").evaluate((el) => el.shadowRoot.querySelectorAll("nav.top a").length);
+  assert.equal(top, 7);
+  await page.locator("hortulus-panel nav.sub a", { hasText: "Tuinplan" }).click();
+  await page.locator("hl-planner-view").waitFor();
+  await page.locator("hortulus-panel nav.top a", { hasText: "Weer" }).click();
+  await page.locator("hl-weather-view .day").first().waitFor();
+  const days = await page.locator("hl-weather-view .day").count();
+  assert.ok(days >= 7, `only ${days} days`);
 });
 
 await step("crops on a phone: one card per crop", async () => {

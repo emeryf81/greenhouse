@@ -27,7 +27,7 @@
       "sensor.soil_moisture_bed_1": { entity_id: "sensor.soil_moisture_bed_1", state: "21", attributes: { device_class: "moisture", unit_of_measurement: "%" } },
       "sensor.soil_temp_bed_1": { entity_id: "sensor.soil_temp_bed_1", state: "13.4", attributes: { device_class: "temperature", unit_of_measurement: "°C" } },
       "sensor.greenhouse_temp": { entity_id: "sensor.greenhouse_temp", state: "29.5", attributes: { device_class: "temperature", unit_of_measurement: "°C" } },
-      "weather.home": { entity_id: "weather.home", state: "partlycloudy", attributes: {} },
+      "weather.home": { entity_id: "weather.home", state: "partlycloudy", attributes: { friendly_name: "Thuis", temperature: 18.4, humidity: 64, wind_speed: 14, wind_speed_unit: "km/h", pressure: 1016, pressure_unit: "hPa" } },
     },
     services: { notify: { mobile_app_phone: {} } },
     connection: {
@@ -91,8 +91,25 @@
         if (type === "irrigation/plan" || type === "irrigation/run") return { ...x.irrigation_plan, started: true };
         return {};
       },
-      async subscribeMessage(cb, msg) { window.__calls.push(msg); subs.push(cb); setTimeout(() => cb(data.snapshot), 10); return async () => {}; },
+      async subscribeMessage(cb, msg) {
+        window.__calls.push(msg);
+        if (msg.type === "weather/subscribe_forecast") {
+          // a believable week: a frosty night, a hot day, some rain
+          const now = new Date(); now.setMinutes(0, 0, 0);
+          const conds = ["partlycloudy", "sunny", "rainy", "cloudy", "pouring", "sunny", "partlycloudy", "fog", "sunny", "rainy"];
+          const forecast = msg.forecast_type === "hourly"
+            ? Array.from({ length: 48 }, (_, i) => ({ datetime: new Date(now.getTime() + i * 3600e3).toISOString(), condition: conds[Math.floor(i / 6) % conds.length],
+                temperature: 14 + 6 * Math.sin(((i + now.getHours() - 9) / 24) * 2 * Math.PI), precipitation: i % 9 === 4 ? 1.2 : i % 13 === 7 ? 0.4 : 0, is_daytime: ((now.getHours() + i) % 24) > 6 && ((now.getHours() + i) % 24) < 21 }))
+            : Array.from({ length: 10 }, (_, i) => ({ datetime: new Date(now.getTime() + i * 86400e3).toISOString(), condition: conds[i],
+                temperature: [21, 24, 17, 16, 15, 29, 22, 13, 19, 18][i], templow: [10, 12, 9, 6, 1, 14, 11, 3, 8, 9][i],
+                precipitation: [0, 0, 6.2, 1.1, 12.5, 0, 0, 0.3, 0, 4.4][i], precipitation_probability: [10, 5, 80, 40, 95, 0, 10, 20, 5, 70][i] }));
+          setTimeout(() => cb({ type: msg.forecast_type, forecast }), 10);
+          return async () => {};
+        }
+        subs.push(cb); setTimeout(() => cb(data.snapshot), 10); return async () => {};
+      },
     },
+    config: { country: lang === "nl" ? "BE" : "GB", latitude: 51.05, longitude: 3.73 },
     fetchWithAuth: async () => new Response("{}"),
     callService: async () => ({}),
   };
