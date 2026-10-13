@@ -42,6 +42,8 @@ export function renderPlantCalendar(plant: Plant, snapshot: Snapshot, lang: stri
   return html`<div class="cal" role="img" aria-label=${t("lib.calendar")}>${months.map((m) => html`<div class="m">${m}</div>`)}${bars}</div>`;
 }
 
+import "./photo-timeline";
+
 @customElement("hl-plant-detail")
 export class PlantDetail extends LitElement {
   @property({ attribute: false }) plant!: Plant;
@@ -134,7 +136,16 @@ export class PlantDetail extends LitElement {
           ${p.care.length || p.pruning_notes[lang] ? html`<section class="stack"><h3>${this.t("lib.care")}</h3>
             ${p.care.map((c) => html`<p class="small"><b>${this.t(`type.${c.task}`)}</b>${c.interval_days ? ` · ↻ ${c.interval_days} d` : ""} – ${c.notes[lang] ?? c.notes.en ?? ""}</p>`)}
             ${p.pruning_notes[lang] ? html`<p class="small">${p.pruning_notes[lang]}</p>` : nothing}</section>` : nothing}
-      ${this.renderMine(p)}`;
+      ${this.renderMine(p)}
+      ${this.renderPhotos(p)}`;
+  }
+
+  private renderPhotos(p: Plant): TemplateResult | typeof nothing {
+    const journal = this.snapshot?.journal ?? [];
+    const ids = (this.snapshot?.plantings ?? []).filter((x) => x.plant_id === p.id).map((x) => x.id);
+    if (!journal.some((e) => e.photos?.length && (e.plant_id === p.id || (e.planting_id && ids.includes(e.planting_id))))) return nothing;
+    return html`<section class="stack"><h3>${this.t("photos.yours")}</h3>
+      <hl-photo-timeline .journal=${journal} .t=${this.t} lang=${this.lang} plantId=${p.id} .plantingIds=${ids}></hl-photo-timeline></section>`;
   }
 }
 
