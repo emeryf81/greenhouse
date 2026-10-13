@@ -95,11 +95,14 @@ def plan_irrigation(
     force: bool = False,
     bed_ids: set[str] | None = None,
     override_mm: float | None = None,
+    only_if_needed: bool = False,
 ) -> IrrigationPlan:
     """Build today's run list.
 
     ``force`` (a manual run) ignores the mode switch and the "no water needed"
-    check - never the safety rules.  ``override_mm`` waters a fixed depth.
+    check - never the safety rules.  ``only_if_needed`` keeps that check for a
+    forced run (an automation that picks the moment, not the amount).
+    ``override_mm`` waters a fixed depth.
     """
     cfg = data.settings.irrigation
     plan = IrrigationPlan()
@@ -144,7 +147,7 @@ def plan_irrigation(
             mm = override_mm
         elif rec is not None and rec.action is IrrigationAction.WATER and rec.amount_mm > 0:
             mm = rec.amount_mm
-        elif force and rec is not None and rec.etc_24h_mm:
+        elif force and not only_if_needed and rec is not None and rec.etc_24h_mm:
             mm = rec.etc_24h_mm  # manual run without need: replace one day of ET
         else:
             plan.skipped[bed.id] = ("irrigation.skip.not_needed", {})

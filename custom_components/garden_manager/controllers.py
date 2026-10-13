@@ -141,6 +141,7 @@ class IrrigationController:
         force: bool = False,
         bed_ids: set[str] | None = None,
         override_mm: float | None = None,
+        only_if_needed: bool = False,
     ) -> IrrigationPlan:
         analysis = self.coordinator.data
         data = self.coordinator.repo.data
@@ -162,6 +163,7 @@ class IrrigationController:
             force=force,
             bed_ids=bed_ids,
             override_mm=override_mm,
+            only_if_needed=only_if_needed,
         )
 
     @callback

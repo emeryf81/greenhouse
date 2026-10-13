@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from datetime import date
+import math
 from typing import TYPE_CHECKING, Any
 import uuid
 
@@ -473,9 +474,12 @@ def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> Garden
         if isinstance(merged.get(key), dict):
             merged[key] = {k: v for k, v in merged[key].items() if v}
     prices = (merged.get("economy") or {}).get("prices")
-    if isinstance(prices, dict):  # an empty price restores the default
-        merged["economy"]["prices"] = {k: float(v) for k, v in prices.items() if v not in (None, "", 0)}
     try:
+        if isinstance(prices, dict):  # an empty price restores the default
+            converted = {k: float(v) for k, v in prices.items() if v not in (None, "", 0)}
+            if not all(math.isfinite(v) and v > 0 for v in converted.values()):
+                raise ValueError("prices must be positive numbers")
+            merged["economy"]["prices"] = converted
         repo.data.settings = from_dict(GardenSettings, merged)
     except (TypeError, ValueError, KeyError) as err:
         raise _err("invalid_settings", reason=str(err)) from err
@@ -777,7 +781,7 @@ def op_save_expense(runtime: GardenRuntime, raw: Mapping[str, Any]) -> Expense:
     except (TypeError, ValueError) as err:
         raise _err("invalid_expense") from err
     category = str(raw.get("category") or "other")
-    if amount <= 0 or category not in EXPENSE_CATEGORIES:
+    if not math.isfinite(amount) or amount <= 0 or category not in EXPENSE_CATEGORIES:
         raise _err("invalid_expense")
     raw_day = raw.get("day") or dt_util.now().date()
     day = raw_day if isinstance(raw_day, date) else date.fromisoformat(str(raw_day))

@@ -313,6 +313,10 @@ run_irrigation_plan:
     amount_mm:
       selector:
         number: {min: 0.5, max: 50, step: 0.5, unit_of_measurement: mm}
+    only_if_needed:
+      default: false
+      selector:
+        boolean:
 
 stop_irrigation:
 

@@ -1052,7 +1052,7 @@ export const en: Record<string, string> = {
   "settings.person_notify": "Personal reminders",
   "settings.person_notify_hint": "Each person gets their own tasks on this notify service (daily digest and overdue reminders).",
   "settings.voice": "Voice (Assist)",
-  "settings.voice_hint": "Ask Assist “what do I need to do in the garden today?”, “how much did I harvest?”, “is there frost tonight?”. Install the sentences once, then they work in English and Dutch.",
+  "settings.voice_hint": "Ask Assist “what do I need to do in the garden today?”, “how much did I harvest?”, “is there frost tonight?”. Install the sentences once, then they work in English, Dutch and French.",
   "settings.voice_install": "Install voice sentences",
   "settings.voice_installed": "Voice sentences installed",
   "soil_test.title": "Soil analysis",

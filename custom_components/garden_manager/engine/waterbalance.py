@@ -17,7 +17,7 @@ from .models import GardenBed, GardenData, Level, Planting, PlantingStatus, Wate
 from .phenology import stage_kc
 from .plantdb import PlantDatabase
 from .schedule import PlantingTimeline
-from .watering import band_for, dominant_need, total_available_water, update_water_balance
+from .watering import ENCLOSED_ET_FACTOR, band_for, dominant_need, total_available_water, update_water_balance
 from .weather import et0_hargreaves
 
 BARE_SOIL_KC = 0.3
@@ -93,18 +93,21 @@ def advance_water_balance(
         wb = data.water_balance.get(bed.id)
         if wb is None or wb.day is None:
             _kc, taw = _bed_state(bed, plantings, timelines, db, today, data.settings.root_zone_depth_mm)
-            data.water_balance[bed.id] = WaterBalance(today, round(INITIAL_DEPLETION * taw, 1))
+            wb = data.water_balance[bed.id] = WaterBalance(today, round(INITIAL_DEPLETION * taw, 1))
             changed = True
+            reading = (moisture or {}).get(bed.id)
+            if reading is not None:  # a sensor: start from what it measures, not from a guess
+                _calibrate(wb, bed, plantings, timelines, db, today, data.settings.root_zone_depth_mm, reading)
             continue
         day = max(wb.day, today - timedelta(days=MAX_CATCH_UP_DAYS))
         depletion = wb.depletion_mm
         while day < today:
             climate = log.get(day)
+            rain = (climate.rain_mm or 0.0) if climate else 0.0
+            given = bed_irrigation_mm(data, bed.id, day, tz)
             if climate and climate.tmin is not None and climate.tmax is not None:
                 kc, taw = _bed_state(bed, plantings, timelines, db, day, data.settings.root_zone_depth_mm)
                 et0 = et0_hargreaves(climate.tmin, climate.tmax, latitude, day)
-                rain = climate.rain_mm or 0.0
-                given = bed_irrigation_mm(data, bed.id, day, tz)
                 depletion = update_water_balance(
                     min(depletion, taw),
                     et0_mm=et0,
@@ -114,9 +117,10 @@ def advance_water_balance(
                     taw_mm=taw,
                     enclosed=enclosed,
                 )
-                if wb.calibrated_on is not None:
-                    wb.model_et_mm = round(wb.model_et_mm + et0 * kc, 2)
-                    wb.wet_since = wb.wet_since or given > 0 or (rain > 1.0 and not enclosed)
+                if wb.calibrated_on is not None:  # the model's own drying, before the learned factor
+                    wb.model_et_mm = round(wb.model_et_mm + et0 * kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0), 2)
+            if wb.calibrated_on is not None:  # water in stops learning, also on a day without temperatures
+                wb.wet_since = wb.wet_since or given > 0 or (rain > 1.0 and not enclosed)
             day += timedelta(days=1)
         if day != wb.day or depletion != wb.depletion_mm:
             wb.day, wb.depletion_mm = day, depletion
@@ -142,7 +146,12 @@ def _calibrate(
 ) -> bool:
     """Set the bucket from today's sensor reading and learn how fast the bed dries."""
     _kc, taw = _bed_state(bed, plantings, timelines, db, today, default_root_mm)
-    needs = [db.get(p.plant_id).water_needs for p in plantings if db.get(p.plant_id)]  # type: ignore[union-attr]
+    needs = [  # the crops in the ground today choose the sensor band, not planned or finished ones
+        plant.water_needs
+        for p in plantings
+        if (plant := db.get(p.plant_id)) is not None
+        and timelines[p.id].in_ground <= today <= timelines[p.id].harvest_end
+    ]
     measured = sensor_depletion(reading, taw, bed, needs)
     if (
         wb.calibrated_mm is not None

@@ -690,7 +690,8 @@ def pest_specs(ctx: TaskContext) -> list[TaskSpec]:
             )
             if w.action == "net":
                 due = max(today, (w.start or today) - timedelta(days=3))
-                key = f"p:{w.pest}:{bed_id}:{today.year}:{w.generation}"
+                season = season_for_date(ctx.data.settings.region, today)  # one key per generation across 1 January
+                key = f"p:{w.pest}:{bed_id}:{season}:{w.generation}"
             elif w.action == "trap":
                 due = today
                 key = f"p:{w.pest}:{bed_id}:{today.isoformat()}"

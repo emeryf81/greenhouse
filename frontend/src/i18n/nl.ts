@@ -1050,7 +1050,7 @@ export const nl: Record<string, string> = {
   "settings.person_notify": "Persoonlijke herinneringen",
   "settings.person_notify_hint": "Iedereen krijgt zijn eigen taken via deze notify-dienst (dagoverzicht en herinneringen voor achterstallige taken).",
   "settings.voice": "Spraak (Assist)",
-  "settings.voice_hint": "Vraag Assist „wat moet ik vandaag in de tuin doen?”, „hoeveel heb ik geoogst?”, „vriest het vannacht?”. Installeer de zinnen één keer; ze werken in het Nederlands en Engels.",
+  "settings.voice_hint": "Vraag Assist „wat moet ik vandaag in de tuin doen?”, „hoeveel heb ik geoogst?”, „vriest het vannacht?”. Installeer de zinnen één keer; ze werken in het Nederlands, Engels en Frans.",
   "settings.voice_install": "Spraakzinnen installeren",
   "settings.voice_installed": "Spraakzinnen geïnstalleerd",
   "soil_test.title": "Bodemanalyse",

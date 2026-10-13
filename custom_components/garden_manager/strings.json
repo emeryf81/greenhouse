@@ -766,6 +766,10 @@
         "amount_mm": {
           "name": "Amount",
           "description": "Water this depth (mm) instead of the recommendation."
+        },
+        "only_if_needed": {
+          "name": "Only if needed",
+          "description": "Water only beds that need water after the latest recalculation (an automation picks the moment, Hortulus the need)."
         }
       }
     },

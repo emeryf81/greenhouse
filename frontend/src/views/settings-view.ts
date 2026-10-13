@@ -397,7 +397,7 @@ export class SettingsView extends LitElement {
       </div>
       <h3>${this.t("settings.own_prices")}</h3>
       ${Object.entries(eco.prices).map(([id, price]) => html`<div class="row"><span>${plantName(byId.get(id), this.lang) || id}</span><span class="spacer"></span>
-        <span>${eco.currency} ${price.toFixed(2)}/kg</span>
+        <span>${eco.currency} ${price.toLocaleString(localeOf(this.lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg</span>
         <button class="icon-btn" aria-label=${this.t("common.delete")} @click=${() => set({ prices: { [id]: null } })}><ha-icon icon="mdi:delete-outline"></ha-icon></button></div>`)}
       <form class="row" @submit=${(e: Event) => {
         e.preventDefault();

@@ -766,6 +766,10 @@
         "amount_mm": {
           "name": "Hoeveelheid",
           "description": "Geef deze hoeveelheid (mm) in plaats van het advies."
+        },
+        "only_if_needed": {
+          "name": "Alleen als nodig",
+          "description": "Geef alleen water aan bedden die het na de laatste herberekening nog nodig hebben (een automatisering kiest het moment, Hortulus de nood)."
         }
       }
     },

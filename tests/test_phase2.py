@@ -1146,3 +1146,45 @@ def test_valve_timer_chunks_and_jpeg_guard() -> None:
     assert _chunks(3, 1) == [0.75, 0.75, 0.75, 0.75]  # a one-minute timer still splits
     assert _chunks(5, None) == [5]
     assert jpeg_info(b"\xff\xd8\xff\xe0\x00\x00" + b"\x00" * 20) is None  # a zero-length segment
+
+
+async def test_archive_write_failure_never_loses_a_season(hass: HomeAssistant, garden) -> None:
+    """Home Assistant's store logs a failed write instead of raising: the garden keeps the season."""
+    from unittest.mock import AsyncMock, patch
+
+    from custom_components.garden_manager.engine.models import Planting, PlantingStatus
+
+    entry, _ = garden
+    repo = entry.runtime_data.repo
+    old = Planting(id="old_tomato", plant_id="tomato", bed_id=repo.data.beds[0].id, season=2020)
+    old.status = PlantingStatus.FINISHED
+    repo.data.plantings.append(old)
+
+    with patch.object(repo.archive_store, "async_save", AsyncMock()):  # the write "succeeds" but nothing lands
+        assert await repo.async_archive_old(2026) is False
+    assert repo.data.planting("old_tomato") is not None
+
+    # the real write: still in the garden until the archive has been read back
+    assert await repo.async_archive_old(2026) is False
+    assert repo.data.planting("old_tomato") is not None
+
+    await repo._async_load_archive()  # what the next start-up does
+    assert await repo.async_archive_old(2026) is True
+    assert repo.data.planting("old_tomato") is None
+    assert any(p.id == "old_tomato" for p in repo.data_for_season(2020).plantings)
+
+
+async def test_money_must_be_a_real_number(hass: HomeAssistant, garden) -> None:
+    from custom_components.garden_manager import operations
+
+    entry, _ = garden
+    runtime = entry.runtime_data
+    for amount in ("nan", "inf", "-3", 0):
+        with pytest.raises(ServiceValidationError):
+            operations.op_save_expense(runtime, {"amount": amount, "category": "seeds"})
+    assert runtime.repo.data.expenses == []
+    with pytest.raises(ServiceValidationError):
+        operations.op_save_settings(runtime, {"economy": {"prices": {"tomato": "nan"}}})
+    operations.op_save_settings(runtime, {"economy": {"prices": {"tomato": "4.5", "carrot": ""}}})
+    assert runtime.repo.data.settings.economy.prices == {"tomato": 4.5}
+    assert operations.op_save_expense(runtime, {"amount": "12.5", "category": "seeds"}).amount == 12.5

@@ -2,17 +2,25 @@ blueprint:
   name: Hortulus - log a harvest with a button
   description: >-
     Press a button (an input_button, a Zigbee/Z-Wave button that exposes an
-    event or button entity, or an NFC tag) to log a fixed amount of one crop
-    in Hortulus - handy by the kitchen door or on the shed.
+    event or button entity) or scan an NFC tag to log a fixed amount of one
+    crop in Hortulus - handy by the kitchen door or on the shed.
   domain: automation
   source_url: https://github.com/emeryf81/hortulus/blob/main/blueprints/automation/hortulus/button_log_harvest.yaml
   input:
     button:
-      name: Button
+      name: Button (optional)
       description: An input_button, button or event entity. Every state change counts as a press.
+      default: []
       selector:
         entity:
           domain: [input_button, button, event]
+          multiple: true
+    tag:
+      name: NFC tag (optional)
+      description: The tag id from Settings > Tags. Scanning it counts as a press.
+      default: ""
+      selector:
+        text:
     plant:
       name: Crop
       description: Name or id of the crop, in any language (e.g. Tomaat, tomato, courgette).
@@ -43,9 +51,13 @@ trigger:
   - platform: state
     entity_id: !input button
     not_to: [unavailable, unknown]
+  - platform: tag
+    tag_id: !input tag
 condition:
   - condition: template
-    value_template: "{{ trigger.from_state is not none and trigger.from_state.state not in ['unavailable', 'unknown'] }}"
+    value_template: >-
+      {{ trigger.platform == 'tag'
+         or (trigger.from_state is not none and trigger.from_state.state not in ['unavailable', 'unknown']) }}
 action:
   - service: garden_manager.log_harvest
     data: >-

@@ -119,7 +119,7 @@ export class KitchenEconomy extends LitElement {
           ${Object.entries(eco.expenses).map(([cat, v]) => html`<tr><td>${this.t(`kitchen.cat.${cat}`)}</td><td class="num">${this.money(v)}</td></tr>`)}
           ${eco.water_cost ? html`<tr><td>${this.t("kitchen.water_meter", { m3: eco.water_m3 ?? 0 })}</td><td class="num">${this.money(eco.water_cost)}</td></tr>` : nothing}
         </table>` : nothing}
-        ${o?.expenses?.length ? html`<table>${o.expenses.slice(0, 15).map((e) => html`<tr><td>${formatDate(e.day, this.lang)}</td><td>${this.t(`kitchen.cat.${e.category}`)}${e.note ? ` · ${e.note}` : ""}</td>
+        ${o?.expenses?.length ? html`<table>${o.expenses.map((e) => html`<tr><td>${formatDate(e.day, this.lang)}</td><td>${this.t(`kitchen.cat.${e.category}`)}${e.note ? ` · ${e.note}` : ""}</td>
           <td class="num">${this.money(e.amount)}</td><td class="num">${this.admin ? html`<button class="icon-btn" aria-label=${this.t("common.delete")} ?disabled=${this.busy}
             @click=${() => this.removeExpense(e)}><ha-icon icon="mdi:delete-outline"></ha-icon></button>` : nothing}</td></tr>`)}</table>` : html`<p class="small muted">${this.t("kitchen.no_expenses")}</p>`}
       </section>

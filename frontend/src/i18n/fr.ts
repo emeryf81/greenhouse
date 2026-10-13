@@ -1052,7 +1052,7 @@ export const fr: Record<string, string> = {
   "settings.person_notify": "Rappels personnels",
   "settings.person_notify_hint": "Chaque personne reçoit ses propres tâches sur ce service notify (résumé quotidien et rappels de retard).",
   "settings.voice": "Voix (Assist)",
-  "settings.voice_hint": "Demandez à Assist « what do I need to do in the garden today? », « how much did I harvest? », « is there frost tonight? ». Installez les phrases une fois, elles fonctionnent ensuite en anglais et en néerlandais.",
+  "settings.voice_hint": "Demandez à Assist « qu'est-ce que je dois faire au jardin aujourd'hui ? », « qu'est-ce que je peux récolter ? », « va-t-il geler cette nuit ? ». Installez les phrases une fois, elles fonctionnent ensuite en français, en néerlandais et en anglais.",
   "settings.voice_install": "Installer les phrases vocales",
   "settings.voice_installed": "Phrases vocales installées",
   "soil_test.title": "Analyse de sol",

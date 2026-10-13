@@ -157,6 +157,9 @@ export class DashboardView extends LitElement {
       this.starting = true;
       try {
         await this.api.starterGarden(this.starterSize, this.starterGreenhouse);
+      } catch (err) {
+        const message = this.t("common.error", { message: (err as Error).message });
+        this.dispatchEvent(new CustomEvent("hl-toast", { detail: { message }, bubbles: true, composed: true }));
       } finally {
         this.starting = false;
       }

@@ -16,12 +16,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import pairwise
 from typing import Any
 
 from .i18n import normalize_lang
 from .models import GardenData, Plant, PlantCategory, PlantingStatus
 from .plantdb import PlantDatabase
 from .records import harvest_summary
+from .region import season_for_date
 from .schedule import PlantingTimeline
 
 SURPLUS_FACTOR = 1.5  # this much more than the household eats in a week counts as surplus
@@ -224,7 +226,9 @@ def kitchen_report(
         plant = db.get(p.plant_id)
         if tl is None or plant is None or p.status in (PlantingStatus.FINISHED, PlantingStatus.FAILED):
             continue
-        if p.status in (PlantingStatus.PLANNED, PlantingStatus.SOWN_INDOORS) and tl.in_ground > today:
+        if p.status is PlantingStatus.PLANNED and p.sown_on is None:
+            continue  # a plan is no harvest: only crops that were really sown or planted count
+        if p.status is PlantingStatus.SOWN_INDOORS and tl.in_ground > today:
             continue
         if p.status is PlantingStatus.HARVESTING or tl.harvest_start <= today <= tl.harvest_end:
             group = kitchen_group(plant)
@@ -313,9 +317,14 @@ def economics(data: GardenData, db: PlantDatabase, season: int, lang: str = "en"
 
 
 def _season_water_m3(data: GardenData, season: int) -> float | None:
+    """Meter use over the growing season (July-June in the southern hemisphere, like the harvest)."""
+    region = data.settings.region
     readings = sorted(
-        (r for r in data.water_log if r.day.year == season and r.meter_m3 is not None), key=lambda r: r.day
+        (r for r in data.water_log if r.meter_m3 is not None and season_for_date(region, r.day) == season),
+        key=lambda r: r.day,
     )
     if len(readings) < 2:
         return None
-    return round(max(0.0, readings[-1].meter_m3 - readings[0].meter_m3), 2)  # type: ignore[operator]
+    # the sum of the rises: a replaced or reset meter (a drop) does not wipe out the season
+    rises = (b.meter_m3 - a.meter_m3 for a, b in pairwise(readings))  # type: ignore[operator]
+    return round(sum(d for d in rises if d > 0), 2)

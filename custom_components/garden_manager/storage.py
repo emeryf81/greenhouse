@@ -88,6 +88,8 @@ class GardenRepository:
         # Seasons older than the last three (plantings and plan), see engine/archive.py.
         self.archive_store = Store[dict[str, Any]](hass, 1, f"{key}.archive")
         self.archive: dict[str, dict[str, Any]] = {}
+        # What the archive held when it was read from disk: only that is safe to drop from the garden.
+        self._archive_stored: dict[str, tuple[frozenset[str], bool]] = {}
         self.syslog: list[dict[str, Any]] = []
         self._baseline: dict[str, dict[str, Any]] = syslog.snapshot(to_dict(self.data))
         self._pending_undo_of: str | None = None
@@ -96,11 +98,15 @@ class GardenRepository:
         """Load from disk.  Returns ``True`` when no data existed yet."""
         raw_log = await self.syslog_store.async_load()
         self.syslog = list((raw_log or {}).get("entries") or [])
-        raw_archive = await self.archive_store.async_load()
-        self.archive = dict((raw_archive or {}).get("seasons") or {})
+        await self._async_load_archive()
         loaded = await self._async_load_data()
         self.rebase()
         return loaded
+
+    async def _async_load_archive(self) -> None:
+        raw_archive = await self.archive_store.async_load()
+        self.archive = dict((raw_archive or {}).get("seasons") or {})
+        self._archive_stored = archive.archive_index(self.archive)
 
     async def _async_load_data(self) -> bool:
         raw = await self.store.async_load()
@@ -200,16 +206,23 @@ class GardenRepository:
             self.async_schedule_save()
 
     async def async_archive_old(self, current_season: int) -> bool:
-        """Move seasons older than the last three to the archive document.  True if anything moved."""
-        moved = archive.archive_old_seasons(self.data, current_season, self.db)
-        if not moved:
+        """Archive seasons older than the last three.  True if the garden document changed.
+
+        Two steps, so a failed write can never lose a season: old seasons are
+        copied to the archive document, and they leave the garden document only
+        once a later start-up has read them back from that archive.
+        """
+        removed = archive.prune_archived(self.data, self._archive_stored, current_season, self.db)
+        pending = archive.archive_candidates(self.data, current_season)
+        if pending:
+            archive.merge_archive(self.archive, pending)
+            await self.archive_store.async_save({"seasons": self.archive})
+            _LOGGER.info("Hortulus: copied seasons %s to the archive", ", ".join(sorted(pending)))
+        if not removed:
             return False
-        archive.merge_archive(self.archive, moved)
-        # The archive is written first: a crash in between leaves a season in both, never in neither.
-        await self.archive_store.async_save({"seasons": self.archive})
         self.rebase()  # housekeeping, not an action for the system log or undo
         self.async_changed("plan", bump_revision=False, source="system")
-        _LOGGER.info("Hortulus: archived seasons %s", ", ".join(sorted(moved)))
+        _LOGGER.info("Hortulus: %d archived plantings and plans left the garden document", removed)
         return True
 
     def data_for_season(self, season: int) -> GardenData:

@@ -766,6 +766,10 @@
         "amount_mm": {
           "name": "Quantité",
           "description": "Arroser cette hauteur d'eau (mm) au lieu de la recommandation."
+        },
+        "only_if_needed": {
+          "name": "Seulement si nécessaire",
+          "description": "N'arrose que les planches qui en ont encore besoin après le dernier recalcul (une automatisation choisit le moment, Hortulus le besoin)."
         }
       }
     },

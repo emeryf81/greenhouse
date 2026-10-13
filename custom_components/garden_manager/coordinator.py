@@ -174,11 +174,12 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
 
         season = season_for_date(self.repo.data.settings.region, dt_util.now().date())
         if season != self._archived_for:
-            self._archived_for = season
             try:
                 await self.repo.async_archive_old(season)
             except Exception:  # housekeeping must never stop the garden from updating
-                _LOGGER.exception("Archiving old seasons failed")
+                _LOGGER.exception("Archiving old seasons failed")  # tried again at the next update
+            else:
+                self._archived_for = season
 
     async def async_recompute(self) -> None:
         """Recompute from current states without touching the forecast."""

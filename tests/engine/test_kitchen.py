@@ -10,6 +10,7 @@ from custom_components.garden_manager.engine.kitchen import economics, kitchen_g
 from custom_components.garden_manager.engine.models import (
     Expense,
     HarvestEntry,
+    Hemisphere,
     PlantingStatus,
     WaterReading,
     WeatherSnapshot,
@@ -55,3 +56,13 @@ def test_economics_balance(garden, db):
     assert eco["expenses"] == {"seeds": 12.5, "soil": 20.0}
     assert eco["water_m3"] == 2.0 and eco["water_cost"] == 10.0
     assert eco["total_cost"] == 42.5 and eco["balance"] == 2.5
+
+
+def test_water_follows_the_southern_growing_season(garden, db):
+    garden.settings.region.hemisphere = Hemisphere.SOUTH  # the 2026 season runs July 2026 - June 2027
+    garden.water_log = [
+        WaterReading(date(2026, 5, 1), meter_m3=90.0),  # previous season
+        WaterReading(date(2026, 8, 1), meter_m3=100.0),
+        WaterReading(date(2027, 3, 1), meter_m3=104.5),
+    ]
+    assert economics(garden, db, 2026, "nl")["water_m3"] == 4.5

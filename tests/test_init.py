@@ -303,8 +303,15 @@ async def test_old_seasons_are_archived_and_still_reportable(hass: HomeAssistant
     runtime.coordinator._archived_for = None
     await runtime.coordinator.async_refresh()
     await hass.async_block_till_done()
-    assert all(p.id != "ancient" for p in repo.data.plantings)
+    # step 1: copied to the archive, still in the garden until the archive is read back
     assert "2015" in repo.archive and repo.archive["2015"]["plantings"][0]["id"] == "ancient"
+    assert any(p.id == "ancient" for p in repo.data.plantings)
+    # step 2, at the next start-up: the stored archive holds it, so the garden lets go
+    await repo._async_load_archive()
+    runtime.coordinator._archived_for = None
+    await runtime.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert all(p.id != "ancient" for p in repo.data.plantings)
     assert any(p.id == "ancient" for p in repo.data_for_season(2015).plantings)
 
     client = await hass_ws_client(hass)
