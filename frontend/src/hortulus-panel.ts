@@ -8,6 +8,7 @@
  * bundle (~55 kB gzipped incl. Lit) without a second framework runtime.
  */
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
+import { keyed } from "lit/directives/keyed.js";
 import { customElement, property, state } from "lit/decorators.js";
 import { GardenApi } from "./api";
 import { emblem } from "./brand";
@@ -81,17 +82,32 @@ export class HortulusPanel extends LitElement {
     tokens,
     shared,
     css`
-      :host { display: block; min-height: 100vh; background: var(--hl-bg); }
+      :host { display: block; min-height: 100vh; background:
+        radial-gradient(1200px 520px at 12% -8%, color-mix(in srgb, var(--hl-leaf-100) 70%, transparent), transparent 70%),
+        radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--hl-sun-100) 55%, transparent), transparent 70%),
+        var(--hl-bg); background-attachment: fixed; }
       .appbar { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: var(--hl-s3);
-        padding: 0 var(--hl-s4); height: 56px; background: color-mix(in srgb, var(--hl-surface) 92%, transparent);
-        backdrop-filter: blur(8px); border-bottom: 1px solid var(--hl-border); }
-      .brand { display: flex; align-items: center; gap: var(--hl-s2); font-weight: 700; font-size: var(--hl-fs-lg); letter-spacing: 0.01em; }
-      .brand small { font-weight: 400; color: var(--hl-text-muted); font-size: var(--hl-fs-xs); }
-      nav { display: flex; gap: 2px; margin-left: var(--hl-s4); overflow-x: auto; }
-      nav a { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 40px; border-radius: var(--hl-r-pill);
-        color: var(--hl-text-muted); text-decoration: none; font-weight: 500; white-space: nowrap; --mdc-icon-size: 18px; }
-      nav a:hover { background: var(--hl-surface-2); color: var(--hl-text); }
-      nav a[aria-current="page"] { background: var(--hl-leaf-100); color: var(--hl-chip-active-fg); }
+        padding: 0 var(--hl-s5); height: 60px; background: color-mix(in srgb, var(--hl-surface) 78%, transparent);
+        backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px);
+        border-bottom: 1px solid color-mix(in srgb, var(--hl-border) 70%, transparent);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, 0 6px 20px -12px rgba(46, 33, 24, 0.25); }
+      .brand { display: flex; align-items: center; gap: 10px; flex: none; }
+      .brand > span { font-family: var(--hl-font-serif); font-weight: 700; font-size: 21px; letter-spacing: -0.01em; }
+      .brand small { font-weight: 400; color: var(--hl-text-muted); font-size: var(--hl-fs-xs); line-height: 1.25; max-width: 150px;
+        padding-left: 10px; border-left: 1px solid var(--hl-border); }
+      .brand svg { filter: drop-shadow(0 2px 4px rgba(31, 61, 28, 0.25)); }
+      nav { display: flex; gap: 2px; margin-left: var(--hl-s4); overflow-x: auto; padding: 4px; scrollbar-width: none;
+        mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent); }
+      nav::-webkit-scrollbar { display: none; }
+      nav a { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; height: 38px; border-radius: var(--hl-r-pill);
+        color: var(--hl-text-muted); text-decoration: none; font-weight: 500; white-space: nowrap; --mdc-icon-size: 18px;
+        transition: background var(--hl-dur) var(--hl-ease), color var(--hl-dur) var(--hl-ease), box-shadow var(--hl-dur) var(--hl-ease); }
+      nav a:hover { background: color-mix(in srgb, var(--hl-surface-2) 80%, transparent); color: var(--hl-text); }
+      nav a[aria-current="page"] { background: var(--hl-surface); color: var(--hl-primary); font-weight: 600;
+        box-shadow: var(--hl-shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--hl-leaf-300) 60%, transparent); }
+      nav.top a[aria-current="page"]::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 16px; height: 2px; margin-left: -8px;
+        border-radius: 2px; background: var(--hl-accent); }
+      .view { animation: hl-rise var(--hl-dur-slow) var(--hl-ease) both; }
       nav a:focus-visible { outline: 2px solid var(--hl-focus); outline-offset: 2px; }
       nav a .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #fff;
         display: inline-grid; place-items: center; line-height: 1; }
@@ -338,6 +354,16 @@ export class HortulusPanel extends LitElement {
     </nav>`;
   }
 
+  /** First load: a calm skeleton instead of a bare "Loading". */
+  private renderLoading(): TemplateResult {
+    return html`<div class="loading" aria-busy="true" aria-label=${this.t("common.loading")}>
+      <div class="skeleton" style="width:220px;height:14px"></div>
+      <div class="skeleton" style="width:320px;height:34px;margin-top:10px"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:24px">
+        <div class="skeleton" style="height:320px;border-radius:16px"></div><div class="skeleton" style="height:320px;border-radius:16px"></div>
+      </div></div>`;
+  }
+
   render(): TemplateResult {
     return html`
       <header class="appbar">
@@ -366,7 +392,7 @@ export class HortulusPanel extends LitElement {
         @focus-crop=${(e: CustomEvent<{ planting_id: string; season: number }>) => this.focusCrop(e.detail)}
         @hl-toast=${(e: CustomEvent<{ message: string }>) => this.toast(e.detail.message)}>
         ${this.error ? html`<div class="card error">${emblem(56)}<p>${this.error}</p></div>`
-          : this.snapshot ? this.renderTab() : html`<p class="empty">${this.t("common.loading")}</p>`}
+          : this.snapshot ? keyed(this.tab, html`<div class="view">${this.renderTab()}</div>`) : this.renderLoading()}
       </main>
       ${this.renderNav("bottom-nav")}
       ${this.snapshot && (this.openTask || this.creatingTask) ? html`<hl-task-dialog .task=${this.openTask} .create=${this.creatingTask} .snapshot=${this.snapshot}
