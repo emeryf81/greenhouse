@@ -78,6 +78,16 @@ def harvest_summary(data: GardenData, season: int | None = None) -> dict[str, Cr
     return out
 
 
+def harvest_by_year(data: GardenData) -> dict[str, dict[str, float]]:
+    """kg per crop per season, for the harvest-over-the-years chart."""
+    out: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    region = data.settings.region
+    for e in data.harvest_log:
+        if e.kg:
+            out[e.plant_id][str(season_for_date(region, e.day))] += e.kg
+    return {pid: {season: round(kg, 2) for season, kg in sorted(years.items())} for pid, years in out.items()}
+
+
 def learned_yields(data: GardenData) -> dict[str, float]:
     """kg/m² per crop from your own harvests (average over seasons with data)."""
     per_season: dict[str, list[float]] = defaultdict(list)

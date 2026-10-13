@@ -31,7 +31,7 @@ from .engine.planio import PlanImportError, export_plan
 from .engine.plantdb import FAMILIES
 from .engine.printout import PrintOptions
 from .engine.qa import answer as qa_answer, options as qa_options
-from .engine.records import harvest_summary, learned_yields, seed_report, water_stats, year_overview
+from .engine.records import harvest_by_year, harvest_summary, learned_yields, seed_report, water_stats, year_overview
 from .engine.region import resolve_profile, season_anchors, season_bounds, season_for_date
 from .engine.schedule import plant_windows, planting_timeline, season_timeline
 from .engine.serde import from_dict, to_dict
@@ -968,6 +968,7 @@ def ws_records_overview(hass: HomeAssistant, connection: websocket_api.ActiveCon
             "season": season,
             "harvest_season": {k: v.to_dict() for k, v in harvest_summary(data, season).items()},
             "harvest_all": {k: v.to_dict() for k, v in harvest_summary(data).items()},
+            "harvest_years": harvest_by_year(data),
             "learned_yields": learned_yields(data),
             "seeds": seed_report(data, db, season),
             "water": water_stats(data, today).to_dict(),

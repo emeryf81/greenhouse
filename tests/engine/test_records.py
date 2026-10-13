@@ -107,3 +107,18 @@ def test_harvest_season_is_hemisphere_aware(garden):
     ]
     assert harvest_summary(garden, 2026)["tomato"].kg == 3.0
     assert harvest_summary(garden, 2025)["tomato"].kg == 0.5
+
+
+def test_harvest_by_year_sums_kg_per_crop_and_season(garden):
+    from datetime import date
+
+    from custom_components.garden_manager.engine.models import HarvestEntry
+    from custom_components.garden_manager.engine.records import harvest_by_year
+
+    garden.harvest_log = [
+        HarvestEntry("a", date(2025, 8, 1), "tomato", kg=1.5),
+        HarvestEntry("b", date(2025, 8, 9), "tomato", kg=0.5),
+        HarvestEntry("c", date(2026, 7, 20), "tomato", kg=3.0),
+        HarvestEntry("d", date(2026, 7, 21), "lettuce", count=4),  # counted only: no kg
+    ]
+    assert harvest_by_year(garden) == {"tomato": {"2025": 2.0, "2026": 3.0}}

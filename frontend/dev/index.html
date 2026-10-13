@@ -88,6 +88,7 @@
         if (type === "qa/options") return x.qa_options;
         if (type === "qa/ask") return x.qa_answers[`${msg.subject}/${msg.problem}/${msg.target ?? ""}`] ?? Object.values(x.qa_answers)[0];
         if (type === "supplies") return x.supplies;
+        if (type === "records/overview") return x.records;
         if (type === "irrigation/plan" || type === "irrigation/run") return { ...x.irrigation_plan, started: true };
         return {};
       },

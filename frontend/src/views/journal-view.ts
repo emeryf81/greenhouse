@@ -1,5 +1,6 @@
 // "Journal" tab: garden diary with photos, harvest log with learned yields,
 // seed stock with viability, and garden water use.
+import "../components/harvest-years";
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { photoUrl, type GardenApi } from "../api";
@@ -345,6 +346,11 @@ export class JournalView extends LitElement {
             <td class="num">${this.admin ? html`<button class="icon-btn" aria-label=${this.t("common.delete")} @click=${() => this.guard(() => this.api.deleteRecord("harvest", e.id)).then(() => this.load())}>
               <ha-icon icon="mdi:delete-outline"></ha-icon></button>` : nothing}</td></tr>`)}
         </table>` : html`<p class="small muted">${this.t("journal.no_harvest")}</p>`}
+      </section>
+      <section class="card stack" style="grid-column: 1 / -1" aria-labelledby="h-years">
+        <h2 id="h-years"><ha-icon icon="mdi:chart-timeline-variant"></ha-icon> ${this.t("harvest.years_title")}</h2>
+        <hl-harvest-years .years=${o?.harvest_years ?? {}} .plants=${new Map(this.plants.map((p) => [p.id, p]))} .families=${this.families}
+          .t=${this.t} lang=${this.lang}></hl-harvest-years>
       </section>
     </div>`;
   }

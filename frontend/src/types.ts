@@ -733,6 +733,7 @@ export interface RecordsOverview {
   season: number;
   harvest_season: Record<string, CropHarvest>;
   harvest_all: Record<string, CropHarvest>;
+  harvest_years?: Record<string, Record<string, number>>;
   learned_yields: Record<string, number>;
   seeds: { packets: SeedStatus[]; missing: string[]; season: number };
   water: { week_l: number | null; season_l: number | null; rain_available_l: number | null; butt_pct: number | null; per_day: { day: string; liters: number }[] };
