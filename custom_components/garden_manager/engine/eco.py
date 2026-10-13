@@ -315,7 +315,7 @@ _FR = {
     "advice.food_forest.text": "Une forêt comestible imite une jeune lisière : chaque strate a ses plantes et ensemble elles se nourrissent, s'abritent et se protègent. Idées : {plants}.",
     "advice.food_forest_try": "Faites de {zone} une forêt comestible",
     "advice.food_forest_try.text": "Sous et entre les fruitiers, il y a de la place pour petits fruits, aromatiques, couvre-sol et grimpantes. Choisissez le type de zone forêt comestible : Hortulus montre alors les strates qui manquent.",
-    "advice.eco_month": "Conseil écologique: {title}",
+    "advice.eco_month": "Conseil écologique : {title}",
     "advice.eco_month.text": "{text}",
     "advice.polyculture": "{bed} : une seule famille",
     "advice.polyculture.text": "Tout dans {bed} est de la famille {family}. Mélangez une autre famille, une aromatique ou une fleur - les planches mixtes ont moins de ravageurs et exploitent mieux le sol.",

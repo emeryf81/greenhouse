@@ -52,6 +52,11 @@ export function unionArea(boxes: Box[]): number {
 }
 
 /** The items lying on top of a garden element (the parts of them inside it). */
+/** A smaller ground cover lies on the bigger one; equal sizes: the higher id lies on top (as in the print). */
+function onTop(area: number, id: string, belowArea: number, belowId: string): boolean {
+  return area < belowArea || (area === belowArea && id > belowId);
+}
+
 export function coversOfFeature(f: Feature, features: Feature[], zones: Zone[]): Box[] {
   if (!GROUND_COVER.has(f.type)) return [];
   const me = boxOf(f);
@@ -64,7 +69,7 @@ export function coversOfFeature(f: Feature, features: Feature[], zones: Zone[]):
   for (const g of features) {
     if (g.id === f.id || CANOPY.has(g.type)) continue;
     const gb = boxOf(g);
-    if (GROUND_COVER.has(g.type) && gb.w * gb.h >= area) continue; // only a smaller ground cover lies on top
+    if (GROUND_COVER.has(g.type) && !onTop(gb.w * gb.h, g.id, area, f.id)) continue; // only a smaller ground cover lies on top
     const o = overlap(me, gb);
     if (o) out.push(o);
   }
@@ -97,7 +102,7 @@ export function zoneArea(z: Zone, features: Feature[]) {
 
 /** Drawing order of elements: ground covers first (big under small), then the rest. */
 export function featureLayers(features: Feature[]): { ground: Feature[]; above: Feature[] } {
-  const ground = features.filter((f) => GROUND_COVER.has(f.type)).sort((a, b) => b.width_cm * b.length_cm - a.width_cm * a.length_cm);
+  const ground = features.filter((f) => GROUND_COVER.has(f.type)).sort((a, b) => b.width_cm * b.length_cm - a.width_cm * a.length_cm || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { ground, above: features.filter((f) => !GROUND_COVER.has(f.type)) };
 }
 

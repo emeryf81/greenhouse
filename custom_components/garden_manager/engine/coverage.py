@@ -56,6 +56,11 @@ def union_area(boxes: Sequence[Box]) -> float:
     return total
 
 
+def _on_top(area: float, fid: str, below_area: float, below_id: str) -> bool:
+    """A smaller ground cover lies on the bigger one; equal sizes: the higher id lies on top."""
+    return area < below_area or (area == below_area and fid > below_id)
+
+
 def feature_covers(f: Feature, features: Sequence[Feature], zones: Sequence[Zone]) -> list[Box]:
     if f.type not in GROUND_COVER:
         return []
@@ -66,7 +71,7 @@ def feature_covers(f: Feature, features: Sequence[Feature], zones: Sequence[Zone
         if g.id == f.id or g.type in CANOPY:
             continue
         gb = _box(g)
-        if g.type in GROUND_COVER and gb[2] * gb[3] >= area:
+        if g.type in GROUND_COVER and not _on_top(gb[2] * gb[3], g.id, area, f.id):
             continue
         if o := _overlap(me, gb):
             out.append(o)
@@ -87,5 +92,5 @@ def net_area_m2(item: Feature | Zone, features: Sequence[Feature], zones: Sequen
 
 def feature_layers(features: Sequence[Feature]) -> tuple[list[Feature], list[Feature]]:
     """(ground covers, biggest first; everything else) - the drawing order on a map."""
-    ground = sorted((f for f in features if f.type in GROUND_COVER), key=lambda f: -f.width_cm * f.length_cm)
+    ground = sorted((f for f in features if f.type in GROUND_COVER), key=lambda f: (-f.width_cm * f.length_cm, f.id))
     return ground, [f for f in features if f.type not in GROUND_COVER]

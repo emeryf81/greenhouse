@@ -98,6 +98,8 @@ interface DragState {
   mode: "move" | "resize" | "pan" | "draw";
   /** The item under the pointer: a click without moving opens it ("item-click"). */
   clicked?: { kind: ItemKind; id: string };
+  /** The clicked item was already the selection before this press: the click opens it. */
+  wasSelected?: boolean;
   kind?: ItemKind;
   id?: string;
   pointerId: number;
@@ -310,6 +312,7 @@ export class GardenCanvas extends LitElement {
     }
     if (kind && id) {
       const additive = ev.shiftKey || ev.ctrlKey || ev.metaKey;
+      const wasSelected = this.selection?.kind === kind && this.selection.id === id && this.multi.length <= 1;
       const inGroup = this.multi.some((m) => m.kind === kind && m.id === id);
       if (!(inGroup && !additive && !resize)) {
         this.dispatchEvent(new CustomEvent<Selection>("select", { detail: { kind, id, additive } }));
@@ -320,11 +323,11 @@ export class GardenCanvas extends LitElement {
       const origin = this.rectOf(kind, id);
       if (!origin || this.readonly || (this.lockLayout && kind !== "planting")) {
         this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
-          startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: { kind, id } };
+          startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: { kind, id }, wasSelected };
         return;
       }
       this.drag = { mode: resize ? "resize" : "move", kind, id, pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin,
-        startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: resize ? undefined : { kind, id } };
+        startTx: this.tx, startTy: this.ty, clientX: ev.clientX, clientY: ev.clientY, moved: false, clicked: resize ? undefined : { kind, id }, wasSelected };
     } else {
       this.dispatchEvent(new CustomEvent<Selection | null>("select", { detail: null }));
       this.drag = { mode: "pan", pointerId: ev.pointerId, startX: pt.x, startY: pt.y, origin: { x: 0, y: 0, w: 0, h: 0 },
@@ -397,10 +400,10 @@ export class GardenCanvas extends LitElement {
     this.pendingSelect = null;
     if (pending && !d.moved) this.dispatchEvent(new CustomEvent<Selection>("select", { detail: pending }));
     if (d.clicked && !d.moved && !(ev.shiftKey || ev.ctrlKey || ev.metaKey)) {
-      // One click selects ("item-click"); a second click on the same item opens its details ("item-open").
+      // One click selects ("item-click"); clicking the selected item again (or a double click) opens its details ("item-open").
       const key = `${d.clicked.kind}:${d.clicked.id}`;
       const now = Date.now();
-      const again = this.lastClick.key === key && now - this.lastClick.at < 450;
+      const again = d.wasSelected || (this.lastClick.key === key && now - this.lastClick.at < 450);
       this.lastClick = again ? { key: "", at: 0 } : { key, at: now };
       this.dispatchEvent(new CustomEvent<Selection>(again ? "item-open" : "item-click", { detail: { kind: d.clicked.kind, id: d.clicked.id } }));
     }

@@ -45,3 +45,11 @@ def test_ground_drawn_first_biggest_at_the_bottom():
         ]
     )
     assert [g.id for g in ground] == ["l", "t"] and [g.id for g in above] == ["h"]
+
+
+def test_equal_ground_covers_take_the_overlap_once():
+    a = f("a_lawn", FeatureType.LAWN, 0, 0, 400, 400)
+    b = f("b_terrace", FeatureType.TERRACE, 200, 0, 400, 400)
+    total = net_area_m2(a, [a, b]) + net_area_m2(b, [a, b])
+    assert total == 24
+    assert [x.id for x in feature_layers([b, a])[0]] == ["a_lawn", "b_terrace"]

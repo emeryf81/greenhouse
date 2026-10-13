@@ -104,9 +104,22 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         data.layouts = layouts
         data.layout_season = upgraded.get("layout_season")
     else:
-        data.layouts = {**data.layouts, **layouts}
-        if upgraded.get("layout_season") is not None:
-            data.layout_season = upgraded["layout_season"]
+        # Merge never deletes: a season in both files keeps its stored items, the file's win by id
+        # (as for the active map). The active season stays: the merged zones join the current map.
+        for season, incoming in layouts.items():
+            stored = data.layouts.get(season)
+            data.layouts[season] = (
+                incoming
+                if stored is None
+                else GardenLayout(
+                    zones=upsert(stored.zones, incoming.zones),
+                    beds=upsert(stored.beds, incoming.beds),
+                    features=upsert(stored.features, incoming.features),
+                    saved_at=incoming.saved_at or stored.saved_at,
+                )
+            )
+        if data.layout_season is None:
+            data.layout_season = upgraded.get("layout_season")
     data.plantings = upsert(data.plantings, plantings)
     data.custom_plants = upsert(data.custom_plants, plants)
     overrides = upgraded.get("plant_overrides") or {}

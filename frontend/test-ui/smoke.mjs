@@ -97,6 +97,7 @@ await step("planner: crop popup and why-here", async () => {
   const box = await label.boundingBox();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // one click picks the crop
   await page.locator("hl-planner-view .step-tip button", { hasText: "Details" }).waitFor();
+  await page.waitForTimeout(600); // well past a double click: clicking the selected crop again still opens it
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // a second click opens it
   await modalOpen();
   await page.locator("hl-modal button", { hasText: "Waarom (niet) hier?" }).click();

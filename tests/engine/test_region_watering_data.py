@@ -203,6 +203,13 @@ def test_export_import_brings_the_whole_garden_map(garden):
     import_plan(fresh, doc, "merge")
     assert len(fresh.features) == 3
 
+    # merging a season both gardens have keeps the stored items; the active season stays
+    fresh.layouts["2025"].features.append(Feature("ft_pond", "Vijver", FeatureType.POND, 0, 0, 100, 100))
+    fresh.layout_season = 2027
+    import_plan(fresh, doc, "merge")
+    assert {f.id for f in fresh.layouts["2025"].features} == {"ft_path", "ft_pond"}
+    assert fresh.layout_season == 2027
+
 
 def test_import_without_soil_tests_keeps_stored_ones(garden):
     from datetime import date, datetime

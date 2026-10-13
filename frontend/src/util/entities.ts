@@ -17,6 +17,12 @@ export interface EntityLike {
 
 const DOOR_LIKE = new Set(["garage", "door", "gate"]);
 const NPK_UNITS = ["mg/kg", "mg/l", "ppm"];
+const NPK_WORDS: Record<"npk_n" | "npk_p" | "npk_k", string[]> = {
+  npk_n: ["nitrogen", "stikstof", "azote", "_n_", "_n "],
+  npk_p: ["phosph", "fosfor", "fosfaat", "_p_", "_p "],
+  npk_k: ["potass", "kalium", "_k_", "_k "],
+};
+const SOIL_WORDS = ["soil", "bodem", "grond", "ground", "sol_", " sol", "probe"];
 
 function unit(s: EntityLike): string {
   return String(s.attributes.unit_of_measurement ?? "").toLowerCase().replace("μ", "µ");
@@ -27,7 +33,7 @@ function cls(s: EntityLike): string {
 }
 
 function named(s: EntityLike, words: string[]): boolean {
-  const text = `${s.entity_id} ${String(s.attributes.friendly_name ?? "")}`.toLowerCase();
+  const text = `${s.entity_id} ${String(s.attributes.friendly_name ?? "")} `.toLowerCase();
   return words.some((w) => text.includes(w));
 }
 
@@ -59,9 +65,10 @@ export function entityFits(kind: EntityKind, s: EntityLike): boolean {
         || domain === "input_number";
     case "soil_moisture":
       return sensor && (dc === "moisture" || (dc === "humidity" && named(s, ["soil", "bodem", "sol", "plant"])));
-    case "soil_temperature":
+    case "soil_temperature": // a soil probe says so in its name
+      return sensor && (dc === "temperature" || u === "°c" || u === "°f") && named(s, SOIL_WORDS);
     case "air_temperature":
-      return sensor && (dc === "temperature" || u === "°c" || u === "°f");
+      return sensor && (dc === "temperature" || u === "°c" || u === "°f") && !named(s, SOIL_WORDS);
     case "air_humidity":
       return sensor && dc === "humidity";
     case "light":
@@ -75,8 +82,8 @@ export function entityFits(kind: EntityKind, s: EntityLike): boolean {
       return sensor && (dc === "conductivity" || u === "µs/cm" || u === "ms/cm");
     case "npk_n":
     case "npk_p":
-    case "npk_k":
-      return sensor && NPK_UNITS.includes(u);
+    case "npk_k": // the unit alone cannot tell nitrogen from phosphorus: the name must
+      return sensor && NPK_UNITS.includes(u) && named(s, NPK_WORDS[kind]);
     case "leaf_wetness":
       return (domain === "binary_sensor" && dc === "moisture") || (sensor && named(s, ["leaf", "blad", "feuille", "wetness"]));
   }

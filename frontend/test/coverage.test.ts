@@ -48,3 +48,11 @@ test("site summary counts what is left of each kind", () => {
   assert.equal(s.lawn, 75);
   assert.equal(s.built, 25);
 });
+
+test("two equal ground covers: exactly one takes the overlap", () => {
+  const a = f("a_lawn", "lawn", 0, 0, 400, 400);
+  const b = f("b_terrace", "terrace", 200, 0, 400, 400);
+  const fs = [a, b];
+  assert.equal(featureArea(a, fs, []).net + featureArea(b, fs, []).net, 24); // 6 m x 4 m, the overlap once
+  assert.deepEqual(featureLayers(fs).ground.map((x) => x.id), ["a_lawn", "b_terrace"]); // b drawn on top
+});
