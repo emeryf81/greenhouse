@@ -1075,10 +1075,22 @@ var kn=Object.defineProperty;var xn=Object.getOwnPropertyDescriptor;var p=(h,o,e
         <pattern id="major-only" width="100" height="100" patternUnits="userSpaceOnUse">
           <path d="M 100 0 L 0 0 0 100" fill="none" stroke="var(--hl-grid-line-strong)" stroke-width=${1/this.k}></path>
         </pattern>
-        <pattern id="soil" width="12" height="12" patternUnits="userSpaceOnUse">
-          <circle cx="3" cy="4" r="0.9" fill="rgba(255,255,255,0.10)"></circle>
-          <circle cx="9" cy="9" r="0.7" fill="rgba(0,0,0,0.12)"></circle>
+        <pattern id="soil" width="18" height="18" patternUnits="userSpaceOnUse">
+          <circle cx="3" cy="4" r="0.9" fill="rgba(255,255,255,0.12)"></circle>
+          <circle cx="9" cy="9" r="0.7" fill="rgba(0,0,0,0.14)"></circle>
+          <circle cx="14" cy="3" r="0.6" fill="rgba(0,0,0,0.10)"></circle>
+          <circle cx="6" cy="14" r="1.1" fill="rgba(255,255,255,0.07)"></circle>
+          <circle cx="15" cy="13" r="0.5" fill="rgba(255,255,255,0.14)"></circle>
+          <path d="M1 10 q2 -1 4 0" stroke="rgba(0,0,0,0.10)" stroke-width="0.5" fill="none"></path>
         </pattern>
+        <!-- depth: beds cast a soft shadow, the ground has a faint grain -->
+        <filter id="bed-shadow" x="-10%" y="-10%" width="120%" height="130%">
+          <feDropShadow dx="0" dy=${3/this.k} stdDeviation=${3/this.k} flood-color="#2e2118" flood-opacity="0.28"></feDropShadow>
+        </filter>
+        <filter id="ground-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"></feTurbulence>
+          <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.25  0 0 0 0 0.15  0 0 0 0.06 0"></feColorMatrix>
+        </filter>
         <pattern id="glass" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="20" stroke="rgba(91,141,184,0.18)" stroke-width="3"></line>
         </pattern>
@@ -1153,6 +1165,7 @@ var kn=Object.defineProperty;var xn=Object.getOwnPropertyDescriptor;var p=(h,o,e
         </pattern>
         ${Ta()}
       </defs>
+      <rect x="-5000" y="-5000" width="10000" height="10000" filter="url(#ground-grain)" pointer-events="none"></rect>
       <rect x="-5000" y="-5000" width="10000" height="10000" fill=${e*this.k>=5?"url(#major)":"url(#major-only)"}></rect>
     `}renderZone(e){let t=this.effectiveRect("zone",e.id,dt(e)),s=e.type==="greenhouse"||e.type==="cold_frame",a=de[e.type]??de.outdoor,n=12/this.k,r=this.t(`settings.zone_type.${e.type}`),l=e.name.toLowerCase()===r.toLowerCase()?`${a.icon} ${e.name}`:`${a.icon} ${e.name} \xB7 ${r}`,d=this.focusZone===e.id;return T`
       <g role="button" aria-label=${l} @pointerdown=${c=>this.onPointerDown(c,"zone",e.id)}
@@ -1164,9 +1177,13 @@ var kn=Object.defineProperty;var xn=Object.getOwnPropertyDescriptor;var p=(h,o,e
       </g>`}renderBed(e){let t=this.bedAbs(e),s=12/this.k,a=this.analysis?.beds[e.id],n=a?.moisture_status??"unknown",r=this.showMoisture&&n!=="unknown"?Qa[n]:"rgba(46,33,24,0.45)",l=this.zones.find(k=>k.id===e.zone_id)?.type??"outdoor",d=l==="orchard"||l==="fruit",c=l==="orchard"?"url(#feat-grass)":l==="fruit"?"url(#bark-mulch)":e.kind==="container"?"var(--hl-container-fill)":e.kind==="raised"?"var(--hl-bed-fill-raised)":"var(--hl-bed-fill)",g=e.kind==="container"?Math.min(t.w,t.h)/4:4/this.k,v=a?.irrigation.moisture,b=a?.sensors?.soil_temperature?.value,E=this.reports[e.id]??a?.compatibility,w=(E?.pairs.filter(k=>k.severity!=="info").length??0)+(E?.rotation?.length??0);return T`
       <g role="button" aria-label=${`${e.name}, ${this.t(`kind.${e.kind}`)}, ${Math.round(e.width_cm)} \xD7 ${Math.round(e.length_cm)} cm`}
         @pointerdown=${k=>this.onPointerDown(k,"bed",e.id)}>
-        <rect class="bed-rect" x=${t.x} y=${t.y} width=${t.w} height=${t.h} rx=${g} fill=${c}
+        <rect class="bed-rect" x=${t.x} y=${t.y} width=${t.w} height=${t.h} rx=${g} fill=${c} filter=${d?u:"url(#bed-shadow)"}
           stroke=${r} stroke-width=${this.showMoisture&&n!=="unknown"?3:1.5}></rect>
         ${d?u:T`<rect x=${t.x} y=${t.y} width=${t.w} height=${t.h} rx=${g} fill="url(#soil)" pointer-events="none"></rect>`}
+        ${e.kind==="raised"&&!d&&t.w*this.k>24?T`<rect x=${t.x+2.5/this.k} y=${t.y+2.5/this.k} width=${Math.max(t.w-5/this.k,0)} height=${Math.max(t.h-5/this.k,0)} rx=${g}
+              fill="none" stroke="#a0754e" stroke-width=${3.5/this.k} opacity="0.85" pointer-events="none"></rect>
+            <rect x=${t.x+4.5/this.k} y=${t.y+4.5/this.k} width=${Math.max(t.w-9/this.k,0)} height=${Math.max(t.h-9/this.k,0)} rx=${g}
+              fill="none" stroke="rgba(255,255,255,0.16)" stroke-width=${1/this.k} pointer-events="none"></rect>`:u}
         ${this.showMoisture&&n!=="unknown"?T`<rect x=${t.x} y=${t.y} width=${t.w} height=${t.h} rx=${g} fill=${Qa[n]} opacity="0.12" pointer-events="none"></rect>`:u}
         ${d||t.w*this.k<50?u:T`<text class="label on-soil" x=${t.x+6/this.k} y=${t.y+t.h-6/this.k} font-size=${s} font-weight="600">${e.name}</text>`}
         ${this.showMoisture&&v!=null?T`<text class="label on-soil" x=${t.x+t.w-6/this.k} y=${t.y+t.h-6/this.k} font-size=${s*.95} text-anchor="end">💧 ${Math.round(v)}%</text>`:u}
@@ -1176,13 +1193,13 @@ var kn=Object.defineProperty;var xn=Object.getOwnPropertyDescriptor;var p=(h,o,e
       <text class="badge-text" x=${e} y=${t+r*.38} font-size=${r*1.1} text-anchor="middle">${s}</text></g>`}renderPill(e,t,s,a){let n=s.length*a*.56+a*1.1,r=a*1.55;return T`<g pointer-events="none">
       <rect x=${e-n/2} y=${t-r/2} width=${n} height=${r} rx=${r/2} fill="var(--hl-pill-bg, rgba(255,255,255,0.9))"
         stroke="rgba(0,0,0,0.12)" stroke-width="1" vector-effect="non-scaling-stroke"></rect>
-      <text class="pill-text" x=${e} y=${t+a*.36} font-size=${a} text-anchor="middle">${s}</text></g>`}renderPlanting(e){let t=this.beds.find(J=>J.id===e.bed_id),s=this.plants.get(e.plant_id);if(!t||!s)return u;let a=this.bedAbs(t),n={x:a.x+e.x_cm,y:a.y+e.y_cm,w:e.width_cm,h:e.length_cm},r=this.effectiveRect("planting",e.id,n),l=P(this.families,s.family),d=s.color||l,c=A(s),g=y(s,this.lang),v=!this.viewDate||Pa(e,this.timelines[e.id],this.viewDate),b={...e,x_cm:r.x-a.x,y_cm:r.y-a.y,width_cm:r.w,length_cm:r.h},E=Rs(b,s),w=this.reports[t.id]??this.analysis?.beds[t.id]?.compatibility,k=w?.pairs.filter(J=>(J.a===e.id||J.b===e.id)&&J.severity!=="info")??[],j=w?.out_of_bounds?.includes(e.id),$=this.k,C=Math.min(s.spacing_cm,r.w,r.h)*$,K=C<18||E.length>90,B=`${g} \u2013 ${this.t(`planner.layout.${e.layout}`)}, ${this.t("planner.count",{n:E.length})}`+(k.length?` \u2013 ${k.length} \u26A0`:"")+(s.perennial?` \u2013 ${this.t("planner.perennial")}`:""),re=11/$,Qe;if(K){let J=r.w>=r.h,Ve=J?r.h:r.w,ht=J?r.w:r.h,Zs=Math.max(e.layout==="row"?s.row_spacing_cm:Math.max(s.row_spacing_cm/2,s.spacing_cm),4),Ks=Math.max(1,Math.floor(Ve/Zs)),jt=Math.min(s.spacing_cm/2,ht/4),Ys=Math.max(Math.min(s.spacing_cm*.9,Zs*.45),2),Xs=s.category==="flower"?d:"#5f9a3a",wn=Array.from({length:Ks},(pt,_n)=>Ve/Ks*(_n+.5)),Js=`${Math.max(s.spacing_cm*.6,1.5)} ${Math.max(s.spacing_cm*.4,1)}`,Qs=Math.max(Math.min(Math.min(r.w,r.h)*.72,46/$),16/$),Vs=r.x+r.w/2,ea=r.y+r.h/2;Qe=T`
+      <text class="pill-text" x=${e} y=${t+a*.36} font-size=${a} text-anchor="middle">${s}</text></g>`}growth(e,t){let s=this.timelines[e.id],a=this.viewDate||this.analysis?.today;if(!s||!a||t.perennial)return 1;let n=Date.parse(a),r=Date.parse(s.in_ground),l=Date.parse(s.harvest_start),d=Date.parse(s.harvest_end);return n<r?.4:n>=d?.85:n>=l||l<=r?1:.45+.55*(n-r)/(l-r)}renderPlanting(e){let t=this.beds.find(J=>J.id===e.bed_id),s=this.plants.get(e.plant_id);if(!t||!s)return u;let a=this.bedAbs(t),n={x:a.x+e.x_cm,y:a.y+e.y_cm,w:e.width_cm,h:e.length_cm},r=this.effectiveRect("planting",e.id,n),l=P(this.families,s.family),d=s.color||l,c=A(s),g=y(s,this.lang),v=!this.viewDate||Pa(e,this.timelines[e.id],this.viewDate),b={...e,x_cm:r.x-a.x,y_cm:r.y-a.y,width_cm:r.w,length_cm:r.h},E=Rs(b,s),w=this.reports[t.id]??this.analysis?.beds[t.id]?.compatibility,k=w?.pairs.filter(J=>(J.a===e.id||J.b===e.id)&&J.severity!=="info")??[],j=w?.out_of_bounds?.includes(e.id),$=this.k,C=Math.min(s.spacing_cm,r.w,r.h)*$,K=C<18||E.length>90,B=`${g} \u2013 ${this.t(`planner.layout.${e.layout}`)}, ${this.t("planner.count",{n:E.length})}`+(k.length?` \u2013 ${k.length} \u26A0`:"")+(s.perennial?` \u2013 ${this.t("planner.perennial")}`:""),re=11/$,Qe;if(K){let J=r.w>=r.h,Ve=J?r.h:r.w,ht=J?r.w:r.h,Zs=Math.max(e.layout==="row"?s.row_spacing_cm:Math.max(s.row_spacing_cm/2,s.spacing_cm),4),Ks=Math.max(1,Math.floor(Ve/Zs)),jt=Math.min(s.spacing_cm/2,ht/4),Ys=Math.max(Math.min(s.spacing_cm*.9,Zs*.45)*this.growth(e,s),1.5),Xs=s.category==="flower"?d:"#5f9a3a",wn=Array.from({length:Ks},(pt,_n)=>Ve/Ks*(_n+.5)),Js=`${Math.max(s.spacing_cm*.6,1.5)} ${Math.max(s.spacing_cm*.4,1)}`,Qs=Math.max(Math.min(Math.min(r.w,r.h)*.72,46/$),16/$),Vs=r.x+r.w/2,ea=r.y+r.h/2;Qe=T`
         ${wn.map(pt=>J?T`<line x1=${r.x+jt} y1=${r.y+pt} x2=${r.x+r.w-jt} y2=${r.y+pt} stroke=${Xs} stroke-width=${Ys}
               stroke-linecap="round" stroke-dasharray=${Js} opacity="0.75"></line>`:T`<line x1=${r.x+pt} y1=${r.y+jt} x2=${r.x+pt} y2=${r.y+r.h-jt} stroke=${Xs} stroke-width=${Ys}
               stroke-linecap="round" stroke-dasharray=${Js} opacity="0.75"></line>`)}
         <circle cx=${Vs} cy=${ea} r=${Qs*.62} fill="var(--hl-pill-bg, rgba(255,255,255,0.92))" stroke=${l} stroke-width="2"
           vector-effect="non-scaling-stroke"></circle>
-        ${Zt(c,Vs,ea,Qs*.92,d)}`}else{let J=Math.max(Math.min(s.spacing_cm*.92,Math.min(r.w,r.h)*1.05),6/$);Qe=T`
+        ${Zt(c,Vs,ea,Qs*.92,d)}`}else{let J=Math.max(Math.min(s.spacing_cm*.92,Math.min(r.w,r.h)*1.05)*this.growth(e,s),6/$);Qe=T`
         ${E.slice(0,300).map(([Ve,ht])=>T`<ellipse cx=${a.x+Ve} cy=${a.y+ht+J*.42} rx=${J*.36} ry=${J*.09}
           fill="rgba(0,0,0,0.18)"></ellipse>`)}
         ${E.slice(0,300).map(([Ve,ht])=>Zt(c,a.x+Ve,a.y+ht,J,d))}`}let qs=(g.length*.56+1.1)*re,Ws=r.w*$>=Math.min(g.length*7+16,140)&&r.h*$>=(K?64:34),bn=K&&!Ws&&r.w>=r.h&&r.w*$>=qs*$+70&&r.h*$>=16,yn=K?r.y+r.h-Math.max(re*1.1,Math.min(r.h*.12,14/$)):r.y+r.h-re*.95,$n=Math.max(Math.min(Math.min(r.w,r.h)*.72,46/$),16/$)*.62;return T`

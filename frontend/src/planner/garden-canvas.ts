@@ -491,10 +491,22 @@ export class GardenCanvas extends LitElement {
         <pattern id="major-only" width="100" height="100" patternUnits="userSpaceOnUse">
           <path d="M 100 0 L 0 0 0 100" fill="none" stroke="var(--hl-grid-line-strong)" stroke-width=${1 / this.k}></path>
         </pattern>
-        <pattern id="soil" width="12" height="12" patternUnits="userSpaceOnUse">
-          <circle cx="3" cy="4" r="0.9" fill="rgba(255,255,255,0.10)"></circle>
-          <circle cx="9" cy="9" r="0.7" fill="rgba(0,0,0,0.12)"></circle>
+        <pattern id="soil" width="18" height="18" patternUnits="userSpaceOnUse">
+          <circle cx="3" cy="4" r="0.9" fill="rgba(255,255,255,0.12)"></circle>
+          <circle cx="9" cy="9" r="0.7" fill="rgba(0,0,0,0.14)"></circle>
+          <circle cx="14" cy="3" r="0.6" fill="rgba(0,0,0,0.10)"></circle>
+          <circle cx="6" cy="14" r="1.1" fill="rgba(255,255,255,0.07)"></circle>
+          <circle cx="15" cy="13" r="0.5" fill="rgba(255,255,255,0.14)"></circle>
+          <path d="M1 10 q2 -1 4 0" stroke="rgba(0,0,0,0.10)" stroke-width="0.5" fill="none"></path>
         </pattern>
+        <!-- depth: beds cast a soft shadow, the ground has a faint grain -->
+        <filter id="bed-shadow" x="-10%" y="-10%" width="120%" height="130%">
+          <feDropShadow dx="0" dy=${3 / this.k} stdDeviation=${3 / this.k} flood-color="#2e2118" flood-opacity="0.28"></feDropShadow>
+        </filter>
+        <filter id="ground-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"></feTurbulence>
+          <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.25  0 0 0 0 0.15  0 0 0 0.06 0"></feColorMatrix>
+        </filter>
         <pattern id="glass" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="20" stroke="rgba(91,141,184,0.18)" stroke-width="3"></line>
         </pattern>
@@ -569,6 +581,7 @@ export class GardenCanvas extends LitElement {
         </pattern>
         ${glyphSymbols()}
       </defs>
+      <rect x="-5000" y="-5000" width="10000" height="10000" filter="url(#ground-grain)" pointer-events="none"></rect>
       <rect x="-5000" y="-5000" width="10000" height="10000" fill=${minor * this.k >= 5 ? "url(#major)" : "url(#major-only)"}></rect>
     `;
   }
@@ -610,9 +623,15 @@ export class GardenCanvas extends LitElement {
     return svg`
       <g role="button" aria-label=${`${bed.name}, ${this.t(`kind.${bed.kind}`)}, ${Math.round(bed.width_cm)} × ${Math.round(bed.length_cm)} cm`}
         @pointerdown=${(e: PointerEvent) => this.onPointerDown(e, "bed", bed.id)}>
-        <rect class="bed-rect" x=${r.x} y=${r.y} width=${r.w} height=${r.h} rx=${radius} fill=${fill}
+        <rect class="bed-rect" x=${r.x} y=${r.y} width=${r.w} height=${r.h} rx=${radius} fill=${fill} filter=${open ? nothing : "url(#bed-shadow)"}
           stroke=${moistureStroke} stroke-width=${this.showMoisture && status !== "unknown" ? 3 : 1.5}></rect>
         ${open ? nothing : svg`<rect x=${r.x} y=${r.y} width=${r.w} height=${r.h} rx=${radius} fill="url(#soil)" pointer-events="none"></rect>`}
+        ${bed.kind === "raised" && !open && r.w * this.k > 24
+          ? svg`<rect x=${r.x + 2.5 / this.k} y=${r.y + 2.5 / this.k} width=${Math.max(r.w - 5 / this.k, 0)} height=${Math.max(r.h - 5 / this.k, 0)} rx=${radius}
+              fill="none" stroke="#a0754e" stroke-width=${3.5 / this.k} opacity="0.85" pointer-events="none"></rect>
+            <rect x=${r.x + 4.5 / this.k} y=${r.y + 4.5 / this.k} width=${Math.max(r.w - 9 / this.k, 0)} height=${Math.max(r.h - 9 / this.k, 0)} rx=${radius}
+              fill="none" stroke="rgba(255,255,255,0.16)" stroke-width=${1 / this.k} pointer-events="none"></rect>`
+          : nothing}
         ${this.showMoisture && status !== "unknown"
           ? svg`<rect x=${r.x} y=${r.y} width=${r.w} height=${r.h} rx=${radius} fill=${MOISTURE_COLORS[status]} opacity="0.12" pointer-events="none"></rect>`
           : nothing}
@@ -641,6 +660,18 @@ export class GardenCanvas extends LitElement {
       <rect x=${cx - w / 2} y=${cy - h / 2} width=${w} height=${h} rx=${h / 2} fill="var(--hl-pill-bg, rgba(255,255,255,0.9))"
         stroke="rgba(0,0,0,0.12)" stroke-width="1" vector-effect="non-scaling-stroke"></rect>
       <text class="pill-text" x=${cx} y=${cy + fs * 0.36} font-size=${fs} text-anchor="middle">${text}</text></g>`;
+  }
+
+  /** How grown a crop looks on the day shown: seedlings when planted, full size at harvest. */
+  private growth(p: Planting, plant: Plant): number {
+    const tl = this.timelines[p.id];
+    const day = this.viewDate || this.analysis?.today;
+    if (!tl || !day || plant.perennial) return 1;
+    const t = Date.parse(day), a = Date.parse(tl.in_ground), b = Date.parse(tl.harvest_start), e = Date.parse(tl.harvest_end);
+    if (t < a) return 0.4;
+    if (t >= e) return 0.85;
+    if (t >= b || b <= a) return 1;
+    return 0.45 + (0.55 * (t - a)) / (b - a);
   }
 
   private renderPlanting(p: Planting): SVGTemplateResult | typeof nothing {
@@ -676,7 +707,7 @@ export class GardenCanvas extends LitElement {
       const gap = Math.max(p.layout === "row" ? plant.row_spacing_cm : Math.max(plant.row_spacing_cm / 2, plant.spacing_cm), 4);
       const nRows = Math.max(1, Math.floor(across / gap));
       const margin = Math.min(plant.spacing_cm / 2, length / 4);
-      const strokeW = Math.max(Math.min(plant.spacing_cm * 0.9, gap * 0.45), 2);
+      const strokeW = Math.max(Math.min(plant.spacing_cm * 0.9, gap * 0.45) * this.growth(p, plant), 1.5);
       const leaf = plant.category === "flower" ? color : "#5f9a3a";
       const rows = Array.from({ length: nRows }, (_, i) => (across / nRows) * (i + 0.5));
       const dash = `${Math.max(plant.spacing_cm * 0.6, 1.5)} ${Math.max(plant.spacing_cm * 0.4, 1)}`;
@@ -693,7 +724,7 @@ export class GardenCanvas extends LitElement {
           vector-effect="non-scaling-stroke"></circle>
         ${glyphUse(icon, cx, cy, big * 0.92, color)}`;
     } else {
-      const size = Math.max(Math.min(plant.spacing_cm * 0.92, Math.min(r.w, r.h) * 1.05), 6 / k);
+      const size = Math.max(Math.min(plant.spacing_cm * 0.92, Math.min(r.w, r.h) * 1.05) * this.growth(p, plant), 6 / k);
       body = svg`
         ${dots.slice(0, 300).map(([x, y]) => svg`<ellipse cx=${bedR.x + x} cy=${bedR.y + y + size * 0.42} rx=${size * 0.36} ry=${size * 0.09}
           fill="rgba(0,0,0,0.18)"></ellipse>`)}
