@@ -1,4 +1,4 @@
-"""Backend message catalog (English / Dutch).
+"""Backend message catalog (English / Dutch / French).
 
 Entities, notifications and calendar events are rendered server-side, so the
 backend needs its own small catalog.  The frontend has a richer catalog in
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-SUPPORTED = ("en", "nl")
+SUPPORTED = ("en", "nl", "fr")
 
 MESSAGES: dict[str, dict[str, str]] = {
     "en": {
@@ -170,6 +170,82 @@ MESSAGES: dict[str, dict[str, str]] = {
         "when.tonight": "vannacht",
         "when.tomorrow_night": "morgennacht",
     },
+    "fr": {
+        "task.sow_indoor": "Semer {plant} à l'intérieur",
+        "task.sow_direct": "Semer {plant} dans {bed}",
+        "task.harden_off": "Endurcir {plant}",
+        "task.transplant": "Repiquer {plant} dans {bed}",
+        "task.thin": "Éclaircir {plant} dans {bed}",
+        "task.stake": "Tuteurer {plant} dans {bed}",
+        "task.prune": "Tailler {plant} dans {bed}",
+        "task.pinch": "Pincer {plant} dans {bed}",
+        "task.earth_up": "Butter {plant} dans {bed}",
+        "task.feed": "Fertiliser {plant} dans {bed}",
+        "task.water": "Arroser {bed} ({liters} L)",
+        "task.weed": "Désherber {bed}",
+        "task.pest_check": "Contrôler les ravageurs sur {plant}",
+        "task.harvest": "Récolter {plant} dans {bed}",
+        "task.harvest_start": "Première récolte de {plant} dans {bed}",
+        "task.ventilate": "Aérer {zone}",
+        "task.shade": "Ombrer {zone}",
+        "task.frost_protect": "Protéger {plants} du gel",
+        "task.close_up": "Fermer {zone} pour la nuit",
+        "task.mulch": "Pailler {plant} dans {bed}",
+        "task.cut_back": "Rabattre {plant} dans {bed}",
+        "task.protect": "Protéger {plant} dans {bed}",
+        "task.clean": "Nettoyer autour de {plant} dans {bed}",
+        "task.tie_in": "Attacher {plant} dans {bed}",
+        "task.thin_fruit": "Éclaircir les fruits de {plant} dans {bed}",
+        "task.pollinate": "Aider à polliniser {plant} dans {bed}",
+        "task.check": "Contrôler {plant} dans {bed}",
+        "task.make_feed": "Préparer un purin",
+        "task.care.water": "Arroser {plant} dans {bed}",
+        "task.care.pest_check": "Contrôler les ravageurs sur {plant} dans {bed}",
+        "desc.sow_indoor": "Semer à {depth} cm de profondeur à {soil_temp} °C minimum. La germination prend {germ_min}-{germ_max} jours.",
+        "desc.sow_direct": "Semer à {depth} cm de profondeur, en lignes espacées de {row_spacing} cm. Le sol doit atteindre au moins {soil_temp} °C.",
+        "desc.harden_off": "Sortez les plants quelques heures par jour, en augmentant progressivement sur 7-10 jours.",
+        "desc.transplant": "Espacer les plants de {spacing} cm.",
+        "desc.thin": "Éclaircir les semis à {spacing} cm.",
+        "desc.water": "Humidité du sol {moisture}% (objectif {target}%). Apportez environ {mm} mm ({liters} L).",
+        "desc.weed": "Binez entre les rangs tant que les mauvaises herbes sont petites.",
+        "desc.harvest": "Période de récolte prévue {start} - {end}.",
+        "desc.frost": "Température minimale de {temp} °C attendue vers {time}.",
+        "desc.ventilate": "{temp} °C attendus à l'intérieur ; {plants} supportent jusqu'à {max} °C.",
+        "alert.frost": "Risque de gel {level} : {temp} °C attendus {when}",
+        "alert.heat": "Stress thermique dans {zone} : {temp} °C attendus",
+        "alert.dry": "{bed} est sec ({moisture}%)",
+        "alert.sensor_stale": "Le capteur {entity} n'a rien signalé depuis un moment",
+        "alert.forecast_unavailable": "Prévisions météo indisponibles",
+        "reason.soil_too_cold": "Le sol est à {soil} °C ; {plant} a besoin de {min} °C pour germer.",
+        "reason.soil_too_hot": "Le sol est à {soil} °C ; au-dessus de {max} °C, {plant} germe mal.",
+        "reason.frost_forecast": "Gel ({temp} °C) prévu avant le {date} ; {plant} craint le gel.",
+        "reason.window_open": "La fenêtre de semis est ouverte.",
+        "reason.window_not_yet": "La fenêtre s'ouvre le {date}.",
+        "reason.window_closed": "La fenêtre s'est fermée le {date}.",
+        "reason.greenhouse_extension": "La serre permet de commencer {weeks} semaines plus tôt.",
+        "reason.not_greenhouse_suitable": "{plant} ne convient pas à la serre.",
+        "compat.friend": "{a} et {b} sont de bons voisins : {reason}",
+        "compat.enemy": "{a} et {b} ne doivent pas être plantés ensemble : {reason}",
+        "compat.overlap": "{a} et {b} se chevauchent - pas assez de place.",
+        "compat.rotation": "Des {family} ont poussé dans {bed} en {season} ; attendez {years} ans.",
+        "compat.same_family_adjacent": "{a} et {b} sont de la même famille et partagent ses ravageurs.",
+        "compat.deters": "{a} protège {b} : il éloigne {pests}.",
+        "compat.trap": "{a} attire {pests} loin de {b} (plante piège).",
+        "compat.allelopathy": "{a} libère des substances qui freinent la croissance - tenez-le à l'écart de {b}.",
+        "compat.competition": "{a} et {b} sont deux gros consommateurs si près l'un de l'autre - ajoutez du compost ou donnez plus d'espace.",
+        "compat.shading": "{a} (environ {height} cm de haut) fera de l'ombre à {b} - plantez les cultures hautes du côté opposé au soleil.",
+        "compat.shade_benefit": "{a} offre à {b} une ombre estivale bienvenue.",
+        "digest.title": "Le potager aujourd'hui",
+        "digest.none": "Aucune tâche au potager aujourd'hui. Profitez du jardin !",
+        "digest.count": "{count} tâches aujourd'hui (~{minutes} min)",
+        "risk.none": "nul",
+        "risk.low": "faible",
+        "risk.moderate": "modéré",
+        "risk.high": "élevé",
+        "risk.unknown": "inconnu",
+        "when.tonight": "cette nuit",
+        "when.tomorrow_night": "demain soir",
+    },
 }
 
 
@@ -312,32 +388,101 @@ MESSAGES["nl"].update(
         "irrigation.skip.disabled": "Automatisch bewateren staat uit",
     }
 )
+MESSAGES["fr"].update(
+    {
+        "maint.plan_season": "Planifier la saison à venir",
+        "maint.plan_season.desc": "Relisez les notes et récoltes de l'an dernier, vérifiez la rotation des cultures et remplissez le planning (le remplissage automatique peut proposer un plan).",
+        "maint.order_seeds": "Vérifier le stock de graines et commander",
+        "maint.order_seeds.desc": "Faites un test de germination avec les vieilles graines (10 graines sur du papier essuie-tout humide) et commandez ce qui manque.",
+        "maint.seed_station": "Préparer le poste de semis",
+        "maint.seed_station.desc": "Nettoyez caissettes et godets, vérifiez lampes de culture et tapis chauffants, achetez du terreau de semis frais.",
+        "maint.compost_spring": "Retourner le tas de compost",
+        "maint.compost_spring.desc": "Retournez le tas et tamisez le compost mûr pour les planches de printemps.",
+        "maint.mulch_beds": "Pailler les planches",
+        "maint.mulch_beds.desc": "Une fois le sol réchauffé, étalez 5 cm de tonte, de paille ou de compost autour des cultures : cela économise l'eau et limite les mauvaises herbes.",
+        "maint.compost_summer": "Retourner le tas de compost",
+        "maint.compost_summer.desc": "Mélangez matières vertes et brunes, gardez le tas humide comme une éponge essorée.",
+        "maint.compost_autumn": "Monter un tas de compost d'automne",
+        "maint.compost_autumn.desc": "Rassemblez feuilles et résidus de culture (pas de matériel malade) et commencez un nouveau tas ; couvrez-le pour l'hiver.",
+        "maint.winter_water": "Vider tuyaux et récupérateurs d'eau",
+        "maint.winter_water.desc": "Videz et rangez les tuyaux, purgez le goutte-à-goutte et les robinets extérieurs avant les premières fortes gelées.",
+        "maint.winter_rest": "Mettre le potager en repos hivernal",
+        "maint.winter_rest.desc": "Retirez les cultures terminées, couvrez le sol nu (paillage ou engrais vert), laissez les tiges creuses pour les insectes et laissez le sol se reposer.",
+        "maint.soil_test": "Analyser le sol",
+        "maint.soil_test.desc": "Prélevez un échantillon mélangé par planche (pH, matière organique, P, K). À refaire tous les trois ans.",
+        "maint.tool_care": "Nettoyer et affûter les outils",
+        "maint.tool_care.desc": "Nettoyez, affûtez et huilez les outils ; réparez tuteurs et filets ; rangez l'abri de jardin.",
+        "maint.gh_spring_clean": "Nettoyage de printemps de {zone}",
+        "maint.gh_spring_clean.desc": "Lavez les vitres dedans et dehors pour un maximum de lumière, nettoyez les tablettes et vérifiez les aérations avant les semis.",
+        "maint.gh_shading_on": "Installer l'ombrage dans {zone}",
+        "maint.gh_shading_on.desc": "Appliquez du blanc d'ombrage ou un filet d'ombrage (30-40 %) avant les premières journées chaudes.",
+        "maint.gh_shading_off": "Retirer l'ombrage de {zone}",
+        "maint.gh_shading_off.desc": "Enlevez l'ombrage pour que les cultures d'automne reçoivent toute la lumière disponible.",
+        "maint.gh_winter": "Préparer {zone} pour l'hiver",
+        "maint.gh_winter.desc": "Posez du film à bulles, vérifiez le chauffage et le thermomètre mini/maxi, bouchez les interstices.",
+        "maint.gh_autumn_clean": "Nettoyer et désinfecter {zone}",
+        "maint.gh_autumn_clean.desc": "Retirez toutes les cultures, lavez vitres, structure et tablettes à l'eau savonneuse chaude, renouvelez la terre ou laissez-la reposer (repos hivernal).",
+        "maint.cut_back_spring": "Rabattre {plant} dans {bed}",
+        "maint.cut_back_spring.desc": "Rabattez la pousse de l'an dernier jusqu'aux jeunes pousses pour que la plante reste compacte.",
+        "maint.cut_back_autumn": "Rabattre {plant} dans {bed}",
+        "maint.cut_back_autumn.desc": "Coupez les tiges fanées après les premières gelées et apportez une couche de compost.",
+        "maint.protect_winter": "Protéger {plant} dans {bed} pour l'hiver",
+        "maint.protect_winter.desc": "Couvrez d'un voile d'hivernage ou d'un épais paillage, ou mettez les pots à l'abri.",
+        "maint.divide": "Diviser {plant} dans {bed}",
+        "maint.divide.desc": "Déterrez et divisez la touffe, replantez les parties extérieures vigoureuses dans une terre rafraîchie.",
+        "maint.soil_prep": "Préparer {bed} pour la plantation",
+        "maint.soil_prep.desc": "Ameublissez le sol sans le retourner, retirez les mauvaises herbes, épandez {compost} kg de compost (et {fertilizer} g d'engrais organique) pour {crops}.",
+        "maint.soil_prep.lime": "Des choux suivent : vérifiez le pH (viser 6,5-7) contre la hernie du chou.",
+        "maint.green_manure": "Semer un engrais vert dans {bed}",
+        "maint.green_manure.desc": "La planche est vide : semez phacélie, moutarde (pas avant des choux), trèfle ou seigle d'hiver pour protéger et nourrir le sol.",
+        "maint.cover_bed": "Couvrir {bed} pour l'hiver",
+        "maint.cover_bed.desc": "Trop tard pour un engrais vert : couvrez le sol de compost, de feuilles ou de paille pour qu'il se repose et que la vie du sol continue.",
+        "desc.feed": "Apportez environ {liquid} L d'engrais liquide dilué ({ml} ml de concentré à 1:100) ou {grams} g d'engrais organique en granulés.",
+        "task.disease_check": "Contrôler {plants} pour {disease}",
+        "desc.disease": "Risque de maladie {level} : {reason}. Retirez les feuilles atteintes, arrosez le sol et non le feuillage, et améliorez la circulation de l'air.",
+        "disease.blight": "mildiou",
+        "disease.mildew": "oïdium",
+        "disease.reason.hutton_period": "deux jours consécutifs chauds et humides (critères de Hutton)",
+        "disease.reason.wet_hours": "{hours} heures d'humectation du feuillage prévues",
+        "disease.reason.long_wet_period": "une longue période humide ({hours} heures) prévue",
+        "disease.reason.humid_greenhouse_air": "humidité de {humidity} % dans la serre",
+        "disease.reason.leaf_wet_now": "le feuillage est mouillé en ce moment",
+        "alert.disease": "Risque de maladie {level} dans {zone}",
+        "alert.nutrients": "Équilibre nutritif dans {bed} : {status}",
+        "irrigation.skip.frost": "Blocage gel : {temp} °C prévus (limite {limit} °C)",
+        "irrigation.skip.rain": "Pluie attendue : {mm} mm (pas d'arrosage au-delà de {limit} mm)",
+        "irrigation.skip.no_valve": "Aucune vanne configurée",
+        "irrigation.skip.no_flow": "Débit (L/min) inconnu - indiquez-le dans les réglages de la planche",
+        "irrigation.skip.not_needed": "Pas besoin d'eau",
+        "irrigation.skip.disabled": "L'arrosage automatique est désactivé",
+    }
+)
 
 
 PEST_LABELS: dict[str, dict[str, str]] = {
-    "aphids": {"en": "aphids", "nl": "bladluis"},
-    "whitefly": {"en": "whitefly", "nl": "witte vlieg"},
-    "red_spider_mite": {"en": "red spider mite", "nl": "spint"},
-    "thrips": {"en": "thrips", "nl": "trips"},
-    "slugs": {"en": "slugs", "nl": "slakken"},
-    "cabbage_white": {"en": "cabbage white", "nl": "koolwitje"},
-    "cabbage_root_fly": {"en": "cabbage root fly", "nl": "koolvlieg"},
-    "flea_beetle": {"en": "flea beetle", "nl": "aardvlo"},
-    "carrot_fly": {"en": "carrot fly", "nl": "wortelvlieg"},
-    "onion_fly": {"en": "onion fly", "nl": "uienvlieg"},
-    "leek_moth": {"en": "leek moth", "nl": "preimot"},
-    "pea_moth": {"en": "pea moth", "nl": "erwtenbladroller"},
-    "black_bean_aphid": {"en": "black bean aphid", "nl": "zwarte bonenluis"},
-    "bean_weevil": {"en": "bean weevil", "nl": "bonenkever"},
-    "leaf_miner": {"en": "leaf miner", "nl": "bladmineerder"},
-    "nematodes": {"en": "nematodes", "nl": "aaltjes"},
-    "ants": {"en": "ants", "nl": "mieren"},
-    "colorado_beetle": {"en": "Colorado beetle", "nl": "coloradokever"},
-    "wireworm": {"en": "wireworm", "nl": "ritnaald"},
-    "celery_fly": {"en": "celery fly", "nl": "selderijvlieg"},
-    "asparagus_beetle": {"en": "asparagus beetle", "nl": "aspergekever"},
-    "birds": {"en": "birds", "nl": "vogels"},
-    "pigeons": {"en": "pigeons", "nl": "duiven"},
+    "aphids": {"en": "aphids", "nl": "bladluis", "fr": "pucerons"},
+    "whitefly": {"en": "whitefly", "nl": "witte vlieg", "fr": "aleurodes"},
+    "red_spider_mite": {"en": "red spider mite", "nl": "spint", "fr": "araignée rouge"},
+    "thrips": {"en": "thrips", "nl": "trips", "fr": "thrips"},
+    "slugs": {"en": "slugs", "nl": "slakken", "fr": "limaces"},
+    "cabbage_white": {"en": "cabbage white", "nl": "koolwitje", "fr": "piéride du chou"},
+    "cabbage_root_fly": {"en": "cabbage root fly", "nl": "koolvlieg", "fr": "mouche du chou"},
+    "flea_beetle": {"en": "flea beetle", "nl": "aardvlo", "fr": "altise"},
+    "carrot_fly": {"en": "carrot fly", "nl": "wortelvlieg", "fr": "mouche de la carotte"},
+    "onion_fly": {"en": "onion fly", "nl": "uienvlieg", "fr": "mouche de l'oignon"},
+    "leek_moth": {"en": "leek moth", "nl": "preimot", "fr": "teigne du poireau"},
+    "pea_moth": {"en": "pea moth", "nl": "erwtenbladroller", "fr": "tordeuse du pois"},
+    "black_bean_aphid": {"en": "black bean aphid", "nl": "zwarte bonenluis", "fr": "puceron noir de la fève"},
+    "bean_weevil": {"en": "bean weevil", "nl": "bonenkever", "fr": "bruche du haricot"},
+    "leaf_miner": {"en": "leaf miner", "nl": "bladmineerder", "fr": "mineuse"},
+    "nematodes": {"en": "nematodes", "nl": "aaltjes", "fr": "nématodes"},
+    "ants": {"en": "ants", "nl": "mieren", "fr": "fourmis"},
+    "colorado_beetle": {"en": "Colorado beetle", "nl": "coloradokever", "fr": "doryphore"},
+    "wireworm": {"en": "wireworm", "nl": "ritnaald", "fr": "taupin"},
+    "celery_fly": {"en": "celery fly", "nl": "selderijvlieg", "fr": "mouche du céleri"},
+    "asparagus_beetle": {"en": "asparagus beetle", "nl": "aspergekever", "fr": "criocère de l'asperge"},
+    "birds": {"en": "birds", "nl": "vogels", "fr": "oiseaux"},
+    "pigeons": {"en": "pigeons", "nl": "duiven", "fr": "pigeons"},
 }
 
 
@@ -390,6 +535,16 @@ MESSAGES["nl"].update(
         "notify.water_leak": "De watermeter ({entity}) telde {liters} L in {minutes} minuten terwijl alle kranen van Hortulus dicht waren. Een lek, of staat er een kraan open?",
     }
 )
+MESSAGES["fr"].update(
+    {
+        "notify.valve_title": "Hortulus – vanne d'arrosage",
+        "notify.valve_stuck": "{what} ({entity}) est ouverte depuis bien plus longtemps qu'un arrosage. Est-elle bloquée, ou a-t-elle été ouverte à la main ?",
+        "notify.valve_not_closed": "{what} ({entity}) n'a pas signalé sa fermeture après l'arrosage. Vérifiez la vanne.",
+        "notify.valve_did_not_open": "{what} ({entity}) n'a pas signalé son ouverture pendant le test. Vérifiez la connexion.",
+        "notify.valve_closed_early": "{what} ({entity}) s'est fermée d'elle-même après {minutes} min alors que Hortulus arrosait encore. La vanne a-t-elle sa propre minuterie ? Indiquez-la dans Réglages → Planches → Minuterie de vanne, Hortulus fractionnera alors les arrosages plus longs.",
+        "notify.water_leak": "Le compteur d'eau ({entity}) a compté {liters} L en {minutes} minutes alors que toutes les vannes de Hortulus étaient fermées. Une fuite, ou un robinet resté ouvert ?",
+    }
+)
 
 # Seeds to buy -> a Home Assistant to-do list.
 MESSAGES["en"].update(
@@ -412,6 +567,17 @@ MESSAGES["nl"].update(
         "action.tomorrow": "Morgen",
         "action.water_now": "Water nu",
         "action.close_valve": "Kraan dicht",
+    }
+)
+MESSAGES["fr"].update(
+    {
+        "seeds.todo_item_any": "Graines : {plant}",
+        "seeds.todo_amount": "Environ {seeds} graines.",
+        "seeds.todo_description": "Pour le plan {season} de Hortulus : {plants} plants.",
+        "action.done": "Fait",
+        "action.tomorrow": "Demain",
+        "action.water_now": "Arroser maintenant",
+        "action.close_valve": "Fermer la vanne",
     }
 )
 
@@ -453,6 +619,25 @@ MESSAGES["nl"].update(
         "desc.pest.leek_moth": "Dek prei af met fijn insectengaas tijdens de vluchten; knip aangetaste bladeren met de rupsjes weg.",
         "desc.pest.aphids": "Druk kleine kolonies plat, spuit met water of zachte zeep en laat lieveheersbeestjes en zweefvliegen hun werk doen.",
         "desc.pest.slugs": "Zacht en vochtig weer: raap slakken na zonsondergang, zet bierval en bescherm zaailingen.",
+    }
+)
+MESSAGES["fr"].update(
+    {
+        "task.pest_net": "Couvrir {plants} dans {bed} contre {pest}",
+        "task.pest_watch": "Chercher {pest} sur {plants} dans {bed}",
+        "task.pest_collect": "Ramasser {pest} sur {plants} dans {bed}",
+        "task.pest_slugs": "Ronde des limaces le soir dans {bed} ({plants})",
+        "desc.pest_net": "{pest} est de sortie : posez un filet anti-insectes sur la culture avant le vol, enterrez les bords et laissez-le pendant tout le vol.",
+        "desc.pest_check": "{pest} est actif : regardez sous les feuilles et dans les pousses ; intervenez tôt, tant qu'il y en a peu.",
+        "desc.pest_collect": "{pest} est actif : ramassez coléoptères et larves à la main dans de l'eau savonneuse, regardez aussi sous les feuilles.",
+        "desc.pest_trap": "{pest} : ramassez-les à la lampe de poche à la nuit tombée, posez des pièges à bière ou des planchettes et protégez les jeunes plants.",
+        "desc.pest.carrot_fly": "La mouche de la carotte vole bas : couvrez d'un filet anti-insectes fin (ou d'une barrière de 60 cm) dès le semis, éclaircissez le soir et tassez le sol ensuite.",
+        "desc.pest.cabbage_root_fly": "La mouche du chou pond au pied de la tige : posez des collerettes autour des jeunes choux ou couvrez-les d'un filet anti-insectes.",
+        "desc.pest.cabbage_white": "Couvrez les choux d'un filet anti-papillons (maille 5-7 mm) et regardez chaque semaine sous les feuilles s'il y a des œufs jaunes.",
+        "desc.pest.onion_fly": "Couvrez oignons et poireaux d'un filet anti-insectes fin ; arrachez les plants jaunissants et flétris avec les asticots.",
+        "desc.pest.leek_moth": "Couvrez les poireaux d'un filet anti-insectes fin pendant les vols ; coupez les feuilles atteintes avec les chenilles.",
+        "desc.pest.aphids": "Écrasez les petites colonies, pulvérisez de l'eau ou du savon noir, et laissez coccinelles et syrphes faire leur travail.",
+        "desc.pest.slugs": "Temps doux et humide : ramassez les limaces à la nuit tombée, posez des pièges à bière et protégez les semis.",
     }
 )
 

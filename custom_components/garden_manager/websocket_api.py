@@ -1406,7 +1406,9 @@ def ws_analysis_explain(hass: HomeAssistant, connection: websocket_api.ActiveCon
     data = runtime.repo.data
     today = dt_util.now().date()
     season = msg.get("season") or data.layout_season or season_for_date(data.settings.region, today)
-    verdicts = diagnose.explain_plant(plant, data, db, season, today=today, match_zone=msg["match_zone"])
+    verdicts = diagnose.explain_plant(
+        plant, data, db, season, today=today, match_zone=msg["match_zone"], lang=runtime.coordinator.lang
+    )
     connection.send_result(
         msg["id"],
         {

@@ -419,7 +419,9 @@ class GardenOptionsFlow(OptionsFlow):
             step_id="advanced",
             data_schema=vol.Schema(
                 {
-                    vol.Required("language", default=current["language"]): _select(["auto", "en", "nl"], "language"),
+                    vol.Required("language", default=current["language"]): _select(
+                        ["auto", "en", "nl", "fr"], "language"
+                    ),
                     vol.Required("companion_radius_cm", default=current["companion_radius_cm"]): _number(
                         10, 300, 5, "cm"
                     ),

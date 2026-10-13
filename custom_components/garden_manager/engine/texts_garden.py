@@ -1,4 +1,4 @@
-"""Texts for the phase 3 maintenance rules and weather tasks (EN / NL).
+"""Texts for the phase 3 maintenance rules and weather tasks (EN / NL / FR).
 
 Kept apart from ``i18n.py`` so the core catalogue stays readable.  Imported
 for its side effect at the bottom of ``i18n.py``.
@@ -341,6 +341,48 @@ _PEST_NL = {
     "moths": "motten",
     "ants": "mieren",
 }
+_PEST_FR = {
+    "aphids": "pucerons",
+    "whitefly": "aleurodes",
+    "red_spider_mite": "araignée rouge",
+    "thrips": "thrips",
+    "slugs": "limaces",
+    "cabbage_white": "piéride du chou",
+    "cabbage_root_fly": "mouche du chou",
+    "flea_beetle": "altise",
+    "carrot_fly": "mouche de la carotte",
+    "onion_fly": "mouche de l'oignon",
+    "leek_moth": "teigne du poireau",
+    "pea_moth": "tordeuse du pois",
+    "birds": "oiseaux",
+    "pigeons": "pigeons",
+    "black_bean_aphid": "puceron noir de la fève",
+    "bean_weevil": "bruche du haricot",
+    "leaf_miner": "mineuse",
+    "asparagus_beetle": "criocère de l'asperge",
+    "celery_fly": "mouche du céleri",
+    "colorado_beetle": "doryphore",
+    "wireworm": "taupin",
+    "codling_moth": "carpocapse",
+    "woolly_aphid": "puceron lanigère",
+    "winter_moth": "phalène hiémale",
+    "pear_midge": "cécidomyie des poirettes",
+    "pear_psylla": "psylle du poirier",
+    "plum_moth": "carpocapse des prunes",
+    "wasps": "guêpes",
+    "cherry_fruit_fly": "mouche de la cerise",
+    "spotted_wing_drosophila": "drosophile suzukii",
+    "black_cherry_aphid": "puceron noir du cerisier",
+    "nut_weevil": "balanin des noisettes",
+    "squirrels": "écureuils",
+    "currant_blister_aphid": "puceron du groseillier",
+    "gooseberry_sawfly": "tenthrède du groseillier",
+    "big_bud_mite": "phytopte du cassissier",
+    "raspberry_beetle": "ver des framboises",
+    "nematodes": "nématodes",
+    "moths": "mites",
+    "ants": "fourmis",
+}
 _MONTHS = {
     "en": [
         "January",
@@ -370,13 +412,29 @@ _MONTHS = {
         "november",
         "december",
     ],
+    "fr": [
+        "janvier",
+        "février",
+        "mars",
+        "avril",
+        "mai",
+        "juin",
+        "juillet",
+        "août",
+        "septembre",
+        "octobre",
+        "novembre",
+        "décembre",
+    ],
 }
-for _lang in ("en", "nl"):
+for _lang in ("en", "nl", "fr"):
     for _i, _m in enumerate(_MONTHS[_lang], start=1):
         MESSAGES[_lang][f"month.{_i}"] = _m
 for _pid, _name in _PEST_NL.items():
     MESSAGES["nl"][f"pest.{_pid}"] = _name
     MESSAGES["en"][f"pest.{_pid}"] = _pid.replace("_", " ")
+for _pid, _name in _PEST_FR.items():
+    MESSAGES["fr"][f"pest.{_pid}"] = _name
 
 MESSAGES["en"].update(
     {
@@ -496,5 +554,226 @@ MESSAGES["nl"].update(
         "advice.gh_sensor": "Zet een thermometer in de serre",
         "advice.gh_sensor.text": "Met een temperatuursensor kan Hortulus je waarschuwen voordat de serre oververhit raakt of bevriest. "
         "Zie het hoofdstuk over sensoren.",
+    }
+)
+
+MESSAGES["fr"].update(
+    {
+        "overdue.title": "Potager : {count} tâches en attente",
+        "voice.not_ready": "Hortulus est encore en train de démarrer, redemandez-moi dans une minute.",
+        "voice.no_tasks": "Rien à faire au potager aujourd'hui. Profitez-en !",
+        "voice.tasks": "{count} tâches au potager aujourd'hui, environ {minutes} minutes : {tasks}.",
+        "voice.no_overdue": "Aucune tâche en retard au potager. Bravo !",
+        "voice.overdue": "{count} tâches sont en retard : {tasks}.",
+        "voice.harvest": "Prêt à récolter : {plants}.",
+        "voice.no_harvest": "Rien n'est prêt à récolter pour le moment.",
+        "voice.gh_temp": "Il fait {temp} degrés dans {zone}.",
+        "voice.gh_no_sensor": "{zone} n'a pas de thermomètre associé.",
+        "voice.gh_action.ventilate": "Ouvrez les aérations.",
+        "voice.gh_action.shade": "Installez l'ombrage.",
+        "voice.gh_action.close_up": "Fermez-la avant le soir.",
+        "voice.gh_action.heat": "Il fait trop froid, allumez le chauffage.",
+        "voice.no_greenhouse": "Vous n'avez pas de serre dans Hortulus.",
+        "voice.water": "Oui, arrosez {beds}.",
+        "voice.no_water": "Non, le sol est assez humide.",
+        "voice.frost": "Oui, du gel est prévu, jusqu'à {temp} degrés. Couvrez les plantes sensibles.",
+        "voice.no_frost": "Pas de gel prévu.",
+        "desc.rain_water": "Eau de pluie dans les récupérateurs : environ {liters} L - utilisez-la d'abord.",
+        "soil.adj.lime_dose": "Analyse de sol : épandez {grams} g de chaux agricole (pH trop bas), pas en même temps que le fumier.",
+        "soil.adj.om_low": "Analyse de sol : peu de matière organique - moitié plus de compost.",
+        "soil.adj.om_high": "Analyse de sol : beaucoup de matière organique - moins de compost nécessaire.",
+        "soil.adj.pk_high": "Analyse de sol : phosphore et potassium élevés - moitié moins d'engrais, le compost suffit.",
+        "soil.adj.pk_low": "Analyse de sol : phosphore ou potassium bas - un peu plus d'engrais organique (ou de cendre de bois pour K).",
+        "soil.adj.ph_high": "Analyse de sol : pH au-dessus de 7,5 - pas de chaux ; le terreau de feuilles et le compost le font baisser lentement.",
+        "weather.moved": "Déplacé au {date} à cause de la météo ({reason}).",
+        "weather.no_good_day": "Alerte météo : {reason} prévu(e) - choisissez vous-même le meilleur moment ou protégez avec un voile.",
+        "weather.problem.rain": "pluie",
+        "weather.problem.frost": "gel",
+        "weather.problem.heat": "chaleur",
+        "weather.problem.wind": "vent fort",
+        "overdue.window_closed": "trop tard maintenant - passez ou choisissez une alternative",
+        "overdue.still_ok": "encore possible jusqu'au {date}",
+        "overdue.do_now": "{days} jours de retard",
+        "overdue.footer": "Ouvrez Hortulus pour valider, reporter ou passer.",
+        "weekly.title": "Potager : votre semaine",
+        "weekly.day": "{day} : {count} tâches (~{minutes} min)",
+        "weekly.empty": "Une semaine calme - rien de prévu.",
+        "maint.clean_pots": "Laver pots, caissettes et étiquettes",
+        "maint.clean_pots.desc": "Frottez pots et caissettes de semis dans de l'eau chaude avec un peu de savon noir ou "
+        "de vinaigre ; rincez et séchez au soleil. Des pots propres évitent la fonte des semis.",
+        "maint.water_butts": "Nettoyer et raccorder les récupérateurs d'eau",
+        "maint.water_butts.desc": "Retirez la vase, vérifiez le collecteur sur la descente de gouttière et posez un "
+        "couvercle ou une fine moustiquaire (pas de larves de moustiques). L'eau de pluie est plus douce et plus "
+        "tiède que l'eau du robinet - les plantes l'adorent.",
+        "maint.irrigation_service": "Entretenir le goutte-à-goutte",
+        "maint.irrigation_service.desc": "Rincez les conduites, nettoyez filtres et goutteurs (une nuit dans le vinaigre "
+        "dissout le calcaire), cherchez les fuites et testez chaque vanne une fois.",
+        "maint.green_manure_dig": "Faucher et incorporer l'engrais vert",
+        "maint.green_manure_dig.desc": "Fauchez ou hachez l'engrais vert, laissez-le flétrir quelques jours et "
+        "incorporez-le superficiellement dans les 10 premiers cm (sans travail du sol : laissez-le en paillage sous "
+        "une bâche). Semez 3-4 semaines plus tard.",
+        "maint.slug_patrol": "Commencer la ronde des limaces",
+        "maint.slug_patrol.desc": "Faites le tour avec une lampe de poche au crépuscule ou après la pluie. Écologique : "
+        "piège à bière (pot enterré, bord 2 cm au-dessus du sol), une planche sous laquelle elles se cachent, un "
+        "anneau de cendre de bois, de gravillons ou de coquilles d'œuf broyées autour des semis ; accueillez "
+        "hérissons, grives et carabes.",
+        "maint.nettle_feed": "Préparer du purin d'ortie (azote)",
+        "maint.nettle_feed.desc": "1 kg de jeunes orties (avant floraison) dans 10 l d'eau de pluie, remuez chaque "
+        "jour, laissez fermenter 10-14 jours. Diluez à 1:10 pour les légumes-feuilles et les choux, 1:20 pour les "
+        "semis. Un couvercle retient l'odeur.",
+        "maint.comfrey_feed": "Préparer du purin de consoude (potassium)",
+        "maint.comfrey_feed.desc": "Tassez des feuilles de consoude dans un seau percé de quelques trous au fond, "
+        "lestez-les et récupérez le liquide noir (ou faites macérer 1 kg dans 10 l d'eau pendant 3 semaines). "
+        "Diluez à 1:10 - l'engrais idéal pour tomates et fruits.",
+        "maint.sow_winter_crops": "Semer pour les récoltes d'automne et d'hiver",
+        "maint.sow_winter_crops.desc": "Dernière chance en pleine terre pour les légumes d'hiver : mâche, épinard, "
+        "claytone de Cuba, roquette, pak-choï, chicorée frisée, navet à feuilles ; repiquez poireaux, chou frisé et "
+        "chou d'hiver. Semez un engrais vert sur les planches vides.",
+        "maint.hedge_trim": "Tailler la haie (après la nidification)",
+        "maint.hedge_trim.desc": "Vérifiez d'abord qu'il n'y a pas de nids - les oiseaux nichent jusqu'à mi-août. "
+        "Utilisez les tailles (broyées) en paillage ou au compost.",
+        "maint.seed_saving": "Récolter ses graines",
+        "maint.seed_saving.desc": "Choisissez les plus beaux fruits de variétés non hybrides (tomate, haricot, pois, "
+        "laitue). Tomate : faites fermenter la pulpe 3 jours dans un verre d'eau, rincez et séchez. Conservez dans "
+        "des enveloppes en papier, au frais et au sec.",
+        "maint.fleece_ready": "Préparer voiles, tunnels et toiles antigel",
+        "maint.fleece_ready.desc": "Vérifiez le voile d'hivernage et les arceaux, achetez ce qui manque ; de vieux "
+        "draps et des cartons font aussi l'affaire pour une nuit de gel.",
+        "maint.leaf_mould": "Ramasser les feuilles pour le terreau de feuilles",
+        "maint.leaf_mould.desc": "Remplissez des sacs poubelle de feuilles mortes humides, percez quelques trous et "
+        "laissez-les 1-2 ans : le meilleur terreau de semis et paillage gratuit. Évitez les feuilles malades "
+        "(tavelure, rouille).",
+        "maint.gutters": "Dégager les gouttières et le collecteur d'eau de pluie",
+        "maint.gutters.desc": "Retirez les feuilles des gouttières, du filtre du récupérateur et des gouttières de la "
+        "serre pour recueillir la pluie d'hiver.",
+        "maint.nest_boxes": "Nettoyer les nichoirs et nourrir les oiseaux",
+        "maint.nest_boxes.desc": "Videz les vieux nids (puces), rincez à l'eau bouillante - pas de produits chimiques. "
+        "Les mésanges mangent des milliers de chenilles et de pucerons : accrochez le nichoir à 2-3 m, l'entrée "
+        "tournée vers l'est.",
+        "maint.storage_check": "Contrôler les réserves d'hiver",
+        "maint.storage_check.desc": "Passez en revue pommes de terre, oignons, courges, pommes et légumes-racines : "
+        "retirez tout ce qui ramollit ou pourrit, gardez le local sombre, hors gel et aéré.",
+        "maint.gh_windows": "Laver les vitres de {zone}",
+        "maint.gh_windows.desc": "Nettoyez le verre ou le polycarbonate dedans et dehors : un toit sale coûte 10-20 % "
+        "de la lumière. Eau tiède avec du savon noir ou un trait de vinaigre, une brosse douce sur un manche, rincez "
+        "au tuyau ; grattez les algues des recouvrements avec une étiquette de plante.",
+        "maint.gh_windows_autumn": "Nettoyer les vitres de {zone} pour la lumière d'hiver",
+        "maint.gh_windows_autumn.desc": "Lavez le blanc d'ombrage et la poussière de l'été pour que les cultures "
+        "d'hiver profitent du moindre rayon.",
+        "maint.gh_vents_check": "Vérifier aérations et ouvre-fenêtres de {zone}",
+        "maint.gh_vents_check.desc": "Testez les ouvre-fenêtres automatiques (les vérins à cire faiblissent après "
+        "quelques années), les ventilateurs et le thermomètre mini/maxi avant la première journée chaude.",
+        "maint.gh_biocontrol": "Introduire les auxiliaires dans {zone}",
+        "maint.gh_biocontrol.desc": "Dès 15 °C : lâchez Encarsia contre l'aleurode, Phytoseiulus contre l'araignée "
+        "rouge et des larves de chrysope contre les pucerons. Accrochez des pièges jaunes englués pour surveiller. "
+        "Une coupelle d'eau et quelques fleurs (souci, alysse) les retiennent sur place.",
+        "maint.gh_winter_crops": "Planifier les cultures d'hiver dans {zone}",
+        "maint.gh_winter_crops.desc": "Semez ou plantez maintenant pour récolter tout l'hiver sous abri : mâche, "
+        "claytone de Cuba, épinard, pak-choï, mizuna, roquette, blette, oignon blanc ; laitue pour le début du "
+        "printemps.",
+        "maint.orchard_winter_wash": "Contrôle hivernal des arbres fruitiers dans {zone}",
+        "maint.orchard_winter_wash.desc": "Par temps sec, cherchez chancres, fruits momifiés et œufs de pucerons ; "
+        "brossez l'écorce qui se détache avec une brosse dure. Retirez les momies (moniliose) et le bois mort.",
+        "maint.orchard_mow": "Tondre les allées du verger, laisser des bandes fleuries",
+        "maint.orchard_mow.desc": "Gardez un cercle de 1 m sans herbe au pied des arbres (paillage), tondez les "
+        "allées et laissez fleurir des bandes pour les pollinisateurs et les insectes prédateurs.",
+        "maint.orchard_grease_bands": "Poser des bandes de glu sur les arbres de {zone}",
+        "maint.orchard_grease_bands.desc": "Des bandes de glu à 1 m de hauteur empêchent les femelles aptères de la "
+        "phalène hiémale de grimper pour pondre. Retirez-les en mars.",
+        "maint.orchard_pollinators": "Aider les pollinisateurs dans {zone}",
+        "maint.orchard_pollinators.desc": "La floraison approche : installez un hôtel à osmies (sud-est, 1-2 m), "
+        "laissez fleurir les pissenlits dans l'herbe, ne traitez jamais pendant la floraison.",
+        "weather.heat": "Chaleur en vue ({temp} °C le {day}) : protégez le potager",
+        "weather.heat.desc": "Jusqu'à {temp} °C pendant {days} jour(s). Arrosez tôt le matin (5-8 h), au pied et en "
+        "profondeur (10-20 l/m²) plutôt qu'un peu chaque soir ; paillez le sol nu sur 5-8 cm (tonte, paille) ; "
+        "récoltez le matin ; ne semez, ne repiquez et ne taillez pas maintenant ; mettez les pots à l'ombre et "
+        "prévoyez une coupelle d'eau pour les oiseaux et les insectes.",
+        "weather.heat.shade": "Ombrez les cultures les plus sensibles à midi : {plants}. Pas de toile d'ombrage ? Un "
+        "vieux voilage, un voile d'hivernage en double, un parasol ou un drap sur des piquets conviennent très bien.",
+        "weather.heat.very": "Très chaud : tomates et poivrons perdent leurs fleurs au-delà de 32-35 °C - ombrez-les "
+        "aussi. Contrôlez les pots et les jeunes plants deux fois par jour.",
+        "weather.heat_gh": "Chaleur en vue : rafraîchissez {zone} ({temp} °C)",
+        "weather.heat_gh.desc": "Ouvrez toutes les aérations et la porte tôt le matin, ne fermez la porte que si la "
+        "nuit descend sous 12 °C ; blanc d'ombrage ou filet en place ; mouillez le sol et les allées à midi "
+        "(l'évaporation rafraîchit de 3-5 °C) ; arrosez le matin ; un seau d'eau dans la serre tamponne la nuit.",
+        "weather.dry": "Période sèche et chaude ({days} jours) : arrosez malin",
+        "weather.dry.desc": "Un arrosage copieux par semaine (20 l/m²) plutôt qu'un peu chaque jour - les racines "
+        "descendent plus profond. Binez une fois (« un binage vaut deux arrosages »), complétez le paillage, utilisez "
+        "d'abord les récupérateurs et arrosez le matin. Des bouteilles enterrées ou des oyas (pots non émaillés) "
+        "près des cultures gourmandes économisent la moitié de l'eau.",
+        "weather.storm": "Tempête en vue ({day}) : mettez le potager à l'abri",
+        "weather.storm.desc": "Rafales jusqu'à {wind} km/h. Fermez portes et aérations de la serre, lestez voiles et "
+        "filets (pierres, sacs de sable, sardines), mettez pots et caissettes à l'abri et rangez tout ce qui traîne.",
+        "weather.storm.tall": "Vérifiez tuteurs et liens des cultures hautes : {plants}.",
+        "weather.rain": "Fortes pluies ({mm} mm le {day}) : après la pluie",
+        "weather.rain.desc": "Après la pluie : ronde des limaces au crépuscule (pièges à bière, ramassage), ne marchez "
+        "pas sur les planches mouillées (utilisez une planche), videz soucoupes et pots, vérifiez que l'eau "
+        "s'écoule. Attendez quelques jours avant de semer ; retirez les fruits pourris (botrytis).",
+    }
+)
+
+MESSAGES["fr"].update(
+    {
+        "method.indoor_sow": "Semis à l'intérieur",
+        "method.direct_sow": "Semis en pleine terre",
+        "method.transplant": "Repiquage",
+        "moisture.dry": "sec",
+        "moisture.slightly_dry": "un peu sec",
+        "moisture.optimal": "parfait",
+        "moisture.wet": "humide",
+        "moisture.unknown": "inconnu",
+        "pollination.insects": "Pollinisé par les insectes - des fleurs à proximité aident.",
+        "pollination.wind": "Pollinisé par le vent - plantez en blocs.",
+        "pollination.partner": "A besoin d'une deuxième variété à proximité pour fructifier.",
+        "advice.whole_garden": "Tout le jardin",
+        "advice.tools": "Outils et fournitures",
+        "advice.partner": "{plant} a besoin d'un pollinisateur",
+        "advice.partner.text": "Pas de deuxième variété de {plant} à proximité. Plantez une autre variété qui fleurit en "
+        "même temps (dans un rayon d'environ 50 m - l'arbre du voisin compte), ou greffez une branche pollinisatrice.",
+        "advice.pollinators": "Ajoutez des fleurs pour les pollinisateurs dans {zone}",
+        "advice.pollinators.text": "{plants} ont besoin d'insectes pour fructifier. Une bande de {flowers} attire abeilles "
+        "et syrphes (qui mangent aussi les pucerons).",
+        "advice.enemy": "{a} et {b} sont de mauvais voisins dans {bed}",
+        "advice.enemy.text": "{reason} Déplacez l'un des deux vers une autre planche.",
+        "advice.better": "Meilleurs voisins : {plants}.",
+        "advice.shade": "{tall} fait de l'ombre à {short} dans {bed}",
+        "advice.shade.text": "Les cultures hautes vont du côté nord de la planche (en haut du plan) pour ne pas voler le "
+        "soleil à {short}.",
+        "advice.gaps": "Comblez les creux de récolte",
+        "advice.gaps.text": "Rien à récolter en {months}. Ajoutez par exemple {plants} - ou conservez davantage de la "
+        "récolte d'été.",
+        "advice.empty_bed": "{bed} est vide - semez une culture rapide",
+        "advice.empty_bed.text": "Il reste du temps pour une culture dérobée avant le gel : {plants}.",
+        "advice.empty_bed_late": "Couvrez {bed} pour l'hiver",
+        "advice.empty_bed_late.text": "Trop tard pour des légumes : semez un engrais vert ({plants}) ou paillez le sol.",
+        "advice.empty_greenhouse": "Utilisez {bed} pour les cultures d'hiver",
+        "advice.empty_greenhouse.text": "Sous abri, on récolte tout l'hiver : {plants}.",
+        "advice.rotation": "{n} cultures ne respectent pas la rotation",
+        "advice.rotation.text": "La même famille y a poussé récemment - risque accru de maladies du sol. Le planning "
+        "indique de meilleures planches pour chacune.",
+        "advice.heat_stress": "Stress thermique sur {plants}",
+        "advice.heat_stress.text": "Ombrez à midi, arrosez le matin et aérez complètement la serre.",
+        "advice.feed": "{bed} manque de nutriments",
+        "advice.feed.text": "Apportez du purin d'ortie dilué (légumes-feuilles) ou du purin de consoude (légumes-fruits) "
+        "et une couche de compost.",
+        "advice.flowers": "Plantez des fleurs entre les légumes",
+        "advice.flowers.text": "Environ un dixième de fleurs ({flowers}) attire pollinisateurs et lutte naturelle contre "
+        "les ravageurs.",
+        "advice.year_transition": "Clôturez {from} et passez à {to}",
+        "advice.year_transition.text": "La nouvelle année a commencé, mais rien n'est reporté automatiquement : "
+        "choisissez lors du passage d'année quelle partie du plan, quelles vivaces et quelles cultures hivernantes "
+        "passent à {to}. D'ici là, elles n'ont pas de tâches pour {to}.",
+        "advice.compost": "Dessinez un tas de compost",
+        "advice.compost.text": "Votre propre compost est le meilleur amendement et le moins cher - placez-le dans un coin "
+        "mi-ombragé.",
+        "advice.water_butt": "Récupérez l'eau de pluie",
+        "advice.water_butt.text": "Un récupérateur sur la gouttière de l'abri ou de la serre donne une eau douce et tiède "
+        "et économise l'eau du robinet.",
+        "advice.habitat": "Faites de la place aux auxiliaires",
+        "advice.habitat.text": "Une haie, une petite mare, un tas de bois ou un coin sauvage attire hérissons, crapauds, "
+        "oiseaux et carabes - vos meilleurs alliés contre limaces et chenilles.",
+        "advice.gh_sensor": "Ajoutez un thermomètre dans la serre",
+        "advice.gh_sensor.text": "Avec une sonde de température, Hortulus peut vous prévenir avant que la serre ne "
+        "surchauffe ou ne gèle. Voir le chapitre sur les capteurs.",
     }
 )

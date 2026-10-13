@@ -228,7 +228,8 @@
       "options": {
         "auto": "Follow Home Assistant",
         "en": "English",
-        "nl": "Nederlands"
+        "nl": "Nederlands",
+        "fr": "Français"
       }
     },
     "task_type": {
@@ -1008,7 +1009,7 @@
     },
     "install_voice_sentences": {
       "name": "Install voice sentences",
-      "description": "Copy the Hortulus sentences for Assist to /config/custom_sentences (EN and NL).",
+      "description": "Copy the Hortulus sentences for Assist to /config/custom_sentences (EN, NL and FR).",
       "fields": {
         "overwrite": {
           "name": "Overwrite",

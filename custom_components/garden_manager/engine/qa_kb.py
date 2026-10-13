@@ -1,4 +1,4 @@
-"""Knowledge base for the Q&A assistant (EN / NL).
+"""Knowledge base for the Q&A assistant (EN / NL / FR).
 
 ``PROBLEMS``: per problem the likely causes, what to do now, ecological
 home remedies and prevention.  ``PESTS`` / ``DISEASES``: recognition and
@@ -625,3 +625,287 @@ DISEASES: dict[str, dict[str, str]] = {
         "nl": "Kiemplantenziekte: propere potjes, verse zaaigrond, water van onderen, luchtcirculatie.",
     },
 }
+
+# French, kept as one block and merged into the tables above.
+_PROBLEMS_FR: dict[str, dict[str, list[str]]] = {
+    "growth": _e(
+        [
+            "Sol trop froid pour la culture (vérifiez la température du sol).",
+            "Trop peu de lumière : ombre, jours courts ou toit de serre sale.",
+            "Sol affamé - surtout en azote pour les légumes-feuilles.",
+            "Stress hydrique ou sol détrempé et asphyxié.",
+            "Racines abîmées (taupin, mouche du chou) ou plants trop serrés.",
+        ],
+        [
+            "Comparez la température du sol au minimum de la culture ; posez un voile pour réchauffer.",
+            "Nourrissez les cultures gourmandes au purin d'ortie dilué (1:10) toutes les 2 semaines.",
+            "Arrosez copieusement une ou deux fois par semaine plutôt qu'un peu chaque jour.",
+            "Éclaircissez les semis trop serrés au bon espacement.",
+        ],
+        [
+            "Purin d'ortie pour l'azote, purin de consoude pour les légumes-fruits.",
+            "Thé de compost comme stimulant doux.",
+            "Un paillage sombre ou un voile noir réchauffe le sol au printemps.",
+        ],
+        [
+            "Semez à la bonne température de sol, pas selon le calendrier.",
+            "Apportez chaque année 3-5 l de compost par m².",
+            "Gardez les vitres de la serre propres (10-20 % de lumière en plus).",
+        ],
+    ),
+    "yellow_leaves": _e(
+        [
+            "Le jaunissement des vieilles feuilles du bas est un vieillissement normal.",
+            "Manque d'azote : plante entière pâle, les plus vieilles feuilles d'abord.",
+            "Trop humide : les racines s'asphyxient (jaune + mou).",
+            "Manque de magnésium (tomate) : jaune entre des nervures vertes.",
+            "Nuits froides ou changement brusque (tout juste repiqué).",
+        ],
+        [
+            "Retirez les feuilles jaunes du bas (meilleure circulation de l'air).",
+            "Apportez du purin d'ortie à 1:10 ; pour les tomates, du purin de consoude.",
+            "Vérifiez l'humidité du sol avec un doigt à 5 cm avant d'arroser.",
+            "Magnésium : sel d'Epsom, 20 g pour 10 l d'eau au pied.",
+        ],
+        [
+            "Purin d'ortie (azote).",
+            "Sel d'Epsom (sulfate de magnésium) pour tomate et poivron.",
+            "Marc de café et compost comme engrais lent.",
+        ],
+        ["Bon drainage : planches surélevées en sol lourd.", "Compost régulier ; rotation des cultures."],
+    ),
+    "wilting": _e(
+        [
+            "Sécheresse - la cause la plus fréquente, surtout en pot et en serre.",
+            "Chaleur de midi : les feuilles pendent mais se redressent le soir (normal).",
+            "Pourriture des racines ou sol détrempé.",
+            "Maladies du flétrissement (verticilliose, fusariose) ou ravageurs des racines (taupin, otiorhynque).",
+            "Limaces ou vers gris qui rongent la tige au ras du sol.",
+        ],
+        [
+            "Arrosez tôt le matin, copieusement au pied.",
+            "Ombrez les plantes à midi par forte chaleur.",
+            "Si la plante reste molle le soir en sol humide : contrôlez racines et collet.",
+            "Arrachez les plantes aux vaisseaux brunis (flétrissement) ; ne les compostez pas.",
+        ],
+        [
+            "Ombrez avec un vieux voilage ou un voile d'hivernage en double.",
+            "Paillez sur 5-8 cm pour garder le sol frais et humide.",
+            "Bouteille enterrée ou oya près des plantes gourmandes en eau.",
+        ],
+        [
+            "Paillage et arrosages copieux.",
+            "Tomates/concombres greffés sur porte-greffe résistant.",
+            "Rotation des cultures.",
+        ],
+    ),
+    "no_fruit": _e(
+        [
+            "Pas de pollinisateurs : froid, pluie ou pas de fleurs à proximité.",
+            "Pollinisateur manquant (pommier, poirier, cerisier doux, myrtillier, kiwaï).",
+            "Trop chaud (>32 °C) ou trop froid à la floraison : les fleurs coulent.",
+            "Trop d'azote : beaucoup de feuilles, peu de fleurs.",
+            "Jeune arbre qui ne porte pas encore, ou gel sur la floraison.",
+        ],
+        [
+            "Pollinisez à la main : frottez les fleurs mâles sur les fleurs femelles (cucurbitacées), secouez les grappes de tomates en milieu de matinée.",
+            "Plantez une deuxième variété comme pollinisateur.",
+            "Ombrez et aérez la serre les jours chauds.",
+            "Passez à un engrais riche en potassium (consoude).",
+        ],
+        [
+            "Purin de consoude (potassium) pour les fleurs et les fruits.",
+            "Bourrache, phacélie et souci à proximité attirent les abeilles.",
+            "Un voile sur la floraison précoce les nuits de gel.",
+        ],
+        [
+            "Des fleurs dans chaque planche ; un hôtel à insectes.",
+            "Ne traitez jamais pendant la floraison.",
+            "Des variétés adaptées au climat (concombres parthénocarpiques sous abri).",
+        ],
+    ),
+    "bolting": _e(
+        [
+            "Jours longs et chaleur (laitue, épinard, coriandre, roquette, pak-choï).",
+            "Coup de froid après le semis (betterave, céleri, bulbilles d'oignon).",
+            "Stress hydrique.",
+            "Semé trop tôt ou variété inadaptée à la saison.",
+        ],
+        [
+            "Récoltez maintenant - les plantes montées deviennent amères.",
+            "Ressemez à l'ombre ou en fin d'été.",
+            "Arrachez et compostez, ou laissez-en fleurir quelques-unes pour les insectes.",
+        ],
+        ["Toile d'ombrage ou vieux rideau sur les salades en été.", "Arrosez régulièrement."],
+        [
+            "Semez les salades d'été toutes les 2-3 semaines en petites quantités.",
+            "Choisissez des variétés lentes à monter ; épinard et coriandre au printemps et à l'automne.",
+        ],
+    ),
+    "pests": _e(
+        [
+            "Les ravageurs attaquent d'abord les plantes affaiblies (sécheresse, excès d'azote).",
+            "Pas encore d'ennemis naturels (début de saison, jardin traité).",
+            "Pas de barrière physique sur les cultures sensibles.",
+        ],
+        [
+            "Identifiez d'abord le ravageur (regardez sous les feuilles, le soir à la lampe de poche).",
+            "Retirez à la main ou avec un jet d'eau puissant.",
+            "Couvrez les cultures sensibles d'un filet anti-insectes.",
+        ],
+        [
+            "Savon noir 20 g/l contre pucerons et aleurodes.",
+            "Pièges à bière et ramassage le soir contre les limaces.",
+            "Pièges jaunes englués dans la serre.",
+        ],
+        [
+            "Des fleurs pour les auxiliaires (syrphes, chrysopes).",
+            "Cultures associées et rotation.",
+            "Filet dès le semis ou la plantation.",
+        ],
+    ),
+    "disease": _e(
+        [
+            "Feuillage mouillé pendant de longues heures (pluie, arrosage le soir, condensation en serre).",
+            "Plantes trop serrées, air stagnant.",
+            "Sol contaminé ou débris végétaux de l'an dernier.",
+            "Variété sensible.",
+        ],
+        [
+            "Retirez immédiatement les feuilles atteintes (poubelle, pas le compost).",
+            "Arrosez le matin, uniquement au pied.",
+            "Aérez la serre, surtout le matin.",
+            "Donnez plus d'espace aux plantes.",
+        ],
+        [
+            "Pulvérisation de lait à 1:9 contre l'oïdium.",
+            "Décoction de prêle comme fortifiant préventif.",
+            "Décoction d'ail contre les champignons (1:5).",
+        ],
+        ["Variétés résistantes.", "Rotation (3-4 ans).", "Nettoyer et désinfecter la serre à l'automne."],
+    ),
+    "slugs": _e(
+        ["Temps doux et humide ; paillage et planches leur offrent des cachettes.", "Plants repiqués trop petits."],
+        [
+            "Ramassez-les au crépuscule et après la pluie.",
+            "Pièges à bière (bord 2 cm au-dessus du sol).",
+            "Élevez des plants robustes en godets avant de les repiquer.",
+        ],
+        [
+            "Anneau de cendre de bois, de gravillons ou de coquilles d'œuf broyées (efficace seulement au sec).",
+            "Une planche ou une feuille de chou comme piège.",
+            "Marc de café autour des semis.",
+        ],
+        [
+            "Accueillez hérissons, crapauds, grives et carabes.",
+            "Arrosez le matin, pas le soir.",
+            "Gardez les bords des planches tondus court.",
+        ],
+    ),
+    "too_hot": _e(
+        [
+            "Soleil sur les vitres avec les aérations fermées.",
+            "Pas d'ombrage en été.",
+            "Air sec : araignée rouge et coulure des fleurs.",
+        ],
+        [
+            "Ouvrez toutes les aérations et la porte tôt le matin.",
+            "Installez un ombrage (filet, blanc d'ombrage, vieux rideau).",
+            "Mouillez le sol et les allées à midi.",
+            "Arrosez le matin.",
+        ],
+        [
+            "Un seau d'eau comme masse thermique.",
+            "Un vieux drap ou un voilage comme toile d'ombrage.",
+            "Lait de chaux (craie + eau) comme blanc d'ombrage.",
+        ],
+        ["Ouvre-fenêtres automatiques.", "Ombrage dès la mi-printemps.", "Un ventilateur pour brasser l'air."],
+    ),
+    "frost": _e(
+        [
+            "Nuit claire et sans vent après une journée froide.",
+            "Cultures frileuses repiquées avant la date des dernières gelées.",
+            "Les points bas accumulent l'air froid.",
+        ],
+        [
+            "Couvrez les cultures frileuses d'un voile (en double) avant la tombée de la nuit.",
+            "Fermez la serre à temps ; des récupérateurs d'eau à l'intérieur stockent la chaleur.",
+            "Rentrez les pots.",
+            "Arrosez le sol l'après-midi : un sol humide restitue plus de chaleur la nuit.",
+        ],
+        [
+            "Vieux draps, cartons ou seaux retournés sur les plantes.",
+            "Film à bulles contre les vitres de la serre.",
+            "Bouteilles d'eau chaude entre les plantes sous le voile.",
+        ],
+        [
+            "Repiquez les cultures frileuses après la date des dernières gelées (Hortulus attend pour vous).",
+            "Gardez un voile à portée de main à l'automne et au printemps.",
+        ],
+    ),
+    "soil": _e(
+        [
+            "Argile lourde : humide et froide au printemps, crevassée en été.",
+            "Sol sableux : sèche vite et lessive les nutriments.",
+            "Tassé à force de marcher sur les planches mouillées.",
+        ],
+        [
+            "Apportez chaque année 3-5 l de compost par m².",
+            "Ne marchez jamais sur les planches ; travaillez depuis les allées ou une planche.",
+            "Ameublissez à la fourche sans retourner (grelinette).",
+        ],
+        [
+            "Terreau de feuilles et tonte de gazon en paillage.",
+            "Un engrais vert dans chaque planche vide.",
+            "Cendre de bois pour le potassium (pas pour les pommes de terre).",
+        ],
+        [
+            "Planches et allées permanentes.",
+            "Gardez le sol couvert toute l'année.",
+            "Une analyse de sol tous les 3 ans (pH 6,5-7).",
+        ],
+    ),
+}
+for _key, _entry in _PROBLEMS_FR.items():
+    PROBLEMS[_key]["fr"] = _entry  # "too_cold" shares the "frost" entry
+
+_PESTS_FR = {
+    "aphids": "Pucerons : jet d'eau, savon noir 20 g/l, coccinelles et syrphes ; moins d'azote.",
+    "slugs": "Limaces : ramassage au crépuscule, pièges à bière, anneaux de gravillons ou de cendre, hérissons.",
+    "whitefly": "Aleurodes : pièges jaunes, Encarsia, œillets d'Inde, savon noir.",
+    "red_spider_mite": "Araignée rouge : augmenter l'humidité (mouiller le sol), acarien prédateur Phytoseiulus.",
+    "cabbage_white": "Piéride du chou : filet anti-insectes, retirer œufs et chenilles, capucine comme plante piège.",
+    "cabbage_root_fly": "Mouche du chou : filet ou collerette en carton autour de la tige.",
+    "carrot_fly": "Mouche de la carotte : filet ou barrière de voile de 60 cm, oignons à côté, éclaircir le soir.",
+    "onion_fly": "Mouche de l'oignon : filet, carottes à côté, bulbilles plutôt que semis.",
+    "leek_moth": "Teigne du poireau : filet anti-insectes dès mai ; retirer les feuilles atteintes.",
+    "flea_beetle": "Altise : garder le sol humide, voile, semer quand la pousse est rapide.",
+    "colorado_beetle": "Doryphore : ramasser les adultes et les pontes orange sous les feuilles.",
+    "black_bean_aphid": "Puceron noir de la fève : pincer l'extrémité des fèves dès que les premières gousses se forment.",
+    "codling_moth": "Carpocapse : bande de carton ondulé autour du tronc dès juin, nichoirs à mésanges.",
+    "winter_moth": "Phalène hiémale : bandes de glu à 1 m de hauteur d'octobre à mars.",
+    "birds": "Oiseaux : filet fin, bien fixé au sol, quelques semaines avant la maturité.",
+    "gooseberry_sawfly": "Tenthrède : contrôler le cœur du buisson dès avril et retirer les larves.",
+    "spotted_wing_drosophila": "Drosophila suzukii : cueillir chaque jour, retirer les fruits trop mûrs, filet fin.",
+    "wireworm": "Taupin : morceaux de pomme de terre sur un bâton comme piège ; pas juste après une prairie.",
+    "thrips": "Thrips : pièges bleus englués, augmenter l'humidité.",
+}
+for _key, _text in _PESTS_FR.items():
+    PESTS[_key]["fr"] = _text
+
+_DISEASES_FR = {
+    "late_blight": "Mildiou : abri au-dessus des tomates, arroser le sol, retirer les feuilles du bas, variétés résistantes ; plantes malades à la poubelle.",
+    "powdery_mildew": "Oïdium : pulvérisation de lait à 1:9, arrosage régulier, plantation aérée.",
+    "downy_mildew": "Mildiou (feuilles) : arroser le matin, aérer, retirer les feuilles tachées.",
+    "botrytis": "Pourriture grise : aérer, retirer les tissus morts et les fruits pourris, éviter les blessures.",
+    "blossom_end_rot": "Nécrose apicale : problème d'absorption du calcium dû à un arrosage irrégulier - arroser régulièrement, pailler.",
+    "clubroot": "Hernie du chou : chauler jusqu'à pH 7+, longue rotation (7 ans), élever les plants dans un terreau propre.",
+    "scab": "Tavelure : variétés résistantes, ramasser les feuilles tombées, décoction de prêle.",
+    "brown_rot": "Moniliose : retirer immédiatement les fruits momifiés et les pousses flétries.",
+    "rust": "Rouille : retirer les feuilles atteintes, pas trop d'azote, espacer davantage.",
+    "peach_leaf_curl": "Cloque : abri contre la pluie de la chute des feuilles à avril.",
+    "white_rot": "Pourriture blanche : longue rotation pour les alliacées, ne pas déplacer la terre contaminée.",
+    "damping_off": "Fonte des semis : godets propres, terreau de semis frais, arrosage par le dessous, circulation de l'air.",
+}
+for _key, _text in _DISEASES_FR.items():
+    DISEASES[_key]["fr"] = _text

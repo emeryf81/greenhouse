@@ -1,6 +1,6 @@
 """Tools, materials and the season's shopping list.
 
-* ``TOOLS`` - catalogue of garden tools and materials (EN / NL, emoji).
+* ``TOOLS`` - catalogue of garden tools and materials (EN / NL, emoji; FR in ``TOOLS_FR``).
 * ``TASK_TOOLS`` - which tools a task type needs (shown in the task dialog).
 * :func:`shopping_list` - what to buy for a season, worked out from the plan:
   seed packets, young plants, compost and fertiliser, fleece and insect mesh
@@ -67,6 +67,50 @@ TOOLS: dict[str, tuple[str, str, str, str]] = {
     "lime": ("Garden lime", "Tuinkalk", "🪨", "material"),
 }
 
+# French tool names (kept apart so the 4-tuples above keep their shape).
+TOOLS_FR: dict[str, str] = {
+    "fork": "Fourche-bêche / grelinette",
+    "spade": "Bêche",
+    "hoe": "Binette",
+    "rake": "Râteau",
+    "trowel": "Transplantoir",
+    "dibber": "Plantoir",
+    "secateurs": "Sécateur",
+    "loppers": "Coupe-branches et scie d'élagage",
+    "watering_can": "Arrosoir (pomme fine)",
+    "hose": "Tuyau avec pistolet d'arrosage",
+    "wheelbarrow": "Brouette",
+    "gloves": "Gants",
+    "labels": "Étiquettes et crayon",
+    "twine": "Ficelle de jardin",
+    "canes": "Tuteurs / spirales",
+    "seed_trays": "Caissettes et godets",
+    "seed_compost": "Terreau de semis",
+    "compost": "Compost",
+    "fertiliser": "Engrais organique",
+    "fleece": "Voile d'hivernage",
+    "mesh": "Filet anti-insectes 0,8 mm",
+    "bird_net": "Filet anti-oiseaux",
+    "shade_cloth": "Toile / blanc d'ombrage",
+    "mulch": "Paille / tonte de gazon",
+    "grease_band": "Bandes de glu",
+    "cardboard_band": "Bande de carton ondulé",
+    "soft_soap": "Savon noir",
+    "vinegar": "Vinaigre",
+    "brush": "Brosse douce à manche",
+    "bucket": "Seau / tonneau avec couvercle",
+    "beer_trap": "Piège à bière (pot + bière)",
+    "torch": "Lampe de poche",
+    "thermometer": "Thermomètre de sol / mini-maxi",
+    "sticky_cards": "Pièges jaunes englués",
+    "oil": "Huile et huile de lin",
+    "file": "Lime / pierre à affûter",
+    "ladder": "Échelle trépied",
+    "bags": "Sacs poubelle (terreau de feuilles)",
+    "soil_kit": "Kit d'analyse de sol",
+    "lime": "Chaux agricole",
+}
+
 TASK_TOOLS: dict[TaskType, tuple[str, ...]] = {
     TaskType.SOW_INDOOR: ("seed_trays", "seed_compost", "labels", "watering_can", "thermometer"),
     TaskType.SOW_DIRECT: ("rake", "dibber", "labels", "watering_can", "twine"),
@@ -127,6 +171,8 @@ def tool_name(tool_id: str, lang: str) -> str:
     entry = TOOLS.get(tool_id)
     if entry is None:
         return tool_id
+    if lang == "fr" and tool_id in TOOLS_FR:
+        return TOOLS_FR[tool_id]
     return entry[1] if lang == "nl" else entry[0]
 
 
@@ -141,8 +187,10 @@ def shopping_list(
     data: GardenData, db: PlantDatabase, analysis: GardenAnalysis, lang: str = "en"
 ) -> list[ShoppingItem]:
     season = analysis.season
-    nl = lang == "nl"
     items: list[ShoppingItem] = []
+
+    def w(nl_text: str, en_text: str, fr_text: str) -> str:
+        return {"nl": nl_text, "fr": fr_text}.get(lang, en_text)
 
     def add(tool: str, qty: float, unit: str, reason: str, category: str, name: str | None = None) -> None:
         if qty <= 0:
@@ -178,24 +226,33 @@ def shopping_list(
         if pid in in_stock:
             continue  # usable seed in the seed box
         plant = db.get(pid)
-        add(pid, 1, "zakje" if nl else "packet", "zaad" if nl else "seed", "seeds", plant.name(lang) if plant else pid)
+        add(
+            pid,
+            1,
+            w("zakje", "packet", "sachet"),
+            w("zaad", "seed", "graines"),
+            "seeds",
+            plant.name(lang) if plant else pid,
+        )
     for pid, count in sorted(young.items()):
         plant = db.get(pid)
-        add(pid, count, "st." if nl else "pcs", "plantgoed" if nl else "young plants", "plants",
+        add(pid, count, w("st.", "pcs", "pc"), w("plantgoed", "young plants", "plants"), "plants",
             plant.name(lang) if plant else pid)  # fmt: skip
     if indoor:
         add(
             "seed_compost",
             math.ceil(indoor * 0.15),
             "l",
-            ("voor {n} voorgezaaide planten" if nl else "for {n} plants raised indoors").format(n=indoor),
+            (
+                w("voor {n} voorgezaaide planten", "for {n} plants raised indoors", "pour {n} plants semés à l'abri")
+            ).format(n=indoor),
             "soil",
         )
         add(
             "seed_trays",
             math.ceil(indoor / 24),
-            "st." if nl else "pcs",
-            ("zaaibakken met 24 cellen" if nl else "trays of 24 cells"),
+            w("st.", "pcs", "pc"),
+            (w("zaaibakken met 24 cellen", "trays of 24 cells", "plaques de 24 alvéoles")),
             "soil",
         )
 
@@ -227,9 +284,15 @@ def shopping_list(
         compost += plan.compost_kg
         fert += plan.base_fertilizer_g
         lime += plan.lime_g
-    add("compost", compost, "kg", "bemesting volgens je plan" if nl else "feeding for your plan", "soil")
-    add("fertiliser", fert / 1000, "kg", "zware eters" if nl else "hungry crops", "soil")
-    add("lime", lime / 1000, "kg", "volgens bodemanalyse" if nl else "from your soil test", "soil")
+    add(
+        "compost",
+        compost,
+        "kg",
+        w("bemesting volgens je plan", "feeding for your plan", "fertilisation selon votre plan"),
+        "soil",
+    )
+    add("fertiliser", fert / 1000, "kg", w("zware eters", "hungry crops", "cultures gourmandes"), "soil")
+    add("lime", lime / 1000, "kg", w("volgens bodemanalyse", "from your soil test", "selon l'analyse de sol"), "soil")
 
     # Protection
     fleece = mesh = 0.0
@@ -242,21 +305,39 @@ def shopping_list(
             fleece += bed.area_m2 * 1.3
         if any(pl.family in MESH_FAMILIES and pl.category.value == "vegetable" for _p, pl in group):
             mesh += bed.area_m2 * 1.4
-    add("fleece", fleece, "m²", "vorst en vroege teelt" if nl else "frost and early crops", "protection")
-    add("mesh", mesh, "m²", "kolen, wortelen, uien" if nl else "brassicas, carrots, onions", "protection")
+    add(
+        "fleece",
+        fleece,
+        "m²",
+        w("vorst en vroege teelt", "frost and early crops", "gel et cultures précoces"),
+        "protection",
+    )
+    add(
+        "mesh",
+        mesh,
+        "m²",
+        w("kolen, wortelen, uien", "brassicas, carrots, onions", "choux, carottes, oignons"),
+        "protection",
+    )
     fruit = [(p, pl) for p, pl in this_season if pl.category.value == "fruit"]
     net = sum(p.width_cm * p.length_cm / 10_000 for p, pl in fruit if any(r.task is TaskType.PROTECT for r in pl.care))
-    add("bird_net", net * 1.5, "m²", "fruit tegen vogels" if nl else "fruit against birds", "protection")
+    add(
+        "bird_net",
+        net * 1.5,
+        "m²",
+        w("fruit tegen vogels", "fruit against birds", "fruits contre les oiseaux"),
+        "protection",
+    )
     trees = sum(1 for _p, pl in fruit if "fruit_tree" in pl.tags)
-    add("grease_band", trees, "st." if nl else "pcs", "wintervlinder" if nl else "winter moth", "protection")
-    add("cardboard_band", trees, "st." if nl else "pcs", "fruitmot" if nl else "codling moth", "protection")
+    add("grease_band", trees, w("st.", "pcs", "pc"), w("wintervlinder", "winter moth", "phalène hiémale"), "protection")
+    add("cardboard_band", trees, w("st.", "pcs", "pc"), w("fruitmot", "codling moth", "carpocapse"), "protection")
     for zone in data.zones:
         if zone.is_enclosed:
             add("shade_cloth", zone.width_cm * zone.length_cm / 10_000 * 1.2, "m²", zone.name, "protection")
             add(
                 "sticky_cards",
                 max(2, round(zone.width_cm * zone.length_cm / 10_000)),
-                "st." if nl else "pcs",
+                w("st.", "pcs", "pc"),
                 zone.name,
                 "protection",
             )
@@ -264,10 +345,16 @@ def shopping_list(
     # Support and mulch
     canes = sum(plant_count(p, pl) for p, pl in this_season
                 if pl.habit.value in TALL_HABITS and pl.category.value == "vegetable" and p.season == season)  # fmt: skip
-    add("canes", canes, "st." if nl else "pcs", "klimmers en tomaten" if nl else "climbers and tomatoes", "support")
+    add(
+        "canes",
+        canes,
+        w("st.", "pcs", "pc"),
+        w("klimmers en tomaten", "climbers and tomatoes", "grimpantes et tomates"),
+        "support",
+    )
     area = sum(cultivated_m2(b, g) for b, g in beds_used.items())
     add("mulch", area, "m²", "5-8 cm mulch", "support")
-    add("labels", len(new), "st." if nl else "pcs", "één per teelt" if nl else "one per crop", "other")
+    add("labels", len(new), w("st.", "pcs", "pc"), w("één per teelt", "one per crop", "une par culture"), "other")
     order = {"seeds": 0, "plants": 1, "soil": 2, "protection": 3, "support": 4, "other": 5}
     items.sort(key=lambda i: order.get(i.category, 9))
     return items

@@ -60,10 +60,13 @@ MONTHS = {
            "november", "december"],
     "en": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
            "November", "December"],
+    "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre",
+           "novembre", "décembre"],
 }  # fmt: skip
 WEEKDAYS = {
     "nl": ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"],
     "en": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "fr": ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"],
 }
 
 TEXT: dict[str, dict[str, str]] = {
@@ -261,6 +264,103 @@ TEXT: dict[str, dict[str, str]] = {
         "date_long": "{weekday}, {month} {d}",
         "rest_month": "Nothing was written down this month. That too belongs to a garden year: the soil rests, the gardener dreams, and what did not happen makes room for what comes.",
     },
+    "fr": {
+        "book": "Année au jardin {season}",
+        "book_sub": "La saison de {garden}",
+        "made_with": "Composé avec Hortulus",
+        "epigraph": "Planter un jardin, c'est croire en demain.",
+        "epigraph_by": "Sagesse de jardinier",
+        "title_lead": "Une année de semis, de plantations, d'attente, de désherbage et de récoltes,\nracontée par le jardin lui-même.",
+        "plan": "Le jardin en {season}",
+        "plan_none": "Aucun plan du jardin n'a été conservé pour cette saison.",
+        "plan_caption": "{beds} planches dans {zones} zones, {area} m² de surface cultivée au total.",
+        "toc": "Sommaire",
+        "intro": "Introduction",
+        "chapter": "Chapitre {n}",
+        "numbers": "L'année en chiffres",
+        "glossary": "Glossaire",
+        "colophon": "Colophon",
+        "notes": "Notes",
+        "notes_hint": "De la place pour ce que vous voulez encore retenir.",
+        "story": "Le récit du mois",
+        "sown_planted": "Semé et planté",
+        "work": "Travaux au jardin",
+        "diary": "Extraits du journal",
+        "harvest": "Récolte",
+        "water_weather": "Eau et météo",
+        "quiet": "Un mois calme",
+        "sown_in": "semé à l'intérieur",
+        "sown_out": "semé en pleine terre",
+        "planted": "repiqué",
+        "first_harvest": "première récolte",
+        "finished": "arraché",
+        "failed": "raté",
+        "harvest_total": "{kg} récoltés ce mois-ci, {total} depuis le début de la saison.",
+        "harvest_times": "{n} fois",
+        "water_given": "Hortulus a donné {liters} litres d'eau en {runs} arrosages.",
+        "water_none": "Hortulus n'a pas arrosé ce mois-ci.",
+        "weather": "Journée la plus chaude {tmax} °C, nuit la plus froide {tmin} °C, {rain} mm de pluie{frost}.",
+        "frost_nights": ", {n} nuits de gel",
+        "frost_night": ", une nuit de gel",
+        "by": "par {who}",
+        "photo_of": "Photo : {what}",
+        "kind.note": "Note",
+        "kind.observation": "Observation",
+        "kind.problem": "Problème",
+        "kind.milestone": "Étape",
+        "cat.care": "Soins",
+        "cat.garden": "Travaux du jardin",
+        "cat.sow": "Semis et plantations",
+        "cat.harvest": "Récoltes",
+        "summary_sown": "{n} semis",
+        "summary_planted": "{n} repiquages",
+        "summary_notes": "{n} notes",
+        "summary_photos": "{n} photos",
+        "summary_kg": "{kg} récoltés",
+        "summary_quiet": "mois de repos",
+        "and": "et",
+        "and_more": "et {n} autres",
+        "tbl_crop": "Culture",
+        "tbl_kg": "kg",
+        "tbl_times": "fois",
+        "tbl_best": "meilleur mois",
+        "tbl_first": "première",
+        "tbl_last": "dernière",
+        "num_harvest": "Récolte par culture",
+        "num_harvest_none": "Aucune récolte n'a encore été notée cette saison.",
+        "num_worth": "Ce que le jardin a rapporté",
+        "worth_text": "Aux prix du magasin, la récolte valait environ {value}. Cette saison, le jardin a coûté {cost} en dépenses et en eau. {verdict}",
+        "worth_plus": "Soit {balance} d'économisés - sans compter le goût, l'exercice et le calme.",
+        "worth_minus": "Le jardin a donc coûté {balance} de plus que sa valeur en magasin ; ce qu'il rend ne figure sur aucun ticket de caisse.",
+        "num_families": "Ce qui a poussé, par famille",
+        "num_year": "La saison en bref",
+        "num_lessons": "Ce qui a réussi et ce qui a raté",
+        "num_failed": "Raté : {what}.",
+        "num_above": "Mieux que prévu : {what}.",
+        "num_below": "Moins bien que prévu : {what}.",
+        "num_none": "Pas d'écart marquant cette année : tout a poussé à peu près comme prévu.",
+        "fact_crops": "cultures",
+        "fact_plantings": "plantations",
+        "fact_kg": "kg récoltés",
+        "fact_notes": "notes de journal",
+        "fact_photos": "photos",
+        "fact_water": "litres d'eau",
+        "fact_tasks": "tâches accomplies",
+        "fact_sown": "semis",
+        "col_title": "Année au jardin {season} · {garden}",
+        "col_made": "Ce livre a été composé le {day} par Hortulus {version} à partir des données du jardin : le plan, les cultures et leurs dates, les tâches accomplies, le journal, les photos, la récolte, l'arrosage et la météo.",
+        "col_people": "Jardiniers et auteurs : {who}.",
+        "col_photos": "Photos : travail personnel ({n} photos).",
+        "col_region": "Région : dernières gelées vers le {last}, premières gelées vers le {first}.",
+        "col_type": "Composé en Times et Helvetica, au format {page} ({w} × {h} mm).",
+        "col_print": "Pour imprimer en livre : recto verso, retournement sur le bord long. Le nombre de pages est un multiple de quatre, pour plier le livre en cahiers et le relier.",
+        "col_free": "Hortulus est un logiciel libre. Votre jardin, vos données et ce livre vous appartiennent.",
+        "back_quote": "Chaque année, le jardin recommence, mais jamais de zéro : il se souvient de ce que vous y avez mis.",
+        "back_facts": "{crops} cultures · {kg} récoltés · {notes} notes · {photos} photos",
+        "day_fmt": "{d} {month}",
+        "date_long": "{weekday} {d} {month}",
+        "rest_month": "Rien n'a été noté ce mois-ci. Cela aussi fait partie d'une année au jardin : la terre se repose, le jardinier rêve, et ce qui n'est pas arrivé fait de la place à ce qui vient.",
+    },
 }  # fmt: skip
 
 # What a month feels like, by its place in the growing year (index 0 = the
@@ -294,6 +394,20 @@ MONTH_INTRO: dict[str, list[str]] = {
         "Quiet and honest. What remains is structure: paths, beds, bare branches. A good month to mulch, turn the compost and think the year over.",
         "The year comes to a close. The garden rests under leaves and frost. By the fire you look back at what worked and what did not, and begin to dream of next year.",
     ],
+    "fr": [
+        "Le jardin dort, mais pas le jardinier. C'est le mois des catalogues de graines et des longues soirées, des projets qui peuvent encore tout devenir. Dehors, tout est calme ; à l'intérieur, la nouvelle année pousse déjà dans votre tête.",
+        "Les jours rallongent nettement. Les premières graines vont en caissette sur l'appui de fenêtre, on taille les fruitiers, et par une journée douce la terre sent déjà le printemps. La patience est maintenant la première qualité du jardinier.",
+        "C'est le mois du réveil. Le sol se réchauffe, les premiers semis vont dans la terre encore froide, et chaque matin il y a du nouveau à voir. C'est tôt, et c'est justement ce qui est beau.",
+        "Le temps fait ce qu'il veut, et le jardinier suit. Semer, repiquer, endurcir, protéger d'une gelée tardive : le rythme s'accélère. Les plantules apparaissent partout, petites et pleines de promesses.",
+        "Tout explose. Une fois les dernières gelées passées, tomates, courgettes et haricots sortent. Le potager se remplit à vue d'œil, et les premières laitues et radis ont le goût d'une récompense.",
+        "L'abondance est en route. Longues soirées au jardin, désherbage, palissage, arrosage, et les premières fraises et petits pois. Ce que vous avez semé au printemps commence à rendre.",
+        "Plein été. Récolter devient une habitude quotidienne, arroser un rituel. Il y a du travail, mais il semble léger, car partout quelque chose mûrit.",
+        "Le mois des paniers. Tomates, haricots, courgettes : parfois plus qu'on ne peut en manger. C'est aussi le moment de voir plus loin : ce que vous semez maintenant, vous le récolterez à l'automne.",
+        "Le jardin se dore. La récolte continue, les matins deviennent frais, et les premières planches vides réclament un engrais vert ou une culture d'hiver. Le temps de conserver, de mettre en bocaux et de savourer.",
+        "On range et on prépare. Rentrer les courges, couvrir les planches, planter les bulbes pour le printemps. Le jardin se retire, mais laisse beaucoup derrière lui.",
+        "Calme et sincère. Il reste la structure : allées, planches, branches nues. Un bon mois pour pailler, retourner le compost et repenser l'année.",
+        "L'année touche à sa fin. Le jardin se repose sous les feuilles et le gel. Au coin du feu, on repense à ce qui a réussi et à ce qui a raté, et l'on commence à rêver de l'année prochaine.",
+    ],
 }  # fmt: skip
 
 FILLER_LINES = {
@@ -312,6 +426,14 @@ FILLER_LINES = {
         "Every seed is a small promise to the future.",
         "A weed is a plant whose virtues have not yet been discovered.",
         "Harvesting is the finest work that started with patience.",
+    ],
+    "fr": [
+        "Un jardin n'est jamais fini. Heureusement.",
+        "Qui sème doit savoir attendre.",
+        "Le meilleur engrais, c'est le pas du jardinier.",
+        "Chaque graine est une petite promesse faite à l'avenir.",
+        "Une mauvaise herbe est une plante dont on n'a pas encore découvert les vertus.",
+        "Récolter est le plus beau des travaux, et il a commencé par la patience.",
     ],
 }
 
@@ -366,6 +488,32 @@ GLOSSARY: dict[str, list[tuple[str, str]]] = {
         ("Thinning", "Removing surplus seedlings so the rest have enough room."),
         ("Water balance", "How much water a bed loses to sun and wind and gets back from rain and watering; Hortulus uses it to know when water is needed."),
     ],
+    "fr": [
+        ("Bilan hydrique", "La quantité d'eau qu'une planche perd par le soleil et le vent et regagne par la pluie et l'arrosage ; Hortulus s'en sert pour savoir quand arroser."),
+        ("Butter", "Ramener de la terre contre le pied, comme pour les pommes de terre et les poireaux, pour le soutien et une meilleure récolte."),
+        ("Compost", "Matière végétale décomposée qui nourrit le sol et améliore sa structure."),
+        ("Couvre-sol", "Culture basse et étalée qui couvre le sol, limite les mauvaises herbes et retient l'humidité."),
+        ("Culture", "Une plante à un endroit pendant une saison, du semis à la récolte."),
+        ("Culture successive", "Une deuxième ou troisième culture dans la même planche la même saison, dès que la première est récoltée."),
+        ("Dernières gelées", "La date moyenne des dernières gelées de printemps ; ensuite, les cultures frileuses peuvent sortir."),
+        ("Éclaircir", "Retirer les semis en trop pour que les autres aient assez de place."),
+        ("Endurcir", "Habituer pendant une ou deux semaines les plants élevés à l'intérieur à l'extérieur : dehors le jour, à l'abri la nuit."),
+        ("Engrais vert", "Culture qu'on ne récolte pas mais qu'on incorpore ou laisse en surface pour nourrir et protéger le sol, comme la phacélie ou le trèfle."),
+        ("Famille", "Groupe de plantes apparentées, comme les solanacées, les crucifères ou les légumineuses. Important pour la rotation des cultures."),
+        ("Fenêtre de semis", "La période pendant laquelle une culture se sème le mieux dans votre région."),
+        ("Germination", "Le moment où une graine s'ouvre et forme une racine et des cotylédons."),
+        ("Monter en graine", "Une culture qui fleurit trop tôt (laitue ou épinard par forte chaleur ou jours longs, par exemple), ce qui gâche la récolte."),
+        ("Paillage", "Couvrir le sol de paille, de feuilles, de tonte ou de compost pour garder l'humidité, freiner les mauvaises herbes et nourrir la vie du sol."),
+        ("Pincer", "Supprimer les gourmands ou l'extrémité d'une plante, comme pour la tomate, pour orienter sa croissance."),
+        ("Pleine terre", "Directement dehors au jardin, pas en serre, sous tunnel ni en pot."),
+        ("Premières gelées", "La date moyenne des premières gelées d'automne ; les cultures frileuses doivent être récoltées ou rentrées avant."),
+        ("Repiquer", "Installer un plant élevé ailleurs à sa place définitive au jardin."),
+        ("Repiquer en godets", "Transférer les plantules d'une caissette dans leur propre godet pour qu'elles continuent à pousser."),
+        ("Rotation des cultures", "Cultiver chaque année une autre famille dans une planche, pour que les maladies ne s'accumulent pas et que le sol reste équilibré."),
+        ("Semis à l'abri", "Semer à l'intérieur ou en serre, pour que la plante ait de l'avance quand elle sort."),
+        ("Semis direct", "Semer directement dans la planche où la plante poussera."),
+        ("Taille", "Couper des branches ou des pousses pour une forme saine et une meilleure récolte."),
+    ],
 }  # fmt: skip
 
 SOW_TYPES = {TaskType.SOW_INDOOR, TaskType.SOW_DIRECT, TaskType.TRANSPLANT, TaskType.HARDEN_OFF}
@@ -398,8 +546,9 @@ def fmt_num(value: float, lang: str, digits: int = 1) -> str:
     text = f"{value:,.{digits}f}" if digits else f"{round(value):,}"
     if digits:
         text = text.rstrip("0").rstrip(".") if "." in text else text
-    if lang == "nl":
-        text = text.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+    if lang in ("nl", "fr"):
+        sep = "." if lang == "nl" else "\xa0"  # fr: non-breaking space between thousands
+        text = text.replace(",", "\x00").replace(".", ",").replace("\x00", sep)
     return text
 
 
@@ -854,7 +1003,7 @@ class SeasonBook:
 
     def month_title(self, m: MonthData) -> str:
         name = MONTHS[self.lang][m.month - 1]
-        return name.capitalize() if self.lang == "nl" else name
+        return name.capitalize() if self.lang in ("nl", "fr") else name
 
     def phase(self, m: MonthData) -> int:
         return (m.month - 1 + (6 if self.south else 0)) % 12
@@ -1102,6 +1251,20 @@ class SeasonBook:
                 "Elk hoofdstuk in dit boek is één maand. Het begint met wat die tijd van het jaar typeert, en vertelt dan wat er in jouw tuin gebeurde: wat er gezaaid en geplant werd, welk werk er gedaan is, wat je in je dagboek schreef, met je eigen foto's, wat er geoogst werd en hoe het weer was. Achteraan vind je het jaar in cijfers, een woordenlijst en ruimte voor notities.",
                 "Lees het als een herinnering, gebruik het als leidraad voor volgend jaar, of geef het door aan wie na jou in deze tuin komt werken. Een tuin onthoudt veel, maar niet alles: daarom dit boek.",
             ]
+        elif lang == "fr":
+            paras = [
+                f"Voici l'histoire de {self.garden} en {self.season}. Pas telle que nous l'imaginions en hiver, mais telle qu'elle s'est vraiment passée : ce qui a été semé et quand, ce qui a levé et ce qui n'a pas levé, ce que nous avons vu, noté et photographié, et ce que le jardin nous a finalement rendu.",
+                f"Cette année, le jardin comptait {beds} planches réparties en {zones} zones. {int(f['crops'])} cultures différentes ont poussé en {int(f['plantings'])} plantations"
+                + (f", dont {top}" if top else "") + ". "
+                + (f"La saison a commencé avec le premier semis le {self.day(first_sow)}. " if first_sow else "")
+                + f"Dans la région, les dernières gelées tombent en moyenne vers le {self._mmdd(region.last_frost)} et les premières vers le {self._mmdd(region.first_frost)} ; entre les deux s'ouvre la fenêtre où tout doit se passer.",
+                (f"Au total, {fmt_kg(f['kg'], lang)} ont été récoltés" + (f", avec {self.plant_name(best[0])} en tête ({fmt_kg(best[1], lang)})" if best else "") + ". " if f["kg"] else "Aucune récolte n'a (encore) été pesée cette saison. ")
+                + f"Le journal a reçu {int(f['notes'])} notes et {int(f['photos'])} photos, et {int(f['tasks'])} tâches ont été cochées. "
+                + (f"Hortulus a donné en tout {fmt_num(f['liters'], lang, 0)} litres d'eau aux planches. " if f["liters"] else "")
+                + (f"Le mois le plus chargé a été {MONTHS[lang][busiest.month - 1]}." if not busiest.empty else ""),
+                "Chaque chapitre de ce livre est un mois. Il s'ouvre sur ce qui caractérise ce moment de l'année, puis raconte ce qui s'est passé dans votre jardin : ce qui a été semé et planté, les travaux faits, ce que vous avez écrit dans votre journal, avec vos propres photos, ce qui a été récolté et le temps qu'il a fait. À la fin, vous trouverez l'année en chiffres, un glossaire et de la place pour vos notes.",
+                "Lisez-le comme un souvenir, servez-vous-en comme guide pour l'an prochain, ou transmettez-le à qui jardinera ici après vous. Un jardin se souvient de beaucoup de choses, mais pas de tout : d'où ce livre.",
+            ]  # fmt: skip
         else:
             paras = [
                 f"This is the story of {self.garden} in {self.season}. Not the way we pictured it in winter, but the way it really went: what was sown and when, what came up and what did not, what we saw, wrote down and photographed, and what the garden gave back in the end.",
@@ -1214,6 +1377,43 @@ class SeasonBook:
                 )
             if m.liters:
                 sentences.append(f"De bedden kregen {fmt_num(m.liters, lang, 0)} liter water.")
+        elif lang == "fr":
+            one = len(set(planted)) == 1
+            if sown:
+                sentences.append(f"En {month}, il y a eu {len(sown)} semis : {join_names(sown, lang)}.")
+            if planted:
+                names = join_names(planted, lang)
+                sentences.append(
+                    f"{names[:1].upper()}{names[1:]} {'a rejoint sa' if one else 'ont rejoint leur'} place définitive au jardin."
+                )
+            if firsts:
+                d, name = firsts[0]
+                sentences.append(
+                    f"Le {self.day(d)}, première récolte de {name}"
+                    + (
+                        f", suivie plus tard de {join_names([x for _, x in firsts[1:]], lang)}."
+                        if len(firsts) > 1
+                        else "."
+                    )
+                )
+            if crops:
+                top = [name for name, _ in crops.most_common(3)]
+                sentences.append(
+                    f"Les paniers se sont remplis de {fmt_kg(m.kg, lang)}, surtout {join_names(top, lang)}."
+                )
+            if m.tasks:
+                sentences.append(f"{'Par ailleurs, ' if sentences else ''}{len(m.tasks)} tâches ont été cochées.")
+            if m.journal:
+                sentences.append(
+                    f"Le journal a reçu {len(m.journal)} {'note' if len(m.journal) == 1 else 'notes'}"
+                    + (f" et {m.photos} photos." if m.photos else ".")
+                )
+            if done:
+                sentences.append(
+                    f"Tout n'a pas réussi : {join_names(done, lang)} {"n'a" if len(done) == 1 else "n'ont"} pas tenu."
+                )
+            if m.liters:
+                sentences.append(f"Les planches ont reçu {fmt_num(m.liters, lang, 0)} litres d'eau.")
         else:
             if sown:
                 sentences.append(f"In {month} there were {len(sown)} sowings: {join_names(sown, lang)}.")

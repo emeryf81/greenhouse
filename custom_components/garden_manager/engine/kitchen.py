@@ -75,6 +75,10 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
             "Bewaar tomaten en courgettes buiten de koelkast; oogst om de paar dagen.",
             "Maak passata, ratatouille of chutney, rooster en vries in, of deel met de buren.",
         ),
+        "fr": (
+            "Gardez tomates et courgettes hors du réfrigérateur ; récoltez tous les deux ou trois jours.",
+            "Faites du coulis, de la ratatouille ou un chutney, rôtissez et congelez, ou partagez avec les voisins.",
+        ),
     },
     "leafy": {
         "en": (
@@ -84,6 +88,10 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
         "nl": (
             "Oogst 's ochtends als het koel is, spoel en bewaar in een vochtige doek in de koelkast (3-5 dagen).",
             "Maak pesto of soep, blancheer en vries spinazie en snijbiet in, of zaai volgende keer minder.",
+        ),
+        "fr": (
+            "Récoltez à la fraîcheur du matin, rincez et gardez dans un linge humide au réfrigérateur (3-5 jours).",
+            "Faites un pesto ou une soupe, blanchissez et congelez épinards et blettes, ou semez moins la prochaine fois.",
         ),
     },
     "brassica": {
@@ -95,6 +103,10 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
             "Koel en ingepakt in de koelkast; veel kolen kunnen ook nog even aan de plant blijven.",
             "Blancheer en vries roosjes in, maak zuurkool of kimchi, of laat winterharde boerenkool staan.",
         ),
+        "fr": (
+            "Gardez au frais et emballé au réfrigérateur ; beaucoup de choux peuvent aussi rester un moment sur pied.",
+            "Blanchissez et congelez les bouquets, faites de la choucroute ou du kimchi, ou laissez le chou frisé rustique en place.",
+        ),
     },
     "root": {
         "en": (
@@ -104,6 +116,10 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
         "nl": (
             "Draai het loof eraf, bewaar ongewassen koel, donker en licht vochtig.",
             "Kuil ze in zand in een kist, laat ze onder stro in de grond, of maak soep en vries in.",
+        ),
+        "fr": (
+            "Tordez les fanes, gardez sans laver dans un endroit frais, sombre et légèrement humide.",
+            "Conservez-les dans du sable en caisse, laissez-les en terre sous la paille, ou faites une soupe et congelez.",
         ),
     },
     "legume": {
@@ -115,6 +131,10 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
             "Pluk jong en vaak; eet binnen een paar dagen of blancheer meteen.",
             "Blancheer en vries in, of laat de laatste peulen aan de plant drogen voor droge bonen.",
         ),
+        "fr": (
+            "Cueillez jeune et souvent ; consommez en quelques jours ou blanchissez tout de suite.",
+            "Blanchissez et congelez, ou laissez sécher les dernières gousses sur pied pour des haricots secs.",
+        ),
     },
     "allium": {
         "en": (
@@ -124,6 +144,10 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
         "nl": (
             "Laat uien en knoflook twee weken drogen in de zon of een luchtig hok voor je ze opslaat.",
             "Vlecht en hang ze op, maak uienconfit, of vries gesneden prei in.",
+        ),
+        "fr": (
+            "Faites sécher oignons et ail deux semaines au soleil ou dans un abri aéré avant de les stocker.",
+            "Tressez-les et suspendez-les, faites une confiture d'oignons, ou congelez du poireau émincé.",
         ),
     },
     "herb": {
@@ -135,6 +159,10 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
             "Knip 's ochtends, zet de stelen in water of in een vochtige doek.",
             "Droog in bosjes, vries in in ijsblokjes met olie, of maak kruidenzout en pesto.",
         ),
+        "fr": (
+            "Coupez le matin, gardez les tiges dans l'eau ou dans un linge humide.",
+            "Faites sécher en bouquets, congelez en glaçons avec de l'huile, ou préparez du sel aux herbes et du pesto.",
+        ),
     },
     "fruit": {
         "en": (
@@ -145,12 +173,17 @@ TIPS: dict[str, dict[str, tuple[str, str]]] = {
             "Pluk droog en rijp, bewaar koel en ongewassen; zacht fruit binnen twee dagen.",
             "Maak jam of compote, vries in op een plaat, of droog appelringen.",
         ),
+        "fr": (
+            "Cueillez sec et mûr, gardez au frais sans laver ; les petits fruits dans les deux jours.",
+            "Faites de la confiture ou de la compote, congelez à plat sur un plateau, ou séchez des rondelles de pomme.",
+        ),
     },
 }
 TIPS["other"] = TIPS["fruiting"]
 TIPS["flower"] = {
     "en": ("Cut in the morning and put straight into water.", "Make bouquets, dry them, or share."),
     "nl": ("Knip 's ochtends en zet meteen in water.", "Maak boeketten, droog ze of deel ze uit."),
+    "fr": ("Coupez le matin et mettez tout de suite dans l'eau.", "Faites des bouquets, séchez-les ou offrez-les."),
 }
 
 

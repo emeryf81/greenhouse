@@ -1,0 +1,1089 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bienvenue dans Hortulus",
+        "description": "Configurons votre potager. D'abord : comment Hortulus doit-il connaître vos dates de gel ? Les fenêtres de semis sont calculées par rapport à la dernière gelée moyenne de printemps et à la première gelée moyenne d'automne.",
+        "data": {
+          "region_mode": "Profil climatique"
+        },
+        "data_description": {
+          "region_mode": "Préréglage régional (p. ex. Pays-Bas/Flandre), zone de rusticité USDA ou vos propres dates de gel."
+        }
+      },
+      "region": {
+        "title": "Votre climat",
+        "description": "L'hémisphère et les dates de gel déterminent chaque fenêtre de semis, de plantation et de récolte.",
+        "data": {
+          "hemisphere": "Hémisphère",
+          "preset": "Région",
+          "hardiness_zone": "Zone de rusticité USDA",
+          "last_frost": "Dernière gelée moyenne de printemps (MM-JJ)",
+          "first_frost": "Première gelée moyenne d'automne (MM-JJ)"
+        },
+        "data_description": {
+          "last_frost": "Par exemple 04-20. Renseignez-vous auprès de jardiniers locaux ou de votre service météo.",
+          "first_frost": "Par exemple 10-25."
+        }
+      },
+      "weather": {
+        "title": "Météo",
+        "description": "Les prévisions servent aux alertes de gel et de chaleur, à l'arrosage tenant compte de la pluie et aux conseils de calendrier. Sans elles, tout continue de fonctionner (avec moins de précision).",
+        "data": {
+          "weather_entity": "Entité météo",
+          "outdoor_temperature": "Capteur de température extérieure (facultatif)",
+          "rain_sensor": "Capteur de pluie (facultatif)"
+        },
+        "data_description": {
+          "weather_entity": "Doit fournir une prévision horaire et/ou journalière, p. ex. weather.home.",
+          "outdoor_temperature": "Utilisé pour les degrés-jours de croissance ; à défaut, l'entité météo est utilisée.",
+          "rain_sensor": "Un cumul de pluie journalier (mm) ou un détecteur de pluie binaire."
+        }
+      },
+      "area": {
+        "title": "Ajouter une planche, une serre ou un bac",
+        "description": "{count} ajouté(s) jusqu'ici. Vous pourrez tout dessiner et ajuster plus tard dans le planificateur.",
+        "data": {
+          "name": "Nom",
+          "type": "Type",
+          "width_m": "Largeur",
+          "length_m": "Longueur",
+          "soil": "Type de sol",
+          "shade_pct": "Ombre",
+          "wind": "Exposition au vent"
+        }
+      },
+      "area_sensors": {
+        "title": "Capteurs pour {name}",
+        "description": "Associez des capteurs Home Assistant existants. Tous les champs sont facultatifs - les capteurs manquants réduisent simplement la précision des conseils.",
+        "data": {
+          "soil_moisture": "Humidité du sol",
+          "soil_temperature": "Température du sol",
+          "air_temperature": "Température de l'air",
+          "air_humidity": "Humidité de l'air",
+          "light": "Lumière (éclairement)",
+          "irrigation": "Interrupteur ou vanne d'arrosage",
+          "flow_lpm": "Débit d'arrosage"
+        },
+        "data_description": {
+          "flow_lpm": "Litres par minute ; sert à convertir des mm d'eau en minutes d'arrosage."
+        }
+      },
+      "area_menu": {
+        "title": "Votre jardin",
+        "description": "Ajouté : {areas}",
+        "menu_options": {
+          "area": "Ajouter une autre planche, serre ou bac",
+          "notifications": "Continuer"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Comment Hortulus doit-il vous prévenir du gel, de la chaleur et des tâches du jour ?",
+        "data": {
+          "persistent_notifications": "Notifications persistantes dans Home Assistant",
+          "notify_services": "Push mobile (services de notification)",
+          "tts_entity": "Moteur de synthèse vocale (facultatif)",
+          "tts_media_players": "Haut-parleurs pour les annonces",
+          "digest_time": "Récapitulatif quotidien des tâches à"
+        }
+      },
+      "summary": {
+        "title": "Prêt à cultiver",
+        "description": "**Climat** : hémisphère {hemisphere}, dernière gelée {last_frost}, première gelée {first_frost}\n**Météo** : {weather}\n**Zones** :\n{areas}\n\nLa base de données de plantes intégrée (plus de 230 légumes, aromatiques, fruits et fleurs) est installée automatiquement. Ouvrez **Hortulus** dans la barre latérale pour commencer à planifier.",
+        "data": {
+          "import_example_plan": "Ajouter un petit plan d'exemple (tomate + basilic + œillet d'Inde, carottes + oignons, laitue en semis échelonnés)"
+        }
+      }
+    },
+    "error": {
+      "invalid_frost_date": "Utilisez le format MM-JJ, par exemple 04-20.",
+      "invalid_zone": "Zone de rusticité inconnue.",
+      "duplicate_name": "Ce nom est déjà utilisé.",
+      "invalid_dimensions": "Les dimensions doivent être comprises entre 0,1 et 100 m."
+    },
+    "abort": {
+      "single_instance_allowed": "Hortulus est déjà configuré. Ajoutez d'autres planches dans le panneau Hortulus."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options d'Hortulus",
+        "description": "Les planches, les zones et l'association des capteurs se modifient dans le panneau Hortulus (onglet Paramètres).",
+        "menu_options": {
+          "region_mode": "Climat et dates de gel",
+          "weather": "Météo et capteurs extérieurs",
+          "notifications": "Notifications",
+          "advanced": "Réglages avancés"
+        }
+      },
+      "region_mode": {
+        "title": "Profil climatique",
+        "data": {
+          "region_mode": "Profil climatique"
+        }
+      },
+      "region": {
+        "title": "Votre climat",
+        "data": {
+          "hemisphere": "Hémisphère",
+          "preset": "Région",
+          "hardiness_zone": "Zone de rusticité USDA",
+          "last_frost": "Dernière gelée moyenne de printemps (MM-JJ)",
+          "first_frost": "Première gelée moyenne d'automne (MM-JJ)"
+        }
+      },
+      "weather": {
+        "title": "Météo",
+        "data": {
+          "weather_entity": "Entité météo",
+          "outdoor_temperature": "Capteur de température extérieure",
+          "rain_sensor": "Capteur de pluie"
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "data": {
+          "persistent_notifications": "Notifications persistantes dans Home Assistant",
+          "notify_services": "Push mobile (services de notification)",
+          "tts_entity": "Moteur de synthèse vocale",
+          "tts_media_players": "Haut-parleurs pour les annonces",
+          "digest_time": "Récapitulatif quotidien des tâches à",
+          "frost_alerts": "Alertes de gel",
+          "heat_alerts": "Alertes de chaleur dans la serre",
+          "tts_frost_announcement": "Annoncer les alertes de gel sur les haut-parleurs"
+        }
+      },
+      "advanced": {
+        "title": "Réglages avancés",
+        "data": {
+          "language": "Langue des tâches générées",
+          "companion_radius_cm": "Rayon d'interaction des associations",
+          "sensor_stale_minutes": "Considérer les capteurs comme obsolètes après",
+          "root_zone_depth_mm": "Profondeur de la zone racinaire",
+          "max_irrigation_mm": "Arrosage maximal par session"
+        }
+      }
+    },
+    "error": {
+      "invalid_frost_date": "Utilisez le format MM-JJ, par exemple 04-20.",
+      "invalid_zone": "Zone de rusticité inconnue."
+    }
+  },
+  "selector": {
+    "region_mode": {
+      "options": {
+        "preset": "Préréglage régional",
+        "usda": "Zone de rusticité USDA",
+        "custom": "Dates de gel personnalisées"
+      }
+    },
+    "hemisphere": {
+      "options": {
+        "north": "Nord",
+        "south": "Sud"
+      }
+    },
+    "preset": {
+      "options": {
+        "nl_be": "Pays-Bas / Flandre",
+        "uk_south": "Royaume-Uni (sud)",
+        "uk_north": "Royaume-Uni (nord)",
+        "de_central": "Allemagne (centre)",
+        "fr_north": "France (nord)",
+        "scandinavia_south": "Scandinavie du Sud",
+        "mediterranean": "Méditerranée",
+        "au_melbourne": "Australie (Melbourne)",
+        "nz_christchurch": "Nouvelle-Zélande (Christchurch)",
+        "za_highveld": "Afrique du Sud (Highveld)"
+      }
+    },
+    "area_type": {
+      "options": {
+        "outdoor": "Planche extérieure",
+        "greenhouse": "Serre",
+        "container": "Bac / pot"
+      }
+    },
+    "soil": {
+      "options": {
+        "sandy": "Sableux",
+        "loam": "Limoneux équilibré",
+        "clay": "Argileux",
+        "silt": "Limoneux",
+        "peat": "Tourbeux",
+        "chalk": "Calcaire",
+        "potting_mix": "Terreau"
+      }
+    },
+    "wind": {
+      "options": {
+        "sheltered": "Abrité",
+        "moderate": "Modéré",
+        "exposed": "Exposé"
+      }
+    },
+    "language": {
+      "options": {
+        "auto": "Suivre Home Assistant",
+        "en": "English",
+        "nl": "Nederlands",
+        "fr": "Français"
+      }
+    },
+    "task_type": {
+      "options": {
+        "custom": "Personnalisée",
+        "sow_indoor": "Semer à l'intérieur",
+        "sow_direct": "Semer en pleine terre",
+        "harden_off": "Endurcir",
+        "transplant": "Mettre en place",
+        "thin": "Éclaircir",
+        "stake": "Tuteurer",
+        "prune": "Tailler",
+        "pinch": "Pincer",
+        "earth_up": "Butter",
+        "feed": "Fertiliser",
+        "water": "Arroser",
+        "weed": "Désherber",
+        "pest_check": "Contrôle des ravageurs",
+        "harvest": "Récolter",
+        "ventilate": "Aérer",
+        "shade": "Ombrer",
+        "frost_protect": "Protection contre le gel",
+        "soil_prep": "Préparer le sol",
+        "compost": "Composter",
+        "green_manure": "Engrais vert",
+        "mulch": "Pailler",
+        "clean_greenhouse": "Nettoyer la serre",
+        "winter_prep": "Préparation de l'hiver",
+        "plan_season": "Planifier la saison",
+        "tool_care": "Entretien des outils",
+        "soil_test": "Analyse de sol",
+        "cut_back": "Rabattre",
+        "divide": "Diviser",
+        "protect": "Protéger",
+        "clean": "Nettoyer",
+        "tie_in": "Palisser",
+        "thin_fruit": "Éclaircir les fruits",
+        "pollinate": "Polliniser",
+        "check": "Contrôler",
+        "make_feed": "Préparer un purin"
+      }
+    },
+    "priority": {
+      "options": {
+        "low": "Basse",
+        "normal": "Normale",
+        "high": "Haute",
+        "urgent": "Urgente"
+      }
+    },
+    "import_mode": {
+      "options": {
+        "merge": "Fusionner (ajouter/mettre à jour)",
+        "replace": "Remplacer l'aménagement et les cultures"
+      }
+    },
+    "journal_kind": {
+      "options": {
+        "note": "Note",
+        "observation": "Observation",
+        "problem": "Problème",
+        "milestone": "Étape clé"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "frost_risk_next_48h": {
+        "name": "Risque de gel dans les 48 h",
+        "state": {
+          "none": "Aucun",
+          "low": "Faible",
+          "moderate": "Modéré",
+          "high": "Élevé",
+          "unknown": "Inconnu"
+        }
+      },
+      "growing_degree_days": {
+        "name": "Degrés-jours de croissance"
+      },
+      "tasks_due_today": {
+        "name": "Tâches du jour"
+      },
+      "next_task": {
+        "name": "Prochaine tâche"
+      },
+      "moisture_status": {
+        "name": "État d'humidité",
+        "state": {
+          "dry": "Sec",
+          "slightly_dry": "Légèrement sec",
+          "optimal": "Optimal",
+          "wet": "Humide",
+          "unknown": "Inconnu"
+        }
+      },
+      "irrigation_recommendation": {
+        "name": "Recommandation d'arrosage"
+      },
+      "companion_score": {
+        "name": "Score d'association"
+      },
+      "greenhouse_advice": {
+        "name": "Conseil serre",
+        "state": {
+          "none": "Aucune action",
+          "ventilate": "Aérer",
+          "shade": "Ombrer",
+          "close_up": "Fermer",
+          "heat": "Chauffer"
+        }
+      },
+      "et0_today": {
+        "name": "Évapotranspiration de référence aujourd'hui"
+      },
+      "gdd_today": {
+        "name": "Degrés-jours aujourd'hui"
+      },
+      "nutrient_balance": {
+        "name": "Équilibre nutritif"
+      },
+      "water_deficit": {
+        "name": "Déficit hydrique du sol"
+      },
+      "disease_risk": {
+        "name": "Risque de maladie",
+        "state": {
+          "none": "Aucun",
+          "low": "Faible",
+          "moderate": "Modéré",
+          "high": "Élevé",
+          "unknown": "Inconnu"
+        }
+      },
+      "gdd_season": {
+        "name": "Degrés-jours cette saison"
+      },
+      "harvest_season": {
+        "name": "Récolte cette saison"
+      },
+      "water_week": {
+        "name": "Eau du jardin (7 jours)"
+      },
+      "rain_water": {
+        "name": "Eau de pluie disponible"
+      }
+    },
+    "binary_sensor": {
+      "frost_warning": {
+        "name": "Alerte gel"
+      },
+      "needs_water": {
+        "name": "Besoin d'eau"
+      },
+      "heat_stress": {
+        "name": "Stress thermique"
+      },
+      "frost_risk_48h": {
+        "name": "Risque de gel 48 h"
+      },
+      "irrigation_lockout": {
+        "name": "Blocage gel de l'arrosage"
+      },
+      "irrigation_running": {
+        "name": "Arrosage en cours"
+      }
+    },
+    "button": {
+      "generate_tasks": {
+        "name": "Générer les tâches"
+      },
+      "refresh_forecast": {
+        "name": "Actualiser les prévisions"
+      },
+      "run_irrigation": {
+        "name": "Arroser maintenant"
+      },
+      "stop_irrigation": {
+        "name": "Arrêter l'arrosage"
+      }
+    },
+    "calendar": {
+      "tasks": {
+        "name": "Tâches du jardin"
+      }
+    },
+    "todo": {
+      "this_week": {
+        "name": "Cette semaine"
+      }
+    },
+    "number": {
+      "irrigation_max_runtime": {
+        "name": "Durée maximale d'arrosage"
+      },
+      "irrigation_frost_lockout": {
+        "name": "Température de blocage gel de l'arrosage"
+      },
+      "irrigation_rain_skip": {
+        "name": "Sauter l'arrosage au-delà de cette pluie"
+      }
+    },
+    "select": {
+      "irrigation_mode": {
+        "name": "Mode d'arrosage",
+        "state": {
+          "off": "Désactivé",
+          "advise": "Conseil (tâches)",
+          "auto": "Automatique"
+        }
+      },
+      "shading_mode": {
+        "name": "Ombrage",
+        "state": {
+          "auto": "Automatique",
+          "on": "Ombrage activé",
+          "off": "Ombrage désactivé"
+        }
+      }
+    },
+    "switch": {
+      "auto_irrigation": {
+        "name": "Arrosage automatique"
+      }
+    }
+  },
+  "services": {
+    "add_task": {
+      "name": "Ajouter une tâche",
+      "description": "Ajoute une tâche de jardinage (éventuellement récurrente).",
+      "fields": {
+        "title": {
+          "name": "Titre",
+          "description": "Ce qu'il faut faire."
+        },
+        "due_date": {
+          "name": "Échéance",
+          "description": "Aujourd'hui par défaut."
+        },
+        "type": {
+          "name": "Type",
+          "description": "Catégorie de tâche (influence l'icône et les statistiques)."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Détails ou instructions."
+        },
+        "priority": {
+          "name": "Priorité",
+          "description": "Basse, normale, haute ou urgente."
+        },
+        "estimated_minutes": {
+          "name": "Durée estimée",
+          "description": "Minutes nécessaires pour la tâche."
+        },
+        "bed": {
+          "name": "Planche",
+          "description": "Identifiant ou nom de la planche."
+        },
+        "planting_id": {
+          "name": "Culture",
+          "description": "Lier la tâche à une culture."
+        },
+        "recurrence_days": {
+          "name": "Répéter tous les",
+          "description": "Répéter la tâche tous les N jours après son achèvement."
+        },
+        "until": {
+          "name": "Répéter jusqu'au",
+          "description": "Dernière date de la récurrence."
+        }
+      }
+    },
+    "complete_task": {
+      "name": "Terminer une tâche",
+      "description": "Marque une tâche comme faite, met à jour la culture et planifie la prochaine occurrence des tâches récurrentes.",
+      "fields": {
+        "task_id": {
+          "name": "Tâche",
+          "description": "Identifiant de la tâche."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Note facultative (p. ex. poids récolté)."
+        },
+        "photos": {
+          "name": "Photos",
+          "description": "Identifiants ou URL d'images."
+        },
+        "skipped": {
+          "name": "Sautée",
+          "description": "Marquer comme sautée au lieu de faite."
+        }
+      }
+    },
+    "postpone_task": {
+      "name": "Reporter une tâche",
+      "description": "Déplace une tâche ; les tâches dépendantes de la même culture suivent.",
+      "fields": {
+        "task_id": {
+          "name": "Tâche",
+          "description": "Identifiant de la tâche."
+        },
+        "days": {
+          "name": "Jours",
+          "description": "Nombre de jours de décalage (négatif = plus tôt)."
+        },
+        "to_date": {
+          "name": "Nouvelle date",
+          "description": "Nouvelle échéance explicite."
+        },
+        "reason": {
+          "name": "Motif",
+          "description": "Enregistré comme note sur la tâche."
+        },
+        "cascade": {
+          "name": "Déplacer les tâches dépendantes",
+          "description": "Déplace aussi p. ex. « mettre en place » quand « semer » est reporté."
+        }
+      }
+    },
+    "delete_task": {
+      "name": "Supprimer une tâche",
+      "description": "Supprime une tâche utilisateur ; les tâches générées sont marquées comme sautées.",
+      "fields": {
+        "task_id": {
+          "name": "Tâche",
+          "description": "Identifiant de la tâche."
+        }
+      }
+    },
+    "generate_tasks": {
+      "name": "Générer les tâches",
+      "description": "Régénère les tâches à partir du plan, de la base de plantes, des capteurs et des prévisions. Idempotent."
+    },
+    "recalculate_plan": {
+      "name": "Recalculer le plan",
+      "description": "Actualise les prévisions et recalcule toutes les fenêtres, alertes et recommandations."
+    },
+    "export_plan": {
+      "name": "Exporter le plan",
+      "description": "Renvoie le plan du jardin sous forme de réponse compatible JSON.",
+      "fields": {
+        "include_tasks": {
+          "name": "Inclure les tâches",
+          "description": "Exporter aussi les tâches."
+        },
+        "seasons": {
+          "name": "Saisons",
+          "description": "N'exporter que les cultures de ces saisons."
+        }
+      }
+    },
+    "import_plan": {
+      "name": "Importer un plan",
+      "description": "Importe un plan créé par export_plan ou par le panneau.",
+      "fields": {
+        "plan": {
+          "name": "Plan",
+          "description": "Le document du plan."
+        },
+        "mode": {
+          "name": "Mode",
+          "description": "Fusionner ou remplacer."
+        }
+      }
+    },
+    "add_planting": {
+      "name": "Ajouter une culture",
+      "description": "Ajoute une culture à une planche ; les tâches sont générées automatiquement.",
+      "fields": {
+        "plant_id": {
+          "name": "Plante",
+          "description": "Identifiant de la plante dans la base (p. ex. tomato, basil)."
+        },
+        "bed": {
+          "name": "Planche",
+          "description": "Identifiant ou nom de la planche."
+        },
+        "season": {
+          "name": "Saison",
+          "description": "Année de la saison (par défaut l'année en cours)."
+        },
+        "layout": {
+          "name": "Disposition",
+          "description": "single, row ou block."
+        },
+        "x_cm": {
+          "name": "X",
+          "description": "Distance depuis le bord ouest de la planche, en cm."
+        },
+        "y_cm": {
+          "name": "Y",
+          "description": "Distance depuis le bord nord de la planche, en cm."
+        },
+        "width_cm": {
+          "name": "Largeur",
+          "description": "Largeur de l'emprise en cm (par défaut la largeur de la planche)."
+        },
+        "length_cm": {
+          "name": "Longueur",
+          "description": "Longueur de l'emprise en cm (par défaut un rang)."
+        },
+        "count": {
+          "name": "Plants",
+          "description": "Nombre de plants (sinon déduit de l'espacement)."
+        },
+        "method": {
+          "name": "Méthode",
+          "description": "indoor_sow, direct_sow ou transplant."
+        },
+        "status": {
+          "name": "Statut",
+          "description": "planned, sown, transplanted, harvesting, finished, failed ..."
+        },
+        "sow_date": {
+          "name": "Date de semis prévue",
+          "description": "Remplace le calcul du planificateur."
+        },
+        "transplant_date": {
+          "name": "Date de plantation prévue",
+          "description": "Remplace le calcul du planificateur."
+        },
+        "sown_on": {
+          "name": "Semé le",
+          "description": "Date réelle du semis."
+        },
+        "transplanted_on": {
+          "name": "Planté le",
+          "description": "Date réelle de la mise en place."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Texte libre."
+        }
+      }
+    },
+    "update_planting": {
+      "name": "Modifier une culture",
+      "description": "Modifie une culture (position, dates, statut ...).",
+      "fields": {
+        "plant_id": {
+          "name": "Plante",
+          "description": "Identifiant de la plante dans la base (p. ex. tomato, basil)."
+        },
+        "bed": {
+          "name": "Planche",
+          "description": "Identifiant ou nom de la planche."
+        },
+        "season": {
+          "name": "Saison",
+          "description": "Année de la saison (par défaut l'année en cours)."
+        },
+        "layout": {
+          "name": "Disposition",
+          "description": "single, row ou block."
+        },
+        "x_cm": {
+          "name": "X",
+          "description": "Distance depuis le bord ouest de la planche, en cm."
+        },
+        "y_cm": {
+          "name": "Y",
+          "description": "Distance depuis le bord nord de la planche, en cm."
+        },
+        "width_cm": {
+          "name": "Largeur",
+          "description": "Largeur de l'emprise en cm (par défaut la largeur de la planche)."
+        },
+        "length_cm": {
+          "name": "Longueur",
+          "description": "Longueur de l'emprise en cm (par défaut un rang)."
+        },
+        "count": {
+          "name": "Plants",
+          "description": "Nombre de plants (sinon déduit de l'espacement)."
+        },
+        "method": {
+          "name": "Méthode",
+          "description": "indoor_sow, direct_sow ou transplant."
+        },
+        "status": {
+          "name": "Statut",
+          "description": "planned, sown, transplanted, harvesting, finished, failed ..."
+        },
+        "sow_date": {
+          "name": "Date de semis prévue",
+          "description": "Remplace le calcul du planificateur."
+        },
+        "transplant_date": {
+          "name": "Date de plantation prévue",
+          "description": "Remplace le calcul du planificateur."
+        },
+        "sown_on": {
+          "name": "Semé le",
+          "description": "Date réelle du semis."
+        },
+        "transplanted_on": {
+          "name": "Planté le",
+          "description": "Date réelle de la mise en place."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Texte libre."
+        },
+        "planting_id": {
+          "name": "Culture",
+          "description": "Identifiant de la culture."
+        }
+      }
+    },
+    "remove_planting": {
+      "name": "Retirer une culture",
+      "description": "Retire une culture et ses tâches ouvertes.",
+      "fields": {
+        "planting_id": {
+          "name": "Culture",
+          "description": "Identifiant de la culture."
+        }
+      }
+    },
+    "run_irrigation_plan": {
+      "name": "Lancer le plan d'arrosage",
+      "description": "Arrose maintenant les planches qui en ont besoin. Le blocage gel, le saut en cas de pluie et la durée maximale s'appliquent toujours.",
+      "fields": {
+        "dry_run": {
+          "name": "Simulation",
+          "description": "Renvoyer uniquement le plan, sans ouvrir de vanne."
+        },
+        "beds": {
+          "name": "Planches",
+          "description": "Limiter à ces planches (identifiants ou noms)."
+        },
+        "amount_mm": {
+          "name": "Quantité",
+          "description": "Arroser cette hauteur d'eau (mm) au lieu de la recommandation."
+        }
+      }
+    },
+    "stop_irrigation": {
+      "name": "Arrêter l'arrosage",
+      "description": "Arrête un arrosage en cours et ferme toutes les vannes ainsi que la pompe."
+    },
+    "set_shading_mode": {
+      "name": "Définir le mode d'ombrage",
+      "description": "Écran d'ombrage d'une serre : auto, on ou off.",
+      "fields": {
+        "zone": {
+          "name": "Zone",
+          "description": "Identifiant ou nom de la zone de serre."
+        },
+        "mode": {
+          "name": "Mode",
+          "description": "auto, on ou off."
+        }
+      }
+    },
+    "autofill_plan": {
+      "name": "Remplir le plan automatiquement",
+      "description": "Propose des cultures et leur emplacement selon les planches et ressources disponibles ; peut aussi l'appliquer.",
+      "fields": {
+        "season": {
+          "name": "Saison",
+          "description": "Saison à planifier."
+        },
+        "beds": {
+          "name": "Planches",
+          "description": "Planches à remplir (par défaut : toutes les planches vides)."
+        },
+        "replace": {
+          "name": "Remplacer",
+          "description": "Replanifier les planches sélectionnées même si elles contiennent déjà des cultures."
+        },
+        "apply": {
+          "name": "Appliquer",
+          "description": "Enregistrer la proposition dans le plan."
+        },
+        "household_size": {
+          "name": "Ménage",
+          "description": "Nombre de personnes."
+        },
+        "hours_per_week": {
+          "name": "Heures par semaine",
+          "description": "Temps disponible pour le jardin."
+        },
+        "water_liters_per_week": {
+          "name": "Eau par semaine",
+          "description": "Litres disponibles lors d'une semaine de pointe (vide = illimité)."
+        },
+        "compost_kg": {
+          "name": "Compost",
+          "description": "Compost disponible (kg)."
+        },
+        "goals": {
+          "name": "Objectifs",
+          "description": "fresh, storage, herbs, pollinators, winter, perennials, easy."
+        },
+        "wanted": {
+          "name": "Cultures souhaitées",
+          "description": "Identifiants de plantes à inclure obligatoirement."
+        },
+        "excluded": {
+          "name": "Cultures exclues",
+          "description": "Identifiants de plantes à ne jamais utiliser."
+        },
+        "max_crops": {
+          "name": "Nombre max. de cultures",
+          "description": "Limite supérieure du nombre de cultures différentes."
+        }
+      }
+    },
+    "export_pdf": {
+      "name": "Exporter en PDF",
+      "description": "Écrit un PDF imprimable (plan du jardin, fiches de planches, liste de contrôle ...) dans /config/hortulus/exports.",
+      "fields": {
+        "document": {
+          "name": "Document",
+          "description": "garden, zone, beds, tasks, season, blank ou plants."
+        },
+        "page": {
+          "name": "Format de page",
+          "description": "a4, a3, a5, letter ou remarkable (Paper Pro)."
+        },
+        "landscape": {
+          "name": "Paysage",
+          "description": "Faire pivoter la page."
+        },
+        "color_mode": {
+          "name": "Couleurs",
+          "description": "color, eink ou grayscale."
+        },
+        "season": {
+          "name": "Saison",
+          "description": "Saison à imprimer."
+        },
+        "zone_id": {
+          "name": "Zone",
+          "description": "Uniquement cette zone (document de zone)."
+        },
+        "bed_ids": {
+          "name": "Planches",
+          "description": "Uniquement ces planches (fiches de planches)."
+        },
+        "days": {
+          "name": "Jours",
+          "description": "Nombre de jours à venir pour la liste de contrôle."
+        },
+        "notes": {
+          "name": "Zone de notes",
+          "description": "Ajouter une zone pointillée pour dessiner et écrire."
+        },
+        "grid": {
+          "name": "Grille",
+          "description": "Grille de 10 cm sur les fiches de planches."
+        },
+        "title": {
+          "name": "Titre",
+          "description": "Titre personnalisé."
+        }
+      }
+    },
+    "log_harvest": {
+      "name": "Noter une récolte",
+      "description": "Enregistrez ce que vous avez cueilli : kg et/ou nombre, par culture ou par plante. Les rendements appris améliorent le remplissage automatique.",
+      "fields": {
+        "planting_id": {
+          "name": "Culture",
+          "description": "Identifiant de la culture (facultatif)."
+        },
+        "plant_id": {
+          "name": "Plante",
+          "description": "Identifiant de la plante quand il n'y a pas de culture."
+        },
+        "plant": {
+          "name": "Nom de la plante",
+          "description": "Identifiant ou nom de la plante dans n'importe quelle langue, p. ex. Tomate - pratique pour une étiquette NFC. La culture au jardin est retrouvée automatiquement."
+        },
+        "bed": {
+          "name": "Planche",
+          "description": "Nom ou identifiant de la planche, quand la plante pousse dans plusieurs planches."
+        },
+        "kg": {
+          "name": "Poids",
+          "description": "Kilogrammes récoltés."
+        },
+        "count": {
+          "name": "Nombre",
+          "description": "Nombre de fruits / pommes."
+        },
+        "quality": {
+          "name": "Qualité",
+          "description": "De 1 (médiocre) à 5 (excellente)."
+        },
+        "day": {
+          "name": "Date",
+          "description": "Aujourd'hui par défaut."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Texte libre."
+        }
+      }
+    },
+    "add_journal_entry": {
+      "name": "Ajouter une entrée au journal",
+      "description": "Ajoute une note (et des photos) au journal du jardin.",
+      "fields": {
+        "text": {
+          "name": "Texte",
+          "description": "Ce que vous avez vu ou fait."
+        },
+        "kind": {
+          "name": "Type",
+          "description": "Note, observation, problème ou étape clé."
+        },
+        "planting_id": {
+          "name": "Culture",
+          "description": "Lien vers une culture (facultatif)."
+        },
+        "bed": {
+          "name": "Planche",
+          "description": "Nom ou identifiant de la planche (facultatif)."
+        },
+        "photos": {
+          "name": "Photos",
+          "description": "Identifiants d'images issus du téléversement d'images."
+        }
+      }
+    },
+    "assign_task": {
+      "name": "Attribuer une tâche",
+      "description": "Confie une tâche à un membre du ménage (personne) ou retire l'attribution.",
+      "fields": {
+        "task_id": {
+          "name": "Tâche",
+          "description": "Identifiant de la tâche."
+        },
+        "assignee": {
+          "name": "Personne",
+          "description": "Entité person.* ; vide = n'importe qui."
+        }
+      }
+    },
+    "save_soil_test": {
+      "name": "Enregistrer une analyse de sol",
+      "description": "Enregistre une analyse de sol pour une planche ; les conseils d'engrais et de chaulage l'utilisent.",
+      "fields": {
+        "bed": {
+          "name": "Planche",
+          "description": "Nom ou identifiant de la planche."
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date de prélèvement."
+        },
+        "ph": {
+          "name": "pH",
+          "description": "pH du sol."
+        },
+        "organic_matter_pct": {
+          "name": "Matière organique",
+          "description": "Pourcentage."
+        },
+        "p_mg": {
+          "name": "Phosphate",
+          "description": "mg de P2O5 pour 100 g."
+        },
+        "k_mg": {
+          "name": "Potassium",
+          "description": "mg de K2O pour 100 g."
+        },
+        "notes": {
+          "name": "Notes",
+          "description": "Remarques du laboratoire ou du kit."
+        }
+      }
+    },
+    "install_voice_sentences": {
+      "name": "Installer les phrases vocales",
+      "description": "Copie les phrases Hortulus pour Assist dans /config/custom_sentences (EN, NL et FR).",
+      "fields": {
+        "overwrite": {
+          "name": "Écraser",
+          "description": "Remplacer les fichiers que vous avez modifiés vous-même."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "Hortulus n'est pas configuré ou pas chargé."
+    },
+    "unknown_task": {
+      "message": "La tâche {task} n'existe pas."
+    },
+    "unknown_bed": {
+      "message": "La planche {bed} n'existe pas."
+    },
+    "unknown_planting": {
+      "message": "La culture {planting} n'existe pas."
+    },
+    "unknown_plant": {
+      "message": "La plante {plant} n'existe pas."
+    },
+    "plant_in_use": {
+      "message": "La plante {plant} est utilisée dans le plan et ne peut pas être supprimée."
+    },
+    "invalid_plan": {
+      "message": "Plan non valide : {reason}"
+    },
+    "invalid_plant": {
+      "message": "Plante non valide : {reason}"
+    },
+    "invalid_settings": {
+      "message": "Paramètres non valides : {reason}"
+    },
+    "unknown_zone": {
+      "message": "Zone inconnue : {zone}"
+    },
+    "not_enclosed": {
+      "message": "{zone} n'est ni une serre ni un châssis."
+    },
+    "irrigation_running": {
+      "message": "Un arrosage est déjà en cours."
+    },
+    "invalid_print": {
+      "message": "Options d'impression non valides : {reason}"
+    },
+    "invalid_harvest": {
+      "message": "Indiquez un poids (kg) ou un nombre pour la récolte."
+    },
+    "invalid_record": {
+      "message": "Type d'enregistrement inconnu {kind}."
+    },
+    "unknown_record": {
+      "message": "L'enregistrement {record} n'existe pas."
+    },
+    "invalid_journal": {
+      "message": "Une entrée de journal nécessite un texte ou une photo (et un type valide)."
+    },
+    "invalid_seed": {
+      "message": "Sachet de graines non valide : {reason}"
+    },
+    "invalid_soil_test": {
+      "message": "Analyse de sol non valide : {reason}"
+    },
+    "unknown_log_entry": {
+      "message": "L'entrée {entry} du journal système n'existe pas (ou plus)."
+    },
+    "garden_not_empty": {
+      "message": "Le potager de départ ne peut être aménagé que dans un jardin sans planches."
+    },
+    "invalid_expense": {
+      "message": "Indiquez un montant supérieur à zéro et un type de dépense connu."
+    }
+  }
+}
