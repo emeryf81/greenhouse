@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.7.1 – 2026-10
+
+### Changed
+- **Cooking: fridge items only go where they fit.** What you tick under "use up from the fridge"
+  is no longer worked into every dish. Each dish takes only what suits it, in the way that
+  suits it: yoghurt as a fresh sauce with roast or stuffed vegetables, a creamy salad dressing
+  or a spoonful on a soup or curry, never on pasta or risotto. Cheese melts over an oven dish,
+  goes into a frittata or on a salad; at most one extra cheese and one extra cream per dish, and
+  nothing the recipe already uses. The step sits at the right moment in the method, not always
+  at the end.
+
+### Added
+- **Cooking: your own version of a recipe.** "Edit" in a recipe adds, removes or changes
+  ingredients (name, amount, unit, from the garden / at home / to buy) and adds, removes,
+  rewrites or reorders the steps. Your version goes into your cookbook, the shopping list and
+  the PDFs follow it, and "Back to the original" restores the generated recipe.
+
+### Fixed
+- **Cooking:** what you take from the fridge, and what you tick as always at home, shows as
+  "at home" instead of "to buy", also before you save your choices.
+
 ## 1.7.0 – 2026-10
 
 ### Added

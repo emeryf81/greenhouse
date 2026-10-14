@@ -1243,6 +1243,26 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     )
     book = (await _result(client))["result"]["book"]
     assert book[0]["shared"] is True and book[0]["title"] == "Ons recept"
+    # the cook's own version: ingredients and steps by hand, back to the generated with []
+    own = {"ingredients": [{"name": "Boerenkool", "qty": 400, "unit": "g", "source": "garden", "plant_id": "kale"},
+                           {"name": "Gerookte paprika", "qty": 1, "unit": "tbsp", "source": "shop"}],
+           "steps": ["Alles in de pan.", "  ", "Proeven."]}  # fmt: skip
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": own})
+    mine = (await _result(client))["result"]["book"][0]
+    assert mine["custom"] is True and mine["steps"] == ["Alles in de pan.", "Proeven."] and mine["id"] == saved["id"]
+    assert [i["name"] for i in mine["shopping"]] == ["Gerookte paprika"]
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"ingredients": [{"name": ""}]}}
+    )
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"ingredients": [], "steps": []}}
+    )
+    assert (await _result(client))["result"]["book"][0]["custom"] is False
+    # what the cook has at home (sent along) is not bought
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/render", "spec": spec, "pantry": ["bulgur"]})
+    home = (await _result(client))["result"]["recipe"]
+    assert next(i for i in home["ingredients"] if i["id"] == "bulgur")["source"] == "pantry"
 
     await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/pdf", "kind": "book", "ids": [saved["id"]]})
     pdf = (await _result(client))["result"]

@@ -196,8 +196,6 @@ BASICS = {
     "pepper": Item(("pepper", "peper", "poivre"), 0, "", "basic"),
     "oil": Item(("olive oil", "olijfolie", "huile d'olive"), 0, "", "basic"),
 }
-# Where a pantry item goes when the cook ticks it as "use this up": cooked along or on top.
-_FINISH = frozenset(("parmesan", "feta", "mozzarella", "grated_cheese", "goat_cheese", "nuts", "lemon", "yoghurt"))
 
 
 # --------------------------------------------------------------------------- #
@@ -348,7 +346,7 @@ _STEPS: dict[str, dict[str, list[str]]] = {
                   "Toss with the hot {side} or spread on toasted bread."],
         "dessert": ["Heat the oven to 180 °C. Prepare the fruit: {prep}; put it in a buttered dish with a spoon of sugar.",
                     "Rub flour, oats, sugar and cold butter to coarse crumbs and scatter over the fruit.",
-                    "Bake for 30-35 minutes until golden and bubbling. Lovely with yoghurt or cream."],
+                    "Bake for 30-35 minutes until golden and bubbling."],
     },
     "nl": {
         "soup": ["Maak de groenten klaar: {prep}.", "Stoof de ui in wat olie in een grote pot, voeg de groenten toe en roer 3 minuten.",
@@ -391,7 +389,7 @@ _STEPS: dict[str, dict[str, list[str]]] = {
                   "Meng met de warme {side} of smeer op geroosterd brood."],
         "dessert": ["Verwarm de oven voor op 180 °C. Maak het fruit klaar: {prep}; leg het in een beboterde schaal met een lepel suiker.",
                     "Wrijf bloem, havervlokken, suiker en koude boter tot grove kruimels en strooi over het fruit.",
-                    "Bak 30-35 minuten tot het goudbruin borrelt. Lekker met yoghurt of room."],
+                    "Bak 30-35 minuten tot het goudbruin borrelt."],
     },
     "fr": {
         "soup": ["Préparez les légumes : {prep}.", "Faites revenir l'oignon dans un peu d'huile, ajoutez les légumes et remuez 3 minutes.",
@@ -434,7 +432,7 @@ _STEPS: dict[str, dict[str, list[str]]] = {
                   "Mélangez aux {side} chaudes ou tartinez sur du pain grillé."],
         "dessert": ["Préchauffez le four à 180 °C. Préparez les fruits : {prep} ; mettez-les dans un plat beurré avec une cuillerée de sucre.",
                     "Sablez farine, flocons d'avoine, sucre et beurre froid et parsemez sur les fruits.",
-                    "Enfournez 30-35 minutes. Délicieux avec du yaourt ou de la crème."],
+                    "Enfournez 30-35 minutes."],
     },
 }  # fmt: skip
 
@@ -484,9 +482,184 @@ _SIDE_STEP = {
            "bread": "Faites griller le pain ou réchauffez-le au four.", "noodles": "Cuisez les nouilles selon l'emballage et rincez."},
 }  # fmt: skip
 _SERVE_SIDE = {"en": "Serve with the {s}.", "nl": "Serveer met de {s}.", "fr": "Servez avec les {s}."}
-_EXTRA_COOK = {"en": "Stir in the {x} for the last few minutes.", "nl": "Roer de {x} er de laatste minuten door.",
-               "fr": "Incorporez {x} les dernières minutes."}  # fmt: skip
-_EXTRA_FINISH = {"en": "Finish with {x}.", "nl": "Werk af met {x}.", "fr": "Terminez avec {x}."}
+
+# What the cook has in the fridge ("use this up") only goes into a dish it suits, and in the way
+# it suits it: yoghurt makes a fresh sauce for roast or stuffed vegetables, a dressing for a salad
+# or a spoonful on a curry, never a topping for pasta.  Per technique: item -> role.  Items a
+# technique does not list are left out of that dish (they stay in the fridge for another one).
+_EXTRA_USE: dict[str, dict[str, str]] = {
+    "soup": {"yoghurt": "dollop", "parmesan": "top", "nuts": "nuts", "ginger": "start", "curry_paste": "start",
+             "tomato_paste": "start", "garlic": "start"},
+    "roast": {"feta": "top", "mozzarella": "melt", "grated_cheese": "melt", "parmesan": "top", "yoghurt": "yog_sauce",
+              "nuts": "nuts", "lemon": "lemon", "honey": "glaze", "vinegar": "glaze", "onion": "tray"},
+    "stir_fry": {"eggs": "egg_wok", "honey": "season", "vinegar": "season", "nuts": "nuts", "curry_paste": "start",
+                 "coconut_milk": "finish_liquid", "onion": "start"},
+    "pasta": {"cream": "simmer", "tomato_paste": "start", "white_wine": "deglaze", "feta": "top", "lemon": "lemon",
+              "nuts": "nuts", "onion": "start", "butter": "butter"},
+    "risotto": {"cream": "finish_liquid", "lemon": "lemon", "nuts": "nuts"},
+    "salad": {"feta": "top", "mozzarella": "top", "parmesan": "top", "yoghurt": "yog_dressing", "eggs": "egg_salad",
+              "nuts": "nuts", "honey": "dressing", "vinegar": "dressing", "onion": "raw"},
+    "gratin": {"breadcrumbs": "crust", "parmesan": "crust", "mustard": "into_cream"},
+    "stew": {"yoghurt": "dollop", "ginger": "start", "tomato_paste": "start", "nuts": "nuts", "stock": "liquid"},
+    "frittata": {"feta": "before_grill", "mozzarella": "before_grill", "parmesan": "egg_mix", "milk": "egg_mix",
+                 "cream": "egg_mix", "onion": "start"},
+    "stoemp": {"mustard": "mash", "cream": "mash", "grated_cheese": "mash", "onion": "fried_onion"},
+    "stuffed": {"feta": "in_filling", "nuts": "in_filling", "tomato_paste": "in_filling", "mozzarella": "melt",
+                "parmesan": "melt", "yoghurt": "yog_sauce", "breadcrumbs": "crust"},
+    "plate": {"lemon": "lemon", "nuts": "nuts", "yoghurt": "yog_sauce", "cream": "pan_sauce"},
+    "pesto": {},
+    "dessert": {"yoghurt": "serve_with", "cream": "serve_with", "nuts": "crumble"},
+}  # fmt: skip
+_CHEESES = frozenset(("parmesan", "feta", "mozzarella", "grated_cheese"))
+_CREAMY = frozenset(("cream", "coconut_milk", "milk"))
+_CHEESE_INSIDE = frozenset(("crust", "egg_mix", "in_filling"))
+# Where a role's step goes: "mid" after the technique's second step (onion softened, vegetables
+# in the pan), "late" after its last.
+_ROLE_MID = frozenset(("start", "tray", "liquid", "simmer", "deglaze", "egg_mix", "into_cream", "in_filling", "crust"))
+_ROLE_ORDER = (
+    "start", "tray", "liquid", "deglaze", "simmer", "into_cream", "egg_mix", "in_filling", "crust", "before_grill",
+    "melt", "glaze", "mash", "fried_onion", "egg_wok", "season", "dressing", "yog_dressing", "raw", "egg_salad",
+    "finish_liquid", "butter", "pan_sauce", "lemon", "top", "nuts", "dollop", "yog_sauce", "serve_with", "crumble",
+)  # fmt: skip
+_ROLE_TEXT: dict[str, dict[str, str]] = {
+    "en": {
+        "start": "Fry the {x} briefly with it before the vegetables go in.",
+        "tray": "Add the {x}, in wedges, to the baking tray.",
+        "liquid": "Use the {x} (dissolved in the water) for extra flavour.",
+        "deglaze": "Deglaze the pan with the {x} and let it bubble down for a minute.",
+        "simmer": "Pour in the {x} and let it reduce for 2 minutes into a creamy sauce.",
+        "into_cream": "Stir the {x} into the cream before pouring it over.",
+        "egg_mix": "Add the {x} to the eggs when you beat them.",
+        "in_filling": "Mix the {x} into the filling.",
+        "crust": "Mix the {x} with the cheese for a crisp crust.",
+        "before_grill": "Scatter the {x} over the frittata before it goes under the grill.",
+        "melt": "Spread the {x} over the vegetables for the last 10 minutes and let it melt in the oven.",
+        "glaze": "Drizzle the vegetables with the {x} for the last 10 minutes.",
+        "mash": "Stir the {x} through the stoemp.",
+        "fried_onion": "Fry the {x} golden in a little butter and stir it through the stoemp.",
+        "egg_wok": "Push everything aside, scramble the beaten {x} in the wok and toss through.",
+        "season": "Season with a dash of {x}.",
+        "dressing": "Whisk a spoonful of {x} into the dressing.",
+        "yog_dressing": "Replace half of the oil in the dressing with {x} for a creamy dressing.",
+        "raw": "Slice the {x} paper-thin and toss it through.",
+        "egg_salad": "Boil the {x} for 8 minutes, cool them in cold water, peel and quarter them over the salad.",
+        "finish_liquid": "Stir in a splash of {x} at the end.",
+        "butter": "Stir in a knob of {x} at the end.",
+        "pan_sauce": "Deglaze the meat pan with the {x}, let it thicken for a minute and pour it over.",
+        "lemon": "Grate a little {x} zest over it and add a squeeze of juice.",
+        "top": "Scatter the {x} over it when serving.",
+        "nuts": "Toast the {x} briefly in a dry pan and scatter them over it.",
+        "dollop": "Top each plate with a spoonful of {x}.",
+        "yog_sauce": "Stir the {x} with a little lemon juice, a crushed garlic clove, salt and pepper into a fresh sauce and serve it alongside.",
+        "serve_with": "Serve with {x}.",
+        "crumble": "Mix the chopped {x} into the crumble.",
+    },
+    "nl": {
+        "start": "Bak de {x} kort mee voor de groenten erbij gaan.",
+        "tray": "Leg ook de {x} in partjes mee op de bakplaat.",
+        "liquid": "Los de {x} op in het water voor extra smaak.",
+        "deglaze": "Blus de pan met de {x} en laat een minuutje inkoken.",
+        "simmer": "Giet de {x} erbij en laat 2 minuten inkoken tot een romige saus.",
+        "into_cream": "Roer de {x} door de room voor je die erover giet.",
+        "egg_mix": "Klop ook de {x} mee als je de eieren losklopt.",
+        "in_filling": "Meng de {x} door de vulling.",
+        "crust": "Meng de {x} met de kaas voor een krokant korstje.",
+        "before_grill": "Verdeel de {x} over de frittata voor ze onder de grill gaat.",
+        "melt": "Verdeel de {x} de laatste 10 minuten over de groenten en laat smelten in de oven.",
+        "glaze": "Besprenkel de groenten de laatste 10 minuten met {x}.",
+        "mash": "Roer de {x} door de stoemp.",
+        "fried_onion": "Bak de {x} goudbruin in wat boter en roer ze door de stoemp.",
+        "egg_wok": "Schuif alles opzij, roer de losgeklopte {x} in de wok tot roerei en schep om.",
+        "season": "Breng op smaak met een scheutje {x}.",
+        "dressing": "Klop een lepel {x} door de dressing.",
+        "yog_dressing": "Vervang de helft van de olie in de dressing door {x} voor een romige dressing.",
+        "raw": "Snij de {x} flinterdun en meng erdoor.",
+        "egg_salad": "Kook de {x} 8 minuten, laat schrikken in koud water, pel ze en verdeel ze in parten over de salade.",
+        "finish_liquid": "Roer er op het einde een scheutje {x} door.",
+        "butter": "Roer er op het einde een klontje {x} door.",
+        "pan_sauce": "Blus de vleespan met de {x}, laat een minuutje indikken en giet de saus erover.",
+        "lemon": "Rasp er wat {x}schil over en knijp er een beetje sap boven.",
+        "top": "Strooi bij het opdienen de {x} erover.",
+        "nuts": "Rooster de {x} kort in een droge pan en strooi ze erover.",
+        "dollop": "Schep bij het opdienen een lepel {x} op elk bord.",
+        "yog_sauce": "Roer de {x} los met wat citroensap, een geperst teentje look, peper en zout tot een frisse saus en serveer erbij.",
+        "serve_with": "Serveer met {x}.",
+        "crumble": "Meng de gehakte {x} door het kruimeldeeg.",
+    },
+    "fr": {
+        "start": "Faites revenir brièvement {x} avant d'ajouter les légumes.",
+        "tray": "Ajoutez aussi {x} en quartiers sur la plaque.",
+        "liquid": "Délayez {x} dans l'eau pour plus de goût.",
+        "deglaze": "Déglacez avec {x} et laissez réduire une minute.",
+        "simmer": "Versez {x} et laissez réduire 2 minutes en sauce onctueuse.",
+        "into_cream": "Incorporez {x} à la crème avant de la verser.",
+        "egg_mix": "Ajoutez {x} aux œufs en les battant.",
+        "in_filling": "Mélangez {x} à la farce.",
+        "crust": "Mélangez {x} au fromage pour une croûte croustillante.",
+        "before_grill": "Répartissez {x} sur la frittata avant de la passer sous le gril.",
+        "melt": "Répartissez {x} sur les légumes les 10 dernières minutes et laissez fondre au four.",
+        "glaze": "Arrosez les légumes de {x} les 10 dernières minutes.",
+        "mash": "Incorporez {x} au stoemp.",
+        "fried_onion": "Faites dorer {x} dans un peu de beurre et mélangez au stoemp.",
+        "egg_wok": "Poussez tout sur le côté, brouillez {x} battus dans le wok et mélangez.",
+        "season": "Relevez d'un trait de {x}.",
+        "dressing": "Ajoutez une cuillerée de {x} à la vinaigrette.",
+        "yog_dressing": "Remplacez la moitié de l'huile de la vinaigrette par {x} pour une sauce crémeuse.",
+        "raw": "Émincez finement {x} et mélangez.",
+        "egg_salad": "Cuisez {x} 8 minutes, passez-les à l'eau froide, écalez-les et répartissez-les en quartiers sur la salade.",
+        "finish_liquid": "Ajoutez un trait de {x} à la fin.",
+        "butter": "Ajoutez une noix de {x} à la fin.",
+        "pan_sauce": "Déglacez la poêle de la viande avec {x}, laissez épaissir une minute et nappez.",
+        "lemon": "Râpez un peu de zeste de {x} et ajoutez un filet de jus.",
+        "top": "Parsemez de {x} au moment de servir.",
+        "nuts": "Torréfiez {x} à sec dans une poêle et parsemez-en le plat.",
+        "dollop": "Déposez une cuillerée de {x} sur chaque assiette.",
+        "yog_sauce": "Mélangez {x} avec un peu de jus de citron, une gousse d'ail écrasée, sel et poivre pour une sauce fraîche, servie à côté.",
+        "serve_with": "Servez avec {x}.",
+        "crumble": "Ajoutez {x} hachées à la pâte à crumble.",
+    },
+}  # fmt: skip
+
+
+def fitting_extras(technique: str, items: Iterable[str], has_protein: bool = True) -> list[str]:
+    """The fridge items that suit a dish, in the dish's own order: at most one extra cheese and one
+    extra cream, and never something the dish already uses."""
+    tech = TECHNIQUE.get(technique)
+    if tech is None:
+        return []
+    wanted = set(items)
+    out: list[str] = []
+    for item, role in _EXTRA_USE.get(technique, {}).items():
+        if item not in wanted or item in tech.staples or (role == "pan_sauce" and not has_protein):
+            continue
+        # one extra cheese; none on top of a cheese the recipe already has (mixed in, it may)
+        if item in _CHEESES and (
+            any(x in _CHEESES for x in out) or (role not in _CHEESE_INSIDE and any(t in _CHEESES for t in tech.staples))
+        ):
+            continue
+        # one cream per dish; a splash of milk in the recipe is no cream (stoemp still takes cream)
+        creamy = [*out, *(t for t in tech.staples if t != "milk")]
+        if item in _CREAMY and any(x in _CREAMY for x in creamy):
+            continue
+        out.append(item)
+    return out
+
+
+def _extra_steps(technique: str, extras: Sequence[str], lang: str) -> tuple[list[str], list[str]]:
+    """The steps for the fridge items: (after the second technique step, after the last)."""
+    by_role: dict[str, list[str]] = {}
+    for item in extras:
+        role = _EXTRA_USE.get(technique, {}).get(item)
+        if role is not None:
+            by_role.setdefault(role, []).append(PANTRY[item].name(lang))
+    mid: list[str] = []
+    late: list[str] = []
+    for role in _ROLE_ORDER:
+        if role in by_role:
+            (mid if role in _ROLE_MID else late).append(_ROLE_TEXT[lang][role].format(x=_join(by_role[role], lang)))
+    return mid, late
+
+
 _HERBS = {"en": "Scatter over the {h} just before serving.", "nl": "Strooi vlak voor het opdienen de {h} erover.",
           "fr": "Parsemez de {h} juste avant de servir."}  # fmt: skip
 _UNITS = {
@@ -663,8 +836,8 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
     side = SIDES.get(side_id)
     protein_id = str(spec.get("protein") or "")
     protein = PROTEINS.get(protein_id)
-    extras = [x for x in str_ids(spec.get("extras")) if x in PANTRY]
-    in_house = set(pantry)
+    extras = fitting_extras(tech.id, [x for x in str_ids(spec.get("extras")) if x in PANTRY], protein is not None)
+    in_house = set(pantry) | set(extras)  # what the cook took from the fridge is in the house
 
     names = [short_name(p, lang) for p, _ in produce]
     main_names = [n for (p, k), n in zip(produce, names, strict=True) if k != "herb"] or names
@@ -738,14 +911,13 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
             else "meat"
         )
         steps.append(_PROTEIN_STEP[lang][key].format(p=protein.name(lang).split(" (")[0].lower()))
-    for step in _STEPS[lang][tech.id]:
+    mid, late = _extra_steps(tech.id, extras, lang)
+    for n, step in enumerate(_STEPS[lang][tech.id]):
         steps.append(step.format(prep=prep or a, side=side_name.lower(), veg=_join(names, lang)))
-    cook_extras = [PANTRY[x].name(lang) for x in extras if x not in _FINISH and x not in tech.staples]
-    finish_extras = [PANTRY[x].name(lang) for x in extras if x in _FINISH and x not in tech.staples]
-    if cook_extras:
-        steps.append(_EXTRA_COOK[lang].format(x=_join(cook_extras, lang)))
-    if finish_extras:
-        steps.append(_EXTRA_FINISH[lang].format(x=_join(finish_extras, lang)))
+        if n == 1:
+            steps += mid
+            mid = []
+    steps += mid + late
     if herbs and tech.id not in ("pesto", "dessert"):
         steps.append(_HERBS[lang].format(h=_join(herbs[:3], lang)))
     if side_id == "bread":
@@ -791,6 +963,61 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
             "technique": tech.id,
         },
     }
+
+
+UNITS = ("g", "ml", "pc", "clove", "slice", "tbsp", "cube", "can")
+SOURCES = ("garden", "pantry", "shop")
+_GROUP_ORDER = ("meat", "fish", "veg_protein", "dairy", "side", "pantry", "other")
+
+
+def custom_ingredient(raw: Any, n: int) -> dict[str, Any] | None:
+    """One ingredient as the cook typed it (None when it has no name)."""
+    if not isinstance(raw, Mapping):
+        return None
+    name = str(raw.get("name") or "").strip()[:80]
+    if not name:
+        return None
+    try:
+        qty = float(raw.get("qty") or 0)
+    except (TypeError, ValueError):
+        qty = 0.0
+    qty = qty if math.isfinite(qty) and 0 <= qty <= 100000 else 0.0
+    unit = str(raw.get("unit") or "")
+    source = str(raw.get("source") or "shop")
+    group = str(raw.get("group") or "other")
+    out: dict[str, Any] = {
+        "id": str(raw.get("id") or f"custom-{n}")[:60],
+        "name": name,
+        "qty": _qty(qty, unit) if qty else 0,
+        "unit": unit if unit in UNITS else "",
+        "source": source if source in SOURCES else "shop",
+        "group": group if group in _GROUP_ORDER or group == "garden" else "other",
+    }
+    for key in ("plant_id", "kind", "color"):
+        if isinstance(raw.get(key), str) and raw.get(key):
+            out[key] = str(raw[key])[:40]
+    return out
+
+
+def apply_custom(recipe: dict[str, Any], ingredients: Sequence[Mapping[str, Any]], steps: Sequence[str],
+                 lang: str | None = "en") -> dict[str, Any]:  # fmt: skip
+    """A recipe with the cook's own ingredient list and/or method (an empty one keeps the generated)."""
+    lang = _lang(lang)
+    if ingredients:
+        rows = []
+        for raw in ingredients:
+            row = dict(raw)
+            row["label"] = _fmt(float(row.get("qty") or 0), str(row.get("unit") or ""), lang) if row.get("qty") else ""
+            rows.append(row)
+        basics = [i for i in recipe["ingredients"] if i.get("source") == "basic"]
+        recipe["ingredients"] = [*rows, *basics]
+        recipe["shopping"] = [{"id": i["id"], "name": i["name"], "qty": i["qty"], "unit": i["unit"], "label": i["label"],
+                               "group": i["group"]} for i in rows if i["source"] == "shop"]  # fmt: skip
+        recipe["garden_share"] = round(sum(1 for i in rows if i["source"] == "garden") / max(1, len(rows)), 2)
+    if steps:
+        recipe["steps"] = list(steps)
+    recipe["custom"] = bool(ingredients or steps)
+    return recipe
 
 
 # --------------------------------------------------------------------------- #
@@ -864,10 +1091,10 @@ def suggest(produce: Sequence[Mapping[str, Any]], db: PlantDatabase, prefs: Pref
                 )
                 if fits:
                     protein = fits[(len(out)) % len(fits)]
-            extras = [x for x in prefs.use if not tech.sweet or x in ("yoghurt", "cream", "nuts")]
+            extras = list(prefs.use)  # render keeps only what suits this dish
             spec = {"technique": tech.id, "produce": [c["plant_id"] for c in chosen], "side": side, "protein": protein,
                     "extras": extras, "servings": prefs.servings}  # fmt: skip
-            recipe = render(spec, db, lang, herb_names, prefs.pantry)
+            recipe = render(spec, db, lang, herb_names, [*prefs.pantry, *prefs.use])
             if recipe is None or any(r["id"] == recipe["id"] for r in out):
                 continue
             used_mains[chosen[0]["plant_id"]] = used_mains.get(chosen[0]["plant_id"], 0) + 1
@@ -893,7 +1120,7 @@ def shopping_list(recipes: Sequence[Mapping[str, Any]], lang: str | None = "en")
             elif i.get("source") == "garden":
                 row = garden.setdefault(str(i["id"]), {"id": i["id"], "name": i["name"], "qty": 0.0, "unit": "g"})
                 row["qty"] += float(i["qty"])
-    order = {"meat": 0, "fish": 1, "veg_protein": 2, "dairy": 3, "side": 4, "pantry": 5}
+    order = {g: n for n, g in enumerate(_GROUP_ORDER)}
     rows = sorted(buy.values(), key=lambda x: (order.get(str(x["group"]), 9), str(x["name"])))
     for row in [*rows, *garden.values()]:
         row["qty"] = _qty(float(row["qty"]), str(row["unit"]))

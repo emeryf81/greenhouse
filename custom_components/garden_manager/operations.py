@@ -1069,7 +1069,7 @@ def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "produce": produce,
         "side": side if side in cooking.SIDES else "",
         "protein": protein if protein in cooking.PROTEINS else "",
-        "extras": [x for x in cooking.str_ids(raw.get("extras")) if x in cooking.PANTRY][:12],
+        "extras": cooking.fitting_extras(tech, cooking.str_ids(raw.get("extras")), protein in cooking.PROTEINS),
         "servings": cooking.servings_of(raw.get("servings")),
     }
 
@@ -1103,6 +1103,15 @@ def _apply_cookbook_fields(entry: CookbookRecipe, raw: Mapping[str, Any]) -> Non
         entry.shared = bool(raw.get("shared"))
     if raw.get("cooked"):
         entry.cooked = [*entry.cooked, dt_util.now().date()][-50:]
+    if "ingredients" in raw:  # [] goes back to the generated list
+        items = raw.get("ingredients") if isinstance(raw.get("ingredients"), list) else []
+        rows = [row for n, x in enumerate(items[:40]) if (row := cooking.custom_ingredient(x, n)) is not None]
+        if items and not rows:
+            raise _err("invalid_recipe")
+        entry.ingredients = rows
+    if "steps" in raw:  # [] goes back to the generated method
+        steps = raw.get("steps") if isinstance(raw.get("steps"), list) else []
+        entry.steps = [s for x in steps[:30] if isinstance(x, str) and (s := x.strip()[:600])]
 
 
 @callback

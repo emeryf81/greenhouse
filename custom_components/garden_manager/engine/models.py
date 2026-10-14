@@ -822,6 +822,9 @@ class CookbookRecipe:
     note: str = ""
     added: date | None = None
     cooked: list[date] = field(default_factory=list)
+    # the cook's own version: an ingredient list and/or method that replace the generated ones
+    ingredients: list[dict[str, Any]] = field(default_factory=list)
+    steps: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

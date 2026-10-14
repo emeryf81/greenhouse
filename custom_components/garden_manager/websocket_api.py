@@ -1784,6 +1784,8 @@ def _book_entry(entry: Any, db: Any, lang: str, garden_herbs: list[str], pantry:
         return None
     if entry.title:
         recipe["title"], recipe["subtitle"] = entry.title, ""
+    recipe = cooking.apply_custom(recipe, entry.ingredients, entry.steps, lang)
+    recipe["id"] = entry.id  # the entry, also when its spec was made under older rules
     return {
         **recipe,
         "saved": True,
@@ -1795,9 +1797,18 @@ def _book_entry(entry: Any, db: Any, lang: str, garden_herbs: list[str], pantry:
     }
 
 
-def _cookbook(runtime: GardenRuntime, lang: str) -> list[dict[str, Any]]:
+def _in_house(runtime: GardenRuntime, msg: dict[str, Any] | None = None) -> list[str]:
+    """What the cook has at home: the list sent along (unsaved choices) or the saved "always in the
+    house" and "use up from the fridge" lists."""
+    if msg is not None and "pantry" in msg:
+        return cooking.str_ids(msg["pantry"])[:80]
+    prefs = cooking.Prefs.from_dict(runtime.repo.data.cooking_prefs or {})
+    return [*prefs.pantry, *prefs.use]
+
+
+def _cookbook(runtime: GardenRuntime, lang: str, pantry: list[str] | None = None) -> list[dict[str, Any]]:
     data, db = runtime.repo.data, runtime.repo.db
-    pantry = list((data.cooking_prefs or {}).get("pantry", []))
+    pantry = _in_house(runtime) if pantry is None else pantry
     out = [_book_entry(e, db, lang, [], pantry) for e in data.cookbook]
     rows = [r for r in out if r is not None]
     rows.sort(key=lambda r: (not r["favorite"], r["added"] or ""), reverse=False)
@@ -1820,7 +1831,7 @@ def _ready_produce(runtime: GardenRuntime, lang: str) -> list[dict[str, Any]]:
 def _specs_or_ids(runtime: GardenRuntime, msg: dict[str, Any], lang: str) -> list[dict[str, Any]]:
     """The recipes a command is about: saved ones by id and/or unsaved specs."""
     data, db = runtime.repo.data, runtime.repo.db
-    pantry = list((data.cooking_prefs or {}).get("pantry", []))
+    pantry = _in_house(runtime, msg)
     out: list[dict[str, Any]] = []
     for rid in msg.get("ids") or []:
         entry = next((r for r in data.cookbook if r.id == rid), None)
@@ -1887,7 +1898,7 @@ def ws_cooking_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConn
                 "servings": prefs.servings,
             },
             "catalog": {**cooking.catalog(lang), "edible": edible},
-            "book": _cookbook(runtime, lang),
+            "book": _cookbook(runtime, lang, [*prefs.pantry, *prefs.use]),
         },
     )
 
@@ -1895,6 +1906,7 @@ def ws_cooking_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConn
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/render",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("spec"): dict,
@@ -1906,8 +1918,7 @@ def ws_cooking_render(hass: HomeAssistant, connection: websocket_api.ActiveConne
     runtime = _require_runtime(hass, connection, msg)
     if runtime is None:
         return
-    pantry = list((runtime.repo.data.cooking_prefs or {}).get("pantry", []))
-    recipe = cooking.render(msg["spec"], runtime.repo.db, _cooking_lang(runtime, msg), [], pantry)
+    recipe = cooking.render(msg["spec"], runtime.repo.db, _cooking_lang(runtime, msg), [], _in_house(runtime, msg))
     if recipe is None:
         connection.send_error(msg["id"], "invalid_recipe", "This recipe cannot be made")
         return
@@ -1981,6 +1992,7 @@ def ws_cooking_prefs(hass: HomeAssistant, connection: websocket_api.ActiveConnec
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/pdf",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("kind"): vol.In(["recipe", "book", "shopping"]),
@@ -2024,6 +2036,7 @@ async def ws_cooking_pdf(hass: HomeAssistant, connection: websocket_api.ActiveCo
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/send",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("what"): vol.In(["recipe", "shopping"]),
@@ -2071,6 +2084,7 @@ async def ws_cooking_send(hass: HomeAssistant, connection: websocket_api.ActiveC
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/to_todo",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("entity_id"): str,

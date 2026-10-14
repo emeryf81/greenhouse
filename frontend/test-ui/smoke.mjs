@@ -246,6 +246,29 @@ await step("cooking: a dish from the garden, another side, kept, on the list, pr
   await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/pdf") && c.kind === "shopping"));
 });
 
+await step("cooking: the cook's own version (ingredients and steps by hand)", async () => {
+  await open("cooking");
+  const view = page.locator("hl-cooking-view");
+  await view.locator("button[role=tab]", { hasText: "Mijn kookboek" }).click();
+  await view.locator("button.recipe").first().click();
+  await modalOpen();
+  await view.locator("hl-modal button", { hasText: "Aanpassen" }).click();
+  const before = await view.locator("hl-modal .ed-ingr").count();
+  await view.locator("hl-modal .ed-ingr").first().locator("button").click();
+  await view.locator("hl-modal button", { hasText: "Ingrediënt toevoegen" }).click();
+  await view.locator("hl-modal .ed-ingr").last().locator("input[type=text]").fill("Gerookte paprika");
+  await view.locator("hl-modal button", { hasText: "Stap toevoegen" }).click();
+  await view.locator("hl-modal .ed-step textarea").last().fill("Bestrooi met gerookte paprika.");
+  await view.locator("hl-modal button", { hasText: "Mijn versie bewaren" }).click();
+  await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/book/update") && c.changes.steps?.includes("Bestrooi met gerookte paprika.")));
+  const sent = await page.evaluate(() => window.__calls.filter((c) => c.type.endsWith("/cooking/book/update")).pop().changes.ingredients);
+  assert.equal(sent.length, before, "one ingredient removed, one added");
+  assert.ok(sent.some((i) => i.name === "Gerookte paprika"), "the new ingredient was not sent");
+  await view.locator("hl-modal .chip", { hasText: "Eigen versie" }).waitFor();
+  assert.ok(await view.locator("hl-modal ol.steps li", { hasText: "gerookte paprika" }).count(), "own step not shown");
+  await page.keyboard.press("Escape");
+});
+
 await step("dashboard: pest calendar card", async () => {
   await open("dashboard");
   const n = await page.locator("hl-dashboard-view").evaluate((el) => el.shadowRoot.querySelectorAll(".pests li").length);

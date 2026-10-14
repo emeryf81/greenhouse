@@ -857,6 +857,26 @@ export interface RecipeIngredient {
   extra?: boolean;
 }
 
+/** An ingredient the cook typed (their own version of a recipe). */
+export interface CustomIngredient {
+  id?: string;
+  name: string;
+  qty: number;
+  unit: string;
+  source: "garden" | "pantry" | "shop";
+  group?: string;
+  plant_id?: string;
+  kind?: string;
+  color?: string;
+}
+
+/** The recipes a command is about: saved ones by id, unsaved ones by spec; what is at home. */
+export interface RecipeTarget {
+  ids?: string[];
+  specs?: RecipeSpec[];
+  pantry?: string[];
+}
+
 export interface Recipe {
   id: string;
   spec: RecipeSpec;
@@ -879,6 +899,8 @@ export interface Recipe {
     extras: string[];
     technique: string;
   };
+  /** The cook's own ingredient list and/or method (cookbook). */
+  custom?: boolean;
   // in the cookbook
   saved?: boolean;
   favorite?: boolean;

@@ -107,7 +107,13 @@
             return { id: r.id, book: c.book };
           }
           if (type === "cooking/book/update") {
-            c.book = c.book.map((b) => (b.id === msg.recipe_id ? { ...b, ...msg.changes, cooked: msg.changes.cooked ? [...(b.cooked || []), "2026-08-02"] : b.cooked } : b));
+            const own = (b) => {
+              const ch = msg.changes;
+              if (!("ingredients" in ch) && !("steps" in ch)) return {};
+              const ingredients = ch.ingredients?.length ? [...ch.ingredients.map((i) => ({ ...i, id: i.id || i.name, group: i.group || "other", label: i.qty ? `${i.qty} ${i.unit}` : "" })), ...b.ingredients.filter((i) => i.source === "basic")] : b.ingredients;
+              return { ingredients, steps: ch.steps?.length ? ch.steps : b.steps, custom: !!(ch.ingredients?.length || ch.steps?.length) };
+            };
+            c.book = c.book.map((b) => (b.id === msg.recipe_id ? { ...b, ...msg.changes, ...own(b), cooked: msg.changes.cooked ? [...(b.cooked || []), "2026-08-02"] : b.cooked } : b));
             return { id: msg.recipe_id, book: c.book };
           }
           if (type === "cooking/book/delete") { c.book = c.book.filter((b) => b.id !== msg.recipe_id); return { book: c.book }; }

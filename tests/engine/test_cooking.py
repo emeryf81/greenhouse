@@ -42,7 +42,10 @@ def test_suggestions_put_the_garden_first(db: PlantDatabase) -> None:
             assert r["spec"]["protein"] == "" and "apple" in r["spec"]["produce"]
         else:
             assert r["spec"]["protein"] in ("chicken", "mince")
-        assert any(i["id"] == "feta" for i in r["ingredients"]) or r["technique"] == "dessert"
+        feta = any(i["id"] == "feta" for i in r["ingredients"])
+        assert feta == (r["technique"] in {"roast", "salad", "stuffed"}), r["title"]
+        if feta:  # taken from the fridge: in the house, never on the shopping list
+            assert next(i for i in r["ingredients"] if i["id"] == "feta")["source"] == "pantry"
 
 
 def test_side_and_servings_change_the_recipe(db: PlantDatabase) -> None:
@@ -104,3 +107,56 @@ def test_unreadable_input_falls_back(db: PlantDatabase) -> None:
     odd = cooking.render({"technique": "soup", "produce": ["carrot", {}], "extras": [{}, "lemon", 3]}, db)
     assert odd is not None and [i["plant_id"] for i in odd["ingredients"] if i.get("group") == "garden"] == ["carrot"]
     assert cooking.str_ids("carrot") == [] and cooking.str_ids(("a", 1)) == ["a"]
+
+
+def test_fridge_items_only_go_where_they_fit(db: PlantDatabase) -> None:
+    fridge = ["grated_cheese", "yoghurt", "parmesan"]
+    pasta = cooking.render(
+        {"technique": "pasta", "produce": ["courgette"], "side": "pasta", "extras": fridge}, db, "nl"
+    )
+    assert pasta is not None and pasta["spec"]["extras"] == []  # no yoghurt on pasta; parmesan is in it already
+    assert not any("yoghurt" in s for s in pasta["steps"])
+    assert next(i for i in pasta["ingredients"] if i["id"] == "parmesan")["source"] == "shop"
+    roast = cooking.render({"technique": "roast", "produce": ["carrot", "pumpkin"], "extras": fridge}, db, "nl")
+    assert roast is not None and roast["spec"]["extras"] == ["grated_cheese", "yoghurt"]  # one cheese is enough
+    assert any(s.startswith("Roer de yoghurt los") for s in roast["steps"])
+    assert any("geraspte kaas" in s and "smelten" in s for s in roast["steps"])
+    assert {i["id"]: i["source"] for i in roast["ingredients"]}["yoghurt"] == "pantry"
+    salad = cooking.render({"technique": "salad", "produce": ["lettuce", "tomato"], "extras": ["yoghurt"]}, db, "en")
+    assert salad is not None and any("creamy dressing" in s for s in salad["steps"])
+    assert cooking.fitting_extras("stir_fry", fridge) == []
+    assert cooking.fitting_extras("plate", ["cream"], has_protein=False) == []
+    assert cooking.fitting_extras("stew", ["cream", "yoghurt"]) == ["yoghurt"]  # coconut milk is the cream there
+    assert cooking.fitting_extras("stoemp", ["cream", "mustard"]) == ["mustard", "cream"]
+    assert cooking.fitting_extras("frittata", ["milk", "cream"]) == ["milk"]  # one is enough
+    assert cooking.fitting_extras("stuffed", ["parmesan", "feta"]) == [
+        "feta"
+    ]  # in the filling; no second cheese on top
+    assert cooking.fitting_extras("gratin", ["parmesan"]) == ["parmesan"]  # mixed into the crust
+    # a step that belongs early goes in after the vegetables are in the pan, not at the end
+    sauce = cooking.render(
+        {"technique": "pasta", "produce": ["tomato"], "side": "pasta", "extras": ["cream"]}, db, "en"
+    )
+    assert (
+        sauce is not None
+        and sauce["steps"].index(next(s for s in sauce["steps"] if "creamy sauce" in s)) < len(sauce["steps"]) - 2
+    )
+
+
+def test_the_cooks_own_version(db: PlantDatabase) -> None:
+    recipe = cooking.render({"technique": "soup", "produce": ["pumpkin"], "servings": 2}, db, "nl")
+    assert recipe is not None
+    rows = [r for n, x in enumerate([{"name": "Pompoen", "qty": 600, "unit": "g", "source": "garden", "plant_id": "pumpkin"},
+                                     {"name": "Gember", "qty": 1, "unit": "pc", "source": "shop"}, {"name": " "}, "x"])
+            if (r := cooking.custom_ingredient(x, n)) is not None]  # fmt: skip
+    assert (
+        [r["name"] for r in rows] == ["Pompoen", "Gember"]
+        and rows[1]["id"] == "custom-1"
+        and rows[1]["group"] == "other"
+    )
+    own = cooking.apply_custom(dict(recipe), rows, ["Alles in de pot.", "Mixen."], "nl")
+    assert own["custom"] and own["steps"] == ["Alles in de pot.", "Mixen."]
+    assert [i["name"] for i in own["shopping"]] == ["Gember"]
+    assert [i["name"] for i in own["ingredients"] if i["source"] != "basic"] == ["Pompoen", "Gember"]
+    assert cooking.shopping_list([own], "nl")["buy"][0]["name"] == "Gember"
+    assert cooking.apply_custom(dict(recipe), [], [], "nl")["custom"] is False

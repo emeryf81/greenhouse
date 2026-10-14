@@ -4,6 +4,8 @@ import type {
   CookingPrefs,
   Recipe,
   RecipeSpec,
+  CustomIngredient,
+  RecipeTarget,
   Expense,
   AdviceResult,
   HarvestEntry,
@@ -333,11 +335,11 @@ export class GardenApi {
     return this.call("cooking/suggest", opts as Record<string, unknown>);
   }
 
-  cookingRender(spec: RecipeSpec, lang?: string): Promise<{ recipe: Recipe; saved: boolean }> {
-    return this.call("cooking/render", { spec, ...(lang ? { lang } : {}) });
+  cookingRender(spec: RecipeSpec, lang?: string, pantry?: string[]): Promise<{ recipe: Recipe; saved: boolean }> {
+    return this.call("cooking/render", { spec, ...(lang ? { lang } : {}), ...(pantry ? { pantry } : {}) });
   }
 
-  cookbookSave(recipe: { spec: RecipeSpec; favorite?: boolean; shared?: boolean; title?: string; note?: string }, lang?: string): Promise<{ id: string; book: Recipe[] }> {
+  cookbookSave(recipe: { spec: RecipeSpec; favorite?: boolean; shared?: boolean; title?: string; note?: string; ingredients?: CustomIngredient[]; steps?: string[] }, lang?: string): Promise<{ id: string; book: Recipe[] }> {
     return this.call("cooking/book/save", { recipe, ...(lang ? { lang } : {}) });
   }
 
@@ -353,19 +355,19 @@ export class GardenApi {
     return this.call("cooking/prefs", { prefs });
   }
 
-  cookingPdf(kind: "recipe" | "book" | "shopping", what: { ids?: string[]; specs?: RecipeSpec[] }, images: Record<string, string> = {},
+  cookingPdf(kind: "recipe" | "book" | "shopping", what: RecipeTarget, images: Record<string, string> = {},
     lang?: string, title?: string): Promise<{ pdf: string; filename: string }> {
     return this.call("cooking/pdf", { kind, ...what, images, ...(lang ? { lang } : {}), ...(title ? { title } : {}) });
   }
 
-  cookingSend(what: "recipe" | "shopping", recipes: { ids?: string[]; specs?: RecipeSpec[] }, opts: { service?: string; dryRun?: boolean; lang?: string } = {}):
+  cookingSend(what: "recipe" | "shopping", recipes: RecipeTarget, opts: { service?: string; dryRun?: boolean; lang?: string } = {}):
     Promise<{ sent: boolean; title: string; text: string }> {
     return this.call("cooking/send", {
       what, ...recipes, ...(opts.service ? { service: opts.service } : {}), ...(opts.dryRun ? { dry_run: true } : {}), ...(opts.lang ? { lang: opts.lang } : {}),
     });
   }
 
-  cookingToTodo(entityId: string, recipes: { ids?: string[]; specs?: RecipeSpec[] }, lang?: string): Promise<{ added: number; skipped: number }> {
+  cookingToTodo(entityId: string, recipes: RecipeTarget, lang?: string): Promise<{ added: number; skipped: number }> {
     return this.call("cooking/to_todo", { entity_id: entityId, ...recipes, ...(lang ? { lang } : {}) });
   }
 
