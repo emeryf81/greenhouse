@@ -81,6 +81,29 @@ export class HortulusPanel extends LitElement {
   @state() private plants: Plant[] = [];
   @state() private families: Record<string, FamilyInfo> = {};
   @state() private tab: Tab = "dashboard";
+
+  /**
+   * The tabs this panel may show: `panel.config.tabs` (the website's read-only view of a
+   * garden someone shares) or all of them (Home Assistant).
+   */
+  private get allowedTabs(): Set<Tab> | null {
+    const tabs = (this.panel as { config?: { tabs?: string[] } } | undefined)?.config?.tabs;
+    return Array.isArray(tabs) && tabs.length ? new Set(tabs as Tab[]) : null;
+  }
+
+  private tabAllowed(tab: Tab): boolean {
+    const allowed = this.allowedTabs;
+    return !allowed || allowed.has(tab);
+  }
+
+  /** The menu as this panel shows it: places without an allowed tab are left out. */
+  private get groups(): { id: Group; icon: string; tabs: Tab[] }[] {
+    return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => this.tabAllowed(t)) })).filter((g) => g.tabs.length);
+  }
+
+  private groupOf(tab: Tab): { id: Group; icon: string; tabs: Tab[] } {
+    return this.groups.find((g) => g.tabs.includes(tab)) ?? this.groups[0] ?? groupOf(tab);
+  }
   @state() private toastMsg = "";
   @state() private openTask: Task | null = null;
   @state() private creatingTask = false;
@@ -200,7 +223,7 @@ export class HortulusPanel extends LitElement {
     }
     if (changed.has("route") && this.route) {
       const [seg, sub] = this.route.path.replace(/^\//, "").split("/") as [Tab, string | undefined];
-      this.tab = TABS.some((t) => t.id === seg) ? seg : "dashboard";
+      this.tab = TABS.some((t) => t.id === seg) && this.tabAllowed(seg) ? seg : "dashboard";
       if (this.tab === "handbook") this.chapter = sub ?? "";
     }
   }
@@ -300,12 +323,13 @@ export class HortulusPanel extends LitElement {
   }
 
   private navigate(tab: Tab, ev?: Event): void {
+    if (!this.tabAllowed(tab)) tab = "dashboard";
     ev?.preventDefault();
     const path = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/${tab === "dashboard" ? "" : tab}`.replace(/\/$/, "");
     history.pushState(null, "", path);
     window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
     this.tab = tab;
-    this.lastInGroup = { ...this.lastInGroup, [groupOf(tab).id]: tab };
+    this.lastInGroup = { ...this.lastInGroup, [this.groupOf(tab).id]: tab };
   }
 
   private openPlant(id: string): void {
@@ -441,14 +465,14 @@ export class HortulusPanel extends LitElement {
   }
 
   /** Open a place: the tab you used last there, else its first tab. */
-  private openGroup(group: (typeof GROUPS)[number], e: Event): void {
+  private openGroup(group: { id: Group; tabs: Tab[] }, e: Event): void {
     const last = this.lastInGroup[group.id];
     this.navigate(last && group.tabs.includes(last) ? last : group.tabs[0], e);
   }
 
   /** The tabs of the current place, as a row under the app bar. */
   private renderSubnav(): TemplateResult | typeof nothing {
-    const group = groupOf(this.tab);
+    const group = this.groupOf(this.tab);
     if (group.tabs.length < 2) return nothing;
     return html`<nav class="sub" aria-label=${this.t(`nav.group.${group.id}`)}>
       ${group.tabs.map((id) => {
@@ -460,9 +484,9 @@ export class HortulusPanel extends LitElement {
   }
 
   private renderNav(cls: string): TemplateResult {
-    const current = groupOf(this.tab).id;
+    const current = this.groupOf(this.tab).id;
     return html`<nav class=${cls} aria-label="Hortulus">
-      ${GROUPS.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>
+      ${this.groups.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>
         ${gicon(g.icon, 19)}${this.t(g.tabs.length > 1 ? `nav.group.${g.id}` : `nav.${g.tabs[0]}`)}${g.tabs.includes("analysis") ? this.renderBadge() : nothing}</a>`)}
     </nav>`;
   }

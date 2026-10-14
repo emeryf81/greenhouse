@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.1 – 2026-10
+
+### Added
+- The panel can show a subset of its tabs (`panel.config.tabs`). The Hortulus website uses it
+  to let visitors look around a garden its owner shares (read only, only the parts the owner
+  chose); in Home Assistant nothing changes.
+
 ## 1.6.0 – 2026-10
 
 ### Added

@@ -263,6 +263,14 @@ await step("settings: drop-downs list only entities that fit", async () => {
   assert.ok((await view.locator("fieldset.picks input[type=checkbox]").count()) >= 2, "notify / speaker tick-boxes");
 });
 
+await step("shared view: only the tabs the owner shows", async () => {
+  await page.goto(`${base}?tab=journal&lang=nl&tabs=dashboard,planner,layout,crops,library,handbook`);
+  await page.locator("hl-dashboard-view").waitFor(); // a tab that is not shown falls back to Today
+  const places = await page.locator("hortulus-panel").evaluate((el) => [...el.shadowRoot.querySelectorAll("nav.side a, nav.bottom a, nav a")].map((a) => a.textContent.trim()));
+  assert.ok(!places.some((t) => /Logboek|Kalender|Weer|Beheer/.test(t)), places.join("|"));
+  assert.ok(places.some((t) => /Tuin/.test(t)), places.join("|"));
+});
+
 await step("wall screen: clock and big tick-boxes, back to Today", async () => {
   await page.goto(`${base}?tab=wall&lang=nl`);
   await page.locator("hl-wall-view .clock").waitFor();
