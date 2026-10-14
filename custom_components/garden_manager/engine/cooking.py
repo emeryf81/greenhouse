@@ -24,6 +24,7 @@ import json
 import math
 from typing import Any
 
+from . import cooking_extras as _x
 from .models import Plant, PlantCategory
 from .pdf import Image, PdfDocument, PdfPage, wrap
 from .plantdb import PlantDatabase
@@ -483,214 +484,78 @@ _SIDE_STEP = {
 }  # fmt: skip
 _SERVE_SIDE = {"en": "Serve with the {s}.", "nl": "Serveer met de {s}.", "fr": "Servez avec les {s}."}
 
-# What the cook has in the fridge ("use this up") only goes into a dish it suits, and in the way
-# it suits it: yoghurt makes a fresh sauce for roast or stuffed vegetables, a dressing for a salad
-# or a spoonful on a curry, never a topping for pasta.  Per technique: item -> role.  Items a
-# technique does not list are left out of that dish (they stay in the fridge for another one).
-_EXTRA_USE: dict[str, dict[str, str]] = {
-    "soup": {"yoghurt": "yog_soup", "parmesan": "top", "nuts": "nuts", "ginger": "start", "curry_paste": "start",
-             "tomato_paste": "start", "garlic": "start"},
-    "roast": {"feta": "top", "mozzarella": "melt", "grated_cheese": "melt", "parmesan": "top", "yoghurt": "yog_sauce",
-              "nuts": "nuts", "lemon": "lemon", "honey": "glaze", "vinegar": "glaze", "onion": "tray"},
-    "stir_fry": {"yoghurt": "yog_soy", "eggs": "egg_wok", "honey": "season", "vinegar": "season", "nuts": "nuts", "curry_paste": "start",
-                 "coconut_milk": "finish_liquid", "onion": "start"},
-    "pasta": {"cream": "simmer", "tomato_paste": "start", "white_wine": "deglaze", "feta": "top", "lemon": "lemon",
-              "nuts": "nuts", "onion": "start", "butter": "butter"},
-    "risotto": {"cream": "finish_liquid", "lemon": "lemon", "nuts": "nuts"},
-    "salad": {"feta": "top", "mozzarella": "top", "parmesan": "top", "yoghurt": "yog_dressing", "eggs": "egg_salad",
-              "nuts": "nuts", "honey": "dressing", "vinegar": "dressing", "onion": "raw"},
-    "gratin": {"breadcrumbs": "crust", "parmesan": "crust", "mustard": "into_cream"},
-    "stew": {"yoghurt": "raita", "ginger": "start", "tomato_paste": "start", "nuts": "nuts", "stock": "liquid"},
-    "frittata": {"feta": "before_grill", "mozzarella": "before_grill", "parmesan": "egg_mix", "milk": "egg_mix",
-                 "cream": "egg_mix", "onion": "start"},
-    "stoemp": {"mustard": "mash", "cream": "mash", "grated_cheese": "mash", "onion": "fried_onion"},
-    "stuffed": {"feta": "in_filling", "nuts": "in_filling", "tomato_paste": "in_filling", "mozzarella": "melt",
-                "parmesan": "melt", "yoghurt": "yog_sauce", "breadcrumbs": "crust"},
-    "plate": {"lemon": "lemon", "nuts": "nuts", "yoghurt": "yog_sauce", "cream": "pan_sauce"},
-    "pesto": {},
-    "dessert": {"yoghurt": "yog_honey", "cream": "serve_with", "nuts": "crumble"},
-}  # fmt: skip
+# What the cook has in the fridge ("use this up") only goes into a dish it suits, in a way of its
+# own (``cooking_extras``): items a dish does not list stay in the fridge for another one.
 _CHEESES = frozenset(("parmesan", "feta", "mozzarella", "grated_cheese"))
 _CREAMY = frozenset(("cream", "coconut_milk", "milk"))
-_CHEESE_INSIDE = frozenset(("crust", "egg_mix", "in_filling"))
-# Where a role's step goes: "mid" after the technique's second step (onion softened, vegetables
-# in the pan), "late" after its last.
-_ROLE_MID = frozenset(
-    ("start", "tray", "liquid", "simmer", "deglaze", "egg_mix", "into_cream", "in_filling", "crust", "yog_dressing")
-)
-_ROLE_ORDER = (
-    "start", "tray", "liquid", "deglaze", "simmer", "into_cream", "egg_mix", "in_filling", "crust", "before_grill",
-    "melt", "glaze", "mash", "fried_onion", "egg_wok", "season", "dressing", "yog_dressing", "raw", "egg_salad",
-    "finish_liquid", "butter", "pan_sauce", "lemon", "top", "nuts", "dollop", "yog_soup", "raita", "yog_sauce",
-    "yog_soy", "yog_honey", "serve_with", "crumble",
-)  # fmt: skip
-_ROLE_TEXT: dict[str, dict[str, str]] = {
-    "en": {
-        "start": "Fry the {x} briefly with it before the vegetables go in.",
-        "tray": "Add the {x}, in wedges, to the baking tray.",
-        "liquid": "Use the {x} (dissolved in the water) for extra flavour.",
-        "deglaze": "Deglaze the pan with the {x} and let it bubble down for a minute.",
-        "simmer": "Pour in the {x} and let it reduce for 2 minutes into a creamy sauce.",
-        "into_cream": "Stir the {x} into the cream before pouring it over.",
-        "egg_mix": "Add the {x} to the eggs when you beat them.",
-        "in_filling": "Mix the {x} into the filling.",
-        "crust": "Mix the {x} with the cheese for a crisp crust.",
-        "before_grill": "Scatter the {x} over the frittata before it goes under the grill.",
-        "melt": "Spread the {x} over the vegetables for the last 10 minutes and let it melt in the oven.",
-        "glaze": "Drizzle the vegetables with the {x} for the last 10 minutes.",
-        "mash": "Stir the {x} through the stoemp.",
-        "fried_onion": "Fry the {x} golden in a little butter and stir it through the stoemp.",
-        "egg_wok": "Push everything aside, scramble the beaten {x} in the wok and toss through.",
-        "season": "Season with a dash of {x}.",
-        "dressing": "Whisk a spoonful of {x} into the dressing.",
-        "yog_dressing": "Make the dressing creamy: whisk in the {x} with finely chopped {h} and, if you like, a teaspoon of honey.",
-        "raw": "Slice the {x} paper-thin and toss it through.",
-        "egg_salad": "Boil the {x} for 8 minutes, cool them in cold water, peel and quarter them over the salad.",
-        "finish_liquid": "Stir in a splash of {x} at the end.",
-        "butter": "Stir in a knob of {x} at the end.",
-        "pan_sauce": "Deglaze the meat pan with the {x}, let it thicken for a minute and pour it over.",
-        "lemon": "Grate a little {x} zest over it and add a squeeze of juice.",
-        "top": "Scatter the {x} over it when serving.",
-        "nuts": "Toast the {x} briefly in a dry pan and scatter them over it.",
-        "dollop": "Top each plate with a spoonful of {x}.",
-        "yog_sauce": "Make a fresh yoghurt sauce: grate a piece of cucumber (if you have one), squeeze out the moisture and stir it into the {x} with a crushed garlic clove, a squeeze of lemon, a pinch of cumin, finely chopped {h}, salt and pepper. Serve it alongside.",
-        "raita": "Make a raita: stir grated cucumber (if you have one), finely chopped {h}, a pinch of cumin and a pinch of salt into the {x}; top each plate with a spoonful.",
-        "yog_soup": "Stir the {x} with a little lemon juice, pepper and finely chopped {h}; top each bowl with a spoonful.",
-        "yog_soy": "For a dipping sauce, stir the {x} with a dash of soy sauce, a little grated ginger, a drop of honey and finely sliced {h}; serve it alongside.",
-        "yog_honey": "Stir the {x} with a spoonful of honey and a pinch of cinnamon and serve it alongside.",
-        "serve_with": "Serve with {x}.",
-        "crumble": "Mix the chopped {x} into the crumble.",
-    },
-    "nl": {
-        "start": "Bak de {x} kort mee voor de groenten erbij gaan.",
-        "tray": "Leg ook de {x} in partjes mee op de bakplaat.",
-        "liquid": "Los de {x} op in het water voor extra smaak.",
-        "deglaze": "Blus de pan met de {x} en laat een minuutje inkoken.",
-        "simmer": "Giet de {x} erbij en laat 2 minuten inkoken tot een romige saus.",
-        "into_cream": "Roer de {x} door de room voor je die erover giet.",
-        "egg_mix": "Klop ook de {x} mee als je de eieren losklopt.",
-        "in_filling": "Meng de {x} door de vulling.",
-        "crust": "Meng de {x} met de kaas voor een krokant korstje.",
-        "before_grill": "Verdeel de {x} over de frittata voor ze onder de grill gaat.",
-        "melt": "Verdeel de {x} de laatste 10 minuten over de groenten en laat smelten in de oven.",
-        "glaze": "Besprenkel de groenten de laatste 10 minuten met {x}.",
-        "mash": "Roer de {x} door de stoemp.",
-        "fried_onion": "Bak de {x} goudbruin in wat boter en roer ze door de stoemp.",
-        "egg_wok": "Schuif alles opzij, roer de losgeklopte {x} in de wok tot roerei en schep om.",
-        "season": "Breng op smaak met een scheutje {x}.",
-        "dressing": "Klop een lepel {x} door de dressing.",
-        "yog_dressing": "Maak de dressing romig: klop er de {x} door met fijngehakte {h} en, als je wil, een koffielepel honing.",
-        "raw": "Snij de {x} flinterdun en meng erdoor.",
-        "egg_salad": "Kook de {x} 8 minuten, laat schrikken in koud water, pel ze en verdeel ze in parten over de salade.",
-        "finish_liquid": "Roer er op het einde een scheutje {x} door.",
-        "butter": "Roer er op het einde een klontje {x} door.",
-        "pan_sauce": "Blus de vleespan met de {x}, laat een minuutje indikken en giet de saus erover.",
-        "lemon": "Rasp er wat {x}schil over en knijp er een beetje sap boven.",
-        "top": "Strooi bij het opdienen de {x} erover.",
-        "nuts": "Rooster de {x} kort in een droge pan en strooi ze erover.",
-        "dollop": "Schep bij het opdienen een lepel {x} op elk bord.",
-        "yog_sauce": "Maak een frisse yoghurtsaus: rasp een stuk komkommer (als je die hebt), knijp het vocht eruit en roer het door de {x} met een geperst teentje look, een scheutje citroensap, een snuf komijn, fijngehakte {h}, peper en zout. Serveer erbij.",
-        "raita": "Maak een raita: roer geraspte komkommer (als je die hebt), fijngehakte {h}, een snuf komijn en een snuf zout door de {x}; schep bij het opdienen een lepel op elk bord.",
-        "yog_soup": "Roer de {x} los met een beetje citroensap, peper en fijngehakte {h}; schep bij het opdienen een lepel op elk bord.",
-        "yog_soy": "Roer voor een dipsausje de {x} met een scheutje sojasaus, wat geraspte gember, een druppel honing en fijngesneden {h}; serveer erbij.",
-        "yog_honey": "Roer de {x} met een lepel honing en een snuf kaneel en serveer erbij.",
-        "serve_with": "Serveer met {x}.",
-        "crumble": "Meng de gehakte {x} door het kruimeldeeg.",
-    },
-    "fr": {
-        "start": "Faites revenir brièvement {x} avant d'ajouter les légumes.",
-        "tray": "Ajoutez aussi {x} en quartiers sur la plaque.",
-        "liquid": "Délayez {x} dans l'eau pour plus de goût.",
-        "deglaze": "Déglacez avec {x} et laissez réduire une minute.",
-        "simmer": "Versez {x} et laissez réduire 2 minutes en sauce onctueuse.",
-        "into_cream": "Incorporez {x} à la crème avant de la verser.",
-        "egg_mix": "Ajoutez {x} aux œufs en les battant.",
-        "in_filling": "Mélangez {x} à la farce.",
-        "crust": "Mélangez {x} au fromage pour une croûte croustillante.",
-        "before_grill": "Répartissez {x} sur la frittata avant de la passer sous le gril.",
-        "melt": "Répartissez {x} sur les légumes les 10 dernières minutes et laissez fondre au four.",
-        "glaze": "Arrosez les légumes de {x} les 10 dernières minutes.",
-        "mash": "Incorporez {x} au stoemp.",
-        "fried_onion": "Faites dorer {x} dans un peu de beurre et mélangez au stoemp.",
-        "egg_wok": "Poussez tout sur le côté, brouillez {x} battus dans le wok et mélangez.",
-        "season": "Relevez d'un trait de {x}.",
-        "dressing": "Ajoutez une cuillerée de {x} à la vinaigrette.",
-        "yog_dressing": "Rendez la vinaigrette crémeuse : fouettez-y {x} avec {h} finement ciselé(e) et, si vous voulez, une cuillerée de miel.",
-        "raw": "Émincez finement {x} et mélangez.",
-        "egg_salad": "Cuisez {x} 8 minutes, passez-les à l'eau froide, écalez-les et répartissez-les en quartiers sur la salade.",
-        "finish_liquid": "Ajoutez un trait de {x} à la fin.",
-        "butter": "Ajoutez une noix de {x} à la fin.",
-        "pan_sauce": "Déglacez la poêle de la viande avec {x}, laissez épaissir une minute et nappez.",
-        "lemon": "Râpez un peu de zeste de {x} et ajoutez un filet de jus.",
-        "top": "Parsemez de {x} au moment de servir.",
-        "nuts": "Torréfiez {x} à sec dans une poêle et parsemez-en le plat.",
-        "dollop": "Déposez une cuillerée de {x} sur chaque assiette.",
-        "yog_sauce": "Préparez une sauce fraîche : râpez un morceau de concombre (si vous en avez), pressez-le et mélangez-le à {x} avec une gousse d'ail écrasée, un filet de citron, une pincée de cumin, {h} ciselé(e), sel et poivre. Servez à côté.",
-        "raita": "Préparez une raïta : mélangez à {x} du concombre râpé (si vous en avez), {h} ciselé(e), une pincée de cumin et de sel ; une cuillerée sur chaque assiette.",
-        "yog_soup": "Mélangez {x} avec un peu de citron, du poivre et {h} ciselé(e) ; une cuillerée sur chaque bol.",
-        "yog_soy": "Pour une sauce à tremper, mélangez {x} avec un trait de sauce soja, un peu de gingembre râpé, une goutte de miel et {h} émincé ; servez à côté.",
-        "yog_honey": "Mélangez {x} avec une cuillerée de miel et une pincée de cannelle et servez à côté.",
-        "serve_with": "Servez avec {x}.",
-        "crumble": "Ajoutez {x} hachées à la pâte à crumble.",
-    },
-}  # fmt: skip
+# Garden herbs that belong in a cold sauce or butter (rosemary or sage do not)
+_SAUCE_HERBS = ("dill", "mint", "parsley", "chives", "coriander")
+_LANG_IX = {"nl": 0, "en": 1, "fr": 2}
 
 
-def fitting_extras(technique: str, items: Iterable[str], has_protein: bool = True) -> list[str]:
-    """The fridge items that suit a dish, in the dish's own order: at most one extra cheese and one
-    extra cream, and never something the dish already uses."""
+def _seed(produce_ids: Sequence[str]) -> int:
+    return int(hashlib.sha1(",".join(produce_ids).encode()).hexdigest()[:8], 16)
+
+
+def _plan_extras(technique: str, items: Iterable[str], has_protein: bool, produce: Sequence[str]) -> dict[str, str]:
+    """item -> preparation for the fridge items a dish takes.  The produce picks among an item's
+    preparations (dishes vary); an item whose pick clashes tries its others.  At most one extra
+    cheese (none on top of a cheese the recipe has, mixed in it may), one extra cream, one of each
+    group (dressing, pasta sauce, crunchy topping ...), nothing the dish already uses, a pan sauce
+    only with meat or fish, and ``MAX_PER_DISH`` in all."""
     tech = TECHNIQUE.get(technique)
     if tech is None:
-        return []
+        return {}
     wanted = set(items)
-    out: list[str] = []
-    for item, role in _EXTRA_USE.get(technique, {}).items():
-        if item not in wanted or item in tech.staples or (role == "pan_sauce" and not has_protein):
+    seed = _seed(produce)
+    out: dict[str, str] = {}
+    groups: set[str] = set()
+    for item, keys in _x.USES.get(technique, {}).items():
+        if len(out) >= _x.MAX_PER_DISH:
+            break
+        if item not in wanted or item in tech.staples:
             continue
-        # one extra cheese; none on top of a cheese the recipe already has (mixed in, it may)
-        if item in _CHEESES and (
-            any(x in _CHEESES for x in out) or (role not in _CHEESE_INSIDE and any(t in _CHEESES for t in tech.staples))
-        ):
+        if item in _CHEESES and any(x in _CHEESES for x in out):
             continue
         # one cream per dish; a splash of milk in the recipe is no cream (stoemp still takes cream)
-        creamy = [*out, *(t for t in tech.staples if t != "milk")]
-        if item in _CREAMY and any(x in _CREAMY for x in creamy):
+        if item in _CREAMY and any(x in _CREAMY for x in [*out, *(t for t in tech.staples if t != "milk")]):
             continue
-        out.append(item)
+        start = seed % len(keys)
+        for key in [*keys[start:], *keys[:start]]:
+            if key in _x.NEEDS_PROTEIN and not has_protein:
+                continue
+            if item in _CHEESES and key not in _x.INSIDE and any(t in _CHEESES for t in tech.staples):
+                continue
+            if _x.GROUP.get(key) in groups:
+                continue
+            out[item] = key
+            if key in _x.GROUP:
+                groups.add(_x.GROUP[key])
+            break
     return out
 
 
-# The fresh herb a yoghurt sauce wants ({h}) when the garden gives none of them.
-_SAUCE_HERB = {
-    "en": {"yog_soup": "chives", "yog_sauce": "mint or dill", "raita": "coriander or mint", "yog_dressing": "chives or parsley",
-           "yog_soy": "spring onion"},
-    "nl": {"yog_soup": "bieslook", "yog_sauce": "munt of dille", "raita": "koriander of munt", "yog_dressing": "bieslook of peterselie",
-           "yog_soy": "lente-ui"},
-    "fr": {"yog_soup": "ciboulette", "yog_sauce": "menthe ou aneth", "raita": "coriandre ou menthe", "yog_dressing": "ciboulette ou persil",
-           "yog_soy": "oignon nouveau"},
-}  # fmt: skip
-# Garden herbs that belong in a cold yoghurt sauce (rosemary or sage do not)
-_SAUCE_HERBS = ("dill", "mint", "parsley", "chives", "coriander")
+def fitting_extras(
+    technique: str, items: Iterable[str], has_protein: bool = True, produce: Sequence[str] = ()
+) -> list[str]:
+    """The fridge items that suit a dish, in the dish's own order (see ``_plan_extras``)."""
+    return list(_plan_extras(technique, items, has_protein, produce))
 
 
-def _extra_steps(
-    technique: str, extras: Sequence[str], lang: str, herbs: Sequence[str] = ()
-) -> tuple[list[str], list[str]]:
+def _extra_steps(technique: str, extras: Sequence[str], lang: str, herbs: Sequence[str] = (),
+                 produce: Sequence[str] = (), has_protein: bool = True) -> tuple[list[str], list[str]]:  # fmt: skip
     """The steps for the fridge items: (after the second technique step, after the last).
-    ``herbs``: fresh garden herbs for a yoghurt sauce (else a sensible one to buy or pick)."""
-    by_role: dict[str, list[str]] = {}
-    for item in extras:
-        role = _EXTRA_USE.get(technique, {}).get(item)
-        if role is not None:
-            by_role.setdefault(role, []).append(PANTRY[item].name(lang))
+    ``herbs``: fresh garden herbs for a sauce or butter (else the one the preparation suggests)."""
+    plan = _plan_extras(technique, extras, has_protein, produce)
+    ix = _LANG_IX[lang]
     mid: list[str] = []
     late: list[str] = []
-    for role in _ROLE_ORDER:
-        if role in by_role:
-            h = _join(list(herbs)[:2], lang) if herbs and role != "yog_soy" else _SAUCE_HERB[lang].get(role, "")
-            (mid if role in _ROLE_MID else late).append(
-                _ROLE_TEXT[lang][role].format(x=_join(by_role[role], lang), h=h)
-            )
+    for item, key in plan.items():
+        where, *texts = _x.PREP[key]
+        default = _x.HERB.get(key, ("verse kruiden", "fresh herbs", "fines herbes"))[ix]
+        h = _join(list(herbs)[:2], lang) if herbs and key not in _x.FIXED_HERB else default
+        name = PANTRY[item].name(lang).split(" (")[0]  # "nuts (walnuts, pine nuts)" -> "nuts"
+        (mid if where == "mid" else late).append(texts[ix].format(x=name, h=h))
     return mid, late
 
 
@@ -870,7 +735,10 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
     side = SIDES.get(side_id)
     protein_id = str(spec.get("protein") or "")
     protein = PROTEINS.get(protein_id)
-    extras = fitting_extras(tech.id, [x for x in str_ids(spec.get("extras")) if x in PANTRY], protein is not None)
+    produce_ids = [p.id for p, _ in produce]
+    extras = fitting_extras(
+        tech.id, [x for x in str_ids(spec.get("extras")) if x in PANTRY], protein is not None, produce_ids
+    )
     in_house = set(pantry) | set(extras)  # what the cook took from the fridge is in the house
 
     names = [short_name(p, lang) for p, _ in produce]
@@ -946,7 +814,7 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
         )
         steps.append(_PROTEIN_STEP[lang][key].format(p=protein.name(lang).split(" (")[0].lower()))
     fresh = {short_name(p, lang) for i in _SAUCE_HERBS if (p := db.get(i)) is not None}
-    mid, late = _extra_steps(tech.id, extras, lang, [h for h in herbs if h in fresh])
+    mid, late = _extra_steps(tech.id, extras, lang, [h for h in herbs if h in fresh], produce_ids, protein is not None)
     for n, step in enumerate(_STEPS[lang][tech.id]):
         steps.append(step.format(prep=prep or a, side=side_name.lower(), veg=_join(names, lang)))
         if n == 1:

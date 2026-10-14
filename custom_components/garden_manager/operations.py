@@ -1069,7 +1069,9 @@ def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "produce": produce,
         "side": side if side in cooking.SIDES else "",
         "protein": protein if protein in cooking.PROTEINS else "",
-        "extras": cooking.fitting_extras(tech, cooking.str_ids(raw.get("extras")), protein in cooking.PROTEINS),
+        "extras": cooking.fitting_extras(
+            tech, cooking.str_ids(raw.get("extras")), protein in cooking.PROTEINS, produce
+        ),
         "servings": cooking.servings_of(raw.get("servings")),
     }
 

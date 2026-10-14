@@ -43,7 +43,7 @@ def test_suggestions_put_the_garden_first(db: PlantDatabase) -> None:
         else:
             assert r["spec"]["protein"] in ("chicken", "mince")
         feta = any(i["id"] == "feta" for i in r["ingredients"])
-        assert feta == (r["technique"] in {"roast", "salad", "stuffed"}), r["title"]
+        assert feta == (r["technique"] in {"soup", "roast", "salad", "pasta", "frittata", "stuffed"}), r["title"]
         if feta:  # taken from the fridge: in the house, never on the shopping list
             assert next(i for i in r["ingredients"] if i["id"] == "feta")["source"] == "pantry"
 
@@ -118,41 +118,62 @@ def test_fridge_items_only_go_where_they_fit(db: PlantDatabase) -> None:
     assert not any("yoghurt" in s for s in pasta["steps"])
     assert next(i for i in pasta["ingredients"] if i["id"] == "parmesan")["source"] == "shop"
     roast = cooking.render({"technique": "roast", "produce": ["carrot", "pumpkin"], "extras": fridge}, db, "nl")
-    assert roast is not None and roast["spec"]["extras"] == ["grated_cheese", "yoghurt"]  # one cheese is enough
-    sauce = next(s for s in roast["steps"] if s.startswith("Maak een frisse yoghurtsaus"))
-    assert "komkommer" in sauce and "munt of dille" in sauce
-    assert any("geraspte kaas" in s and "smelten" in s for s in roast["steps"])
+    assert roast is not None and sorted(roast["spec"]["extras"]) == ["grated_cheese", "yoghurt"]  # one cheese is enough
+    assert any("kaaskorstje" in s for s in roast["steps"])
     assert {i["id"]: i["source"] for i in roast["ingredients"]}["yoghurt"] == "pantry"
-    salad = cooking.render({"technique": "salad", "produce": ["lettuce", "tomato"], "extras": ["yoghurt"]}, db, "en")
-    assert salad is not None and any("dressing creamy" in s for s in salad["steps"])
-    # every dish its own yoghurt sauce, with fresh garden herbs where there are any
-    wok = cooking.render({"technique": "stir_fry", "produce": ["kale"], "extras": ["yoghurt"]}, db, "nl")
-    assert wok is not None and any("sojasaus" in s and "dipsausje" in s for s in wok["steps"])
-    curry = cooking.render(
-        {"technique": "stew", "produce": ["pumpkin", "carrot"], "extras": ["yoghurt"]}, db, "nl", ["dille"]
-    )
-    assert curry is not None and any(s.startswith("Maak een raita") and "dille" in s for s in curry["steps"])
-    rosemary = cooking.render(
-        {"technique": "roast", "produce": ["carrot", "pumpkin"], "extras": ["yoghurt"]}, db, "nl", ["rozemarijn"]
-    )
-    assert rosemary is not None and not any("rozemarijn" in s and "yoghurt" in s for s in rosemary["steps"])
-    assert cooking.fitting_extras("stir_fry", fridge) == ["yoghurt"]  # as a soy-ginger dip, no cheese
+    assert cooking.fitting_extras("stir_fry", fridge) == ["yoghurt"]  # as a dip, no cheese
     assert cooking.fitting_extras("plate", ["cream"], has_protein=False) == []
     assert cooking.fitting_extras("stew", ["cream", "yoghurt"]) == ["yoghurt"]  # coconut milk is the cream there
     assert cooking.fitting_extras("stoemp", ["cream", "mustard"]) == ["mustard", "cream"]
     assert cooking.fitting_extras("frittata", ["milk", "cream"]) == ["milk"]  # one is enough
-    assert cooking.fitting_extras("stuffed", ["parmesan", "feta"]) == [
-        "feta"
-    ]  # in the filling; no second cheese on top
+    assert cooking.fitting_extras("stuffed", ["parmesan", "feta"]) == ["feta"]  # one extra cheese
+    assert cooking.fitting_extras("roast", ["parmesan"]) == ["parmesan"]
     assert cooking.fitting_extras("gratin", ["parmesan"]) == ["parmesan"]  # mixed into the crust
-    # a step that belongs early goes in after the vegetables are in the pan, not at the end
+    # an early step goes in after the vegetables are in the pan, not at the end
     sauce = cooking.render(
         {"technique": "pasta", "produce": ["tomato"], "side": "pasta", "extras": ["cream"]}, db, "en"
     )
-    assert (
-        sauce is not None
-        and sauce["steps"].index(next(s for s in sauce["steps"] if "creamy sauce" in s)) < len(sauce["steps"]) - 2
+    assert sauce is not None
+    assert sauce["steps"].index(next(s for s in sauce["steps"] if "creamy sauce" in s)) < len(sauce["steps"]) - 2
+
+
+def test_every_dish_its_own_idea(db: PlantDatabase) -> None:
+    """Yoghurt (and the rest of the fridge) is worked in differently per dish, not just spooned on."""
+    yog = lambda t, produce, herbs=(): next(  # noqa: E731
+        s
+        for s in cooking.render({"technique": t, "produce": produce, "extras": ["yoghurt"]}, db, "nl", list(herbs))[
+            "steps"
+        ]
+        if "yoghurt" in s
     )
+    assert "sojasaus" in yog("stir_fry", ["kale"]) or "currypasta" in yog("stir_fry", ["kale"])
+    assert "dille" in yog("stew", ["pumpkin", "carrot"], ["dille"])  # fresh garden herbs go in
+    assert "rozemarijn" not in yog("roast", ["carrot", "pumpkin"], ["rozemarijn"])  # not in a cold sauce
+    # across dishes the same item gets different preparations
+    texts = {
+        yog(t, p)
+        for t, p in [
+            ("roast", ["carrot"]),
+            ("roast", ["pumpkin"]),
+            ("roast", ["tomato"]),
+            ("roast", ["potato"]),
+            ("salad", ["lettuce"]),
+            ("stew", ["pumpkin"]),
+            ("dessert", ["apple"]),
+            ("soup", ["leek"]),
+        ]
+    }
+    assert len(texts) >= 6
+    # every listed preparation exists in every language and names its item or stands on its own
+    from custom_components.garden_manager.engine import cooking_extras as x
+
+    for tech, items in x.USES.items():
+        assert tech in cooking.TECHNIQUE
+        for item, keys in items.items():
+            assert item in cooking.PANTRY, item
+            for key in keys:
+                where, *texts = x.PREP[key]
+                assert where in ("mid", "late") and len(texts) == 3 and all(texts), key
 
 
 def test_the_cooks_own_version(db: PlantDatabase) -> None:

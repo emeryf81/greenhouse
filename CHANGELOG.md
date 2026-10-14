@@ -3,16 +3,20 @@
 ## 1.7.1 – 2026-10
 
 ### Changed
-- **Cooking: fridge items only go where they fit.** What you tick under "use up from the fridge"
-  is no longer worked into every dish. Each dish takes only what suits it, in the way that
-  suits it. Yoghurt always becomes a sauce that belongs with the dish: a tzatziki-style sauce
-  (cucumber, garlic, lemon, cumin, mint or dill) with roast, stuffed or plated vegetables, a raita
-  with a curry, a soy-ginger dip with a stir-fry, a creamy herb dressing for a salad, a lemon-herb
-  spoonful on soup or honey-cinnamon yoghurt with a crumble – never on pasta or risotto. Fresh
-  herbs from the garden (dill, parsley, chives, coriander) go into the sauce when there are any. Cheese melts over an oven dish,
-  goes into a frittata or on a salad; at most one extra cheese and one extra cream per dish, and
-  nothing the recipe already uses. The step sits at the right moment in the method, not always
-  at the end.
+- **Cooking: every fridge item gets its own idea, only where it fits.** What you tick under
+  "use up from the fridge" is no longer just spooned on top of every dish. Each item has its own
+  preparations per kind of dish, and which one a dish gets depends on its vegetables, so the
+  ideas vary: yoghurt becomes a tzatziki-style sauce, a honey-mustard dip, a lemon-garlic bed
+  under roast vegetables, a raita, a soy-ginger or curry dip, a creamy herb dressing or
+  honey-cinnamon yoghurt with a crumble; feta is baked soft among the vegetables, whipped into a
+  cream, melted through pasta or crumbled into a frittata; parmesan turns into crisps on soup or
+  a crunchy crust; eggs are baked in hollows on the oven tray, stirred into a carbonara or
+  poached on a salad; mustard becomes a mustard butter, onion a quick pickle, breadcrumbs a
+  garlic-lemon pangrattato ... Fresh herbs from the garden (dill, parsley, chives, coriander)
+  go into sauces when there are any.
+  - A dish takes at most three things from the fridge, one sauce, one dressing and one crunchy
+    topping; never two cheeses on top of each other or two creams; a pan sauce only with meat or
+    fish. Each step sits at the right moment in the method.
 
 ### Added
 - **Cooking: your own version of a recipe.** "Edit" in a recipe adds, removes or changes
