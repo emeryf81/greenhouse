@@ -161,7 +161,7 @@ def assess_frost(
                 continue
             local_hour = point.at.astimezone(tz).hour
             adj = point.temperature + offset_c + radiative_adjustment(point, local_hour)
-            if point.at <= near_end and (near_min is None or adj < near_min):
+            if now <= point.at <= near_end and (near_min is None or adj < near_min):
                 near_min = adj
             if best_adj is None or adj < best_adj:
                 best, best_adj = point, adj

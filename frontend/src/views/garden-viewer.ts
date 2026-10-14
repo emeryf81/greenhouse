@@ -56,10 +56,12 @@ export class GardenViewer extends LitElement {
     return [...years].filter((y) => Number.isFinite(y) && layoutOf(snap, y)).sort((a, b) => b - a);
   }
 
-  protected willUpdate(): void {
-    if (!this.season && this.snapshot) {
+  protected willUpdate(changed: Map<string, unknown>): void {
+    // a new snapshot (archive pruned, another garden): keep the year only while it still has a plan
+    if (this.snapshot && (changed.has("snapshot") || !this.season) && !(this.season && layoutOf(this.snapshot, this.season))) {
       const today = new Date().getFullYear();
       this.season = layoutOf(this.snapshot, today) ? today : (this.snapshot.layout_season ?? this.seasons[0] ?? today);
+      this.sel = null;
     }
   }
 

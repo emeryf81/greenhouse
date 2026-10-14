@@ -412,10 +412,13 @@ export class PlannerView extends LitElement {
     }
     const unchangedLocally = this.saveState === "saved";
     const otherGarden = (snap.entry_id ?? "") !== this.draftGarden;
-    if (otherGarden && this.saveState === "dirty") void this.save(); // finish the old garden's edits (saved to that garden)
     if (force || !this.history || otherGarden || (unchangedLocally && snap.revision !== this.baseRevision)) {
-      if (otherGarden) {
+      if (otherGarden && this.history) {
+        // the old garden's unsaved edits go to that garden, on their own (retried, never into this one)
         window.clearTimeout(this.saveTimer);
+        if (this.saveState === "dirty" || this.saveState === "error") {
+          void this.saveDetached(this.draft, this.baseRevision, this.season, this.draftGarden);
+        }
         this.saveState = "saved";
       }
       this.draftGarden = snap.entry_id ?? "";
@@ -485,18 +488,26 @@ export class PlannerView extends LitElement {
     this.saveTimer = window.setTimeout(() => this.save(), 1200);
   }
 
+  private saving = false;
+
   private async save(): Promise<void> {
     if (this.saveState !== "dirty") return;
+    // one request at a time: an edit made meanwhile is saved right after, on the new revision
+    if (this.saving) return;
     const doc = this.draft;
+    const garden = this.draftGarden;
+    this.saving = true;
     this.saveState = "saving";
     try {
-      const garden = this.draftGarden;
       const res = await this.api.savePlan(doc, this.baseRevision, this.season, garden || undefined);
       if (garden !== this.draftGarden) return; // another garden is shown meanwhile
       this.baseRevision = res.revision;
       this.saveState = this.draft === doc ? "saved" : "dirty";
-      if (this.saveState === "dirty") this.scheduleSave();
     } catch (err) {
+      if (garden !== this.draftGarden) {
+        void this.saveDetached(doc, this.baseRevision, this.season, garden);
+        return;
+      }
       const code = (err as { code?: string }).code;
       if (code === "revision_conflict") {
         this.saveState = "saved";
@@ -507,6 +518,22 @@ export class PlannerView extends LitElement {
         this.saveState = "error";
         this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
       }
+    } finally {
+      this.saving = false;
+    }
+    if (this.saveState === "dirty") void this.save();
+  }
+
+  /** Edits of a garden no longer shown: saved to that garden, retried a few times, never lost silently. */
+  private async saveDetached(doc: PlanDoc, revision: number | null, season: number, garden: string, attempt = 1): Promise<void> {
+    try {
+      await this.api.savePlan(doc, revision, season, garden || undefined);
+    } catch (err) {
+      if ((err as { code?: string }).code !== "revision_conflict" && attempt < 3) {
+        await new Promise((r) => window.setTimeout(r, 1500 * attempt));
+        return this.saveDetached(doc, revision, season, garden, attempt + 1);
+      }
+      this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
     }
   }
 

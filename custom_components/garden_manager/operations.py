@@ -19,7 +19,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, EVENT_TASK_COMPLETED, SIGNAL_LAYOUT_CHANGED
-from .engine import seasons
+from .engine import cooking, seasons
 from .engine.models import (
     CookbookRecipe,
     Expense,
@@ -328,8 +328,8 @@ def op_save_plan(
         was = old_plantings.get(p.id)
         if was is not None and was.harvest_started_on is not None and p.harvest_started_on is None:
             p.harvest_started_on = was.harvest_started_on
-            if was.status is PlantingStatus.HARVESTING and p.status in _BEFORE_HARVEST:
-                p.status = PlantingStatus.HARVESTING
+            if was.status in (PlantingStatus.HARVESTING, PlantingStatus.FINISHED) and p.status in _BEFORE_HARVEST:
+                p.status = was.status  # never back to before the harvest, nor reopen a finished crop
     before = _live_layout_snapshot(data)
     features_now = new_features if new_features is not None else (current.features if current else [])
     live = seasons.store_layout(data, season, new_zones, new_beds, features_now, now=dt_util.now())
@@ -441,7 +441,14 @@ def op_save_plant(runtime: GardenRuntime, raw: Mapping[str, Any], mode: str) -> 
         if base is None or base.source == "custom":
             raise _err("unknown_plant", plant=plant_id)
         # an edit adds to the earlier customisations of this plant (resetting is a separate action)
-        patch = {**repo.data.plant_overrides.get(plant_id, {}), **{k: v for k, v in raw.items() if k not in ("id", "source")}}
+        patch = dict(repo.data.plant_overrides.get(plant_id, {}))
+        for key, value in raw.items():
+            if key in ("id", "source"):
+                continue
+            # names (and other per-language texts) are edited one language at a time
+            patch[key] = (
+                {**patch[key], **value} if isinstance(value, dict) and isinstance(patch.get(key), dict) else value
+            )
         validate_plant_dict({**to_dict(base), **patch})
         repo.data.plant_overrides[plant_id] = patch
     else:
@@ -1046,7 +1053,6 @@ COOKBOOK_MAX = 500
 
 
 def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
-    from .engine import cooking
 
     tech = str(raw.get("technique") or "")
     produce = [str(p) for p in raw.get("produce") or [] if isinstance(p, str)][:6]
@@ -1060,14 +1066,13 @@ def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "side": side if side in cooking.SIDES else "",
         "protein": protein if protein in cooking.PROTEINS else "",
         "extras": [x for x in raw.get("extras") or [] if x in cooking.PANTRY][:12],
-        "servings": max(1, min(12, int(raw.get("servings") or 2))),
+        "servings": cooking.servings_of(raw.get("servings")),
     }
 
 
 @callback
 def op_cookbook_save(runtime: GardenRuntime, raw: Mapping[str, Any]) -> CookbookRecipe:
     """Keep a recipe in the cookbook (the same dish twice stays one entry)."""
-    from .engine import cooking
 
     data = runtime.repo.data
     spec = _clean_spec(raw.get("spec") or {})
@@ -1120,8 +1125,6 @@ def op_cookbook_delete(runtime: GardenRuntime, recipe_id: str) -> None:
 def op_cooking_prefs(runtime: GardenRuntime, raw: Mapping[str, Any]) -> dict[str, Any]:
     """Remember what the cook usually has in the house, likes, and for how many."""
     from dataclasses import asdict
-
-    from .engine import cooking
 
     prefs = asdict(cooking.Prefs.from_dict(raw))
     runtime.repo.data.cooking_prefs = prefs

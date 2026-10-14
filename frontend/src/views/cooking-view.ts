@@ -162,13 +162,17 @@ export class CookingView extends LitElement {
     }
   }
 
+  private loadSeq = 0;
+
   private async load(first = false): Promise<void> {
+    const seq = ++this.loadSeq;
     this.busy = "load";
     this.error = "";
     try {
       const data = first
         ? await this.api.cookingSuggest({ lang: this.lang })
         : await this.api.cookingSuggest({ prefs: this.prefs, produce: this.produce, lang: this.lang });
+      if (seq !== this.loadSeq) return; // a newer request is under way: its answer counts
       this.data = data;
       if (first) {
         this.prefs = { ...EMPTY_PREFS, ...(data.prefs ?? data.used_prefs) };
@@ -178,7 +182,7 @@ export class CookingView extends LitElement {
     } catch (err) {
       this.error = (err as Error).message || String(err);
     } finally {
-      this.busy = "";
+      if (seq === this.loadSeq) this.busy = "";
     }
   }
 

@@ -30,8 +30,10 @@ SYSLOG_SAVE_DELAY_SECONDS = 10
 # panel actions); read when the change is written to the system log.
 current_user: ContextVar[str | None] = ContextVar("hortulus_user", default=None)
 
-PLAN_COLLECTIONS = frozenset({"zones", "beds", "plantings", "features", "rotation_history", "layouts", "meta"})
-RECORD_COLLECTIONS = frozenset({"harvest_log", "journal", "seed_stock", "irrigation_log"})
+PLAN_COLLECTIONS = frozenset(
+    {"zones", "beds", "plantings", "features", "rotation_history", "layouts", "meta", "archived_plans"}
+)
+RECORD_COLLECTIONS = frozenset({"harvest_log", "journal", "seed_stock", "irrigation_log", "expenses", "cookbook"})
 
 
 def undo_reasons(collections: set[str]) -> list[str]:

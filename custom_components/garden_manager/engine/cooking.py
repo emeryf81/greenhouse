@@ -589,14 +589,30 @@ class Prefs:
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any] | None) -> Prefs:
-        raw = raw or {}
+        raw = raw if isinstance(raw, Mapping) else {}
+
+        def ids(key: str, *allowed: Mapping[str, Any]) -> list[str]:
+            value = raw.get(key)
+            items = value if isinstance(value, list) else []
+            return [x for x in items if isinstance(x, str) and any(x in a for a in allowed)]
+
+        side = raw.get("side")
         return cls(
-            pantry=[p for p in raw.get("pantry", []) if p in PANTRY or p in SIDES or p in PROTEINS],
-            use=[p for p in raw.get("use", []) if p in PANTRY],
-            proteins=[p for p in raw.get("proteins", []) if p in PROTEINS],
-            side=raw.get("side", "") if raw.get("side", "") in SIDES or raw.get("side") == "none" else "",
-            servings=max(1, min(12, int(raw.get("servings") or 2))),
+            pantry=ids("pantry", PANTRY, SIDES, PROTEINS),
+            use=ids("use", PANTRY),
+            proteins=ids("proteins", PROTEINS),
+            side=side if isinstance(side, str) and (side in SIDES or side == "none") else "",
+            servings=servings_of(raw.get("servings")),
         )
+
+
+def servings_of(value: Any, default: int = 2) -> int:
+    """A number of servings between 1 and 12 (anything unreadable: the default)."""
+    try:
+        n = int(value) if value not in (None, "") else default
+    except (TypeError, ValueError):
+        n = default
+    return max(1, min(12, n))
 
 
 def spec_id(spec: Mapping[str, Any]) -> str:
@@ -627,7 +643,9 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
     tech = TECHNIQUE.get(str(spec.get("technique")))
     if tech is None:
         return None
-    servings = max(1, min(12, int(spec.get("servings") or 2)))
+    if not isinstance(spec, Mapping):
+        return None
+    servings = servings_of(spec.get("servings"))
     produce: list[tuple[Plant, str]] = []
     for pid in spec.get("produce") or []:
         plant = db.get(pid)

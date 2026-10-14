@@ -92,3 +92,10 @@ def test_pdfs(db: PlantDatabase) -> None:
         pdf = cooking.recipes_pdf(recipes, "en", kind, today=date(2026, 8, 1))
         assert pdf.startswith(b"%PDF") and len(pdf) > 1500
     assert cooking.recipes_pdf(recipes, "nl", "book").count(b"/Type /Page ") >= 5
+
+
+def test_unreadable_input_falls_back(db: PlantDatabase) -> None:
+    prefs = cooking.Prefs.from_dict({"servings": "x", "pantry": "rice", "proteins": [1, "beef"], "side": 3})
+    assert prefs.servings == 2 and prefs.pantry == [] and prefs.proteins == ["beef"] and prefs.side == ""
+    assert cooking.Prefs.from_dict(["nope"]).servings == 2  # type: ignore[arg-type]
+    assert cooking.render({"technique": "soup", "produce": ["carrot"], "servings": "many"}, db)["servings"] == 2

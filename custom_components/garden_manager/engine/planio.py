@@ -38,7 +38,9 @@ def export_plan(
         "rotation_history": [to_dict(r) for r in data.rotation_history],
     }
     if include_tasks:
-        doc["tasks"] = [to_dict(t) for t in data.tasks]
+        # only tasks of the plantings in the file (and the garden-wide ones)
+        kept = {p.id for p in plantings}
+        doc["tasks"] = [to_dict(t) for t in data.tasks if not t.planting_id or t.planting_id in kept]
     return doc
 
 
@@ -73,14 +75,18 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
     except (TypeError, ValueError, KeyError) as err:
         raise PlanImportError(f"Invalid plan: {err}") from err
 
-    # Beds and plantings of other seasons refer to that season's plan, not only to the live one.
-    kept_layouts = list(data.layouts.values()) if mode == "merge" else []
-    all_layouts = [*layouts.values(), *kept_layouts]
-    zone_ids = {z.id for z in zones} | ({z.id for z in data.zones} if mode == "merge" else set())
-    zone_ids |= {z.id for lay in all_layouts for z in lay.zones}
-    for bed in [*beds, *(b for lay in layouts.values() for b in lay.beds)]:
-        if bed.zone_id not in zone_ids:
-            raise PlanImportError(f"Bed {bed.name!r} references unknown zone {bed.zone_id!r}")
+    # Each plan's beds must sit in that plan's zones; plantings of other seasons may refer to
+    # the beds of that season's plan.
+    def check_beds(plan_beds: list[GardenBed], plan_zone_ids: set[str]) -> None:
+        for bed in plan_beds:
+            if bed.zone_id not in plan_zone_ids:
+                raise PlanImportError(f"Bed {bed.name!r} references unknown zone {bed.zone_id!r}")
+
+    check_beds(beds, {z.id for z in zones} | ({z.id for z in data.zones} if mode == "merge" else set()))
+    for season, lay in layouts.items():
+        kept = data.layouts.get(season) if mode == "merge" else None
+        check_beds(lay.beds, {z.id for z in lay.zones} | ({z.id for z in kept.zones} if kept else set()))
+    all_layouts = [*layouts.values(), *(data.layouts.values() if mode == "merge" else [])]
     bed_ids = {b.id for b in beds} | ({b.id for b in data.beds} if mode == "merge" else set())
     bed_ids |= {b.id for lay in all_layouts for b in lay.beds}
     for planting in plantings:

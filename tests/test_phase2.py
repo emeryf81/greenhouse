@@ -1312,10 +1312,37 @@ async def test_a_second_customisation_keeps_the_first(hass: HomeAssistant, garde
     """Change spacing, later only the name: the spacing stays customised."""
     entry, _calls = garden
     client = await hass_ws_client(hass)
-    for patch in ({"spacing_cm": 7}, {"names": {"en": "Mighty carrot", "nl": "Wortel"}}):
+    for patch in ({"spacing_cm": 7}, {"names": {"en": "Mighty carrot"}}, {"names": {"fr": "Carotte royale"}}):
         await client.send_json_auto_id(
             {"type": f"{DOMAIN}/plants/save", "mode": "override", "plant": {"id": "carrot", **patch}}
         )
         assert (await _result(client))["success"]
     assert entry.runtime_data.repo.data.plant_overrides["carrot"]["spacing_cm"] == 7
+    names = entry.runtime_data.repo.data.plant_overrides["carrot"]["names"]
+    assert names["en"] == "Mighty carrot" and names["fr"] == "Carotte royale"
     assert entry.runtime_data.repo.db.get("carrot").spacing_cm == 7
+
+
+async def test_a_stale_draft_does_not_reopen_a_finished_crop(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    from datetime import date
+
+    from custom_components.garden_manager.engine.models import PlantingStatus
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    planting = repo.data.plantings[0]
+    stale = [to_dict(p) for p in repo.data.plantings]
+    planting.harvest_started_on, planting.status = date(2026, 5, 1), PlantingStatus.FINISHED
+    stale[0] = {**stale[0], "status": "transplanted", "harvest_started_on": None}
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/plan/save",
+            "base_revision": repo.data.revision,
+            "zones": [to_dict(z) for z in repo.data.zones],
+            "beds": [to_dict(b) for b in repo.data.beds],
+            "plantings": stale,
+        }
+    )
+    assert (await _result(client))["success"]
+    assert repo.data.planting(planting.id).status == "finished"
