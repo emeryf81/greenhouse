@@ -12,7 +12,7 @@ from homeassistant.exceptions import ServiceValidationError
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.garden_manager import controllers
+from custom_components.garden_manager import controllers, operations
 from custom_components.garden_manager.const import DOMAIN
 from custom_components.garden_manager.engine.serde import to_dict
 
@@ -1183,7 +1183,6 @@ async def test_archive_write_failure_never_loses_a_season(hass: HomeAssistant, g
 
 
 async def test_money_must_be_a_real_number(hass: HomeAssistant, garden) -> None:
-    from custom_components.garden_manager import operations
 
     entry, _ = garden
     runtime = entry.runtime_data
@@ -1212,6 +1211,22 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     )
     res = (await _result(client))["result"]
     assert res["recipes"] and res["catalog"]["sides"] and res["book"] == []
+    assert all(len(m["courses"]) == 3 and m["title"] for m in res["menus"])
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/cooking/suggest",
+            "produce": ["tomato", "courgette", "basil", "strawberry", "carrot"],
+            "limit": 6,
+        }
+    )
+    summer = (await _result(client))["result"]
+    assert summer["menus"] and all(
+        r["spec"]["produce"] for m in summer["menus"] for c in m["courses"] for r in [c["recipe"]]
+    )
+    assert any(r["course"] == "preserve" for r in summer["recipes"])
+    assert any(not p["fridge"] for p in summer["catalog"]["pantry"]) and any(
+        p["fridge"] for p in summer["catalog"]["pantry"]
+    )
     assert any(p["plant_id"] == "kale" for p in res["catalog"]["edible"])
     recipe = res["recipes"][0]
     assert {i["plant_id"] for i in recipe["ingredients"] if i["source"] == "garden"} <= {"kale", "carrot", "leek"}
@@ -1243,6 +1258,45 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     )
     book = (await _result(client))["result"]["book"]
     assert book[0]["shared"] is True and book[0]["title"] == "Ons recept"
+    # the cook's own version: ingredients and steps by hand, back to the generated with []
+    own = {"ingredients": [{"name": "Boerenkool", "qty": 400, "unit": "g", "source": "garden", "plant_id": "kale"},
+                           {"name": "Gerookte paprika", "qty": 1, "unit": "tbsp", "source": "shop"}],
+           "steps": ["Alles in de pan.", "  ", "Proeven."]}  # fmt: skip
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": own})
+    mine = (await _result(client))["result"]["book"][0]
+    assert mine["custom"] is True and mine["steps"] == ["Alles in de pan.", "Proeven."] and mine["id"] == saved["id"]
+    assert [i["name"] for i in mine["shopping"]] == ["Gerookte paprika"]
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/cooking/book/update",
+            "recipe_id": saved["id"],
+            "changes": {"title": "Kapot", "ingredients": [{"name": ""}]},
+        }
+    )
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"
+    assert repo.data.cookbook[0].title == "Ons recept"  # a refused change changes nothing
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"steps": "Alles in de pan."}}
+    )
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"  # a wrong shape is no reset
+    other = {**spec, "servings": 7}  # another dish: a refused save adds no entry
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": other, "ingredients": [{"name": " "}]}}
+    )
+    assert (await _result(client))["error"]["code"] == "invalid_recipe" and len(repo.data.cookbook) == 1
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"ingredients": [], "steps": []}}
+    )
+    assert (await _result(client))["result"]["book"][0]["custom"] is False
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {}, "pantry": ["bulgur"]}
+    )
+    kept = (await _result(client))["result"]["book"][0]  # the answer follows the unsaved "at home" choices
+    assert next(i for i in kept["ingredients"] if i["id"] == "bulgur")["source"] == "pantry"
+    # what the cook has at home (sent along) is not bought
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/render", "spec": spec, "pantry": ["bulgur"]})
+    home = (await _result(client))["result"]["recipe"]
+    assert next(i for i in home["ingredients"] if i["id"] == "bulgur")["source"] == "pantry"
 
     await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/pdf", "kind": "book", "ids": [saved["id"]]})
     pdf = (await _result(client))["result"]
@@ -1406,3 +1460,145 @@ async def test_a_failed_vent_command_is_tried_again(
     climate._set("vent:z", "cover.vent", True, shade=False)  # now done: not sent a third time
     await hass.async_block_till_done()
     assert tries == [True, True]
+
+
+# --------------------------------------------------------------------------- #
+# Whole-repository review findings (valves, to-do exports, import, input checks)
+# --------------------------------------------------------------------------- #
+async def test_a_valve_that_stays_closed_gets_no_water_booked_even_without_a_pump(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.pump_entity = ""
+    real_sleep = asyncio.sleep
+
+    async def stuck_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass.states.async_set(entity_id, "off")  # accepts the command, stays closed
+
+    async def fast_sleep(seconds: float) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers, "_switch", stuck_switch)
+    monkeypatch.setattr(controllers, "STATE_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fast_sleep)
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    before = len(repo.data.irrigation_log)
+    assert irrigation.async_start(irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=5), source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert len(repo.data.irrigation_log) == before
+    assert any(e["summary"][0]["key"] == "valve_did_not_open" for e in repo.syslog if e["source"] == "error")
+
+
+async def test_a_valve_that_goes_silent_stops_the_pump(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    irrigation = entry.runtime_data.irrigation
+    repo.data.settings.irrigation.pump_entity = "switch.pump"
+    repo.data.settings.irrigation.max_runtime_min = 60
+    held = {"s": 0.0}
+    real_sleep = asyncio.sleep
+
+    async def fake_switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        hass.states.async_set(entity_id, "on" if on else "off")
+
+    async def fake_sleep(seconds: float) -> None:
+        held["s"] += seconds
+        if held["s"] >= 40:  # the valve reported open, then drops off the network
+            hass.states.async_set("switch.valve_bed_1", "unavailable")
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers, "_switch", fake_switch)
+    monkeypatch.setattr(controllers.asyncio, "sleep", fake_sleep)
+    bed = next(b for b in repo.data.beds if b.irrigation_entity == "switch.valve_bed_1")
+    assert irrigation.async_start(irrigation.build_plan(force=True, bed_ids={bed.id}, override_mm=20), source="service")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get("switch.pump").state == "off"  # not left running against a valve nobody can see
+    assert held["s"] < 300  # ended after about a minute of silence, not after the whole run
+    assert any(e["summary"][0]["key"] == "valve_lost" for e in repo.syslog if e["source"] == "error")
+
+
+async def test_to_do_exports_follow_the_users_own_rights(
+    hass: HomeAssistant, garden, hass_ws_client, hass_read_only_access_token
+) -> None:
+    hass.states.async_set("todo.shopping", "0")
+    client = await hass_ws_client(hass, hass_read_only_access_token)
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/cooking/to_todo",
+            "entity_id": "todo.shopping",
+            "specs": [{"technique": "soup", "produce": ["carrot"]}],
+        }
+    )
+    res = await client.receive_json()
+    assert not res["success"] and res["error"]["code"] == "unauthorized"
+    await client.send_json_auto_id({"type": f"{DOMAIN}/seeds/to_todo", "entity_id": "todo.shopping", "season": 2026})
+    assert (await client.receive_json())["error"]["code"] == "unauthorized"
+
+
+async def test_input_checks_refuse_what_would_break_the_garden(hass: HomeAssistant, garden) -> None:
+    from homeassistant.exceptions import ServiceValidationError
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    data = runtime.repo.data
+    # a task change that is refused changes nothing
+    task = next(iter(data.tasks))
+    title = task.title
+    with pytest.raises(ServiceValidationError):
+        operations.op_update_task(runtime, task.id, {"title": "Changed", "priority": "nonsense"})
+    assert task.title == title
+    # rewriting the text of a generated task keeps it through the next recalculation
+    operations.op_update_task(runtime, task.id, {"title": "Mijn titel"})
+    assert task.text_modified and task.title == "Mijn titel"
+    # NaN and infinity never get in
+    planting = data.plantings[0]
+    for bad in ("NaN", "Infinity", -5):
+        with pytest.raises(ServiceValidationError):
+            operations.op_update_planting(runtime, planting.id, {"width_cm": bad})
+    with pytest.raises(ServiceValidationError):
+        operations.op_log_harvest(runtime, {"plant": planting.plant_id, "kg": "NaN"})
+    with pytest.raises(ServiceValidationError):
+        operations.op_log_harvest(runtime, {"plant": planting.plant_id, "kg": "Infinity"})
+    # recipes of the cook's own: too long is refused, not cut off
+    with pytest.raises(ServiceValidationError):
+        operations._cookbook_changes({"steps": ["x"] * 31})
+    with pytest.raises(ServiceValidationError):
+        operations._cookbook_changes({"ingredients": [{"name": "a"}] * 41})
+    assert len(operations._cookbook_changes({"steps": ["x"] * 30})["steps"]) == 30
+
+
+async def test_a_plant_a_set_aside_plan_needs_cannot_be_deleted(hass: HomeAssistant, garden) -> None:
+    from dataclasses import replace
+
+    from homeassistant.exceptions import ServiceValidationError
+
+    from custom_components.garden_manager.engine.models import ArchivedPlan
+    from custom_components.garden_manager.engine.serde import to_dict
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    data = runtime.repo.data
+    raw = {**to_dict(runtime.repo.db.get("tomato")), "id": "my_tomato", "source": "custom"}
+    operations.op_save_plant(runtime, raw, "custom")
+    planting = replace(data.plantings[0], id="pz", plant_id="my_tomato")
+    data.archived_plans.append(ArchivedPlan(id="ap9", name="Old", season=2024, plantings=[planting]))
+    with pytest.raises(ServiceValidationError):
+        operations.op_delete_plant(runtime, "my_tomato")  # only a plan set aside still needs it
+    data.archived_plans.clear()
+    operations.op_delete_plant(runtime, "my_tomato")
+    assert runtime.repo.db.get("my_tomato") is None
+
+
+async def test_text_the_cook_rewrote_survives_recalculation(hass: HomeAssistant, garden) -> None:
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    task = next(t for t in runtime.repo.data.tasks if t.title_key)
+    operations.op_update_task(runtime, task.id, {"title": "Mijn titel", "description": "Mijn tekst"})
+    await runtime.coordinator.async_refresh()
+    await hass.async_block_till_done()
+    same = runtime.repo.data.task(task.id)
+    assert same is not None and same.title == "Mijn titel" and same.description == "Mijn tekst"

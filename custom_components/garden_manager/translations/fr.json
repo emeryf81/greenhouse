@@ -1095,6 +1095,15 @@
     "unknown_recipe": {
       "message": "La recette {recipe} n'est pas dans le livre de cuisine."
     },
+    "invalid_task": {
+      "message": "Cette tâche n'a pas pu être modifiée : vérifiez la priorité et les minutes."
+    },
+    "recipe_too_long": {
+      "message": "Une recette contient au plus {ingredients} ingrédients et {steps} étapes."
+    },
+    "too_many_recipes": {
+      "message": "Imprimez, envoyez ou listez au plus {max} recettes à la fois."
+    },
     "cookbook_full": {
       "message": "Le livre de cuisine est plein ({max} recettes). Supprimez-en d'abord quelques-unes."
     }

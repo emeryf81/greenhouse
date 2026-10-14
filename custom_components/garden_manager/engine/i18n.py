@@ -521,6 +521,7 @@ MESSAGES["en"].update(
         "notify.valve_stuck": "{what} ({entity}) has been open far longer than any watering run. Is it stuck, or was it opened by hand?",
         "notify.valve_not_closed": "{what} ({entity}) did not report closed after watering. Check the valve.",
         "notify.valve_did_not_open": "{what} ({entity}) did not report open during the test. Check the connection.",
+        "notify.valve_lost": "{what} ({entity}) stopped reporting its state while Hortulus was watering, so the run was ended and the pump stopped. Check the valve and its connection.",
         "notify.valve_closed_early": "{what} ({entity}) closed by itself after {minutes} min while Hortulus was still watering. Does the valve have its own timer? Enter it under Settings → Beds → Valve timer, then Hortulus splits longer runs.",
         "notify.water_leak": "The water meter ({entity}) counted {liters} L in {minutes} minutes while every Hortulus valve was closed. A leak, or a tap left open?",
     }
@@ -531,6 +532,7 @@ MESSAGES["nl"].update(
         "notify.valve_stuck": "{what} ({entity}) staat al veel langer open dan een beregeningsbeurt duurt. Hangt hij vast, of werd hij met de hand geopend?",
         "notify.valve_not_closed": "{what} ({entity}) meldde na het water geven niet dat hij dicht is. Kijk de kraan na.",
         "notify.valve_did_not_open": "{what} ({entity}) meldde tijdens de test niet dat hij open ging. Kijk de verbinding na.",
+        "notify.valve_lost": "{what} ({entity}) meldde zijn toestand niet meer tijdens het water geven, dus de beurt is beëindigd en de pomp gestopt. Kijk de klep en de verbinding na.",
         "notify.valve_closed_early": "{what} ({entity}) ging na {minutes} min vanzelf dicht terwijl Hortulus nog water gaf. Heeft de kraan een eigen timer? Vul die in bij Instellingen → Bedden → Kraantimer, dan splitst Hortulus langere beurten op.",
         "notify.water_leak": "De watermeter ({entity}) telde {liters} L in {minutes} minuten terwijl alle kranen van Hortulus dicht waren. Een lek, of staat er een kraan open?",
     }
@@ -541,6 +543,7 @@ MESSAGES["fr"].update(
         "notify.valve_stuck": "{what} ({entity}) est ouverte depuis bien plus longtemps qu'un arrosage. Est-elle bloquée, ou a-t-elle été ouverte à la main ?",
         "notify.valve_not_closed": "{what} ({entity}) n'a pas signalé sa fermeture après l'arrosage. Vérifiez la vanne.",
         "notify.valve_did_not_open": "{what} ({entity}) n'a pas signalé son ouverture pendant le test. Vérifiez la connexion.",
+        "notify.valve_lost": "{what} ({entity}) a cessé de signaler son état pendant l'arrosage : l'arrosage a été arrêté, ainsi que la pompe. Vérifiez la vanne et sa connexion.",
         "notify.valve_closed_early": "{what} ({entity}) s'est fermée d'elle-même après {minutes} min alors que Hortulus arrosait encore. La vanne a-t-elle sa propre minuterie ? Indiquez-la dans Réglages → Planches → Minuterie de vanne, Hortulus fractionnera alors les arrosages plus longs.",
         "notify.water_leak": "Le compteur d'eau ({entity}) a compté {liters} L en {minutes} minutes alors que toutes les vannes de Hortulus étaient fermées. Une fuite, ou un robinet resté ouvert ?",
     }

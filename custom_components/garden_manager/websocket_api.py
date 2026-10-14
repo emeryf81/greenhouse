@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError, Unauthorized
 from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
@@ -1732,12 +1732,14 @@ async def ws_seeds_to_todo(
     if not entity_id.startswith("todo.") or hass.states.get(entity_id) is None:
         connection.send_error(msg["id"], "invalid_format", f"{entity_id} is not a to-do list")
         return
+    if not connection.user.permissions.check_entity(entity_id, POLICY_CONTROL):
+        raise Unauthorized(context=connection.context(msg), entity_id=entity_id)  # the user's own rights apply
     needs = planning.seed_needs(runtime.repo.data, runtime.repo.db, msg["season"])
     items = planning.seed_todo_items(needs, runtime.repo.db, msg["season"], runtime.coordinator.lang)
     try:
         current = await hass.services.async_call(
             "todo", "get_items", {"status": ["needs_action"]}, target={"entity_id": entity_id},
-            blocking=True, return_response=True,
+            blocking=True, return_response=True, context=connection.context(msg),
         )  # fmt: skip
         open_items = {i.get("summary") for i in (current or {}).get(entity_id, {}).get("items", [])}
         added = 0
@@ -1746,7 +1748,7 @@ async def ws_seeds_to_todo(
                 continue
             await hass.services.async_call(
                 "todo", "add_item", {"item": item["summary"], "description": item["description"]},
-                target={"entity_id": entity_id}, blocking=True,
+                target={"entity_id": entity_id}, blocking=True, context=connection.context(msg),
             )  # fmt: skip
             added += 1
     except (HomeAssistantError, ValueError) as err:
@@ -1784,6 +1786,8 @@ def _book_entry(entry: Any, db: Any, lang: str, garden_herbs: list[str], pantry:
         return None
     if entry.title:
         recipe["title"], recipe["subtitle"] = entry.title, ""
+    recipe = cooking.apply_custom(recipe, entry.ingredients, entry.steps, lang)
+    recipe["id"] = entry.id  # the entry, also when its spec was made under older rules
     return {
         **recipe,
         "saved": True,
@@ -1795,9 +1799,22 @@ def _book_entry(entry: Any, db: Any, lang: str, garden_herbs: list[str], pantry:
     }
 
 
-def _cookbook(runtime: GardenRuntime, lang: str) -> list[dict[str, Any]]:
+PRINT_MAX = 200  # recipes in one PDF, mail or to-do export
+POLICY_CONTROL = "control"  # Home Assistant's permission policy (the website's runtime has no homeassistant.auth)
+
+
+def _in_house(runtime: GardenRuntime, msg: dict[str, Any] | None = None) -> list[str]:
+    """What the cook has at home: the list sent along (unsaved choices) or the saved "always in the
+    house" and "use up from the fridge" lists."""
+    if msg is not None and "pantry" in msg:
+        return cooking.str_ids(msg["pantry"])[:80]
+    prefs = cooking.Prefs.from_dict(runtime.repo.data.cooking_prefs or {})
+    return [*prefs.pantry, *prefs.use]
+
+
+def _cookbook(runtime: GardenRuntime, lang: str, pantry: list[str] | None = None) -> list[dict[str, Any]]:
     data, db = runtime.repo.data, runtime.repo.db
-    pantry = list((data.cooking_prefs or {}).get("pantry", []))
+    pantry = _in_house(runtime) if pantry is None else pantry
     out = [_book_entry(e, db, lang, [], pantry) for e in data.cookbook]
     rows = [r for r in out if r is not None]
     rows.sort(key=lambda r: (not r["favorite"], r["added"] or ""), reverse=False)
@@ -1820,7 +1837,7 @@ def _ready_produce(runtime: GardenRuntime, lang: str) -> list[dict[str, Any]]:
 def _specs_or_ids(runtime: GardenRuntime, msg: dict[str, Any], lang: str) -> list[dict[str, Any]]:
     """The recipes a command is about: saved ones by id and/or unsaved specs."""
     data, db = runtime.repo.data, runtime.repo.db
-    pantry = list((data.cooking_prefs or {}).get("pantry", []))
+    pantry = _in_house(runtime, msg)
     out: list[dict[str, Any]] = []
     for rid in msg.get("ids") or []:
         entry = next((r for r in data.cookbook if r.id == rid), None)
@@ -1831,7 +1848,13 @@ def _specs_or_ids(runtime: GardenRuntime, msg: dict[str, Any], lang: str) -> lis
         recipe = cooking.render(spec, db, lang, [], pantry) if isinstance(spec, dict) else None
         if recipe is not None and all(r["id"] != recipe["id"] for r in out):
             out.append(recipe)
-    return out[:60]
+    if len(out) > PRINT_MAX:  # never cut a cookbook off silently
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="too_many_recipes",
+            translation_placeholders={"max": str(PRINT_MAX)},
+        )
+    return out
 
 
 @websocket_api.websocket_command(
@@ -1878,6 +1901,7 @@ def ws_cooking_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConn
             "ready": ready,
             "produce": chosen,
             "recipes": cooking.suggest(chosen, db, prefs, lang, msg["limit"]),
+            "menus": cooking.menus(chosen, db, prefs, lang, 4, dt_util.now().date()),
             "prefs": saved or None,
             "used_prefs": {
                 "pantry": prefs.pantry,
@@ -1887,7 +1911,7 @@ def ws_cooking_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConn
                 "servings": prefs.servings,
             },
             "catalog": {**cooking.catalog(lang), "edible": edible},
-            "book": _cookbook(runtime, lang),
+            "book": _cookbook(runtime, lang, [*prefs.pantry, *prefs.use]),
         },
     )
 
@@ -1895,6 +1919,7 @@ def ws_cooking_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConn
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/render",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("spec"): dict,
@@ -1906,8 +1931,7 @@ def ws_cooking_render(hass: HomeAssistant, connection: websocket_api.ActiveConne
     runtime = _require_runtime(hass, connection, msg)
     if runtime is None:
         return
-    pantry = list((runtime.repo.data.cooking_prefs or {}).get("pantry", []))
-    recipe = cooking.render(msg["spec"], runtime.repo.db, _cooking_lang(runtime, msg), [], pantry)
+    recipe = cooking.render(msg["spec"], runtime.repo.db, _cooking_lang(runtime, msg), [], _in_house(runtime, msg))
     if recipe is None:
         connection.send_error(msg["id"], "invalid_recipe", "This recipe cannot be made")
         return
@@ -1918,6 +1942,7 @@ def ws_cooking_render(hass: HomeAssistant, connection: websocket_api.ActiveConne
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/book/save",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("recipe"): dict,
@@ -1928,12 +1953,13 @@ def ws_cookbook_save(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     runtime = _require_runtime(hass, connection, msg)
     if runtime is not None:
         _ws_op(connection, msg, lambda: {"id": op_cookbook_save(runtime, msg["recipe"]).id,
-                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg))})  # fmt: skip
+                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg), _in_house(runtime, msg))})  # fmt: skip
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/book/update",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("recipe_id"): str,
@@ -1945,12 +1971,13 @@ def ws_cookbook_update(hass: HomeAssistant, connection: websocket_api.ActiveConn
     runtime = _require_runtime(hass, connection, msg)
     if runtime is not None:
         _ws_op(connection, msg, lambda: {"id": op_cookbook_update(runtime, msg["recipe_id"], msg["changes"]).id,
-                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg))})  # fmt: skip
+                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg), _in_house(runtime, msg))})  # fmt: skip
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/book/delete",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("recipe_id"): str,
@@ -1963,7 +1990,7 @@ def ws_cookbook_delete(hass: HomeAssistant, connection: websocket_api.ActiveConn
 
         def run() -> dict[str, Any]:
             op_cookbook_delete(runtime, msg["recipe_id"])
-            return {"book": _cookbook(runtime, _cooking_lang(runtime, msg))}
+            return {"book": _cookbook(runtime, _cooking_lang(runtime, msg), _in_house(runtime, msg))}
 
         _ws_op(connection, msg, run)
 
@@ -1981,6 +2008,7 @@ def ws_cooking_prefs(hass: HomeAssistant, connection: websocket_api.ActiveConnec
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/pdf",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("kind"): vol.In(["recipe", "book", "shopping"]),
@@ -2005,7 +2033,7 @@ async def ws_cooking_pdf(hass: HomeAssistant, connection: websocket_api.ActiveCo
         connection.send_error(msg["id"], "invalid_recipe", "No recipe to print")
         return
     images: dict[str, bytes] = {}
-    for rid, b64 in list((msg.get("images") or {}).items())[:60]:
+    for rid, b64 in list((msg.get("images") or {}).items())[:PRINT_MAX]:
         try:
             images[rid] = base64.b64decode(b64.split(",")[-1], validate=False)
         except (binascii.Error, ValueError):
@@ -2024,6 +2052,7 @@ async def ws_cooking_pdf(hass: HomeAssistant, connection: websocket_api.ActiveCo
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/send",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("what"): vol.In(["recipe", "shopping"]),
@@ -2071,6 +2100,7 @@ async def ws_cooking_send(hass: HomeAssistant, connection: websocket_api.ActiveC
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/to_todo",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("entity_id"): str,
@@ -2090,12 +2120,14 @@ async def ws_cooking_to_todo(
     if not entity_id.startswith("todo.") or hass.states.get(entity_id) is None:
         connection.send_error(msg["id"], "invalid_format", f"{entity_id} is not a to-do list")
         return
+    if not connection.user.permissions.check_entity(entity_id, POLICY_CONTROL):
+        raise Unauthorized(context=connection.context(msg), entity_id=entity_id)  # the user's own rights apply
     lang = _cooking_lang(runtime, msg)
     rows = cooking.shopping_list(_specs_or_ids(runtime, msg, lang), lang)["buy"]
     try:
         current = await hass.services.async_call(
             "todo", "get_items", {"status": ["needs_action"]}, target={"entity_id": entity_id},
-            blocking=True, return_response=True,
+            blocking=True, return_response=True, context=connection.context(msg),
         )  # fmt: skip
         open_items = {str(i.get("summary", "")).lower() for i in (current or {}).get(entity_id, {}).get("items", [])}
         added = 0
@@ -2104,7 +2136,7 @@ async def ws_cooking_to_todo(
                 continue
             await hass.services.async_call(
                 "todo", "add_item", {"item": row["name"], "description": row["label"]},
-                target={"entity_id": entity_id}, blocking=True,
+                target={"entity_id": entity_id}, blocking=True, context=connection.context(msg),
             )  # fmt: skip
             added += 1
     except (HomeAssistantError, ValueError) as err:

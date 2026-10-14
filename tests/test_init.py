@@ -375,3 +375,28 @@ async def test_impossible_settings_are_refused_and_nothing_changes(
         res = await _result(client)
         assert not res["success"] and res["error"]["code"] == "invalid_settings", patch
     assert entry.runtime_data.repo.data.settings.region.last_frost == before
+
+
+def test_the_website_runtime_gets_the_homeassistant_modules_it_has_stubs_for() -> None:
+    """The website runs websocket_api, operations and storage on its own stand-ins for Home Assistant;
+    a new import there breaks the whole web app (not Home Assistant's tests).  Add a stand-in for the
+    module first (tools/web runtime), then extend this list."""
+    import ast
+    from pathlib import Path
+
+    package = Path(__file__).parent.parent / "custom_components" / "garden_manager"
+    known = {
+        "homeassistant.components", "homeassistant.core", "homeassistant.exceptions", "homeassistant.helpers",
+        "homeassistant.helpers.dispatcher", "homeassistant.helpers.storage", "homeassistant.util",
+    }  # fmt: skip
+    for name in ("websocket_api.py", "operations.py", "storage.py"):
+        for node in ast.walk(ast.parse((package / name).read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ImportFrom):
+                modules = [node.module] if node.module else []
+            elif isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            else:
+                continue
+            for module in modules:
+                if module.startswith("homeassistant"):
+                    assert module in known, f"{name} imports {module}: the website has no stand-in for it"

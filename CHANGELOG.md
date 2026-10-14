@@ -1,5 +1,91 @@
 # Changelog
 
+## 1.7.1 – 2026-10
+
+### Changed
+- **Cooking: every fridge item gets its own idea, only where it fits.** What you tick under
+  "use up from the fridge" is no longer just spooned on top of every dish. Each item has its own
+  preparations per kind of dish, and which one a dish gets depends on its vegetables, so the
+  ideas vary: yoghurt becomes a tzatziki-style sauce, a honey-mustard dip, a lemon-garlic bed
+  under roast vegetables, a raita, a soy-ginger or curry dip, a creamy herb dressing or
+  honey-cinnamon yoghurt with a crumble; feta is baked soft among the vegetables, whipped into a
+  cream, melted through pasta or crumbled into a frittata; parmesan turns into crisps on soup or
+  a crunchy crust; eggs are baked in hollows on the oven tray, stirred into a carbonara or
+  poached on a salad; mustard becomes a mustard butter, onion a quick pickle, breadcrumbs a
+  garlic-lemon pangrattato ... Fresh herbs from the garden (dill, parsley, chives, coriander)
+  go into sauces when there are any.
+  - A dish takes at most three things from the fridge, one sauce, one dressing and one crunchy
+    topping; never two cheeses on top of each other or two creams; a pan sauce only with meat or
+    fish. Each step sits at the right moment in the method.
+
+### Added
+- **Cooking: 36 new dishes and complete menus**, collected from home-cooking sources on the seasonal
+  kitchen garden (the methods are written out in our own words, in Dutch, English and French):
+  - soups: roasted velouté, minestrone, green soup (peas, spinach, courgette ...), chowder;
+  - starters: courgette and vegetable fritters, carpaccio, crunchy remoulade, tabbouleh, caprese,
+    caponata, asparagus the Flemish way, warm vinaigrette (leek, beetroot ...), corn on the cob with
+    herb butter;
+  - main courses: ratatouille, Provençal tian, shakshuka, tart, gnudi, braised peas and beans,
+    waterzooi (chicken, fish or vegetables), vegetable steaks with tahini sauce, stuffed cabbage rolls;
+  - desserts: clafoutis, fools, sorbet, panna cotta, vegetable cakes (carrot, courgette, beetroot,
+    pumpkin ...), baked fruit with honey, berry cream cups;
+  - **a chapter "Preserving & pickles"** for the surplus: quick pickles, chutney, passata, pesto
+    cubes, jam, blanching and freezing, sauerkraut (amounts are a batch, not one plate).
+  Dishes made for certain plants only take those plants (no tomato cake), and each dish only gets
+  the protein that suits it; some take it in their own way (chicken poached in the waterzooi,
+  ham next to the asparagus).
+- **Menus**: a soup or starter, a main course and a dessert that belong together, built from what
+  is ready to pick – themed ones of the season (a Provençal garden dinner, a Sicilian evening,
+  Levantine mezze, courgette glut, a Flemish spring menu, a winter comfort menu ...) and menus around a
+  main course. One click puts all three dishes on the shopping list or in your cookbook.
+- **Cooking: chapters.** Ideas, your cookbook and the cookbook PDF are split into Soups, Starters,
+  Main courses and Desserts (a chapter page each in the PDF, a chapter filter in the cookbook). Ideas
+  are spread over the chapters so none is crowded out. New dishes to fill them: chilled soup
+  (gazpacho-style, from tomatoes, peppers and cucumber), crostini as a starter and a warm fruit
+  compote; a salad without meat or fish and pesto on bread count as starters.
+- **Light or dark** next to the colour theme: automatic (follows Home Assistant or the device),
+  always light or always dark. In Home Assistant the choice follows your user to every device.
+- **Cooking: your own version of a recipe.** "Edit" in a recipe adds, removes or changes
+  ingredients (name, amount, unit, from the garden / at home / to buy) and adds, removes,
+  rewrites or reorders the steps. Your version goes into your cookbook, the shopping list and
+  the PDFs follow it, and "Back to the original" restores the generated recipe.
+
+### Fixed
+- **Whole-repository review (22 findings):**
+  - **Food safety:** elderberries and beans (also chickpeas, edamame) are never offered raw or half-cooked
+    (no elderberry sorbet, no raw-bean salad); a dish also refuses them when the spec is written by hand.
+  - **Permissions:** exporting a shopping list or the seeds to a to-do list follows the user's own rights.
+  - **Imports:** a refused plan file changes nothing (it used to wipe the live plan before failing on a
+    bad `plant_overrides`); plans set aside now travel with an export and an import.
+  - **Input checks:** NaN and infinity are refused for sizes, positions and harvest weights; a refused
+    task change changes nothing; a custom plant a set-aside plan still needs cannot be deleted; autofill
+    skips a bed too narrow for its margins.
+  - **Watering:** a valve that stays closed ends the run and books no water, also without a pump; a
+    valve that goes silent for a minute while the pump runs ends the run and stops the pump.
+  - **Tasks:** a title or description you rewrote is kept when tasks are recalculated.
+  - **Cooking:** a dish needs its main ingredient, not just herbs (no caprese of basil alone); more
+    suitable vegetables no longer remove ratatouille or a tian; risotto, pasta, stoemp and stuffed
+    vegetables keep their rice, pasta or potatoes (also for "no side"), and rice or potatoes are no longer
+    cooked twice; dry lentils get a cooking step; honey, mustard and other things a fridge preparation
+    needs join the ingredients and the shopping list; your own quantities stay as typed (1 g saffron stays
+    1 g); new ingredients of different recipes no longer merge on a shopping list; the recipe editor
+    refuses (and stops offering) more than 40 ingredients or 30 steps instead of cutting them off; a
+    cookbook of more than 60 recipes prints in full (up to 200, with a message beyond that) and a long
+    recipe continues on another page; a shopping-list reload can no longer bring back recipes you removed.
+- **Second review round:** the garden's mint now reaches tzatziki and raita (the sauce herbs listed a
+  plant id that does not exist); a green soup no longer takes shelling beans (borlotti, runner beans),
+  which need far longer than its few minutes; garlic, lemon or vinegar a fridge preparation names joins
+  the ingredients and the shopping list; a long step or ingredient that would run off the page moves to
+  the next one whole; renaming an ingredient in your own version gives it a new identity (no merge with
+  another recipe's row on the shopping list); an import with a present but wrongly typed `archived_plans`
+  or `plant_overrides` is refused instead of ignored; a colour choice made while your saved choice is
+  still loading is saved as a pair, and quick successive choices are sent one after the other.
+- **Colour themes on iPhone (Home Assistant app, Safari):** the theme and the dark palette are now
+  set as inline colours on the panel instead of `:host([theme])` rules, so they take effect at once
+  in every browser; the dashboard no longer uses `:host-context`, which Safari does not support.
+- **Cooking:** what you take from the fridge, and what you tick as always at home, shows as
+  "at home" instead of "to buy", also before you save your choices.
+
 ## 1.7.0 – 2026-10
 
 ### Added

@@ -231,7 +231,9 @@ await step("cooking: a dish from the garden, another side, kept, on the list, pr
   await page.evaluate(() => localStorage.clear());
   await open("cooking");
   const view = page.locator("hl-cooking-view");
-  await view.locator("button.recipe").first().click();
+  const chapters = await view.locator(".chapter:not(.menus) h3.chapter-title").allInnerTexts();
+  assert.ok(chapters[0].startsWith("Soepen") && chapters.some((c) => c.startsWith("Desserten")), `chapters: ${chapters}`);
+  await view.locator(".chapter:not(.menus)", { hasText: "Hoofdgerechten" }).locator("button.recipe").first().click();
   await modalOpen();
   await view.locator("hl-modal select#side").selectOption("bulgur");
   await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/render") && c.spec.side === "bulgur"));
@@ -244,6 +246,60 @@ await step("cooking: a dish from the garden, another side, kept, on the list, pr
   assert.ok((await view.locator("table tr").count()) > 2, "shopping list is empty");
   await view.locator("button:has(ha-icon[icon=\"mdi:file-pdf-box\"])").first().click();
   await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/pdf") && c.kind === "shopping"));
+});
+
+await step("cooking: complete menus and the preserving chapter", async () => {
+  await page.evaluate(() => localStorage.clear());
+  await open("cooking");
+  const view = page.locator("hl-cooking-view");
+  const menu = view.locator("section.menus article.menu").first();
+  await menu.waitFor();
+  assert.equal(await menu.locator(".menu-courses li").count(), 3, "a menu has three courses");
+  const chapters = await view.locator(".chapter:not(.menus) h3.chapter-title").allInnerTexts();
+  assert.ok(chapters.some((c) => c.startsWith("Bewaren")), `chapters: ${chapters}`);
+  await menu.locator("button.linklike").first().click();
+  await modalOpen();
+  await page.keyboard.press("Escape");
+  await menu.locator("button", { hasText: "Alles op de boodschappenlijst" }).click();
+  await view.locator("button[role=tab]", { hasText: "Boodschappenlijst" }).click();
+  await view.locator(".basket-item").first().waitFor();
+  assert.equal(await view.locator(".basket-item").count(), 3, "the three dishes of the menu are on the list");
+});
+
+await step("cooking: the cook's own version (ingredients and steps by hand)", async () => {
+  await open("cooking");
+  const view = page.locator("hl-cooking-view");
+  await view.locator("button[role=tab]", { hasText: "Mijn kookboek" }).click();
+  await view.locator("button.recipe").first().click();
+  await modalOpen();
+  await view.locator("hl-modal button", { hasText: "Aanpassen" }).click();
+  const before = await view.locator("hl-modal .ed-ingr").count();
+  await view.locator("hl-modal .ed-ingr").first().locator("button").click();
+  await view.locator("hl-modal button", { hasText: "Ingrediënt toevoegen" }).click();
+  await view.locator("hl-modal .ed-ingr").last().locator("input[type=text]").fill("Gerookte paprika");
+  await view.locator("hl-modal button", { hasText: "Stap toevoegen" }).click();
+  await view.locator("hl-modal .ed-step textarea").last().fill("Bestrooi met gerookte paprika.");
+  await view.locator("hl-modal button", { hasText: "Mijn versie bewaren" }).click();
+  await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/book/update") && c.changes.steps?.includes("Bestrooi met gerookte paprika.")));
+  const sent = await page.evaluate(() => window.__calls.filter((c) => c.type.endsWith("/cooking/book/update")).pop().changes.ingredients);
+  assert.equal(sent.length, before, "one ingredient removed, one added");
+  assert.ok(sent.some((i) => i.name === "Gerookte paprika"), "the new ingredient was not sent");
+  await view.locator("hl-modal .chip", { hasText: "Eigen versie" }).waitFor();
+  assert.ok(await view.locator("hl-modal ol.steps li", { hasText: "gerookte paprika" }).count(), "own step not shown");
+  await page.keyboard.press("Escape");
+});
+
+await step("colour theme and light/dark go on as inline colours (also Safari / iPhone)", async () => {
+  await open("settings");
+  const view = page.locator("hl-settings-view");
+  await view.locator("button.theme-opt", { hasText: "Aarde" }).click();
+  const prop = (name) => page.locator("hortulus-panel").evaluate((el, n) => el.style.getPropertyValue(n), name);
+  assert.equal((await prop("--hl-primary")).trim(), "#8a4f2a", "earth palette not applied");
+  await view.locator("button.btn[role=radio]", { hasText: /^Donker$/ }).click();
+  assert.equal((await prop("--hl-bg")).trim(), "#17120e", "dark earth palette not applied");
+  await view.locator("button.btn[role=radio]", { hasText: /^Automatisch$/ }).click();
+  await view.locator("button.theme-opt", { hasText: "Klassiek groen" }).click();
+  assert.equal(await prop("--hl-primary"), "", "classic should leave the base palette");
 });
 
 await step("dashboard: pest calendar card", async () => {

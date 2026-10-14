@@ -19,7 +19,8 @@ import "./views/weather-view";
 import { gicon } from "./components/garden-icons";
 import "./views/wall-view";
 import { celebrate } from "./util/celebrate";
-import { themeAttribute, themeChoice } from "./util/theme";
+import { appearanceChoice, setAppearanceChoice, setThemeChoice, themeAttribute, themeChoice, THEMES, APPEARANCES, type Appearance, type ThemeChoice } from "./util/theme";
+import { paletteFor } from "./styles/palettes";
 import "./views/dashboard-view";
 import "./views/planner-view";
 import "./views/library-view";
@@ -217,9 +218,58 @@ export class HortulusPanel extends LitElement {
   /** Colour theme chosen in this browser (night forces the dark palette). */
   private applyTheme = (): void => {
     const today = this.snapshot?.analysis?.today ?? new Date().toISOString().slice(0, 10);
-    const { theme, dark } = themeAttribute(themeChoice(), today, this.snapshot?.settings.region?.hemisphere === "south");
+    const { theme, dark } = themeAttribute(themeChoice(), today, this.snapshot?.settings.region?.hemisphere === "south", appearanceChoice());
+    const isDark = dark ?? Boolean(this.hass?.themes?.darkMode);
     this.setAttribute("theme", theme);
-    this.toggleAttribute("dark", dark ?? Boolean(this.hass?.themes?.darkMode));
+    this.toggleAttribute("dark", isDark);
+    // the palette goes on as inline custom properties: they always win and every
+    // browser (also Safari on iPhone / the HA app) re-renders them straight away
+    const palette = paletteFor(theme, isDark);
+    for (const prop of this.paletteProps) if (!(prop in palette)) this.style.removeProperty(prop);
+    for (const [prop, value] of Object.entries(palette)) this.style.setProperty(prop, value);
+    this.paletteProps = Object.keys(palette);
+  };
+  private paletteProps: string[] = [];
+  private lookLoaded = false;
+  private lookSaving = false;
+
+  /** The colour choice follows the Home Assistant user to every device (phone, tablet, PC). */
+  private async loadLook(): Promise<void> {
+    if (this.lookLoaded || !this.hass?.connection || this.panelConfig.web) return;
+    this.lookLoaded = true;
+    const before = { theme: themeChoice(), appearance: appearanceChoice() };
+    let changedMeanwhile = false;
+    try {
+      const res = await this.hass.connection.sendMessagePromise<{ value?: { theme?: string; appearance?: string } | null }>({
+        type: "frontend/get_user_data", key: "hortulus_look" });
+      const v = res?.value;
+      changedMeanwhile = themeChoice() !== before.theme || appearanceChoice() !== before.appearance;
+      this.lookSaving = true;
+      // a choice made while the request ran wins over the saved one
+      const theme = themeChoice() === before.theme ? v?.theme : undefined;
+      const look = appearanceChoice() === before.appearance ? v?.appearance : undefined;
+      if (theme && THEMES.includes(theme as ThemeChoice) && theme !== themeChoice()) setThemeChoice(theme as ThemeChoice);
+      if (look && APPEARANCES.includes(look as Appearance) && look !== appearanceChoice()) setAppearanceChoice(look as Appearance);
+    } catch {
+      /* older Home Assistant or no user data: the choice stays on this device */
+    } finally {
+      this.lookSaving = false;
+    }
+    // a choice made while the request ran only went to this device with the old other half: send the pair
+    if (changedMeanwhile) this.saveLook();
+  }
+
+  /** Writes go one after the other, each carrying the choices of the moment it is sent, so the last word is the latest. */
+  private lookChain: Promise<unknown> = Promise.resolve();
+
+  private saveLook = (): void => {
+    if (this.lookSaving || !this.hass?.connection || this.panelConfig.web) return;
+    const connection = this.hass.connection;
+    this.lookChain = this.lookChain.then(() =>
+      connection
+        .sendMessagePromise({ type: "frontend/set_user_data", key: "hortulus_look", value: { theme: themeChoice(), appearance: appearanceChoice() } })
+        .catch(() => undefined),
+    );
   };
 
   // ---------------------------------------------------------------------- //
@@ -231,6 +281,7 @@ export class HortulusPanel extends LitElement {
         this.t = makeTranslator(lang);
       }
       this.applyTheme();
+      void this.loadLook();
       setPersons(this.hass);
       if (!this.api) {
         this.api = new GardenApi(this.hass);
@@ -251,6 +302,7 @@ export class HortulusPanel extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("hortulus-theme-changed", this.applyTheme);
+    window.removeEventListener("hortulus-theme-changed", this.saveLook);
     void this.unsubscribe?.();
     this.unsubscribe = undefined;
     this.api = undefined;
@@ -259,6 +311,7 @@ export class HortulusPanel extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("hortulus-theme-changed", this.applyTheme);
+    window.addEventListener("hortulus-theme-changed", this.saveLook);
     if (this.hass && !this.api) {
       this.api = new GardenApi(this.hass);
       void this.connect();

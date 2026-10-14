@@ -857,6 +857,26 @@ export interface RecipeIngredient {
   extra?: boolean;
 }
 
+/** An ingredient the cook typed (their own version of a recipe). */
+export interface CustomIngredient {
+  id?: string;
+  name: string;
+  qty: number;
+  unit: string;
+  source: "garden" | "pantry" | "shop";
+  group?: string;
+  plant_id?: string;
+  kind?: string;
+  color?: string;
+}
+
+/** The recipes a command is about: saved ones by id, unsaved ones by spec; what is at home. */
+export interface RecipeTarget {
+  ids?: string[];
+  specs?: RecipeSpec[];
+  pantry?: string[];
+}
+
 export interface Recipe {
   id: string;
   spec: RecipeSpec;
@@ -864,6 +884,9 @@ export interface Recipe {
   subtitle: string;
   technique: string;
   technique_name: string;
+  /** The cookbook chapter: soup, starter, main, dessert or preserving. */
+  course?: "soup" | "starter" | "main" | "dessert" | "preserve";
+  course_name?: string;
   minutes: number;
   servings: number;
   ingredients: RecipeIngredient[];
@@ -879,6 +902,8 @@ export interface Recipe {
     extras: string[];
     technique: string;
   };
+  /** The cook's own ingredient list and/or method (cookbook). */
+  custom?: boolean;
   // in the cookbook
   saved?: boolean;
   favorite?: boolean;
@@ -910,15 +935,28 @@ export interface CookingProduce {
 export interface CookingCatalog {
   sides: { id: string; name: string }[];
   proteins: { id: string; name: string; group: string }[];
-  pantry: { id: string; name: string; group: string }[];
-  techniques: { id: string; name: string }[];
+  /** `fridge: false`: a cupboard item (baking powder ...), not offered as "use up from the fridge". */
+  pantry: { id: string; name: string; group: string; fridge?: boolean }[];
+  techniques: { id: string; name: string; course?: string }[];
   edible: CookingProduce[];
+}
+
+/** A starter (or soup), a main course and a dessert that belong together. */
+export interface CookingMenu {
+  id: string;
+  /** A themed menu ("provence", "flemish_spring" ...); empty for one built around a main course. */
+  theme: string;
+  title: string;
+  courses: { course: "soup" | "starter" | "main" | "dessert"; recipe: Recipe }[];
+  minutes: number;
+  servings: number;
 }
 
 export interface CookingOverview {
   ready: CookingProduce[];
   produce: CookingProduce[];
   recipes: Recipe[];
+  menus?: CookingMenu[];
   prefs: CookingPrefs | null;
   used_prefs: CookingPrefs;
   catalog: CookingCatalog;

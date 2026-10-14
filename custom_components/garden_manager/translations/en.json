@@ -1095,6 +1095,15 @@
     "unknown_recipe": {
       "message": "Recipe {recipe} is not in the cookbook."
     },
+    "invalid_task": {
+      "message": "This task could not be changed: check the priority and the minutes."
+    },
+    "recipe_too_long": {
+      "message": "A recipe holds at most {ingredients} ingredients and {steps} steps."
+    },
+    "too_many_recipes": {
+      "message": "Print, send or list at most {max} recipes at a time."
+    },
     "cookbook_full": {
       "message": "The cookbook is full ({max} recipes). Remove a few first."
     }

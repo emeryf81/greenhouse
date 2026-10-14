@@ -476,6 +476,7 @@ def _cooking(data, db, analysis, lang: str) -> dict:
         p.update(name=plant.name(lang), icon=plant.icon, color=plant.color, emoji=plant.emoji)
     prefs = cooking.Prefs.from_dict({"proteins": ["chicken", "salmon"], "use": ["feta"], "servings": 4})
     recipes = cooking.suggest(produce, db, prefs, lang, 12)
+    menus = cooking.menus(produce, db, prefs, lang, 4, date(2026, 8, 12))
     edible = sorted(
         ({"plant_id": p.id, "name": p.name(lang), "kind": k, "icon": p.icon, "color": p.color} for p in db.all()
          if (k := cooking.produce_kind(p)) is not None),
@@ -483,7 +484,7 @@ def _cooking(data, db, analysis, lang: str) -> dict:
     )  # fmt: skip
     book = [{**recipes[1], "saved": True, "favorite": True, "shared": False, "note": "", "added": "2026-08-01", "cooked": []}]
     return {
-        "ready": produce, "produce": produce, "recipes": recipes, "prefs": None,
+        "ready": produce, "produce": produce, "recipes": recipes, "menus": menus, "prefs": None,
         "used_prefs": {"pantry": [], "use": prefs.use, "proteins": prefs.proteins, "side": "", "servings": prefs.servings},
         "catalog": {**cooking.catalog(lang), "edible": edible}, "book": book,
     }  # fmt: skip

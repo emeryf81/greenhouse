@@ -696,6 +696,7 @@ class Task:
     postponed_count: int = 0
     original_due: date | None = None
     user_modified: bool = False
+    text_modified: bool = False  # the cook rewrote the title or description: recalculation leaves them
     created_at: datetime | None = None
     updated_at: datetime | None = None
     # Household member doing it: a person.* entity id (or None = anyone).
@@ -822,6 +823,9 @@ class CookbookRecipe:
     note: str = ""
     added: date | None = None
     cooked: list[date] = field(default_factory=list)
+    # the cook's own version: an ingredient list and/or method that replace the generated ones
+    ingredients: list[dict[str, Any]] = field(default_factory=list)
+    steps: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

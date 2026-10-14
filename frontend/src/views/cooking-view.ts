@@ -9,7 +9,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
-import type { CookingOverview, CookingPrefs, CookingProduce, HomeAssistant, Recipe, RecipeSpec } from "../types";
+import type { CookingMenu, CookingOverview, CookingPrefs, CookingProduce, CustomIngredient, HomeAssistant, Recipe, RecipeSpec, RecipeTarget } from "../types";
 import { formatDate } from "../util/garden";
 import { glyphIcon, GLYPHS } from "../planner/plant-glyphs";
 import { dishDataUrl, dishJpeg } from "../components/dish-picture";
@@ -17,6 +17,8 @@ import "../components/modal";
 
 type Section = "ideas" | "book" | "shopping";
 type BookFilter = "all" | "favorite" | "shared";
+type Course = "soup" | "starter" | "main" | "dessert" | "preserve";
+const COURSES: Course[] = ["soup", "starter", "main", "dessert", "preserve"];
 
 interface WebHooks {
   mailSelf?: (subject: string, text: string) => Promise<{ ok: boolean; to?: string; error?: string }>;
@@ -27,6 +29,18 @@ const KIND_GLYPH: Record<string, string> = {
   legume: "bean", potato: "potato", corn: "corn", asparagus: "asparagus", herb: "herb", fruit: "berry",
 };
 const PROTEIN_GROUPS = ["meat", "fish", "veg_protein"] as const;
+const UNITS = ["g", "ml", "pc", "tbsp", "clove", "slice", "cube", "can"] as const;
+const SOURCES = ["garden", "pantry", "shop"] as const;
+/** What the backend accepts in a recipe of the cook's own. */
+const MAX_INGREDIENTS = 40;
+const MAX_STEPS = 30;
+const SHOP_ORDER = ["meat", "fish", "veg_protein", "dairy", "side", "pantry", "other"];
+
+/** The cook's own version of a recipe while it is being edited. */
+interface Draft {
+  ingredients: CustomIngredient[];
+  steps: string[];
+}
 const EMPTY_PREFS: CookingPrefs = { pantry: [], use: [], proteins: [], side: "", servings: 2 };
 
 const specOf = (r: Recipe): RecipeSpec => ({ ...r.spec, extras: [...r.spec.extras], produce: [...r.spec.produce] });
@@ -57,9 +71,11 @@ export class CookingView extends LitElement {
   @state() private error = "";
   @state() private bookFilter: BookFilter = "all";
   @state() private bookSearch = "";
+  @state() private bookCourse: Course | "" = "";
   @state() private todoEntity = "";
   @state() private notifyService = "";
   @state() private showPantry = false;
+  @state() private draft: Draft | null = null;
   /** Side, meat and fridge choices: open on a wide screen, folded on a phone. */
   @state() private moreOpen = !window.matchMedia?.("(max-width: 900px)").matches;
   private refreshTimer?: number;
@@ -115,6 +131,13 @@ export class CookingView extends LitElement {
       table { width: 100%; border-collapse: collapse; font-size: var(--hl-fs-sm); }
       td, th { padding: 6px; border-bottom: 1px solid var(--hl-border); text-align: left; }
       td.num { text-align: right; white-space: nowrap; }
+      .menu-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+      .menu { display: flex; flex-direction: column; gap: 6px; }
+      .menu .actions { margin-top: auto; }
+      .menu h4 { margin: 0; font-family: var(--hl-font-display, inherit); }
+      .menu-courses { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+      .menu-courses li { display: flex; flex-direction: column; }
+      .linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--hl-leaf-700, inherit); text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
       .basket-item { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hl-border); }
       .basket-item img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; }
       .note { width: 100%; min-height: 60px; }
@@ -127,6 +150,23 @@ export class CookingView extends LitElement {
         .recipe .body { padding: 8px 9px 10px; }
         .recipe .title { font-size: var(--hl-fs-sm); }
       }
+      .ed-ingr { display: grid; grid-template-columns: minmax(0, 1fr) 72px 84px 92px auto; gap: 6px; align-items: center; }
+      .ed-ingr input, .ed-ingr select { min-width: 0; width: 100%; }
+      .ed-step { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 6px; align-items: start; }
+      .ed-step .num { width: 24px; height: 24px; border-radius: 50%; background: var(--hl-leaf-600, #2f6b4f); color: #fff;
+        display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 4px; }
+      .ed-step textarea { width: 100%; min-height: 54px; resize: vertical; font: inherit; }
+      .ed-step .tools { display: flex; flex-direction: column; gap: 0; }
+      .ed-step .tools .icon-btn { width: 28px; height: 28px; min-width: 28px; }
+      .ed-step textarea { min-height: 84px; }
+      @media (max-width: 600px) {
+        .ed-ingr { grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr) auto; }
+        .ed-ingr input[type=text] { grid-column: 1 / 4; grid-row: 1; }
+        .ed-ingr .icon-btn { grid-column: 4; grid-row: 1; }
+      }
+      .chapter + .chapter { margin-top: var(--hl-s5); }
+      .chapter-title { font-family: var(--hl-font-serif); font-size: var(--hl-fs-xl); text-transform: none; letter-spacing: 0; color: var(--hl-text);
+        margin: 0 0 var(--hl-s3); display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--hl-border); padding-bottom: 6px; }
       .banner { padding: 10px 12px; border-radius: var(--hl-r-md); background: var(--hl-surface-2); margin-bottom: var(--hl-s3); }
       .banner.err { background: var(--hl-tomato-100, #fde3dd); }
     `,
@@ -154,7 +194,11 @@ export class CookingView extends LitElement {
     return `hortulus-cook-basket-${this.gardenKey || "default"}`;
   }
 
+  /** Bumped at every change of the basket: a reload that started before it must not put old recipes back. */
+  private basketGen = 0;
+
   private storeBasket(): void {
+    this.basketGen++;
     try {
       localStorage.setItem(this.basketKey, JSON.stringify(this.basket));
     } catch {
@@ -190,6 +234,11 @@ export class CookingView extends LitElement {
   private refresh(): void {
     window.clearTimeout(this.refreshTimer);
     this.refreshTimer = window.setTimeout(() => void this.load(), 280);
+  }
+
+  /** What the cook has at home right now: "always in the house" and "use up from the fridge". */
+  private get home(): string[] {
+    return [...this.prefs.pantry, ...this.prefs.use];
   }
 
   private toggle(list: "pantry" | "use" | "proteins", id: string): void {
@@ -230,7 +279,7 @@ export class CookingView extends LitElement {
     if (!this.open) return;
     const spec = { ...specOf(this.open), ...change };
     try {
-      const { recipe } = await this.api.cookingRender(spec, this.lang);
+      const { recipe } = await this.api.cookingRender(spec, this.lang, this.home);
       const saved = this.data?.book.find((b) => b.id === recipe.id);
       this.open = saved ?? recipe;
     } catch (err) {
@@ -242,10 +291,12 @@ export class CookingView extends LitElement {
     return this.data?.book.find((b) => b.id === r.id);
   }
 
-  private async save(r: Recipe, extra: { favorite?: boolean; shared?: boolean } = {}): Promise<void> {
+  private async save(r: Recipe, extra: { favorite?: boolean; shared?: boolean; ingredients?: CustomIngredient[]; steps?: string[] } = {}): Promise<void> {
     try {
-      const { book, id } = await this.api.cookbookSave({ spec: specOf(r), ...extra }, this.lang);
+      const { book, id } = await this.api.cookbookSave({ spec: specOf(r), ...extra }, this.lang, this.home);
       if (this.data) this.data = { ...this.data, book };
+      const fresh = book.find((b) => b.id === id);
+      if (fresh) this.basketRecipes = this.basketRecipes.map((b) => (b.id === id ? fresh : b));
       if (this.open?.id === id) this.open = book.find((b) => b.id === id) ?? this.open;
       this.flash(this.t("cook.saved"));
     } catch (err) {
@@ -255,13 +306,15 @@ export class CookingView extends LitElement {
 
   private async updateRecipe(r: Recipe, changes: Record<string, unknown>): Promise<void> {
     if (!this.isSaved(r)) {
-      await this.save(r, changes as { favorite?: boolean; shared?: boolean });
+      await this.save(r, changes as { favorite?: boolean; shared?: boolean; ingredients?: CustomIngredient[]; steps?: string[] });
       return;
     }
     try {
-      const { book } = await this.api.cookbookUpdate(r.id, changes, this.lang);
+      const { book } = await this.api.cookbookUpdate(r.id, changes, this.lang, this.home);
       if (this.data) this.data = { ...this.data, book };
-      if (this.open?.id === r.id) this.open = book.find((b) => b.id === r.id) ?? this.open;
+      const fresh = book.find((b) => b.id === r.id);
+      if (this.open?.id === r.id) this.open = fresh ?? this.open;
+      if (fresh) this.basketRecipes = this.basketRecipes.map((b) => (b.id === r.id ? fresh : b)); // the list follows an edit
     } catch (err) {
       this.error = (err as Error).message;
     }
@@ -270,7 +323,7 @@ export class CookingView extends LitElement {
   private async removeRecipe(r: Recipe): Promise<void> {
     if (!confirm(this.t("cook.delete_confirm", { title: r.title }))) return;
     try {
-      const { book } = await this.api.cookbookDelete(r.id, this.lang);
+      const { book } = await this.api.cookbookDelete(r.id, this.lang, this.home);
       if (this.data) this.data = { ...this.data, book };
       if (this.open?.id === r.id) this.open = null;
     } catch (err) {
@@ -296,15 +349,17 @@ export class CookingView extends LitElement {
   }
 
   private async loadBasket(): Promise<void> {
+    const gen = this.basketGen;
     const out: Recipe[] = [];
     for (const spec of this.basket) {
       try {
-        out.push((await this.api.cookingRender(spec, this.lang)).recipe);
+        const { recipe } = await this.api.cookingRender(spec, this.lang, this.home);
+        out.push(this.data?.book.find((b) => b.id === recipe.id) ?? recipe); // the cook's own version when saved
       } catch {
         /* a crop that is no longer known: drop it */
       }
     }
-    this.basketRecipes = out;
+    if (gen === this.basketGen) this.basketRecipes = out;
   }
 
   private shoppingRows(): { buy: { name: string; label: string; group: string; qty: number; unit: string }[]; garden: { name: string; qty: number }[] } {
@@ -324,19 +379,77 @@ export class CookingView extends LitElement {
         }
       }
     }
-    const order = ["meat", "fish", "veg_protein", "dairy", "side", "pantry"];
+    const order = SHOP_ORDER;
+    const rank = (g: string): number => (order.includes(g) ? order.indexOf(g) : order.length);
     const unit = (u: string): string => (u === "pc" || u === "cube" ? "" : this.t(`cook.unit.${u}`));
     const rows = [...buy.values()]
       .map((r) => ({ ...r, label: `${Math.round(r.qty * 10) / 10} ${unit(r.unit)}`.trim() }))
-      .sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group) || a.name.localeCompare(b.name));
+      .sort((a, b) => rank(a.group) - rank(b.group) || a.name.localeCompare(b.name));
     return { buy: rows, garden: [...garden.values()].sort((a, b) => a.name.localeCompare(b.name)) };
   }
 
   // -- export ---------------------------------------------------------------- //
-  private target(recipes: Recipe[]): { ids?: string[]; specs?: RecipeSpec[] } {
+  private target(recipes: Recipe[]): RecipeTarget {
     const ids = recipes.filter((r) => this.isSaved(r)).map((r) => r.id);
     const specs = recipes.filter((r) => !this.isSaved(r)).map((r) => specOf(r));
-    return { ...(ids.length ? { ids } : {}), ...(specs.length ? { specs } : {}) };
+    return { ...(ids.length ? { ids } : {}), ...(specs.length ? { specs } : {}), pantry: this.home };
+  }
+
+  // -- the cook's own version ---------------------------------------------- //
+  private startEdit(r: Recipe): void {
+    this.draft = {
+      ingredients: r.ingredients.filter((i) => i.source !== "basic").map((i) => ({
+        id: i.id, name: i.name, qty: i.qty, unit: i.unit, source: i.source as CustomIngredient["source"], group: i.group,
+        ...(i.plant_id ? { plant_id: i.plant_id } : {}), ...(i.kind ? { kind: i.kind } : {}), ...(i.color ? { color: i.color } : {}),
+      })),
+      steps: [...r.steps],
+    };
+  }
+
+  private editIngredient(n: number, change: Partial<CustomIngredient>): void {
+    if (!this.draft) return;
+    const ingredients = this.draft.ingredients.map((x, i) => {
+      if (i !== n) return x;
+      const next = { ...x, ...change };
+      if ("name" in change && change.name !== x.name) delete next.id; // a renamed row is a new ingredient: the server names it
+      return next;
+    });
+    this.draft = { ...this.draft, ingredients };
+  }
+
+  private editSteps(steps: string[]): void {
+    if (this.draft) this.draft = { ...this.draft, steps };
+  }
+
+  private moveStep(n: number, by: number): void {
+    if (!this.draft) return;
+    const steps = [...this.draft.steps];
+    const to = n + by;
+    if (to < 0 || to >= steps.length) return;
+    [steps[n], steps[to]] = [steps[to], steps[n]];
+    this.editSteps(steps);
+  }
+
+  private async saveDraft(r: Recipe): Promise<void> {
+    if (!this.draft) return;
+    const ingredients = this.draft.ingredients.filter((i) => i.name.trim()).map((i) => ({ ...i, name: i.name.trim() }));
+    const steps = this.draft.steps.map((x) => x.trim()).filter(Boolean);
+    if (!ingredients.length || !steps.length) {
+      this.error = this.t("cook.edit_need_both");
+      return;
+    }
+    this.error = ""; // a message from an earlier try must not hide this save
+    await this.updateRecipe(r, { ingredients, steps });
+    if (!this.error) {
+      this.draft = null;
+      this.flash(this.t("cook.edit_saved"));
+    }
+  }
+
+  private async resetCustom(r: Recipe): Promise<void> {
+    if (!confirm(this.t("cook.edit_reset_confirm"))) return;
+    await this.updateRecipe(r, { ingredients: [], steps: [] });
+    this.draft = null;
   }
 
   private async pdf(kind: "recipe" | "book" | "shopping", recipes: Recipe[], print = false): Promise<void> {
@@ -470,7 +583,8 @@ export class CookingView extends LitElement {
           <button class="btn small ghost" ?disabled=${!d.recipes.length || !!this.busy} @click=${() => this.pdf("book", d.recipes)}>
             <ha-icon icon="mdi:book-open-variant"></ha-icon>${this.t("cook.pdf_ideas")}</button>
         </div>
-        ${d.recipes.length ? html`<div class="grid">${d.recipes.map((r) => this.renderCard(r, d.recipes))}</div>`
+        ${d.menus?.length ? this.renderMenus(d.menus) : nothing}
+        ${d.recipes.length ? this.renderChapters(d.recipes)
           : html`<div class="card empty">${this.produce.length ? this.t("cook.no_ideas") : this.t("cook.pick_produce")}</div>`}
       </section>
     </div>`;
@@ -500,7 +614,7 @@ export class CookingView extends LitElement {
 
         <h3>${this.t("cook.fridge")}</h3>
         <p class="xs muted" style="margin:0">${this.t("cook.fridge_hint")}</p>
-        <div class="pick">${d.catalog.pantry.map((p) => html`<button class="text" aria-pressed=${this.prefs.use.includes(p.id)}
+        <div class="pick">${d.catalog.pantry.filter((p) => p.fridge !== false).map((p) => html`<button class="text" aria-pressed=${this.prefs.use.includes(p.id)}
           @click=${() => this.toggle("use", p.id)}>${p.name}</button>`)}</div>
 
         <button class="btn small ghost" aria-expanded=${this.showPantry} @click=${() => (this.showPantry = !this.showPantry)}>${this.t("cook.in_house")} (${this.prefs.pantry.length})</button>
@@ -509,6 +623,50 @@ export class CookingView extends LitElement {
             @click=${() => this.toggle("pantry", p.id)}>${p.name}</button>`)}</div>` : nothing}
         <button class="btn small" @click=${() => this.savePrefs()}>${this.t("cook.save_prefs")}</button>
     `;
+  }
+
+  /** Complete menus: a soup or starter, a main course and a dessert that belong together. */
+  private renderMenus(menus: CookingMenu[]): TemplateResult {
+    return html`<section class="chapter menus" aria-label=${this.t("cook.menus")}>
+      <h3 class="chapter-title">${this.t("cook.menus")} <span class="xs muted">${menus.length}</span></h3>
+      <p class="xs muted" style="margin:0 0 var(--hl-s2)">${this.t("cook.menus_hint")}</p>
+      <div class="grid menu-grid">${menus.map((m) => this.renderMenu(m))}</div></section>`;
+  }
+
+  private renderMenu(m: CookingMenu): TemplateResult {
+    const recipes = m.courses.map((c) => c.recipe);
+    const onList = recipes.every((r) => this.inBasket(r));
+    return html`<article class="card menu" aria-label=${m.title}>
+      <h4>${m.title}</h4>
+      <span class="xs muted">${this.t("cook.minutes", { n: m.minutes })} · ${this.t("cook.n_persons", { n: m.servings })}</span>
+      <ol class="menu-courses">${m.courses.map((c) => html`<li>
+        <span class="xs muted">${this.t(`cook.course.${c.course}`)}</span>
+        <button class="linklike" @click=${() => this.openRecipe(c.recipe, recipes)}>${c.recipe.title}</button></li>`)}</ol>
+      <div class="actions">
+        <button class="btn small ${onList ? "ghost" : ""}" @click=${() => this.menuToList(recipes, onList)}>
+          ${onList ? this.t("cook.menu_off_list") : this.t("cook.menu_to_list")}</button>
+        ${this.readonly ? nothing : html`<button class="btn small ghost" @click=${() => this.menuToBook(recipes)}>${this.t("cook.menu_to_book")}</button>`}
+      </div></article>`;
+  }
+
+  /** All the dishes of a menu on the shopping list at once (or all off it). */
+  private menuToList(recipes: Recipe[], off: boolean): void {
+    for (const r of recipes) if (this.inBasket(r) === off) this.toggleBasket(r);
+  }
+
+  private async menuToBook(recipes: Recipe[]): Promise<void> {
+    for (const r of recipes) if (!this.isSaved(r)) await this.save(r);
+  }
+
+  /** Recipes under their chapter headings: soups, starters, main courses, desserts, preserving. */
+  private renderChapters(list: Recipe[]): TemplateResult {
+    const ordered = COURSES.flatMap((c) => list.filter((r) => (r.course ?? "main") === c));
+    return html`${COURSES.map((c) => {
+      const rows = ordered.filter((r) => (r.course ?? "main") === c);
+      return rows.length ? html`<section class="chapter" aria-label=${this.t(`cook.course.${c}`)}>
+        <h3 class="chapter-title">${this.t(`cook.course.${c}`)} <span class="xs muted">${rows.length}</span></h3>
+        <div class="grid">${rows.map((r) => this.renderCard(r, ordered))}</div></section>` : nothing;
+    })}`;
   }
 
   private renderCard(r: Recipe, list: Recipe[]): TemplateResult {
@@ -536,12 +694,15 @@ export class CookingView extends LitElement {
     return html`<hl-modal heading=${r.title} subheading=${[r.subtitle, r.technique_name].filter(Boolean).join(" · ")} size="wide"
       nav ?has-prev=${i > 0} ?has-next=${i >= 0 && i < list.length - 1}
       closeLabel=${this.t("common.close")} prevLabel=${this.t("common.previous")} nextLabel=${this.t("common.next")}
-      @prev=${() => (this.open = list[i - 1])} @next=${() => (this.open = list[i + 1])} @closed=${(e: Event) => { e.stopPropagation(); this.open = null; }}>
+      @prev=${() => { this.draft = null; this.open = list[i - 1]; }} @next=${() => { this.draft = null; this.open = list[i + 1]; }}
+      @closed=${(e: Event) => { e.stopPropagation(); this.open = null; this.draft = null; }}>
       <div class="detail">
         <div class="stack">
           <img class="big" src=${dishDataUrl(r.picture, r.id)} alt=${this.t("cook.picture_alt", { title: r.title })} />
           <div class="meta small muted">⏱ ${this.t("cook.minutes", { n: r.minutes })} · ${this.t("cook.n_persons", { n: r.servings })} · ${r.tag_names.join(" · ")}</div>
-          ${ro || !d ? nothing : html`<div class="switch">
+          ${r.custom ? html`<p class="small"><span class="chip ok">${this.t("cook.custom")}</span> <span class="muted">${this.t("cook.custom_hint")}</span></p>
+            ${ro || this.draft ? nothing : html`<button class="btn small ghost" @click=${() => this.resetCustom(r)}>↺ ${this.t("cook.edit_reset")}</button>`}` : nothing}
+          ${ro || !d || r.custom || this.draft ? nothing : html`<div class="switch">
             <label for="side">${this.t("cook.side")}</label>
             <select id="side" @change=${(e: Event) => this.changeSpec({ side: (e.target as HTMLSelectElement).value })}>
               <option value="" ?selected=${!r.spec.side}>${this.t("cook.side_none")}</option>
@@ -562,7 +723,7 @@ export class CookingView extends LitElement {
           </div>`}
           ${saved?.cooked?.length ? html`<p class="xs muted">${this.t("cook.cooked_on", { dates: saved.cooked.slice(-3).map((c) => formatDate(c, this.lang)).join(", ") })}</p>` : nothing}
         </div>
-        <div class="stack">
+        ${this.draft ? this.renderEditor(this.draft) : html`<div class="stack">
           <h3>${this.t("cook.ingredients")}</h3>
           <ul class="ingr">
             ${r.ingredients.filter((x) => x.source !== "basic").map((x) => html`<li>
@@ -577,10 +738,14 @@ export class CookingView extends LitElement {
           ${saved && !ro ? html`<label class="small">${this.t("cook.note")}
             <textarea class="note" .value=${saved.note ?? ""} @change=${(e: Event) => this.updateRecipe(r, { note: (e.target as HTMLTextAreaElement).value })}></textarea></label>`
             : saved?.note ? html`<p class="small"><b>${this.t("cook.note")}:</b> ${saved.note}</p>` : nothing}
-        </div>
+        </div>`}
       </div>
       <div slot="actions" class="actions">
-        ${ro ? nothing : html`
+        ${this.draft ? html`
+          <button class="btn small primary" @click=${() => this.saveDraft(r)}><ha-icon icon="mdi:content-save-outline"></ha-icon>${this.t("cook.edit_save")}</button>
+          <button class="btn small ghost" @click=${() => (this.draft = null)}>${this.t("common.cancel")}</button>` : ro ? nothing : html`
+          <button class="btn small ghost" @click=${() => this.startEdit(r)}><ha-icon icon="mdi:pencil-outline"></ha-icon>${this.t("cook.edit")}</button>`}
+        ${ro || this.draft ? nothing : html`
           <button class="btn small ${saved ? "ghost" : "primary"}" @click=${() => (saved ? this.removeRecipe(r) : this.save(r))}>
             <ha-icon icon=${saved ? "mdi:bookmark-remove-outline" : "mdi:bookmark-plus-outline"}></ha-icon>${saved ? this.t("cook.unsave") : this.t("cook.save")}</button>
           <button class="btn small ghost" aria-pressed=${!!saved?.favorite} @click=${() => this.updateRecipe(r, { favorite: !saved?.favorite })}>
@@ -589,18 +754,55 @@ export class CookingView extends LitElement {
             @click=${() => this.updateRecipe(r, { shared: !saved?.shared })}><ha-icon icon=${saved?.shared ? "mdi:eye" : "mdi:eye-off-outline"}></ha-icon>${saved?.shared ? this.t("cook.shared") : this.t("cook.share")}</button>` : nothing}
           ${saved ? html`<button class="btn small ghost" @click=${() => this.updateRecipe(r, { cooked: true })}>🍽 ${this.t("cook.cooked")}</button>` : nothing}
           <button class="btn small ghost" @click=${() => this.toggleBasket(r)}>🛒 ${this.inBasket(r) ? this.t("cook.off_list") : this.t("cook.on_list")}</button>`}
-        <button class="btn small ghost" ?disabled=${!!this.busy} @click=${() => this.pdf("recipe", [r])}><ha-icon icon="mdi:file-pdf-box"></ha-icon>PDF</button>
-        <button class="btn small ghost" ?disabled=${!!this.busy} @click=${() => this.pdf("recipe", [r], true)}><ha-icon icon="mdi:printer-outline"></ha-icon>${this.t("cook.print")}</button>
-        ${ro ? nothing : html`<button class="btn small ghost" ?disabled=${!!this.busy} @click=${() => this.send("recipe", [r])}>
+        ${this.draft ? nothing : html`<button class="btn small ghost" ?disabled=${!!this.busy} @click=${() => this.pdf("recipe", [r])}><ha-icon icon="mdi:file-pdf-box"></ha-icon>PDF</button>
+        <button class="btn small ghost" ?disabled=${!!this.busy} @click=${() => this.pdf("recipe", [r], true)}><ha-icon icon="mdi:printer-outline"></ha-icon>${this.t("cook.print")}</button>`}
+        ${ro || this.draft ? nothing : html`<button class="btn small ghost" ?disabled=${!!this.busy} @click=${() => this.send("recipe", [r])}>
           <ha-icon icon=${web()?.mailSelf ? "mdi:email-outline" : "mdi:cellphone-message"}></ha-icon>${web()?.mailSelf ? this.t("cook.mail_me") : this.t("cook.to_phone")}</button>`}
       </div>
     </hl-modal>`;
+  }
+
+  private renderEditor(draft: Draft): TemplateResult {
+    const blank: CustomIngredient = { name: "", qty: 0, unit: "g", source: "shop" };
+    return html`<div class="stack editor">
+      <p class="xs muted" style="margin:0">${this.t("cook.edit_hint")}</p>
+      <h3>${this.t("cook.ingredients")}</h3>
+      ${draft.ingredients.map((x, n) => html`<div class="ed-ingr">
+        <input type="text" aria-label=${this.t("cook.edit_name")} placeholder=${this.t("cook.edit_name")} .value=${x.name} maxlength="80"
+          @input=${(e: Event) => this.editIngredient(n, { name: (e.target as HTMLInputElement).value })} />
+        <input type="number" min="0" step="any" aria-label=${this.t("cook.edit_qty")} .value=${x.qty ? String(x.qty) : ""}
+          @input=${(e: Event) => this.editIngredient(n, { qty: Number((e.target as HTMLInputElement).value) || 0 })} />
+        <select aria-label=${this.t("cook.edit_unit")} @change=${(e: Event) => this.editIngredient(n, { unit: (e.target as HTMLSelectElement).value })}>
+          ${UNITS.map((u) => html`<option value=${u} ?selected=${x.unit === u}>${this.t(`cook.unit.${u}`)}</option>`)}
+        </select>
+        <select aria-label=${this.t("cook.edit_source")} @change=${(e: Event) => this.editIngredient(n, { source: (e.target as HTMLSelectElement).value as CustomIngredient["source"] })}>
+          ${SOURCES.map((src) => html`<option value=${src} ?selected=${x.source === src}>${this.t(`cook.src.${src}`)}</option>`)}
+        </select>
+        <button class="icon-btn" aria-label=${this.t("cook.edit_remove")} title=${this.t("cook.edit_remove")}
+          @click=${() => this.draft && (this.draft = { ...this.draft, ingredients: this.draft.ingredients.filter((_, i) => i !== n) })}>✕</button>
+      </div>`)}
+      <button class="btn small ghost" ?disabled=${draft.ingredients.length >= MAX_INGREDIENTS} @click=${() => this.draft && (this.draft = { ...this.draft, ingredients: [...this.draft.ingredients, { ...blank }] })}>
+        + ${this.t("cook.edit_add_ingredient")}</button>
+      <h3>${this.t("cook.method")}</h3>
+      ${draft.steps.map((step, n) => html`<div class="ed-step">
+        <span class="num">${n + 1}</span>
+        <textarea aria-label=${this.t("cook.edit_step", { n: n + 1 })} .value=${step} maxlength="600"
+          @input=${(e: Event) => this.editSteps(draft.steps.map((x, i) => (i === n ? (e.target as HTMLTextAreaElement).value : x)))}></textarea>
+        <span class="tools">
+          <button class="icon-btn" aria-label=${this.t("cook.edit_up")} ?disabled=${n === 0} @click=${() => this.moveStep(n, -1)}>↑</button>
+          <button class="icon-btn" aria-label=${this.t("cook.edit_down")} ?disabled=${n === draft.steps.length - 1} @click=${() => this.moveStep(n, 1)}>↓</button>
+          <button class="icon-btn" aria-label=${this.t("cook.edit_remove")} @click=${() => this.editSteps(draft.steps.filter((_, i) => i !== n))}>✕</button>
+        </span>
+      </div>`)}
+      <button class="btn small ghost" ?disabled=${draft.steps.length >= MAX_STEPS} @click=${() => this.editSteps([...draft.steps, ""])}>+ ${this.t("cook.edit_add_step")}</button>
+    </div>`;
   }
 
   private renderBook(): TemplateResult {
     const all = this.data?.book ?? [];
     const q = this.bookSearch.trim().toLowerCase();
     const list = all.filter((r) => (this.bookFilter === "favorite" ? r.favorite : this.bookFilter === "shared" ? r.shared : true))
+      .filter((r) => !this.bookCourse || (r.course ?? "main") === this.bookCourse)
       .filter((r) => !q || `${r.title} ${r.subtitle} ${r.ingredients.map((i) => i.name).join(" ")}`.toLowerCase().includes(q));
     return html`
       ${this.readonly ? html`<p class="muted">${this.t("cook.visitor_intro")}</p>` : nothing}
@@ -612,7 +814,12 @@ export class CookingView extends LitElement {
         <button class="btn small ghost" ?disabled=${!list.length || !!this.busy} @click=${() => this.pdf("book", list)}>
           <ha-icon icon="mdi:book-open-variant"></ha-icon>${this.t("cook.pdf_book")}</button>
       </div>
-      ${list.length ? html`<div class="grid">${list.map((r) => this.renderCard(r, list))}</div>`
+      <div class="toolbar chapters" role="group" aria-label=${this.t("cook.chapters")}>
+        ${(["", ...COURSES] as (Course | "")[]).filter((c) => !c || all.some((r) => (r.course ?? "main") === c)).map((c) => html`<button
+          class="btn small ${this.bookCourse === c ? "primary" : "ghost"}" aria-pressed=${this.bookCourse === c}
+          @click=${() => (this.bookCourse = c)}>${c ? this.t(`cook.course.${c}`) : this.t("cook.course.all")}</button>`)}
+      </div>
+      ${list.length ? this.renderChapters(list)
         : html`<div class="card empty">${this.readonly ? this.t("cook.visitor_empty") : all.length ? this.t("cook.book_none_found") : this.t("cook.book_empty")}</div>`}`;
   }
 

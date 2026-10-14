@@ -24,8 +24,9 @@ import json
 import math
 from typing import Any
 
+from . import cooking_dishes as _d, cooking_extras as _x
 from .models import Plant, PlantCategory
-from .pdf import Image, PdfDocument, PdfPage, wrap
+from .pdf import PT_TO_MM, Image, PdfDocument, PdfPage, wrap
 from .plantdb import PlantDatabase
 
 # --------------------------------------------------------------------------- #
@@ -78,7 +79,15 @@ RAW_ONLY = frozenset((
     "claytonia_red", "winter_purslane", "garden_cress", "watercress", "watercress_land", "cucumber", "gherkin", "cucamelon",
     "radish", "endive", "radicchio", "salad_burnet",
 ))  # fmt: skip
-_RAW_OK = frozenset(("salad",))
+
+MAX_INGREDIENTS = 40  # what a recipe of the cook's own may hold
+MAX_STEPS = 30
+# Never eaten raw or half-cooked: out of every dish that does not cook its produce (elderberries are
+# poisonous raw; beans and chickpeas carry lectins).
+COOK_FIRST = frozenset((
+    "elderberry", "bush_bean", "pole_bean", "runner_bean", "borlotti_bean", "broad_bean", "field_beans", "edamame",
+    "chickpea", "marrowfat_pea",
+))  # fmt: skip
 
 GRAMS_PER_PERSON = {
     "leafy": 90, "brassica": 150, "root": 150, "allium": 40, "fruiting": 150, "squash": 200, "legume": 110,
@@ -117,6 +126,7 @@ class Item:
     unit: str  # g | ml | pc | clove | slice | tbsp | cube | can
     group: str  # side | meat | fish | veg_protein | dairy | pantry | basic
     per_dish: bool = False
+    fridge: bool = True  # offered as 'use this up from the fridge'
 
     def name(self, lang: str) -> str:
         return self.names[{"en": 0, "nl": 1, "fr": 2}.get(lang, 0)]
@@ -189,6 +199,25 @@ PANTRY: dict[str, Item] = {
     "sugar": Item(("sugar", "suiker", "sucre"), 25, "g", "pantry"),
     "oats": Item(("rolled oats", "havervlokken", "flocons d'avoine"), 25, "g", "pantry"),
     "vinegar": Item(("vinegar", "azijn", "vinaigre"), 1, "tbsp", "pantry", per_dish=True),
+    # for the dishes of ``cooking_dishes`` (store-cupboard items, not something to use up from the fridge)
+    "ricotta": Item(("ricotta", "ricotta", "ricotta"), 60, "g", "dairy", fridge=False),
+    "tahini": Item(("tahini", "tahin", "tahini"), 2, "tbsp", "pantry", per_dish=True, fridge=False),
+    "olives": Item(("olives", "olijven", "olives"), 40, "g", "pantry", per_dish=True, fridge=False),
+    "capers": Item(("capers", "kappertjes", "câpres"), 1, "tbsp", "pantry", per_dish=True, fridge=False),
+    "raisins": Item(("raisins", "rozijnen", "raisins secs"), 40, "g", "pantry", per_dish=True, fridge=False),
+    "baking_powder": Item(
+        ("baking powder", "bakpoeder", "levure chimique"), 1, "tbsp", "pantry", per_dish=True, fridge=False
+    ),
+    "cinnamon": Item(("cinnamon", "kaneel", "cannelle"), 1, "tbsp", "pantry", per_dish=True, fridge=False),
+    "cumin": Item(("ground cumin", "komijnpoeder", "cumin moulu"), 1, "tbsp", "pantry", per_dish=True, fridge=False),
+    "canned_tomatoes": Item(
+        ("tinned tomatoes", "tomaten uit blik", "tomates en boîte"), 1, "can", "pantry", per_dish=True, fridge=False
+    ),
+    "gelatine": Item(
+        ("gelatine sheets", "gelatineblaadjes", "feuilles de gélatine"), 3, "pc", "pantry", per_dish=True, fridge=False
+    ),
+    "jam_sugar": Item(("jam sugar", "geleisuiker", "sucre gélifiant"), 400, "g", "pantry", per_dish=True, fridge=False),
+    "soup_pasta": Item(("small soup pasta", "soeppasta", "petites pâtes à potage"), 20, "g", "pantry", fridge=False),
 }
 # Always in the house: never on a shopping list.
 BASICS = {
@@ -196,8 +225,6 @@ BASICS = {
     "pepper": Item(("pepper", "peper", "poivre"), 0, "", "basic"),
     "oil": Item(("olive oil", "olijfolie", "huile d'olive"), 0, "", "basic"),
 }
-# Where a pantry item goes when the cook ticks it as "use this up": cooked along or on top.
-_FINISH = frozenset(("parmesan", "feta", "mozzarella", "grated_cheese", "goat_cheese", "nuts", "lemon", "yoghurt"))
 
 
 # --------------------------------------------------------------------------- #
@@ -215,6 +242,21 @@ class Technique:
     max_garden: int = 3
     sweet: bool = False
     tags: tuple[str, ...] = ()
+    # --- for the dishes of ``cooking_dishes`` ---
+    plants: tuple[str, ...] = ()  # only these plants (empty: any plant of the kinds)
+    course: str = ""  # soup | starter | main | dessert | preserve ("": worked out by ``course_of``)
+    strict: bool = False  # only the proteins that fit, never another one
+    no_side: bool = False  # no side dish at all
+    must_side: bool = False  # the dish needs one of its sides (the first when the cook picked another)
+    raw: bool = False  # the produce may be eaten raw (lettuce, cucumber ...)
+    hearty: bool = False  # a starter that becomes a main course with meat or fish
+    herbs_in_pool: bool = False  # garden herbs are ingredients of the dish
+    needs_herb: bool = False  # ... and it takes at least one
+    herb_grams: int = 0  # grams of herbs per person (0: the usual pinch)
+    batch: float = 1.0  # preserving: how many times the usual amount
+    side_in_method: bool = False  # the method itself cooks the side (risotto rice, stoemp potatoes)
+    needs_main: bool = False  # at least one vegetable or fruit besides the herbs
+    scale: tuple[tuple[str, float], ...] = ()  # pantry item -> how many times its usual amount in this dish
 
 
 TECHNIQUES: tuple[Technique, ...] = (
@@ -230,14 +272,14 @@ TECHNIQUES: tuple[Technique, ...] = (
               ("garlic", "ginger", "soy_sauce"), 20, 2, 4, tags=("quick",)),
     Technique("pasta", ("fruiting", "leafy", "brassica", "legume", "allium", "squash", "asparagus", "herb"),
               ("pasta", "gnocchi"), ("mince", "bacon", "chicken", "shrimp", "salmon", "sausage", "ham"),
-              ("garlic", "parmesan"), 25, 1, 3, tags=("quick",)),
+              ("garlic", "parmesan"), 25, 1, 3, tags=("quick",), must_side=True),
     Technique("risotto", ("squash", "leafy", "asparagus", "legume", "root", "brassica", "fruiting"),
               ("rice",), ("chicken", "bacon", "shrimp", "sweetbread", "salmon", "sausage"),
-              ("onion", "stock", "white_wine", "parmesan", "butter"), 35, 1, 2),
+              ("onion", "stock", "white_wine", "parmesan", "butter"), 35, 1, 2, must_side=True, side_in_method=True),
     Technique("salad", ("leafy", "fruiting", "root", "legume", "fruit", "corn", "asparagus", "brassica", "herb"),
               ("bulgur", "couscous", "pearl_couscous", "potatoes", "bread", "pasta"),
               ("chicken", "steak", "salmon", "egg", "goat_cheese", "halloumi", "shrimp", "chickpeas", "ham"),
-              ("lemon", "mustard"), 20, 2, 4, tags=("fresh", "quick")),
+              ("lemon", "mustard"), 20, 2, 4, tags=("fresh", "quick"), raw=True),
     Technique("gratin", ("potato", "brassica", "root", "squash", "leafy", "fruiting"),
               ("potatoes", "pasta"), ("mince", "ham", "chicken", "bacon", "sausage"),
               ("cream", "grated_cheese", "garlic"), 50, 1, 3, tags=("oven",)),
@@ -247,16 +289,61 @@ TECHNIQUES: tuple[Technique, ...] = (
     Technique("frittata", ("leafy", "allium", "fruiting", "asparagus", "potato", "legume", "herb", "brassica"),
               ("bread", "potatoes"), ("bacon", "ham", "salmon", "goat_cheese"), ("eggs", "grated_cheese"), 25, 1, 3),
     Technique("stoemp", ("leafy", "root", "brassica", "allium"), ("potatoes",),
-              ("sausage", "mince", "pork_tenderloin", "burger", "bacon"), ("butter", "milk"), 35, 1, 2, tags=("warm",)),
+              ("sausage", "mince", "pork_tenderloin", "burger", "bacon"), ("butter", "milk"), 35, 1, 2, tags=("warm",),
+              must_side=True, side_in_method=True),
     Technique("stuffed", ("fruiting", "squash"), ("rice", "bulgur", "couscous"), ("mince", "chicken_mince", "lentils", "feta"),
-              ("onion", "garlic", "grated_cheese"), 50, 1, 2, tags=("oven",)),
+              ("onion", "garlic", "grated_cheese"), 50, 1, 2, tags=("oven",), must_side=True),
     Technique("plate", ("legume", "brassica", "leafy", "root", "asparagus", "fruiting", "squash", "corn"),
               ("fries", "potatoes"), ("steak", "burger", "sweetbread", "pork_tenderloin", "chicken", "salmon", "sausage"),
               ("butter",), 30, 1, 2),
     Technique("pesto", ("herb", "leafy"), ("pasta", "gnocchi", "bread"), ("chicken", "shrimp"), ("garlic", "parmesan", "nuts"),
-              15, 1, 2, tags=("quick",)),
+              15, 1, 2, tags=("quick",), strict=True, herbs_in_pool=True, needs_herb=True, herb_grams=25, must_side=True),
     Technique("dessert", ("fruit",), (), (), ("sugar", "butter", "flour", "oats"), 40, 1, 2, sweet=True, tags=("sweet",)),
+    Technique("cold_soup", ("fruiting", "herb"), ("bread",), ("shrimp", "ham", "egg"),
+              ("garlic", "vinegar"), 45, 2, 4, tags=("fresh",), raw=True),  # 15 minutes work + 30 chilling
+    Technique("crostini", ("fruiting", "legume", "leafy", "squash", "asparagus", "allium", "herb"), ("bread",),
+              ("ham", "goat_cheese", "salmon", "shrimp"), ("garlic",), 15, 1, 2, tags=("quick",), raw=True, must_side=True),
+    Technique("compote", ("fruit",), (), (), ("sugar", "lemon"), 20, 1, 2, sweet=True, tags=("sweet", "quick")),
+    *(Technique(**spec) for spec in _d.SPECS),
 )  # fmt: skip
+_RAW_OK = frozenset(t.id for t in TECHNIQUES if t.raw)
+_UNCOOKED = _RAW_OK | {"sorbet", "cups", "panna_cotta"}  # dishes that do not cook their produce
+
+# The chapters of the cookbook: every recipe belongs to one course.
+COURSES = ("soup", "starter", "main", "dessert", "preserve")
+MEAL_COURSES = COURSES[:4]  # what a meal is made of (preserving is for the surplus)
+_COURSE_NAME = {
+    "en": {"soup": "Soups", "starter": "Starters", "main": "Main courses", "dessert": "Desserts",
+           "preserve": "Preserving & pickles"},
+    "nl": {"soup": "Soepen", "starter": "Voorgerechten", "main": "Hoofdgerechten", "dessert": "Desserten",
+           "preserve": "Bewaren & inmaken"},
+    "fr": {"soup": "Soupes", "starter": "Entrées", "main": "Plats", "dessert": "Desserts", "preserve": "Conserves"},
+}  # fmt: skip
+
+
+def course_of(technique: str, protein: str = "", side: str = "") -> str:
+    """The chapter a dish goes in: a salad without meat or fish, crostini or pesto on bread start
+    the meal; with meat, fish or a filling side they are the meal itself."""
+    tech = TECHNIQUE.get(technique)
+    if tech is not None and tech.course:
+        return "main" if tech.course == "starter" and tech.hearty and protein else tech.course
+    if technique in ("soup", "cold_soup"):
+        return "soup"
+    if technique in ("dessert", "compote"):
+        return "dessert"
+    if (
+        technique == "crostini"
+        or (technique == "salad" and not protein)
+        or (technique == "pesto" and side in ("", "bread"))
+    ):
+        return "starter"
+    return "main"
+
+
+def course_name(course: str, lang: str | None = "en") -> str:
+    return _COURSE_NAME[_lang(lang)].get(course, course)
+
+
 TECHNIQUE = {t.id: t for t in TECHNIQUES}
 
 # --------------------------------------------------------------------------- #
@@ -284,21 +371,24 @@ _TITLE: dict[str, dict[str, str]] = {
            "gratin": "{a} gratin", "stew": "{a} stew",
            "frittata": "Frittata with {a}", "stoemp": "Stoemp with {a}",
            "stuffed": "Stuffed {a}", "plate": "Plate with {a}",
-           "pesto": "{a} pesto", "dessert": "{a} crumble"},
+           "pesto": "{a} pesto", "dessert": "{a} crumble",
+           "cold_soup": "Chilled {a} soup", "crostini": "Crostini with {a}", "compote": "Warm {a} compote"},
     "nl": {"soup": "Soep van {a}", "roast": "Geroosterde {a}",
            "stir_fry": "Wok met {a}", "pasta": "Pasta met {a}",
            "risotto": "Risotto met {a}", "salad": "Salade met {a}",
            "gratin": "Gratin van {a}", "stew": "Stoofpotje van {a}",
            "frittata": "Frittata met {a}", "stoemp": "Stoemp met {a}",
            "stuffed": "Gevulde {a}", "plate": "Bord met {a}",
-           "pesto": "Pesto van {a}", "dessert": "Crumble van {a}"},
+           "pesto": "Pesto van {a}", "dessert": "Crumble van {a}",
+           "cold_soup": "Koude soep van {a}", "crostini": "Crostini met {a}", "compote": "Lauwe compote van {a}"},
     "fr": {"soup": "Soupe de {a}", "roast": "{a} rôtis au four",
            "stir_fry": "Wok de {a}", "pasta": "Pâtes aux {a}",
            "risotto": "Risotto aux {a}", "salad": "Salade de {a}",
            "gratin": "Gratin de {a}", "stew": "Mijoté de {a}",
            "frittata": "Frittata aux {a}", "stoemp": "Stoemp aux {a}",
            "stuffed": "{a} farcis", "plate": "Assiette aux {a}",
-           "pesto": "Pesto de {a}", "dessert": "Crumble de {a}"},
+           "pesto": "Pesto de {a}", "dessert": "Crumble de {a}",
+           "cold_soup": "Soupe froide de {a}", "crostini": "Crostini aux {a}", "compote": "Compote tiède de {a}"},
 }  # fmt: skip
 
 _WITH = {"en": "with {p}", "nl": "met {p}", "fr": "avec {p}"}
@@ -348,7 +438,10 @@ _STEPS: dict[str, dict[str, list[str]]] = {
                   "Toss with the hot {side} or spread on toasted bread."],
         "dessert": ["Heat the oven to 180 °C. Prepare the fruit: {prep}; put it in a buttered dish with a spoon of sugar.",
                     "Rub flour, oats, sugar and cold butter to coarse crumbs and scatter over the fruit.",
-                    "Bake for 30-35 minutes until golden and bubbling. Lovely with yoghurt or cream."],
+                    "Bake for 30-35 minutes until golden and bubbling."],
+        "cold_soup": ["Prepare the vegetables: {prep}.", "Blend them with a crushed garlic clove, a splash of vinegar, 4 tbsp olive oil and a little cold water until smooth; season well.", "Chill for at least 30 minutes and serve very cold with a drizzle of olive oil."],
+        "crostini": ["Prepare the vegetables: {prep}; fry the firm ones briefly in olive oil, keep tender ones raw.", "Toast slices of bread, rub them with a cut garlic clove and drizzle with olive oil.", "Pile the vegetables on the warm toasts, season with salt and pepper and serve at once."],
+        "compote": ["Prepare the fruit: {prep}.", "Simmer it gently with 2 tbsp sugar, a squeeze of lemon and a splash of water for 10-15 minutes until soft.", "Serve lukewarm."],
     },
     "nl": {
         "soup": ["Maak de groenten klaar: {prep}.", "Stoof de ui in wat olie in een grote pot, voeg de groenten toe en roer 3 minuten.",
@@ -391,7 +484,10 @@ _STEPS: dict[str, dict[str, list[str]]] = {
                   "Meng met de warme {side} of smeer op geroosterd brood."],
         "dessert": ["Verwarm de oven voor op 180 °C. Maak het fruit klaar: {prep}; leg het in een beboterde schaal met een lepel suiker.",
                     "Wrijf bloem, havervlokken, suiker en koude boter tot grove kruimels en strooi over het fruit.",
-                    "Bak 30-35 minuten tot het goudbruin borrelt. Lekker met yoghurt of room."],
+                    "Bak 30-35 minuten tot het goudbruin borrelt."],
+        "cold_soup": ["Maak de groenten klaar: {prep}.", "Mix ze glad met een geperst teentje look, een scheutje azijn, 4 el olijfolie en wat koud water; kruid goed.", "Laat minstens 30 minuten koelen en dien ijskoud op met een draadje olijfolie."],
+        "crostini": ["Maak de groenten klaar: {prep}; bak de stevige kort in olijfolie, laat zachte rauw.", "Rooster sneetjes brood, wrijf ze in met een doorgesneden teentje look en besprenkel met olijfolie.", "Schep de groenten op de warme toastjes, kruid met peper en zout en dien meteen op."],
+        "compote": ["Maak het fruit klaar: {prep}.", "Laat het met 2 el suiker, een scheutje citroensap en een bodem water 10-15 minuten zacht garen.", "Dien lauw op."],
     },
     "fr": {
         "soup": ["Préparez les légumes : {prep}.", "Faites revenir l'oignon dans un peu d'huile, ajoutez les légumes et remuez 3 minutes.",
@@ -434,7 +530,10 @@ _STEPS: dict[str, dict[str, list[str]]] = {
                   "Mélangez aux {side} chaudes ou tartinez sur du pain grillé."],
         "dessert": ["Préchauffez le four à 180 °C. Préparez les fruits : {prep} ; mettez-les dans un plat beurré avec une cuillerée de sucre.",
                     "Sablez farine, flocons d'avoine, sucre et beurre froid et parsemez sur les fruits.",
-                    "Enfournez 30-35 minutes. Délicieux avec du yaourt ou de la crème."],
+                    "Enfournez 30-35 minutes."],
+        "cold_soup": ["Préparez les légumes : {prep}.", "Mixez-les avec une gousse d'ail écrasée, un trait de vinaigre, 4 c. à s. d'huile d'olive et un peu d'eau froide ; assaisonnez bien.", "Réfrigérez au moins 30 minutes et servez bien froid avec un filet d'huile d'olive."],
+        "crostini": ["Préparez les légumes : {prep} ; faites revenir les fermes à l'huile d'olive, gardez les tendres crus.", "Faites griller des tranches de pain, frottez-les d'ail et arrosez d'huile d'olive.", "Garnissez les toasts chauds de légumes, salez, poivrez et servez aussitôt."],
+        "compote": ["Préparez les fruits : {prep}.", "Faites-les mijoter doucement 10-15 minutes avec 2 c. à s. de sucre, un filet de citron et un peu d'eau.", "Servez tiède."],
     },
 }  # fmt: skip
 
@@ -444,17 +543,20 @@ _PROTEIN_STEP = {
            "stew_beef": "Brown the {p} on all sides first and let it simmer along for at least 1 hour (add the vegetables later).",
            "fish": "Cook the {p} gently in a little oil or butter for 3-4 minutes per side; season with salt and lemon.",
            "veg_protein": "Add the {p}: pan-fry tofu or halloumi until golden, warm chickpeas or lentils through the dish, boil eggs for 7 minutes.",
-           "bacon": "Fry the {p} crisp first and use the fat for the vegetables."},
+           "bacon": "Fry the {p} crisp first and use the fat for the vegetables.",
+           "lentils": "Rinse the {p} and simmer them in plenty of unsalted water for 20-25 minutes until tender; drain and stir them into the dish."},
     "nl": {"meat": "Bak het {p} in een hete pan met wat olie bruin en gaar; kruid met peper en zout.",
            "stew_beef": "Schroei het {p} eerst rondom dicht en laat het minstens 1 uur mee sudderen (de groenten later toevoegen).",
            "fish": "Bak de {p} zachtjes 3-4 minuten per kant in wat olie of boter; kruid met zout en citroen.",
            "veg_protein": "Voeg de {p} toe: tofu of halloumi goudbruin bakken, kikkererwten of linzen meewarmen, eieren 7 minuten koken.",
-           "bacon": "Bak eerst de {p} krokant en gebruik het vet voor de groenten."},
+           "bacon": "Bak eerst de {p} krokant en gebruik het vet voor de groenten.",
+           "lentils": "Spoel de {p} en laat ze 20-25 minuten zachtjes koken in ruim ongezouten water tot ze gaar zijn; giet af en roer door het gerecht."},
     "fr": {"meat": "Faites dorer le {p} dans une poêle chaude avec un peu d'huile jusqu'à cuisson ; salez et poivrez.",
            "stew_beef": "Saisissez d'abord le {p} de tous côtés et laissez-le mijoter au moins 1 heure (ajoutez les légumes ensuite).",
            "fish": "Cuisez le {p} doucement 3-4 minutes par face dans un peu d'huile ou de beurre ; sel et citron.",
            "veg_protein": "Ajoutez le {p} : tofu ou halloumi dorés à la poêle, pois chiches ou lentilles réchauffés dans le plat, œufs cuits 7 minutes.",
-           "bacon": "Faites d'abord croustiller les {p} et utilisez la graisse pour les légumes."},
+           "bacon": "Faites d'abord croustiller les {p} et utilisez la graisse pour les légumes.",
+           "lentils": "Rincez les {p} et cuisez-les 20 à 25 minutes à feu doux dans beaucoup d'eau non salée ; égouttez et incorporez-les au plat."},
 }  # fmt: skip
 
 _SIDE_STEP = {
@@ -484,9 +586,94 @@ _SIDE_STEP = {
            "bread": "Faites griller le pain ou réchauffez-le au four.", "noodles": "Cuisez les nouilles selon l'emballage et rincez."},
 }  # fmt: skip
 _SERVE_SIDE = {"en": "Serve with the {s}.", "nl": "Serveer met de {s}.", "fr": "Servez avec les {s}."}
-_EXTRA_COOK = {"en": "Stir in the {x} for the last few minutes.", "nl": "Roer de {x} er de laatste minuten door.",
-               "fr": "Incorporez {x} les dernières minutes."}  # fmt: skip
-_EXTRA_FINISH = {"en": "Finish with {x}.", "nl": "Werk af met {x}.", "fr": "Terminez avec {x}."}
+
+# What the cook has in the fridge ("use this up") only goes into a dish it suits, in a way of its
+# own (``cooking_extras``): items a dish does not list stay in the fridge for another one.
+_CHEESES = frozenset(("parmesan", "feta", "mozzarella", "grated_cheese"))
+_CREAMY = frozenset(("cream", "coconut_milk", "milk"))
+# Garden herbs that belong in a cold sauce or butter (rosemary or sage do not)
+_SAUCE_HERBS = ("dill", *_d.MINTS, "parsley", "chives", "coriander")
+_LANG_IX = {"nl": 0, "en": 1, "fr": 2}
+_LANG_IX_EN = {"en": 0, "nl": 1, "fr": 2}  # the order of the texts of ``cooking_dishes``
+# A fridge item the dish's own garden produce already brings
+_GARDEN_GIVES = {"onion": {"onion", "shallot", "leek"}, "garlic": {"garlic", "elephant_garlic"}}
+
+
+def _seed(produce_ids: Sequence[str]) -> int:
+    return int(hashlib.sha1(",".join(produce_ids).encode()).hexdigest()[:8], 16)
+
+
+def _plan_extras(technique: str, items: Iterable[str], has_protein: bool, produce: Sequence[str]) -> dict[str, str]:
+    """item -> preparation for the fridge items a dish takes.  The produce picks among an item's
+    preparations (dishes vary); an item whose pick clashes tries its others.  At most one extra
+    cheese (none on top of a cheese the recipe has, mixed in it may), one extra cream, one of each
+    group (dressing, pasta sauce, crunchy topping ...), nothing the dish already uses, a pan sauce
+    only with meat or fish, and ``MAX_PER_DISH`` in all."""
+    tech = TECHNIQUE.get(technique)
+    if tech is None:
+        return {}
+    wanted = set(items)
+    seed = _seed(produce)
+    out: dict[str, str] = {}
+    groups: set[str] = set()
+    for item, keys in _x.USES.get(technique, {}).items():
+        if len(out) >= _x.MAX_PER_DISH:
+            break
+        if item not in wanted or item in tech.staples or _GARDEN_GIVES.get(item, {item}) & set(produce):
+            continue  # the garden's own onion or garlic is in the dish already
+        if item in _CHEESES and any(x in _CHEESES for x in out):
+            continue
+        # one cream per dish; a splash of milk in the recipe is no cream (stoemp still takes cream)
+        if item in _CREAMY and any(x in _CREAMY for x in [*out, *(t for t in tech.staples if t != "milk")]):
+            continue
+        start = seed % len(keys)
+        for key in [*keys[start:], *keys[:start]]:
+            if key in _x.NEEDS_PROTEIN and not has_protein:
+                continue
+            if item in _CHEESES and key not in _x.INSIDE and any(t in _CHEESES for t in tech.staples):
+                continue
+            if _x.GROUP.get(key) in groups:
+                continue
+            out[item] = key
+            if key in _x.GROUP:
+                groups.add(_x.GROUP[key])
+            break
+    return out
+
+
+def pan_meat(protein_id: str) -> bool:
+    """Meat or fish leaves a pan to make a sauce in (tofu, eggs or chickpeas do not)."""
+    item = PROTEINS.get(protein_id)
+    return item is not None and item.group in ("meat", "fish")
+
+
+def fitting_extras(
+    technique: str, items: Iterable[str], has_protein: bool = True, produce: Sequence[str] = ()
+) -> list[str]:
+    """The fridge items that suit a dish, in the dish's own order (see ``_plan_extras``)."""
+    return list(_plan_extras(technique, items, has_protein, produce))
+
+
+def _extra_steps(technique: str, extras: Sequence[str], lang: str, herbs: Sequence[str] = (),
+                 produce: Sequence[str] = (), has_protein: bool = True) -> tuple[list[str], list[str], list[str], list[str]]:  # fmt: skip
+    """The steps for the fridge items: (after the second technique step, before the last – the
+    timed oven or grill additions –, after the last).
+    ``herbs``: fresh garden herbs for a sauce or butter (else the one the preparation suggests)."""
+    plan = _plan_extras(technique, extras, has_protein, produce)
+    ix = _LANG_IX[lang]
+    mid: list[str] = []
+    early: list[str] = []
+    during: list[str] = []
+    late: list[str] = []
+    for item, key in plan.items():
+        where, *texts = _x.PREP[key]
+        default = _x.HERB.get(key, ("verse kruiden", "fresh herbs", "fines herbes"))[ix]
+        h = _join(list(herbs)[:2], lang) if herbs and key not in _x.FIXED_HERB else default
+        name = PANTRY[item].name(lang).split(" (")[0]  # "nuts (walnuts, pine nuts)" -> "nuts"
+        {"early": early, "mid": mid, "during": during}.get(where, late).append(texts[ix].format(x=name, h=h))
+    return early, mid, during, late
+
+
 _HERBS = {"en": "Scatter over the {h} just before serving.", "nl": "Strooi vlak voor het opdienen de {h} erover.",
           "fr": "Parsemez de {h} juste avant de servir."}  # fmt: skip
 _UNITS = {
@@ -532,14 +719,25 @@ _TAG = {
 _TECH_NAME = {
     "en": {"soup": "Soup", "roast": "Oven tray", "stir_fry": "Stir-fry", "pasta": "Pasta", "risotto": "Risotto", "salad": "Salad",
            "gratin": "Gratin", "stew": "Stew & curry", "frittata": "Frittata", "stoemp": "Stoemp", "stuffed": "Stuffed vegetables",
-           "plate": "Meat & two veg", "pesto": "Pesto", "dessert": "Dessert"},
+           "plate": "Meat & two veg", "pesto": "Pesto", "dessert": "Dessert", "cold_soup": "Chilled soup", "crostini": "Crostini",
+           "compote": "Compote"},
     "nl": {"soup": "Soep", "roast": "Ovenschotel", "stir_fry": "Wok", "pasta": "Pasta", "risotto": "Risotto", "salad": "Salade",
            "gratin": "Gratin", "stew": "Stoofpot & curry", "frittata": "Frittata", "stoemp": "Stoemp", "stuffed": "Gevulde groenten",
-           "plate": "Bord met vlees en groenten", "pesto": "Pesto", "dessert": "Dessert"},
+           "plate": "Bord met vlees en groenten", "pesto": "Pesto", "dessert": "Dessert", "cold_soup": "Koude soep",
+           "crostini": "Crostini", "compote": "Compote"},
     "fr": {"soup": "Soupe", "roast": "Plaque au four", "stir_fry": "Wok", "pasta": "Pâtes", "risotto": "Risotto", "salad": "Salade",
            "gratin": "Gratin", "stew": "Mijoté & curry", "frittata": "Frittata", "stoemp": "Stoemp", "stuffed": "Légumes farcis",
-           "plate": "Assiette viande et légumes", "pesto": "Pesto", "dessert": "Dessert"},
+           "plate": "Assiette viande et légumes", "pesto": "Pesto", "dessert": "Dessert", "cold_soup": "Soupe froide",
+           "crostini": "Crostini", "compote": "Compote"},
 }  # fmt: skip
+for _ix, _lang_code in enumerate(("en", "nl", "fr")):  # the texts of the dishes of cooking_dishes
+    for _id, _texts in _d.TITLE.items():
+        _TITLE[_lang_code][_id] = _texts[_ix]
+    for _id, _texts in _d.NAME.items():
+        _TECH_NAME[_lang_code][_id] = _texts[_ix]
+    for _id, _texts in _d.STEPS.items():
+        _STEPS[_lang_code][_id] = _texts[_ix]
+
 _PDF = {
     "en": {"book": "Seasonal cookbook", "from_garden": "from the garden", "ingredients": "Ingredients", "method": "Method",
            "servings": "{n} servings", "minutes": "{n} min", "shopping": "Shopping list", "to_buy": "To buy",
@@ -659,12 +857,26 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
             produce.append((plant, kind))
     if not produce:
         return None
+    if tech.plants and any(p.id not in tech.plants and (k != "herb" or tech.herbs_in_pool) for p, k in produce):
+        return None  # a dish made for certain plants only (no tomato cake)
+    if tech.id in _UNCOOKED and any(p.id in COOK_FIRST for p, _ in produce):
+        return None  # raw elderberries or beans are not food
+    if tech.needs_main and all(k == "herb" for _, k in produce):
+        return None  # a caprese of basil alone
     side_id = str(spec.get("side") or "")
+    if tech.no_side or tech.sweet:
+        side_id = ""
+    elif tech.must_side and side_id not in tech.sides:
+        side_id = tech.sides[0]  # crostini always need their bread (also on the shopping list)
     side = SIDES.get(side_id)
-    protein_id = str(spec.get("protein") or "")
+    protein_id = "" if tech.sweet else str(spec.get("protein") or "")  # no meat in a dessert
     protein = PROTEINS.get(protein_id)
-    extras = [x for x in str_ids(spec.get("extras")) if x in PANTRY]
-    in_house = set(pantry)
+    produce_ids = [p.id for p, _ in produce]
+    meat = pan_meat(protein_id if protein else "")
+    plan = _plan_extras(tech.id, [x for x in str_ids(spec.get("extras")) if x in PANTRY], meat, produce_ids)
+    extras = list(plan)
+    needed = [d for key in plan.values() for d in _x.DEPENDS.get(key, ())]  # what the preparations need too
+    in_house = set(pantry) | set(extras)  # what the cook took from the fridge is in the house
 
     names = [short_name(p, lang) for p, _ in produce]
     main_names = [n for (p, k), n in zip(produce, names, strict=True) if k != "herb"] or names
@@ -679,8 +891,9 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
     share = 1.0 if len(non_herbs) <= 1 else (1.6 / len(non_herbs))  # several vegetables share the plate
     for plant, kind in produce:
         grams = GRAMS_PER_PERSON[kind] * servings * (1.0 if kind == "herb" else share)
-        if tech.id == "pesto" and kind in ("herb", "leafy"):
-            grams = 25 * servings
+        if tech.herb_grams and kind in ("herb", "leafy"):
+            grams = tech.herb_grams * servings
+        grams *= tech.batch
         ingredients.append({"id": plant.id, "plant_id": plant.id, "name": plant.name(lang), "qty": _qty(grams, "g"), "unit": "g",
                             "group": "garden", "kind": kind, "source": "garden", "color": plant.color or KIND_COLOR[kind]})  # fmt: skip
     if side is not None:
@@ -692,15 +905,16 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
         ingredients.append({"id": protein_id, "name": protein.name(lang), "qty": _qty(qty, protein.unit), "unit": protein.unit,
                             "group": protein.group, "source": "pantry" if protein_id in in_house else "shop"})  # fmt: skip
     garden_ids = {p.id for p, _ in produce}
-    for item_id in [*tech.staples, *[x for x in extras if x not in tech.staples]]:
+    wanted = dict.fromkeys([*tech.staples, *extras, *needed])
+    for item_id in wanted:
         if item_id in ("onion", "garlic") and garden_ids & (
             {"onion", "shallot", "leek"} if item_id == "onion" else {"garlic", "elephant_garlic"}
         ):
             continue  # the garden gives it
         item = PANTRY[item_id]
-        qty = item.qty * (1 if item.per_dish else servings)
+        qty = item.qty * (1 if item.per_dish else servings) * dict(tech.scale).get(item_id, 1.0)
         ingredients.append({"id": item_id, "name": item.name(lang), "qty": _qty(qty, item.unit), "unit": item.unit, "group": item.group,
-                            "source": "pantry" if item_id in in_house else "shop", "extra": item_id in extras})  # fmt: skip
+                "source": "pantry" if item_id in in_house else "shop", "extra": item_id in extras})  # fmt: skip
     for basic_id, item in BASICS.items():
         ingredients.append(
             {"id": basic_id, "name": item.name(lang), "qty": 0, "unit": "", "group": "basic", "source": "basic"}
@@ -714,7 +928,7 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
         [
             _PREP[lang][k].format(n=n)
             for (p, k), n in zip(produce, names, strict=True)
-            if k != "herb" or tech.id == "pesto"
+            if k != "herb" or tech.herbs_in_pool
         ],
         lang,
     )
@@ -724,8 +938,10 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
         else (SIDES["pasta"].name(lang) if tech.id in ("pasta", "pesto") else SIDES["rice"].name(lang))
     )
     steps: list[str] = []
+    after_first: list[str] = []  # the protein, when the dish takes it after its second step
+    tail: list[str] = []  # ... or at the very end
     in_dish_side = side is not None and side_id in tech.sides
-    if side is not None and side_id != "bread":  # bread is toasted at the end
+    if side is not None and side_id != "bread" and not tech.side_in_method:  # bread is toasted at the end
         steps.append(_SIDE_STEP[lang][side_id])
     if protein is not None:
         key = (
@@ -733,22 +949,39 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
             if protein_id == "stew_beef"
             else "bacon"
             if protein_id == "bacon"
+            else "lentils"
+            if protein_id == "lentils"
             else protein.group
             if protein.group in ("fish", "veg_protein")
             else "meat"
         )
-        steps.append(_PROTEIN_STEP[lang][key].format(p=protein.name(lang).split(" (")[0].lower()))
-    for step in _STEPS[lang][tech.id]:
+        own = _d.PROTEIN_STEP.get(tech.id, {})  # e.g. poached in the waterzooi, ham next to the asparagus
+        text, where = _PROTEIN_STEP[lang][key], "start"
+        for hit in (protein_id, protein.group):
+            if hit in own:
+                where, *texts = own[hit]
+                text = texts[_LANG_IX_EN[lang]]
+                break
+        text = text.format(p=protein.name(lang).split(" (")[0].lower())
+        {"early": after_first, "end": tail}.get(where, steps).append(text)
+    fresh = {short_name(p, lang) for i in _SAUCE_HERBS if (p := db.get(i)) is not None}
+    early, mid, during, late = _extra_steps(tech.id, extras, lang, [h for h in herbs if h in fresh], produce_ids, meat)
+    method = _STEPS[lang][tech.id]
+    for n, step in enumerate(method):
+        if n == 1:  # before the cooking starts (honey instead of sugar ...)
+            steps += early
+            early = []
+        if n == len(method) - 1:  # "for the last 10 minutes ...": said before the oven or grill step it times
+            steps += mid + during
+            mid = during = []
         steps.append(step.format(prep=prep or a, side=side_name.lower(), veg=_join(names, lang)))
-    cook_extras = [PANTRY[x].name(lang) for x in extras if x not in _FINISH and x not in tech.staples]
-    finish_extras = [PANTRY[x].name(lang) for x in extras if x in _FINISH and x not in tech.staples]
-    if cook_extras:
-        steps.append(_EXTRA_COOK[lang].format(x=_join(cook_extras, lang)))
-    if finish_extras:
-        steps.append(_EXTRA_FINISH[lang].format(x=_join(finish_extras, lang)))
-    if herbs and tech.id not in ("pesto", "dessert"):
+        if n == 1:
+            steps += mid + after_first
+            mid = []
+    steps += early + mid + during + tail + late
+    if herbs and not (tech.herbs_in_pool or tech.sweet):
         steps.append(_HERBS[lang].format(h=_join(herbs[:3], lang)))
-    if side_id == "bread":
+    if side_id == "bread" and tech.id != "crostini":  # crostini toast their own bread
         steps.append(_SIDE_STEP[lang]["bread"])
     if side is not None and not in_dish_side:
         steps.append(_SERVE_SIDE[lang].format(s=side.name(lang)))
@@ -768,6 +1001,8 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
         "subtitle": subtitle,
         "technique": tech.id,
         "technique_name": _TECH_NAME[lang][tech.id],
+        "course": (course := course_of(tech.id, protein_id if protein else "", side_id if side else "")),
+        "course_name": course_name(course, lang),
         "minutes": minutes,
         "servings": servings,
         "ingredients": ingredients,
@@ -793,6 +1028,70 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
     }
 
 
+UNITS = ("g", "ml", "pc", "clove", "slice", "tbsp", "cube", "can")
+SOURCES = ("garden", "pantry", "shop")
+_GROUP_ORDER = ("meat", "fish", "veg_protein", "dairy", "side", "pantry", "other")
+
+
+def _ingredient_id(raw_id: Any, name: str) -> str:
+    """A generated ingredient keeps its id; a new one is named after what it is, so two recipes' new
+    ingredients never merge on a shopping list just because they sit at the same row."""
+    given = str(raw_id or "")[:60]
+    if given and not given.startswith("custom-"):
+        return given
+    return "custom-" + hashlib.sha1(name.casefold().encode()).hexdigest()[:10]
+
+
+def custom_ingredient(raw: Any, n: int) -> dict[str, Any] | None:
+    """One ingredient as the cook typed it (None when it has no name)."""
+    if not isinstance(raw, Mapping):
+        return None
+    name = str(raw.get("name") or "").strip()[:80]
+    if not name:
+        return None
+    try:
+        qty = float(raw.get("qty") or 0)
+    except (TypeError, ValueError):
+        qty = 0.0
+    qty = round(qty, 2) if math.isfinite(qty) and 0 <= qty <= 100000 else 0.0
+    unit = str(raw.get("unit") or "")
+    source = str(raw.get("source") or "shop")
+    group = str(raw.get("group") or "other")
+    out: dict[str, Any] = {
+        "id": _ingredient_id(raw.get("id"), name),
+        "name": name,
+        "qty": qty,  # exactly what the cook typed (1 g of saffron stays 1 g)
+        "unit": unit if unit in UNITS else "",
+        "source": source if source in SOURCES else "shop",
+        "group": group if group in _GROUP_ORDER or group == "garden" else "other",
+    }
+    for key in ("plant_id", "kind", "color"):
+        if isinstance(raw.get(key), str) and raw.get(key):
+            out[key] = str(raw[key])[:40]
+    return out
+
+
+def apply_custom(recipe: dict[str, Any], ingredients: Sequence[Mapping[str, Any]], steps: Sequence[str],
+                 lang: str | None = "en") -> dict[str, Any]:  # fmt: skip
+    """A recipe with the cook's own ingredient list and/or method (an empty one keeps the generated)."""
+    lang = _lang(lang)
+    if ingredients:
+        rows = []
+        for raw in ingredients:
+            row = dict(raw)
+            row["label"] = _fmt(float(row.get("qty") or 0), str(row.get("unit") or ""), lang) if row.get("qty") else ""
+            rows.append(row)
+        basics = [i for i in recipe["ingredients"] if i.get("source") == "basic"]
+        recipe["ingredients"] = [*rows, *basics]
+        recipe["shopping"] = [{"id": i["id"], "name": i["name"], "qty": i["qty"], "unit": i["unit"], "label": i["label"],
+                               "group": i["group"]} for i in rows if i["source"] == "shop"]  # fmt: skip
+        recipe["garden_share"] = round(sum(1 for i in rows if i["source"] == "garden") / max(1, len(rows)), 2)
+    if steps:
+        recipe["steps"] = list(steps)
+    recipe["custom"] = bool(ingredients or steps)
+    return recipe
+
+
 # --------------------------------------------------------------------------- #
 # Suggestions
 # --------------------------------------------------------------------------- #
@@ -814,10 +1113,110 @@ def ready_produce(ready: Sequence[Mapping[str, Any]], db: PlantDatabase) -> list
     return list(seen.values())
 
 
+def _interleave(recipes: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The dishes made for certain plants (ratatouille, fritters ...) and the general ones (a
+    pasta, a tray ...) in turn, so neither crowds out the other."""
+    specific = [r for r in recipes if TECHNIQUE[r["technique"]].plants]
+    general = [r for r in recipes if not TECHNIQUE[r["technique"]].plants]
+    out: list[dict[str, Any]] = []
+    while specific or general:
+        if specific:
+            out.append(specific.pop(0))
+        if general:
+            out.append(general.pop(0))
+    return out
+
+
 def suggest(produce: Sequence[Mapping[str, Any]], db: PlantDatabase, prefs: Prefs, lang: str | None = "en",
             limit: int = 9) -> list[dict[str, Any]]:  # fmt: skip
-    """Recipes for the produce at hand (``ready_produce``), the garden first."""
+    """Recipes for the produce at hand (``ready_produce``), the garden first, spread over the
+    chapters (soups, starters, main courses, desserts) and in that order, plus up to two ideas
+    for preserving the surplus."""
     lang = _lang(lang)
+    every = _suggest_all(produce, db, prefs, lang, max(limit * 8, 80))
+    by_course = {c: _interleave([r for r in every if r["course"] == c]) for c in COURSES}
+    picked: list[dict[str, Any]] = []
+    while len(picked) < limit and any(by_course[c] for c in MEAL_COURSES):
+        for c in MEAL_COURSES:  # one of each chapter in turn, so none is crowded out
+            if by_course[c] and len(picked) < limit:
+                picked.append(by_course[c].pop(0))
+    picked.sort(key=lambda r: COURSES.index(r["course"]))
+    return [*picked, *by_course["preserve"][:2]]
+
+
+def _overlap(recipe: Mapping[str, Any], chosen: Sequence[Mapping[str, Any]]) -> int:
+    """How many garden plants a recipe shares with the courses already in a menu."""
+    plants = {p for r in chosen for p in r["spec"]["produce"]}
+    return sum(1 for p in recipe["spec"]["produce"] if p in plants)
+
+
+def menus(produce: Sequence[Mapping[str, Any]], db: PlantDatabase, prefs: Prefs, lang: str | None = "en",
+          count: int = 4, today: date | None = None) -> list[dict[str, Any]]:  # fmt: skip
+    """Complete menus (a soup or starter, a main course and a dessert) from the produce at hand:
+    the themed ones of the season first (a Provençal dinner, a Flemish spring menu ...), then menus
+    built around a main course.  A dish is used in one menu only."""
+    lang = _lang(lang)
+    month = (today or date.today()).month
+    every = _suggest_all(produce, db, prefs, lang, 160)
+    used: set[str] = set()
+    out: list[dict[str, Any]] = []
+
+    def pick(candidates: Sequence[dict[str, Any]], chosen: Sequence[dict[str, Any]]) -> dict[str, Any] | None:
+        fresh = [r for r in candidates if r["id"] not in used]
+        return min(fresh, key=lambda r: _overlap(r, chosen)) if fresh else None  # first of the least overlap
+
+    def build(theme: str, title: str, slots: Sequence[Sequence[dict[str, Any]]]) -> bool:
+        chosen: list[dict[str, Any]] = []
+        for cands in slots:
+            recipe = pick(cands, chosen)
+            if recipe is None:
+                return False
+            chosen.append(recipe)
+        used.update(r["id"] for r in chosen)
+        out.append(
+            {
+                "id": "m" + hashlib.sha1(",".join(r["id"] for r in chosen).encode()).hexdigest()[:11],
+                "theme": theme,
+                "title": title,
+                "courses": [{"course": r["course"], "recipe": r} for r in chosen],
+                "minutes": sum(int(r["minutes"]) for r in chosen),
+                "servings": prefs.servings,
+            }
+        )
+        return True
+
+    themes = sorted(_d.MENU_THEMES, key=lambda t: 0 if month in t["months"] else 1)  # the season first
+    for theme in themes:
+        if len(out) >= count:
+            break
+        if month not in theme["months"] and len(out) >= count - 1:
+            continue  # leave a place for a menu around the main course
+        plants = {p for r in every for p in r["spec"]["produce"]}
+        needs = theme.get("needs", ())
+        if needs and not plants & set(needs):
+            continue
+        slots = [
+            [r for tid in theme[slot] for r in every if r["technique"] == tid and r["course"] in courses]
+            for slot, courses in (("starter", ("soup", "starter")), ("main", ("main",)), ("dessert", ("dessert",)))
+        ]
+        if all(slots):
+            build(theme["id"], theme["names"][_LANG_IX_EN[lang]], slots)
+
+    meals = {c: _interleave([r for r in every if r["course"] == c]) for c in MEAL_COURSES}
+    starters = [*meals["soup"], *meals["starter"]]
+    for main in meals["main"]:
+        if len(out) >= count:
+            break
+        if main["id"] in used:
+            continue
+        a = _join([short_name(p, lang) for i in main["spec"]["produce"][:2] if (p := db.get(i)) is not None], lang)
+        title = _d.MENU_TITLE["generic"][_LANG_IX_EN[lang]].format(a=a)
+        build("", title[0].upper() + title[1:], [starters, [main], meals["dessert"]])
+    return out[:count]
+
+
+def _suggest_all(produce: Sequence[Mapping[str, Any]], db: PlantDatabase, prefs: Prefs, lang: str,
+                 limit: int) -> list[dict[str, Any]]:  # fmt: skip
     items = [p for p in produce if p.get("kind") in KINDS]
     herbs = [p for p in items if p["kind"] == "herb"]
     veg = [p for p in items if p["kind"] != "herb"]
@@ -829,10 +1228,13 @@ def suggest(produce: Sequence[Mapping[str, Any]], db: PlantDatabase, prefs: Pref
         for tech in TECHNIQUES:
             pool = [
                 p
-                for p in (herbs + veg if tech.id == "pesto" else veg)
-                if p["kind"] in tech.kinds and (tech.id in _RAW_OK or p["plant_id"] not in RAW_ONLY)
+                for p in (herbs + veg if tech.herbs_in_pool else veg)
+                if p["kind"] in tech.kinds
+                and (not tech.plants or p["plant_id"] in tech.plants)
+                and not (tech.id in _UNCOOKED and p["plant_id"] in COOK_FIRST)
+                and (tech.id in _RAW_OK or p["plant_id"] not in RAW_ONLY)
             ]
-            if tech.id == "pesto" and not any(p["kind"] == "herb" for p in pool):
+            if tech.needs_herb and not any(p["kind"] == "herb" for p in pool):
                 continue
             if len(pool) < tech.min_garden:
                 continue
@@ -843,31 +1245,35 @@ def suggest(produce: Sequence[Mapping[str, Any]], db: PlantDatabase, prefs: Pref
                 if len(pool) < 2:
                     continue
                 pool = pool[1:] + pool[:1]
-            chosen: list[Mapping[str, Any]] = []
-            kinds_seen: set[str] = set()
-            for p in pool:  # variety: prefer a new kind for every extra vegetable
-                if len(chosen) >= tech.max_garden:
-                    break
-                if p["kind"] in kinds_seen and len(pool) > tech.max_garden:
-                    continue
-                chosen.append(p)
-                kinds_seen.add(p["kind"])
-            if len(chosen) < tech.min_garden:
+            # variety first (one of each kind), then the same kinds fill the places that are left
+            picked: list[Mapping[str, Any]] = []
+            for p in pool:
+                if len(picked) < tech.max_garden and all(p["kind"] != q["kind"] for q in picked):
+                    picked.append(p)
+            for p in pool:
+                if len(picked) < tech.max_garden and all(p is not q for q in picked):
+                    picked.append(p)
+            chosen = [p for p in pool if any(p is q for q in picked)]
+            if (
+                len(chosen) < tech.min_garden
+                or (tech.needs_herb and not any(c["kind"] == "herb" for c in chosen))
+                or (tech.needs_main and all(c["kind"] == "herb" for c in chosen))
+            ):
                 continue
             side = prefs.side if prefs.side and prefs.side != "none" else (tech.sides[0] if tech.sides else "")
-            if prefs.side == "none" or tech.sweet:
+            if prefs.side == "none" or tech.sweet or tech.no_side:
                 side = ""
+            if tech.must_side and side not in tech.sides:
+                side = tech.sides[0]  # the toasts, the grain: the dish, whatever side the cook prefers
             protein = ""
             if protein_cycle and not tech.sweet:
-                fits = [p for p in protein_cycle if p in tech.proteins] or (
-                    [] if tech.id == "pesto" else protein_cycle[:1]
-                )
+                fits = [p for p in protein_cycle if p in tech.proteins] or ([] if tech.strict else protein_cycle[:1])
                 if fits:
                     protein = fits[(len(out)) % len(fits)]
-            extras = [x for x in prefs.use if not tech.sweet or x in ("yoghurt", "cream", "nuts")]
+            extras = list(prefs.use)  # render keeps only what suits this dish
             spec = {"technique": tech.id, "produce": [c["plant_id"] for c in chosen], "side": side, "protein": protein,
                     "extras": extras, "servings": prefs.servings}  # fmt: skip
-            recipe = render(spec, db, lang, herb_names, prefs.pantry)
+            recipe = render(spec, db, lang, herb_names, [*prefs.pantry, *prefs.use])
             if recipe is None or any(r["id"] == recipe["id"] for r in out):
                 continue
             used_mains[chosen[0]["plant_id"]] = used_mains.get(chosen[0]["plant_id"], 0) + 1
@@ -893,7 +1299,7 @@ def shopping_list(recipes: Sequence[Mapping[str, Any]], lang: str | None = "en")
             elif i.get("source") == "garden":
                 row = garden.setdefault(str(i["id"]), {"id": i["id"], "name": i["name"], "qty": 0.0, "unit": "g"})
                 row["qty"] += float(i["qty"])
-    order = {"meat": 0, "fish": 1, "veg_protein": 2, "dairy": 3, "side": 4, "pantry": 5}
+    order = {g: n for n, g in enumerate(_GROUP_ORDER)}
     rows = sorted(buy.values(), key=lambda x: (order.get(str(x["group"]), 9), str(x["name"])))
     for row in [*rows, *garden.values()]:
         row["qty"] = _qty(float(row["qty"]), str(row["unit"]))
@@ -953,6 +1359,19 @@ def _picture(page: PdfPage, x: float, y: float, size: float, recipe: Mapping[str
         page.circle(cx, cy, r * 0.2, fill="#b5674a")
 
 
+_PAGE_END = 268.0  # below this a new page starts
+_PAGE_LIMIT = 284.0  # ... and a block that would end below this goes to the next page whole
+
+
+def _continued_page(doc: PdfDocument, recipe: Mapping[str, Any]) -> PdfPage:
+    """The next page of a recipe too long for one: the title again, then the rest in full width."""
+    page = doc.add_page(210, 297)
+    page.rect(0, 0, 210, 6, fill=_GREEN)
+    page.text(18, 20, str(recipe["title"]), size=13, bold=True, color=_INK)
+    page.text(105, 289, "Hortulus", size=7.5, color=_MUTED, anchor="middle")
+    return page
+
+
 def _recipe_page(doc: PdfDocument, recipe: Mapping[str, Any], lang: str, image: Image | None) -> None:
     t = _PDF[lang]
     page = doc.add_page(210, 297)
@@ -978,23 +1397,35 @@ def _recipe_page(doc: PdfDocument, recipe: Mapping[str, Any], lang: str, image: 
     col = 62
     page.text(x, y, t["ingredients"], size=12, bold=True, color=_GREEN)
     yi = y + 3
+    ipage = page
     for ing in recipe["ingredients"]:
         if ing.get("source") == "basic":
             continue
         label = (f"{ing['label']}  " if ing.get("label") else "") + str(ing["name"])
+        lines = len(wrap(label, col - 4, 9.5))
+        if (
+            yi > _PAGE_END or yi + lines * 9.5 * PT_TO_MM * 1.3 + 1 > _PAGE_LIMIT
+        ):  # a long list goes on to a page of its own
+            ipage = _continued_page(doc, recipe)
+            yi = 26.0
         if ing.get("source") == "garden":
-            page.circle(x + 1.2, yi + 3.3, 1.2, fill=ing.get("color", "#5a9a3c"))
-        yi = page.text_block(x + (4 if ing.get("source") == "garden" else 0), yi, col - 4, label, size=9.5, color=_INK)
+            ipage.circle(x + 1.2, yi + 3.3, 1.2, fill=ing.get("color", "#5a9a3c"))
+        yi = ipage.text_block(x + (4 if ing.get("source") == "garden" else 0), yi, col - 4, label, size=9.5, color=_INK)
     basics = [i["name"] for i in recipe["ingredients"] if i.get("source") == "basic"]
-    yi = page.text_block(x, yi + 1.5, col, ", ".join(basics), size=8.5, color=_MUTED)
+    ipage.text_block(x, yi + 1.5, col, ", ".join(basics), size=8.5, color=_MUTED)
     mx = x + col + 8
     mw = w - col - 8
     page.text(mx, y, t["method"], size=12, bold=True, color=_GREEN)
     ym = y + 3
+    spage = page
     for n, step in enumerate(recipe["steps"], 1):
-        page.circle(mx + 2.3, ym + 4.2, 2.3, fill=_GREEN)
-        page.text(mx + 2.3, ym + 5.2, str(n), size=7.5, bold=True, color="#ffffff", anchor="middle")
-        ym = page.text_block(mx + 7, ym + 0.6, mw - 7, step, size=10, color=_INK, leading=1.35) + 2.5
+        height = len(wrap(step, mw - 7, 10)) * 10 * PT_TO_MM * 1.35 + 3
+        if ym > _PAGE_END or ym + height > _PAGE_LIMIT:  # the method goes on, full width, on the next page
+            spage = _continued_page(doc, recipe)
+            mx, mw, ym = x, w, 26.0
+        spage.circle(mx + 2.3, ym + 4.2, 2.3, fill=_GREEN)
+        spage.text(mx + 2.3, ym + 5.2, str(n), size=7.5, bold=True, color="#ffffff", anchor="middle")
+        ym = spage.text_block(mx + 7, ym + 0.6, mw - 7, step, size=10, color=_INK, leading=1.35) + 2.5
     page.text(105, 289, "Hortulus", size=7.5, color=_MUTED, anchor="middle")
 
 
@@ -1027,6 +1458,16 @@ def _shopping_page(doc: PdfDocument, recipes: Sequence[Mapping[str, Any]], lang:
             y = page.text_block(x + 6, y, 168, f"{row['name']}  ({row['label']})", size=10, color=_MUTED) + 1
 
 
+def _chapters(recipes: Sequence[Mapping[str, Any]]) -> list[tuple[str, list[Mapping[str, Any]]]]:
+    """The recipes by course, in the cookbook's order; empty chapters left out."""
+
+    def course(r: Mapping[str, Any]) -> str:
+        c = str(r.get("course") or course_of(str(r.get("technique") or "")))
+        return c if c in COURSES else "main"
+
+    return [(c, rows) for c in COURSES if (rows := [r for r in recipes if course(r) == c])]
+
+
 def recipes_pdf(recipes: Sequence[Mapping[str, Any]], lang: str | None = "en", kind: str = "book",
                 images: Mapping[str, bytes] | None = None, today: date | None = None, title: str | None = None) -> bytes:  # fmt: skip
     """``kind``: recipe (one recipe + its shopping list), book (cover, recipes, shopping list) or shopping."""
@@ -1046,18 +1487,13 @@ def recipes_pdf(recipes: Sequence[Mapping[str, Any]], lang: str | None = "en", k
         y = 112.0
         page.text(18, y, t["contents"], size=13, bold=True, color=_GREEN)
         y += 4
-        for n, r in enumerate(recipes, 1):
-            y = (
-                page.text_block(
-                    18,
-                    y,
-                    174,
-                    f"{n}. {r['title']}" + (f" {r['subtitle']}" if r.get("subtitle") else ""),
-                    size=11,
-                    color=_INK,
-                )
-                + 1.5
-            )
+        n = 0
+        for course, chapter in _chapters(recipes):
+            y = page.text_block(18, y + 3, 174, course_name(course, lang), size=11.5, bold=True, color=_GREEN) + 1
+            for r in chapter:
+                n += 1
+                line = f"{n}. {r['title']}" + (f" {r['subtitle']}" if r.get("subtitle") else "")
+                y = page.text_block(22, y, 170, line, size=10.5, color=_INK) + 1.2
         page.text(
             105,
             285,
@@ -1067,9 +1503,17 @@ def recipes_pdf(recipes: Sequence[Mapping[str, Any]], lang: str | None = "en", k
             anchor="middle",
         )
         doc.outline.append((title or t["book"], 0))
-    for r in recipes:
-        doc.outline.append((str(r["title"]), len(doc.pages)))
-        _recipe_page(doc, r, lang, pics.get(str(r["id"])))
+    chapters = _chapters(recipes) if kind == "book" else [("", list(recipes))]
+    for course, chapter in chapters:
+        if course and len(chapters) > 1:  # a chapter page: Soups, Starters, Main courses, Desserts
+            doc.outline.append((course_name(course, lang), len(doc.pages)))
+            page = doc.add_page(210, 297)
+            page.rect(0, 0, 210, 297, fill="#f6f4ee")
+            page.rect(0, 118, 210, 46, fill=_GREEN)
+            page.text(105, 147, course_name(course, lang), size=30, bold=True, color="#ffffff", anchor="middle")
+        for r in chapter:
+            doc.outline.append((str(r["title"]), len(doc.pages)))
+            _recipe_page(doc, r, lang, pics.get(str(r["id"])))
     doc.outline.append((t["shopping"], len(doc.pages)))
     _shopping_page(doc, recipes, lang)
     return doc.to_bytes()
@@ -1083,6 +1527,6 @@ def catalog(lang: str | None = "en") -> dict[str, Any]:
     return {
         "sides": [{"id": k, "name": v.name(lang)} for k, v in SIDES.items()],
         "proteins": [{"id": k, "name": v.name(lang), "group": v.group} for k, v in PROTEINS.items()],
-        "pantry": [{"id": k, "name": v.name(lang), "group": v.group} for k, v in PANTRY.items()],
-        "techniques": [{"id": t.id, "name": _TECH_NAME[lang][t.id]} for t in TECHNIQUES],
+        "pantry": [{"id": k, "name": v.name(lang), "group": v.group, "fridge": v.fridge} for k, v in PANTRY.items()],
+        "techniques": [{"id": t.id, "name": _TECH_NAME[lang][t.id], "course": t.course} for t in TECHNIQUES],
     }

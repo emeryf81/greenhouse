@@ -7,7 +7,18 @@ from datetime import datetime
 from typing import Any, Literal
 
 from .migrations import STORAGE_MINOR_VERSION, STORAGE_VERSION, migrate
-from .models import Feature, GardenBed, GardenData, GardenLayout, Plant, Planting, RotationRecord, Task, Zone
+from .models import (
+    ArchivedPlan,
+    Feature,
+    GardenBed,
+    GardenData,
+    GardenLayout,
+    Plant,
+    Planting,
+    RotationRecord,
+    Task,
+    Zone,
+)
 from .serde import from_dict, to_dict
 
 FORMAT = "hortulus-plan"
@@ -32,6 +43,7 @@ def export_plan(
         "features": [to_dict(f) for f in data.features],
         "layouts": {season: to_dict(layout) for season, layout in data.layouts.items()},
         "layout_season": data.layout_season,
+        "archived_plans": [to_dict(a) for a in data.archived_plans if seasons is None or a.season in seasons],
         "plantings": [to_dict(p) for p in plantings],
         "custom_plants": [to_dict(p) for p in data.custom_plants],
         "plant_overrides": to_dict(data.plant_overrides),
@@ -69,6 +81,11 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         features = [from_dict(Feature, f) for f in upgraded.get("features", [])]
         layouts = {str(k): from_dict(GardenLayout, v) for k, v in (upgraded.get("layouts") or {}).items()}
         plantings = [from_dict(Planting, p) for p in upgraded.get("plantings", [])]
+        if "archived_plans" in upgraded and not isinstance(upgraded["archived_plans"], list):
+            raise ValueError("archived_plans must be a list")
+        archived = (
+            [from_dict(ArchivedPlan, a) for a in upgraded["archived_plans"]] if "archived_plans" in upgraded else None
+        )  # plans set aside travel too (a file without them leaves the ones already stored)
         plants = [from_dict(Plant, p) for p in upgraded.get("custom_plants", [])]
         history = [from_dict(RotationRecord, r) for r in upgraded.get("rotation_history", [])]
         tasks = [from_dict(Task, t) for t in upgraded["tasks"]] if isinstance(upgraded.get("tasks"), list) else None
@@ -86,12 +103,26 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
     for season, lay in layouts.items():
         kept = data.layouts.get(season) if mode == "merge" else None
         check_beds(lay.beds, {z.id for z in lay.zones} | ({z.id for z in kept.zones} if kept else set()))
+    for plan in archived or []:
+        check_beds(plan.beds, {z.id for z in plan.zones})
+        for planting in plan.plantings:
+            if planting.bed_id not in {b.id for b in plan.beds}:
+                raise PlanImportError(
+                    f"Plan {plan.name!r}: planting {planting.id!r} references unknown bed {planting.bed_id!r}"
+                )
     all_layouts = [*layouts.values(), *(data.layouts.values() if mode == "merge" else [])]
     bed_ids = {b.id for b in beds} | ({b.id for b in data.beds} if mode == "merge" else set())
     bed_ids |= {b.id for lay in all_layouts for b in lay.beds}
     for planting in plantings:
         if planting.bed_id not in bed_ids:
             raise PlanImportError(f"Planting {planting.id!r} references unknown bed {planting.bed_id!r}")
+
+    # Everything is checked before the first change: a refused file leaves the garden as it was.
+    overrides = upgraded.get("plant_overrides", {})
+    if overrides is None:
+        overrides = {}
+    if not isinstance(overrides, Mapping):
+        raise PlanImportError("Invalid plan: plant_overrides must be a mapping")
 
     def upsert(current: list[Any], incoming: list[Any]) -> list[Any]:
         if mode == "replace":
@@ -133,10 +164,11 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         if data.layout_season is None:
             data.layout_season = upgraded.get("layout_season")
     data.plantings = upsert(data.plantings, plantings)
+    if archived is not None:
+        data.archived_plans = upsert(data.archived_plans, archived)
     if tasks is not None:  # the file was exported with its tasks
         data.tasks = upsert(data.tasks, tasks)
     data.custom_plants = upsert(data.custom_plants, plants)
-    overrides = upgraded.get("plant_overrides") or {}
     data.plant_overrides = dict(overrides) if mode == "replace" else {**data.plant_overrides, **overrides}
     if mode == "replace":
         data.rotation_history = history
@@ -153,4 +185,5 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         "custom_plants": len(plants),
         "rotation_history": len(history),
         "tasks": len(tasks or []),
+        "archived_plans": len(archived or []),
     }

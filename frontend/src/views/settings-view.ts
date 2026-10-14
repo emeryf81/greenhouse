@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
-import { THEMES, setThemeChoice, themeChoice } from "../util/theme";
+import { APPEARANCES, THEMES, appearanceChoice, setAppearanceChoice, setThemeChoice, themeChoice } from "../util/theme";
 import { shared } from "../styles/tokens";
 import { photosEnabled, setPhotosEnabled } from "../components/plant-image";
 import type { Bed, HomeAssistant, PlanDoc, Plant, SensorMapping, Settings, Snapshot, Zone } from "../types";
@@ -514,6 +514,13 @@ export class SettingsView extends LitElement {
                 @click=${() => { setThemeChoice(th); this.requestUpdate(); }}>
               <span class="swatch ${th}"></span><b>${this.t(`theme.${th}`)}</b><small>${this.t(`theme.${th}.hint`)}</small></button>`)}
           </div></div>
+        <div class="field"><span>${this.t("settings.appearance")}</span>
+          <div class="row wrap" role="radiogroup" aria-label=${this.t("settings.appearance")}>
+            ${APPEARANCES.map((a) => html`<button class="btn small ${appearanceChoice() === a ? "primary" : "ghost"}" role="radio"
+              aria-checked=${String(appearanceChoice() === a)} ?disabled=${themeChoice() === "night"}
+              @click=${() => { setAppearanceChoice(a); this.requestUpdate(); }}>${this.t(`appearance.${a}`)}</button>`)}
+          </div>
+          <small class="xs muted">${this.t("settings.appearance_hint")}</small></div>
       </section>
     `;
   }

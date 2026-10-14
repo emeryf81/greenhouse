@@ -401,7 +401,9 @@ def _bed_score(
 def _item_for(demand: CropDemand, bed: GardenBed) -> _Item:
     plant = demand.plant
     row = max(plant.row_spacing_cm, plant.spacing_cm)
-    usable_w = bed.width_cm - 2 * MARGIN_CM
+    usable_w = max(
+        bed.width_cm - 2 * MARGIN_CM, 1.0
+    )  # a bed with no room left never divides by zero (packing refuses it)
     depth = row
     width = demand.area_cm2 / depth
     if width > usable_w:
