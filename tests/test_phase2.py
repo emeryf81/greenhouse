@@ -1264,11 +1264,6 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
         {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"steps": "Alles in de pan."}}
     )
     assert (await _result(client))["error"]["code"] == "invalid_recipe"  # a wrong shape is no reset
-    await client.send_json_auto_id(
-        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {}, "pantry": ["bulgur"]}
-    )
-    kept = (await _result(client))["result"]["book"][0]  # the answer follows the unsaved "at home" choices
-    assert next(i for i in kept["ingredients"] if i["id"] == "bulgur")["source"] == "pantry"
     other = {**spec, "servings": 7}  # another dish: a refused save adds no entry
     await client.send_json_auto_id(
         {"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": other, "ingredients": [{"name": " "}]}}
@@ -1278,6 +1273,11 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
         {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"ingredients": [], "steps": []}}
     )
     assert (await _result(client))["result"]["book"][0]["custom"] is False
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {}, "pantry": ["bulgur"]}
+    )
+    kept = (await _result(client))["result"]["book"][0]  # the answer follows the unsaved "at home" choices
+    assert next(i for i in kept["ingredients"] if i["id"] == "bulgur")["source"] == "pantry"
     # what the cook has at home (sent along) is not bought
     await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/render", "spec": spec, "pantry": ["bulgur"]})
     home = (await _result(client))["result"]["recipe"]
