@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **Documentation rewritten for the whole application.** The README (English, Dutch and the new
+  French edition) now describes every module of the panel with screenshots in all three
+  languages; Configuration, Entities & services and the FAQ are brought up to date with the code
+  and exist in English, Dutch and French; the architecture blueprint and the design system
+  describe the current engine, panel and themes. `frontend/dev/screenshots.mjs` regenerates the
+  screenshots from the dev harness, which now also builds a French snapshot.
+
 ## 1.7.1 – 2026-10
 
 ### Changed

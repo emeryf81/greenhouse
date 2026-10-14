@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="README.nl.md">🇳🇱 Nederlands</a> ·
+  <a href="README.fr.md">🇫🇷 Français</a> ·
   <a href="docs/en/CONFIGURATION.md">Configuration</a> ·
   <a href="docs/en/ENTITY_REFERENCE.md">Entities & services</a> ·
   <a href="docs/en/FAQ.md">FAQ</a> ·
@@ -15,6 +16,7 @@
   <img alt="HACS custom" src="https://img.shields.io/badge/HACS-custom-41BDF5">
   <img alt="Home Assistant 2025.10+" src="https://img.shields.io/badge/Home%20Assistant-2025.10%2B-18BCF2">
   <img alt="100% local" src="https://img.shields.io/badge/cloud-none-4C8C3F">
+  <img alt="English, Dutch, French" src="https://img.shields.io/badge/languages-EN%20%C2%B7%20NL%20%C2%B7%20FR-8B6446">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-8B6446">
 </p>
 
@@ -22,73 +24,279 @@
 
 *Hortulus* (Latin for "little garden", after Walahfrid Strabo's 9th‑century poem about
 tending his monastery vegetable plot) turns Home Assistant into a kitchen‑garden
-companion: draw your beds and greenhouse, drag crops onto them, and Hortulus works out
+companion. Draw your beds and greenhouse, drag crops onto them, and Hortulus works out
 **when to sow, plant out, feed, prune and harvest** – then keeps those plans honest with
-your **soil sensors and the weather forecast**.
+your **soil sensors and the weather forecast**, tells you what to do today, keeps your
+garden diary and harvest log, and turns what is ready to pick into **recipes, menus and a
+shopping list**.
 
-Everything runs locally. No accounts and no cloud – the only optional outside call is
-Open‑Meteo for better evaporation estimates, and it is off until you switch it on.
+Everything runs locally. No accounts and no cloud. The only outside calls are optional:
+Open‑Meteo for better evaporation estimates (off until you switch it on), plant photos
+from Wikipedia in your browser (switch them off in Settings) and, without a radar camera in Home
+Assistant, the public Buienradar map on the Weather tab in the Netherlands and Belgium.
+The whole panel, the plant database, the handbook and the recipes come in **English,
+Dutch and French**.
 
-<p align="center"><img src="docs/images/planner-en.png" alt="Planner" width="88%"></p>
+<p align="center"><img src="docs/images/en/dashboard.png" alt="Today: tasks, weather, frost and heat warnings" width="92%"></p>
 
-## Highlights
+## What is in the box
 
-| | |
-|---|---|
-| 🗺️ **Garden plan in three steps** | **1 · Draw your site** on a 10 × 10 cm grid: zones (vegetable garden, greenhouse, cold frame, **orchard, soft fruit, herb and flower garden**) and elements (house, driveway, street, terrace, lawn, paths, hedge, fence, trees, pond, shed, compost bin, water butt …). **2 · Arrange each zone** on its own map. **3 · Plant** by hand or let the system fill it. Recognisable **plant icons** (a carrot looks like a carrot), rows of seedlings for dense crops, multi‑select, align, layers, succession sowings, undo/redo, import/export. |
-| 🌳 **Perennials that stay** | An apple tree planted this year is still there next year: fruit trees, berries, asparagus and perennial herbs stay with their own yearly care (winter and summer pruning, thinning, netting, grease bands) – you move them into each new year at the year-end transition, and "gone from this season" keeps the history. |
-| 💬 **Advice & Q&A** | Ask in a sentence of dropdowns – *"I have a problem with [tomato]: [spots, mould or rot]"* – and get the live status, likely causes, what to do now, **eco & home remedies** and prevention. Suggestions for placement, pollination partners, pollinator flowers, bad neighbours, harvest gaps (vegetables all year), empty beds and ecology, with one‑click apply. |
-| ✨ **Autofill** | Proposes a whole season from your beds, household size, weekly hours, water and compost: right amounts per person, tall crops away from the sun, rotation and companions respected, quick crops in successive sowings, tender crops under glass. **Preferences**: must‑have and never crops, freedom of choice, respect neighbours, add pollinator flowers, aim for year‑round harvests, perennials allowed, respect the zone type. |
-| 🤝 **Companions & rotation** | Live scoring while you drag: friends/enemies, **pest deterrence and trap crops, allelopathy, nutrient competition and shading** (hemisphere aware) – each with an explanation, better‑neighbour suggestions and alternative beds for rotation conflicts. |
-| 🌱 **Plant database** | **232 crops**: 100 vegetables, 75 herbs, 36 fruits (apple, pear, cherry, plum, peach, fig, currants, gooseberry, raspberries, blueberry, grape, kiwi berry …) and 21 flowers & green manures (EN/NL), with Kc per growth stage, N‑P‑K demand, yearly care rules, pollination, eco tips and an icon – fully editable, add your own. |
-| 📅 **Task engine & garden year** | Sowing to harvest per crop, plus the **seasonal calendar**: prepare the soil (with compost kg), wash the greenhouse windows, shading on/off, biological control, nettle and comfrey feed, gutters and water butts, nest boxes, seed saving, winter rest and covers, orchard care. **Weather episodes** (heat, dry spell, storm, heavy rain) with eco tips, **weather‑aware rescheduling**, the tools each job needs, **overdue reminders** and a weekly look‑ahead. |
-| 📓 **Journal & records** | A **garden diary** with photos per bed or crop, a **harvest log** in kg that teaches Autofill **your own yields**, a **seed box** that knows which packets are getting old and which crops still need seed, **water use** from a garden meter and the rain butt, and **soil analyses** per bed that steer the fertiliser and lime advice. A **year view** shows every crop month by month, also as a printable year plan. |
-| 🍲 **Seasonal cooking** | A cookbook from what is **ready to pick**: soups, oven trays, stir-fries, pasta, risotto, salads, gratins, curries, frittata, stoemp, stuffed vegetables, pesto, crumbles, ratatouille, tians, shakshuka, waterzooi, fritters, clafoutis, vegetable cakes and **complete menus** – plus ideas to preserve the surplus (pickles, chutney, passata, jam, sauerkraut). Add what is in the fridge, a kind of meat or fish (or none) and a side (pasta, rice, bulgur, couscous, pearl couscous, gnocchi, potatoes, fries …); every dish gets a **picture of the crops on the plate**. Keep favourites in your own cookbook, make **one shopping list** for the week and print it, send it to your phone or a HA to-do list – recipes and the whole cookbook as PDF. |
-| 👪 **Household, card & voice** | Assign tasks to people with automatic rules and personal reminders, tick tasks off from any dashboard with the **`hortulus-tasks-card`**, and ask Assist *"what do I need to do in the garden today?"* (English and Dutch). |
-| 💧 **Water, feeding, health** | FAO‑56 **Penman‑Monteith ET₀** (Hargreaves fallback), Kc per growth stage, a root‑zone **water balance** per bed, NPK/EC **nutrient balance index**, **disease risk** (Hutton criteria, leaf wetness, greenhouse humidity), degree‑day phenology with dynamic harvest dates. |
-| 🚿 **Safe hardware control** | Valves + pump with **pump interlock, max runtime, frost lockout and rain skip**; greenhouse vents and shade screens in auto mode; everything also as advice only. |
-| 🖨️ **Print & reMarkable** | Garden and greenhouse maps with legend, scale and north arrow, bed sheets with grid, checklists, season charts, blank planning sheets and plant cards – as PDF in A4/A3/A5/Letter or **reMarkable Paper Pro** with e‑ink patterns and dot‑grid note areas to draw on. |
-| 📖 **Handbook** | 21 chapters on soil, sowing, watering, feeding, rotation, companions, the greenhouse, pests, diseases, the garden year, **fruit, tools & materials, home remedies, year‑round harvest and choosing sensors** (EN/NL), plus ⓘ tooltips everywhere. A **shopping list** works out seed, plants, compost, fleece, mesh and nets from your plan. |
-| 🏠 **Real HA citizen** | Sensors, binary sensors, numbers, selects, switches, buttons, a calendar and a to‑do list, services with responses, bus events, push/TTS/persistent notifications, diagnostics, EN + NL translations. |
+Hortulus adds one **panel** to the Home Assistant sidebar, organised in eight places, plus
+entities, services, a dashboard card and voice commands for the rest of Home Assistant.
 
-<table>
-  <tr>
-    <td><img src="docs/images/planner-orchard-nl.png" alt="Planner with plant icons, orchard and fruit corner (Dutch)"></td>
-    <td><img src="docs/images/advice-nl.png" alt="Advice and Q&A (Dutch)"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/dashboard-en.png" alt="Dashboard"></td>
-    <td><img src="docs/images/planner-autofill-nl.png" alt="Autofill (Dutch)"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/calendar-timeline-nl.png" alt="Season timeline (Dutch)"></td>
-    <td><img src="docs/images/print-nl.png" alt="Print for reMarkable (Dutch)"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/journal-nl.png" alt="Journal: diary, harvest, seed box and water (Dutch)"></td>
-    <td><img src="docs/images/calendar-year-nl.png" alt="Year view (Dutch)"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/handbook-chapter-nl.png" alt="Handbook (Dutch)"></td>
-    <td><img src="docs/images/task-dialog-nl.png" alt="Task with live sensor context (Dutch)"></td>
-  </tr>
-</table>
+| Place | Tabs | What it is for |
+|---|---|---|
+| **Today** | Today · Wall screen | The day at a glance: tasks, warnings, weather, quick harvest, beds. |
+| **Garden** | Planner · Garden plan · Crops | Draw the site, arrange the zones, plant the beds; every crop in one list, timeline, sowing plan, seeds, succession and harvest forecast. |
+| **Calendar** | Calendar | Month, week, list, season timeline and year view of every task and crop. |
+| **Weather** | Weather | Forecast, what it means for your garden, rain radar. |
+| **Journal** | Diary · Harvest · Kitchen · Seed box · Water · Season report · System log | Everything you record, and what it adds up to. |
+| **Cooking** | Ideas · My cookbook · Shopping list | A seasonal cookbook from what is ready to pick. |
+| **Knowledge** | Plants · Advice · Handbook | 232 crops, questions and answers, a 23‑chapter handbook. |
+| **Manage** | Analysis · Print · Settings | Plan check and diagnosis, PDFs for paper and reMarkable, all settings. |
 
-### Printouts for paper and the reMarkable Paper Pro
+## The garden
+
+### Plan the site in five steps
+
+**1 · Site** (house, driveway, street, terrace, lawn, paths, hedge, fence, trees, pond,
+shed, compost bin, water butt …) on a 10 × 10 cm grid, **2 · Growing zones** (vegetable
+garden, greenhouse, cold frame, **orchard, soft fruit, herb and flower garden**),
+**3 · Beds** and planters inside the zones, **4 · Perennials** (fruit trees, berries,
+asparagus, perennial herbs) and **5 · Annuals** – by hand, or let **Autofill** propose a
+whole season. Each step edits only its own kind of thing, so a drag in step 5 can never
+move a wall. Plants have recognisable **icons** (a carrot looks like a carrot), dense crops
+are drawn as rows of seedlings, and an element that sits on top of another (lawn under a
+terrace) reduces the area underneath. Multi‑select, align, layers, succession sowings,
+undo/redo and import/export are built in.
 
 <table>
   <tr>
-    <td width="33%"><img src="docs/images/pdf-remarkable-garden.png" alt="Garden map, reMarkable e-ink"></td>
-    <td width="33%"><img src="docs/images/pdf-remarkable-bed.png" alt="Bed sheet with grid"></td>
-    <td width="33%"><img src="docs/images/pdf-a4-season.png" alt="Season chart, A4 colour"></td>
+    <td width="50%"><img src="docs/images/en/planner.png" alt="Planner with plant icons, orchard and fruit corner"></td>
+    <td width="50%"><img src="docs/images/en/planner-crop.png" alt="A crop with its timeline, companions and why it fits here"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/en/layout.png" alt="Garden plan: zones, beds and elements"></td>
+    <td><img src="docs/images/en/crops.png" alt="Crops: every crop of the season in one list"></td>
   </tr>
 </table>
 
-The **Print** tab previews every page before you download it. The reMarkable format is
-179.6 × 239.5 mm (the Paper Pro's 4:3 screen) with a wider left margin for the toolbar;
-*e‑ink* mode uses light tints plus a hatch pattern per plant family, so beds stay
-distinguishable and your pen strokes stay visible. Automations can produce the same PDFs
-with `garden_manager.export_pdf` (saved to `/config/hortulus/exports/`).
+* **Companions & rotation** – live scoring while you drag: friends and enemies, **pest
+  deterrence and trap crops, allelopathy, nutrient competition and shading** (hemisphere
+  aware), each with an explanation, better‑neighbour suggestions and alternative beds for
+  rotation conflicts. *"Why (not) here?"* answers in plain words, per bed.
+* **Autofill** – proposes a whole season from your beds, household size, weekly hours,
+  water and compost: right amounts per person, tall crops away from the sun, rotation and
+  companions respected, quick crops in successive sowings, tender crops under glass.
+  Preferences: must‑have and never crops, freedom of choice, pollinator flowers,
+  year‑round harvest, perennials allowed, respect the zone type.
+* **Perennials that stay** – an apple tree planted this year is still there next year,
+  with its own yearly care (winter and summer pruning, thinning, netting, grease bands).
+  At the **year‑end transition** you choose what moves into the new season; old seasons go
+  to an archive and stay available for rotation, reports and the season book.
+* **Crops** – every crop of the season in one table (sowing and planting dates, status,
+  notes), plus **timeline**, **sowing plan by week**, **seed needs**, **succession** and a
+  **harvest forecast**; change several crops at once.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/en/crops-timeline.png" alt="Crop timeline per bed"></td>
+    <td width="50%"><img src="docs/images/en/crops-sowing-plan.png" alt="Sowing plan by week"></td>
+  </tr>
+</table>
+
+### Know what to do – and when
+
+A **task engine** schedules the whole life of every crop – sowing, pricking out, hardening
+off, planting out, feeding, pruning, harvest – and the **garden year**: soil preparation
+(with kilos of compost), cleaning the greenhouse windows, shading on and off, biological
+control, nettle and comfrey feed, gutters and water butts, nest boxes, seed saving, winter
+rest, orchard care. Tasks adapt to the weather (heat, dry spell, storm, heavy rain), wait
+for warm soil and a frost‑free forecast, come with the tools each job needs, and nag
+politely when overdue. You can assign them to people, tick them off from any dashboard,
+and see a weekly look‑ahead.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/en/calendar-timeline.png" alt="Season timeline"></td>
+    <td width="50%"><img src="docs/images/en/calendar-year.png" alt="Year view: every crop month by month"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/en/weather.png" alt="Weather and what it means for the garden"></td>
+    <td><img src="docs/images/en/wall.png" alt="Wall screen"></td>
+  </tr>
+</table>
+
+* **Calendar** – month, week, list, season timeline and year view, also as a Home
+  Assistant calendar and to‑do list.
+* **Weather** – hourly and daily forecast, what the coming days mean for *your* garden
+  (frost, a hot day, rain you can count on, a bed that needs water) and a rain radar.
+* **Wall screen** – a calm kiosk view of time, weather and tasks for a tablet in the
+  kitchen; dims at night.
+
+## Records, kitchen and knowledge
+
+### Journal
+
+A **garden diary** with photos per bed or crop and a photo timeline, a **harvest log** in
+kilos that teaches Autofill **your own yields**, a **seed box** that knows which packets
+are getting old and which crops still need seed (and puts what is missing on your shopping
+list), **water use** from a garden meter and the rain butt with a per‑bed watering history,
+**soil analyses** per bed that steer fertiliser and lime advice, costs and savings, and a
+**season report** – also as a printable **season book**. A *System log* shows what changed
+and lets you undo it.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/en/journal-harvest.png" alt="Harvest log and yield per crop"></td>
+    <td width="50%"><img src="docs/images/en/journal-water.png" alt="Water use and watering history per bed"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/en/journal-seeds.png" alt="Seed box"></td>
+    <td><img src="docs/images/en/journal-report.png" alt="Season report"></td>
+  </tr>
+</table>
+
+### Cooking – from what is ready to pick
+
+Hortulus looks at the crops inside their harvest window (plus what you add from the
+cellar, such as stored pumpkins or frozen beans) and proposes **dishes and complete menus**:
+soups, oven trays, stir‑fries, pasta, risotto, salads, gratins, curries, frittata, stoemp,
+stuffed vegetables, pesto, crumbles, ratatouille, tians, shakshuka, waterzooi, fritters,
+clafoutis, vegetable cakes and more – more than sixty kinds of dish – and a chapter on
+**preserving the surplus** (quick pickles, chutney, passata, jam, freezing, sauerkraut).
+Safe by design: salad crops stay raw, beans and elderberries are never offered raw.
+
+* Tell it what is in the **fridge** (each item is worked into the dishes where it fits),
+  what is **always in the house**, a **side** (pasta, rice, bulgur, couscous, pearl couscous,
+  gnocchi, potatoes, fries …) and a kind of **meat, fish or vegetarian protein** (or none).
+* Every dish gets a **picture of the crops on the plate**, quantities per person, and
+  what comes from the garden, what is at home and what to buy.
+* **Edit any recipe**: change ingredients and steps, keep your version in **My cookbook**
+  with favourites, notes and when you cooked it.
+* **One shopping list** for the week: print it, save it as PDF, send it to your phone or to
+  a Home Assistant to‑do list. Recipes and the whole cookbook export as PDF.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/en/cooking.png" alt="Cooking: ready in the garden, menus and dishes"></td>
+    <td width="50%"><img src="docs/images/en/cooking-dish.png" alt="A recipe with its picture, ingredients and method"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/en/cooking-menus.png" alt="Complete menus from the garden"></td>
+    <td><img src="docs/images/en/cooking-shopping.png" alt="Shopping list: what to buy and what the garden gives"></td>
+  </tr>
+</table>
+
+### Knowledge
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/en/library-plant.png" alt="Plant card with calendar, spacing, companions and care"></td>
+    <td width="50%"><img src="docs/images/en/advice-answer.png" alt="Ask Hortulus: what should I do now with tomato?"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/en/handbook.png" alt="Handbook: 23 chapters"></td>
+    <td><img src="docs/images/en/library.png" alt="Plant library"></td>
+  </tr>
+</table>
+
+* **Plant database** – **232 crops**: 100 vegetables, 75 herbs, 36 fruits and 21 flowers
+  and green manures, with Kc per growth stage, N‑P‑K demand, yearly care rules,
+  pollination, eco tips and an icon – fully editable, add your own.
+* **Advice & Q&A** – ask in a sentence of dropdowns (*"I have a problem with [tomato]:
+  [spots, mould or rot]"*) and get the live status, likely causes, what to do now, **eco
+  and home remedies** and prevention. Plus suggestions for placement, pollination partners,
+  pollinator flowers, bad neighbours, harvest gaps, empty beds and ecology, with one‑click
+  apply.
+* **Handbook** – 23 chapters on soil, sowing, watering, feeding, rotation, companions, the
+  greenhouse, pests, diseases, the garden year, fruit, tools and materials, home remedies,
+  year‑round harvest and choosing sensors, with ⓘ tooltips everywhere. A **shopping list**
+  works out seed, plants, compost, fleece, mesh and nets from your plan.
+
+## Water, feeding and health
+
+* FAO‑56 **Penman‑Monteith ET₀** (Hargreaves fallback), Kc per growth stage, a root‑zone
+  **water balance** per bed, an NPK/EC **nutrient balance index**, **disease risk**
+  (Hutton criteria, leaf wetness, greenhouse humidity) and degree‑day phenology with
+  dynamic harvest dates.
+* **Safe hardware control** – valves and a pump with **pump interlock, maximum runtime,
+  frost lockout and rain skip**; a valve that stops reporting ends the run and stops the
+  pump; leak and flow monitoring from the water meter; greenhouse vents and shade screens
+  in auto mode; everything also as advice only.
+* **Manage → Analysis** checks the plan (overlaps, conflicts, rotation, gaps), explains
+  *why a plant does not fit*, compares two plans and offers one‑click fixes.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/en/analysis.png" alt="Garden check: problems with one-click fixes"></td>
+    <td width="50%"><img src="docs/images/en/settings.png" alt="Settings: climate, weather, zones, sensors, irrigation"></td>
+  </tr>
+</table>
+
+## Print, paper and reMarkable
+
+The **Print** tab previews every page before you download it: garden and greenhouse maps
+with legend, scale and north arrow, bed sheets with a grid, checklists, season charts, the
+year plan, blank planning sheets, plant cards and a complete **season book** – as PDF in
+A4, A3, A5, Letter or for the **reMarkable Paper Pro** (179.6 × 239.5 mm, e‑ink patterns
+with a hatch per plant family and dot‑grid note areas to draw on). Automations can produce
+the same PDFs with `garden_manager.export_pdf` (saved to `/config/hortulus/exports/`).
+
+<table>
+  <tr>
+    <td width="25%"><img src="docs/images/en/print.png" alt="Print tab with live preview"></td>
+    <td width="25%"><img src="docs/images/pdf-remarkable-garden.png" alt="Garden map, reMarkable e-ink"></td>
+    <td width="25%"><img src="docs/images/pdf-remarkable-bed.png" alt="Bed sheet with grid"></td>
+    <td width="25%"><img src="docs/images/pdf-a4-season.png" alt="Season chart, A4 colour"></td>
+  </tr>
+</table>
+
+## On every screen
+
+The panel follows your phone, tablet or desktop, in light or dark, with four colour themes
+(Classic, Earth, Night and one that follows the season).
+
+<table>
+  <tr>
+    <td width="20%"><img src="docs/images/en/mobile-dashboard.png" alt="Today on a phone"></td>
+    <td width="20%"><img src="docs/images/en/mobile-planner.png" alt="Planner on a phone"></td>
+    <td width="20%"><img src="docs/images/en/mobile-cooking.png" alt="Cooking on a phone"></td>
+    <td width="40%"><img src="docs/images/en/dashboard-dark.png" alt="Dark mode"></td>
+  </tr>
+</table>
+
+## Part of Home Assistant
+
+* **Entities** – sensors, binary sensors, numbers, selects, switches, buttons, a calendar
+  and a to‑do list, with diagnostics and translations in English, Dutch and French.
+* **Services** with responses and **bus events** for your automations; push, TTS and
+  persistent **notifications**, with action buttons on your phone (done, postpone).
+* **Household** – assign tasks to people with automatic rules and personal reminders, and
+  tick tasks off from any dashboard with the **`hortulus-tasks-card`**.
+* **Voice** – ask Assist *"what do I need to do in the garden today?"* (English, Dutch and
+  French sentences).
+* **Several gardens** – one Hortulus entry per garden, each with its own plan, tasks and
+  records.
+* **Blueprints** – frost warning on a lamp, a button or NFC tag that logs a harvest,
+  watering a dry bed at a good moment, spoken announcements of urgent jobs.
+
+### Hortulus Web – the same garden on a website (optional)
+
+A separate website edition runs the same engine and the same panel in the browser, with
+accounts, several gardens per account, and a public front page. You can **show your garden**
+to others – with a link or publicly – and choose per part what visitors see (plan, calendar,
+weather, journal, harvest, recipes); visitors never see Home Assistant details. It is
+delivered separately from this integration, and the plan files can be exchanged between the
+two. See [Configuration → Hortulus Web](docs/en/CONFIGURATION.md#10-hortulus-web-optional-website).
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/images/en/web-home.png" alt="Website: front page with public gardens"></td>
+    <td width="33%"><img src="docs/images/en/web-share.png" alt="Website: share your garden, choose what visitors see"></td>
+    <td width="33%"><img src="docs/images/en/web-app.png" alt="Website: the Hortulus panel in the browser"></td>
+  </tr>
+</table>
 
 ## Installation
 
@@ -184,6 +392,9 @@ Ready-made automations - click to import them into Home Assistant:
   and pump are always switched off at the end, also after errors.
 * **Frost:** hourly forecast, plant‑level adjustment for clear calm nights, greenhouse
   buffering, heated‑zone floor; falls back to daily forecast, then to the live sensor.
+* **Cooking:** a recipe is a *technique* (soup, tray, tian …) filled with the crops that
+  are in season, the side, the protein and the fridge items; texts are written per language,
+  and the same engine builds menus, the shopping list and the PDFs.
 
 The [architecture blueprint](docs/BLUEPRINT.md) documents every model and algorithm.
 
@@ -199,8 +410,10 @@ cd frontend && npm ci
 npm run typecheck && npm test && npm run build   # writes custom_components/garden_manager/frontend/hortulus-panel.js
 ```
 
-Repository layout and design rationale are described in the
-[blueprint](docs/BLUEPRINT.md); the visual language in the
+The panel also runs without Home Assistant in a dev harness
+(`frontend/dev`, see its README); the screenshots in this README are made with
+`node frontend/dev/screenshots.mjs`. Repository layout and design rationale are described
+in the [blueprint](docs/BLUEPRINT.md); the visual language in the
 [design system](docs/DESIGN_SYSTEM.md).
 
 ## License
