@@ -1225,6 +1225,15 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     saved = (await _result(client))["result"]
     assert saved["id"] == changed["recipe"]["id"] and saved["book"][0]["favorite"] is True
     assert len(repo.data.cookbook) == 1
+    # malformed lists are refused or cleaned, never an unknown_error
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/render", "spec": {**spec, "produce": 1}})
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": {**spec, "produce": 1}}})
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": {**spec, "extras": [{}, *spec.get("extras", [])]}}}
+    )
+    assert (await _result(client))["success"] and len(repo.data.cookbook) == 1
     await client.send_json_auto_id(
         {
             "type": f"{DOMAIN}/cooking/book/update",

@@ -1059,7 +1059,7 @@ COOKBOOK_MAX = 500
 def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
 
     tech = str(raw.get("technique") or "")
-    produce = [str(p) for p in raw.get("produce") or [] if isinstance(p, str)][:6]
+    produce = cooking.str_ids(raw.get("produce"))[:6]
     if tech not in cooking.TECHNIQUE or not produce:
         raise _err("invalid_recipe")
     side = str(raw.get("side") or "")
@@ -1069,7 +1069,7 @@ def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "produce": produce,
         "side": side if side in cooking.SIDES else "",
         "protein": protein if protein in cooking.PROTEINS else "",
-        "extras": [x for x in raw.get("extras") or [] if x in cooking.PANTRY][:12],
+        "extras": [x for x in cooking.str_ids(raw.get("extras")) if x in cooking.PANTRY][:12],
         "servings": cooking.servings_of(raw.get("servings")),
     }
 

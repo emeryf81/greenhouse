@@ -615,6 +615,11 @@ def servings_of(value: Any, default: int = 2) -> int:
     return max(1, min(12, n))
 
 
+def str_ids(value: Any) -> list[str]:
+    """The string ids in a list (anything else, or a non-list: nothing)."""
+    return [x for x in value if isinstance(x, str)] if isinstance(value, (list, tuple)) else []
+
+
 def spec_id(spec: Mapping[str, Any]) -> str:
     key = json.dumps(
         {k: spec.get(k) for k in ("technique", "produce", "side", "protein", "extras", "servings")}, sort_keys=True
@@ -647,7 +652,7 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
         return None
     servings = servings_of(spec.get("servings"))
     produce: list[tuple[Plant, str]] = []
-    for pid in spec.get("produce") or []:
+    for pid in str_ids(spec.get("produce")):
         plant = db.get(pid)
         kind = produce_kind(plant)
         if plant is not None and kind is not None:
@@ -658,7 +663,7 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
     side = SIDES.get(side_id)
     protein_id = str(spec.get("protein") or "")
     protein = PROTEINS.get(protein_id)
-    extras = [x for x in spec.get("extras") or [] if x in PANTRY]
+    extras = [x for x in str_ids(spec.get("extras")) if x in PANTRY]
     in_house = set(pantry)
 
     names = [short_name(p, lang) for p, _ in produce]

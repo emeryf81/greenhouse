@@ -100,3 +100,7 @@ def test_unreadable_input_falls_back(db: PlantDatabase) -> None:
     assert cooking.Prefs.from_dict(["nope"]).servings == 2  # type: ignore[arg-type]
     assert cooking.render({"technique": "soup", "produce": ["carrot"], "servings": "many"}, db)["servings"] == 2
     assert cooking.render(["soup"], db) is None  # type: ignore[arg-type]
+    assert cooking.render({"technique": "soup", "produce": 1}, db) is None
+    odd = cooking.render({"technique": "soup", "produce": ["carrot", {}], "extras": [{}, "lemon", 3]}, db)
+    assert odd is not None and [i["plant_id"] for i in odd["ingredients"] if i.get("group") == "garden"] == ["carrot"]
+    assert cooking.str_ids("carrot") == [] and cooking.str_ids(("a", 1)) == ["a"]
