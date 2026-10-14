@@ -88,7 +88,14 @@ export class HortulusPanel extends LitElement {
    */
   private get allowedTabs(): Set<Tab> | null {
     const tabs = (this.panel as { config?: { tabs?: string[] } } | undefined)?.config?.tabs;
-    return Array.isArray(tabs) && tabs.length ? new Set(tabs as Tab[]) : null;
+    // no list: everything (Home Assistant); a list, even an empty one, restricts
+    return Array.isArray(tabs) ? new Set(tabs as Tab[]) : null;
+  }
+
+  /** Where a tab that may not be shown leads: Today, else the first allowed tab. */
+  private get fallbackTab(): Tab {
+    if (this.tabAllowed("dashboard")) return "dashboard";
+    return TABS.find((t) => this.tabAllowed(t.id))?.id ?? "dashboard";
   }
 
   private tabAllowed(tab: Tab): boolean {
@@ -223,8 +230,10 @@ export class HortulusPanel extends LitElement {
     }
     if (changed.has("route") && this.route) {
       const [seg, sub] = this.route.path.replace(/^\//, "").split("/") as [Tab, string | undefined];
-      this.tab = TABS.some((t) => t.id === seg) && this.tabAllowed(seg) ? seg : "dashboard";
+      this.tab = TABS.some((t) => t.id === seg) && this.tabAllowed(seg) ? seg : this.fallbackTab;
       if (this.tab === "handbook") this.chapter = sub ?? "";
+    } else if (changed.has("panel") && !this.tabAllowed(this.tab)) {
+      this.tab = this.fallbackTab; // the allowed tabs changed under the open one
     }
   }
 
@@ -309,6 +318,7 @@ export class HortulusPanel extends LitElement {
   }
 
   private openHandbook(chapter = ""): void {
+    if (!this.tabAllowed("handbook")) return;
     this.chapter = chapter;
     const base = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/handbook${chapter ? `/${chapter}` : ""}`;
     history.pushState(null, "", base);
@@ -323,7 +333,7 @@ export class HortulusPanel extends LitElement {
   }
 
   private navigate(tab: Tab, ev?: Event): void {
-    if (!this.tabAllowed(tab)) tab = "dashboard";
+    if (!this.tabAllowed(tab)) tab = this.fallbackTab;
     ev?.preventDefault();
     const path = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/${tab === "dashboard" ? "" : tab}`.replace(/\/$/, "");
     history.pushState(null, "", path);

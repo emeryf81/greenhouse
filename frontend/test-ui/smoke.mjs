@@ -269,6 +269,9 @@ await step("shared view: only the tabs the owner shows", async () => {
   const places = await page.locator("hortulus-panel").evaluate((el) => [...el.shadowRoot.querySelectorAll("nav.side a, nav.bottom a, nav a")].map((a) => a.textContent.trim()));
   assert.ok(!places.some((t) => /Logboek|Kalender|Weer|Beheer/.test(t)), places.join("|"));
   assert.ok(places.some((t) => /Tuin/.test(t)), places.join("|"));
+  // without Today in the list, a tab that is not shown falls back to the first one that is
+  await page.goto(`${base}?tab=journal&lang=nl&tabs=planner,crops`);
+  await page.locator("hl-planner-view").waitFor();
 });
 
 await step("wall screen: clock and big tick-boxes, back to Today", async () => {
