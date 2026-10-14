@@ -5,8 +5,11 @@
 ### Changed
 - **Cooking: fridge items only go where they fit.** What you tick under "use up from the fridge"
   is no longer worked into every dish. Each dish takes only what suits it, in the way that
-  suits it: yoghurt as a fresh sauce with roast or stuffed vegetables, a creamy salad dressing
-  or a spoonful on a soup or curry, never on pasta or risotto. Cheese melts over an oven dish,
+  suits it. Yoghurt always becomes a sauce that belongs with the dish: a tzatziki-style sauce
+  (cucumber, garlic, lemon, cumin, mint or dill) with roast, stuffed or plated vegetables, a raita
+  with a curry, a soy-ginger dip with a stir-fry, a creamy herb dressing for a salad, a lemon-herb
+  spoonful on soup or honey-cinnamon yoghurt with a crumble – never on pasta or risotto. Fresh
+  herbs from the garden (dill, parsley, chives, coriander) go into the sauce when there are any. Cheese melts over an oven dish,
   goes into a frittata or on a salad; at most one extra cheese and one extra cream per dish, and
   nothing the recipe already uses. The step sits at the right moment in the method, not always
   at the end.

@@ -488,11 +488,11 @@ _SERVE_SIDE = {"en": "Serve with the {s}.", "nl": "Serveer met de {s}.", "fr": "
 # or a spoonful on a curry, never a topping for pasta.  Per technique: item -> role.  Items a
 # technique does not list are left out of that dish (they stay in the fridge for another one).
 _EXTRA_USE: dict[str, dict[str, str]] = {
-    "soup": {"yoghurt": "dollop", "parmesan": "top", "nuts": "nuts", "ginger": "start", "curry_paste": "start",
+    "soup": {"yoghurt": "yog_soup", "parmesan": "top", "nuts": "nuts", "ginger": "start", "curry_paste": "start",
              "tomato_paste": "start", "garlic": "start"},
     "roast": {"feta": "top", "mozzarella": "melt", "grated_cheese": "melt", "parmesan": "top", "yoghurt": "yog_sauce",
               "nuts": "nuts", "lemon": "lemon", "honey": "glaze", "vinegar": "glaze", "onion": "tray"},
-    "stir_fry": {"eggs": "egg_wok", "honey": "season", "vinegar": "season", "nuts": "nuts", "curry_paste": "start",
+    "stir_fry": {"yoghurt": "yog_soy", "eggs": "egg_wok", "honey": "season", "vinegar": "season", "nuts": "nuts", "curry_paste": "start",
                  "coconut_milk": "finish_liquid", "onion": "start"},
     "pasta": {"cream": "simmer", "tomato_paste": "start", "white_wine": "deglaze", "feta": "top", "lemon": "lemon",
               "nuts": "nuts", "onion": "start", "butter": "butter"},
@@ -500,7 +500,7 @@ _EXTRA_USE: dict[str, dict[str, str]] = {
     "salad": {"feta": "top", "mozzarella": "top", "parmesan": "top", "yoghurt": "yog_dressing", "eggs": "egg_salad",
               "nuts": "nuts", "honey": "dressing", "vinegar": "dressing", "onion": "raw"},
     "gratin": {"breadcrumbs": "crust", "parmesan": "crust", "mustard": "into_cream"},
-    "stew": {"yoghurt": "dollop", "ginger": "start", "tomato_paste": "start", "nuts": "nuts", "stock": "liquid"},
+    "stew": {"yoghurt": "raita", "ginger": "start", "tomato_paste": "start", "nuts": "nuts", "stock": "liquid"},
     "frittata": {"feta": "before_grill", "mozzarella": "before_grill", "parmesan": "egg_mix", "milk": "egg_mix",
                  "cream": "egg_mix", "onion": "start"},
     "stoemp": {"mustard": "mash", "cream": "mash", "grated_cheese": "mash", "onion": "fried_onion"},
@@ -508,18 +508,21 @@ _EXTRA_USE: dict[str, dict[str, str]] = {
                 "parmesan": "melt", "yoghurt": "yog_sauce", "breadcrumbs": "crust"},
     "plate": {"lemon": "lemon", "nuts": "nuts", "yoghurt": "yog_sauce", "cream": "pan_sauce"},
     "pesto": {},
-    "dessert": {"yoghurt": "serve_with", "cream": "serve_with", "nuts": "crumble"},
+    "dessert": {"yoghurt": "yog_honey", "cream": "serve_with", "nuts": "crumble"},
 }  # fmt: skip
 _CHEESES = frozenset(("parmesan", "feta", "mozzarella", "grated_cheese"))
 _CREAMY = frozenset(("cream", "coconut_milk", "milk"))
 _CHEESE_INSIDE = frozenset(("crust", "egg_mix", "in_filling"))
 # Where a role's step goes: "mid" after the technique's second step (onion softened, vegetables
 # in the pan), "late" after its last.
-_ROLE_MID = frozenset(("start", "tray", "liquid", "simmer", "deglaze", "egg_mix", "into_cream", "in_filling", "crust"))
+_ROLE_MID = frozenset(
+    ("start", "tray", "liquid", "simmer", "deglaze", "egg_mix", "into_cream", "in_filling", "crust", "yog_dressing")
+)
 _ROLE_ORDER = (
     "start", "tray", "liquid", "deglaze", "simmer", "into_cream", "egg_mix", "in_filling", "crust", "before_grill",
     "melt", "glaze", "mash", "fried_onion", "egg_wok", "season", "dressing", "yog_dressing", "raw", "egg_salad",
-    "finish_liquid", "butter", "pan_sauce", "lemon", "top", "nuts", "dollop", "yog_sauce", "serve_with", "crumble",
+    "finish_liquid", "butter", "pan_sauce", "lemon", "top", "nuts", "dollop", "yog_soup", "raita", "yog_sauce",
+    "yog_soy", "yog_honey", "serve_with", "crumble",
 )  # fmt: skip
 _ROLE_TEXT: dict[str, dict[str, str]] = {
     "en": {
@@ -540,7 +543,7 @@ _ROLE_TEXT: dict[str, dict[str, str]] = {
         "egg_wok": "Push everything aside, scramble the beaten {x} in the wok and toss through.",
         "season": "Season with a dash of {x}.",
         "dressing": "Whisk a spoonful of {x} into the dressing.",
-        "yog_dressing": "Replace half of the oil in the dressing with {x} for a creamy dressing.",
+        "yog_dressing": "Make the dressing creamy: whisk in the {x} with finely chopped {h} and, if you like, a teaspoon of honey.",
         "raw": "Slice the {x} paper-thin and toss it through.",
         "egg_salad": "Boil the {x} for 8 minutes, cool them in cold water, peel and quarter them over the salad.",
         "finish_liquid": "Stir in a splash of {x} at the end.",
@@ -550,7 +553,11 @@ _ROLE_TEXT: dict[str, dict[str, str]] = {
         "top": "Scatter the {x} over it when serving.",
         "nuts": "Toast the {x} briefly in a dry pan and scatter them over it.",
         "dollop": "Top each plate with a spoonful of {x}.",
-        "yog_sauce": "Stir the {x} with a little lemon juice, a crushed garlic clove, salt and pepper into a fresh sauce and serve it alongside.",
+        "yog_sauce": "Make a fresh yoghurt sauce: grate a piece of cucumber (if you have one), squeeze out the moisture and stir it into the {x} with a crushed garlic clove, a squeeze of lemon, a pinch of cumin, finely chopped {h}, salt and pepper. Serve it alongside.",
+        "raita": "Make a raita: stir grated cucumber (if you have one), finely chopped {h}, a pinch of cumin and a pinch of salt into the {x}; top each plate with a spoonful.",
+        "yog_soup": "Stir the {x} with a little lemon juice, pepper and finely chopped {h}; top each bowl with a spoonful.",
+        "yog_soy": "For a dipping sauce, stir the {x} with a dash of soy sauce, a little grated ginger, a drop of honey and finely sliced {h}; serve it alongside.",
+        "yog_honey": "Stir the {x} with a spoonful of honey and a pinch of cinnamon and serve it alongside.",
         "serve_with": "Serve with {x}.",
         "crumble": "Mix the chopped {x} into the crumble.",
     },
@@ -572,7 +579,7 @@ _ROLE_TEXT: dict[str, dict[str, str]] = {
         "egg_wok": "Schuif alles opzij, roer de losgeklopte {x} in de wok tot roerei en schep om.",
         "season": "Breng op smaak met een scheutje {x}.",
         "dressing": "Klop een lepel {x} door de dressing.",
-        "yog_dressing": "Vervang de helft van de olie in de dressing door {x} voor een romige dressing.",
+        "yog_dressing": "Maak de dressing romig: klop er de {x} door met fijngehakte {h} en, als je wil, een koffielepel honing.",
         "raw": "Snij de {x} flinterdun en meng erdoor.",
         "egg_salad": "Kook de {x} 8 minuten, laat schrikken in koud water, pel ze en verdeel ze in parten over de salade.",
         "finish_liquid": "Roer er op het einde een scheutje {x} door.",
@@ -582,7 +589,11 @@ _ROLE_TEXT: dict[str, dict[str, str]] = {
         "top": "Strooi bij het opdienen de {x} erover.",
         "nuts": "Rooster de {x} kort in een droge pan en strooi ze erover.",
         "dollop": "Schep bij het opdienen een lepel {x} op elk bord.",
-        "yog_sauce": "Roer de {x} los met wat citroensap, een geperst teentje look, peper en zout tot een frisse saus en serveer erbij.",
+        "yog_sauce": "Maak een frisse yoghurtsaus: rasp een stuk komkommer (als je die hebt), knijp het vocht eruit en roer het door de {x} met een geperst teentje look, een scheutje citroensap, een snuf komijn, fijngehakte {h}, peper en zout. Serveer erbij.",
+        "raita": "Maak een raita: roer geraspte komkommer (als je die hebt), fijngehakte {h}, een snuf komijn en een snuf zout door de {x}; schep bij het opdienen een lepel op elk bord.",
+        "yog_soup": "Roer de {x} los met een beetje citroensap, peper en fijngehakte {h}; schep bij het opdienen een lepel op elk bord.",
+        "yog_soy": "Roer voor een dipsausje de {x} met een scheutje sojasaus, wat geraspte gember, een druppel honing en fijngesneden {h}; serveer erbij.",
+        "yog_honey": "Roer de {x} met een lepel honing en een snuf kaneel en serveer erbij.",
         "serve_with": "Serveer met {x}.",
         "crumble": "Meng de gehakte {x} door het kruimeldeeg.",
     },
@@ -604,7 +615,7 @@ _ROLE_TEXT: dict[str, dict[str, str]] = {
         "egg_wok": "Poussez tout sur le côté, brouillez {x} battus dans le wok et mélangez.",
         "season": "Relevez d'un trait de {x}.",
         "dressing": "Ajoutez une cuillerée de {x} à la vinaigrette.",
-        "yog_dressing": "Remplacez la moitié de l'huile de la vinaigrette par {x} pour une sauce crémeuse.",
+        "yog_dressing": "Rendez la vinaigrette crémeuse : fouettez-y {x} avec {h} finement ciselé(e) et, si vous voulez, une cuillerée de miel.",
         "raw": "Émincez finement {x} et mélangez.",
         "egg_salad": "Cuisez {x} 8 minutes, passez-les à l'eau froide, écalez-les et répartissez-les en quartiers sur la salade.",
         "finish_liquid": "Ajoutez un trait de {x} à la fin.",
@@ -614,7 +625,11 @@ _ROLE_TEXT: dict[str, dict[str, str]] = {
         "top": "Parsemez de {x} au moment de servir.",
         "nuts": "Torréfiez {x} à sec dans une poêle et parsemez-en le plat.",
         "dollop": "Déposez une cuillerée de {x} sur chaque assiette.",
-        "yog_sauce": "Mélangez {x} avec un peu de jus de citron, une gousse d'ail écrasée, sel et poivre pour une sauce fraîche, servie à côté.",
+        "yog_sauce": "Préparez une sauce fraîche : râpez un morceau de concombre (si vous en avez), pressez-le et mélangez-le à {x} avec une gousse d'ail écrasée, un filet de citron, une pincée de cumin, {h} ciselé(e), sel et poivre. Servez à côté.",
+        "raita": "Préparez une raïta : mélangez à {x} du concombre râpé (si vous en avez), {h} ciselé(e), une pincée de cumin et de sel ; une cuillerée sur chaque assiette.",
+        "yog_soup": "Mélangez {x} avec un peu de citron, du poivre et {h} ciselé(e) ; une cuillerée sur chaque bol.",
+        "yog_soy": "Pour une sauce à tremper, mélangez {x} avec un trait de sauce soja, un peu de gingembre râpé, une goutte de miel et {h} émincé ; servez à côté.",
+        "yog_honey": "Mélangez {x} avec une cuillerée de miel et une pincée de cannelle et servez à côté.",
         "serve_with": "Servez avec {x}.",
         "crumble": "Ajoutez {x} hachées à la pâte à crumble.",
     },
@@ -645,8 +660,24 @@ def fitting_extras(technique: str, items: Iterable[str], has_protein: bool = Tru
     return out
 
 
-def _extra_steps(technique: str, extras: Sequence[str], lang: str) -> tuple[list[str], list[str]]:
-    """The steps for the fridge items: (after the second technique step, after the last)."""
+# The fresh herb a yoghurt sauce wants ({h}) when the garden gives none of them.
+_SAUCE_HERB = {
+    "en": {"yog_soup": "chives", "yog_sauce": "mint or dill", "raita": "coriander or mint", "yog_dressing": "chives or parsley",
+           "yog_soy": "spring onion"},
+    "nl": {"yog_soup": "bieslook", "yog_sauce": "munt of dille", "raita": "koriander of munt", "yog_dressing": "bieslook of peterselie",
+           "yog_soy": "lente-ui"},
+    "fr": {"yog_soup": "ciboulette", "yog_sauce": "menthe ou aneth", "raita": "coriandre ou menthe", "yog_dressing": "ciboulette ou persil",
+           "yog_soy": "oignon nouveau"},
+}  # fmt: skip
+# Garden herbs that belong in a cold yoghurt sauce (rosemary or sage do not)
+_SAUCE_HERBS = ("dill", "mint", "parsley", "chives", "coriander")
+
+
+def _extra_steps(
+    technique: str, extras: Sequence[str], lang: str, herbs: Sequence[str] = ()
+) -> tuple[list[str], list[str]]:
+    """The steps for the fridge items: (after the second technique step, after the last).
+    ``herbs``: fresh garden herbs for a yoghurt sauce (else a sensible one to buy or pick)."""
     by_role: dict[str, list[str]] = {}
     for item in extras:
         role = _EXTRA_USE.get(technique, {}).get(item)
@@ -656,7 +687,10 @@ def _extra_steps(technique: str, extras: Sequence[str], lang: str) -> tuple[list
     late: list[str] = []
     for role in _ROLE_ORDER:
         if role in by_role:
-            (mid if role in _ROLE_MID else late).append(_ROLE_TEXT[lang][role].format(x=_join(by_role[role], lang)))
+            h = _join(list(herbs)[:2], lang) if herbs and role != "yog_soy" else _SAUCE_HERB[lang].get(role, "")
+            (mid if role in _ROLE_MID else late).append(
+                _ROLE_TEXT[lang][role].format(x=_join(by_role[role], lang), h=h)
+            )
     return mid, late
 
 
@@ -911,7 +945,8 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
             else "meat"
         )
         steps.append(_PROTEIN_STEP[lang][key].format(p=protein.name(lang).split(" (")[0].lower()))
-    mid, late = _extra_steps(tech.id, extras, lang)
+    fresh = {short_name(p, lang) for i in _SAUCE_HERBS if (p := db.get(i)) is not None}
+    mid, late = _extra_steps(tech.id, extras, lang, [h for h in herbs if h in fresh])
     for n, step in enumerate(_STEPS[lang][tech.id]):
         steps.append(step.format(prep=prep or a, side=side_name.lower(), veg=_join(names, lang)))
         if n == 1:

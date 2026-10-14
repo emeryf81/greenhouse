@@ -119,12 +119,24 @@ def test_fridge_items_only_go_where_they_fit(db: PlantDatabase) -> None:
     assert next(i for i in pasta["ingredients"] if i["id"] == "parmesan")["source"] == "shop"
     roast = cooking.render({"technique": "roast", "produce": ["carrot", "pumpkin"], "extras": fridge}, db, "nl")
     assert roast is not None and roast["spec"]["extras"] == ["grated_cheese", "yoghurt"]  # one cheese is enough
-    assert any(s.startswith("Roer de yoghurt los") for s in roast["steps"])
+    sauce = next(s for s in roast["steps"] if s.startswith("Maak een frisse yoghurtsaus"))
+    assert "komkommer" in sauce and "munt of dille" in sauce
     assert any("geraspte kaas" in s and "smelten" in s for s in roast["steps"])
     assert {i["id"]: i["source"] for i in roast["ingredients"]}["yoghurt"] == "pantry"
     salad = cooking.render({"technique": "salad", "produce": ["lettuce", "tomato"], "extras": ["yoghurt"]}, db, "en")
-    assert salad is not None and any("creamy dressing" in s for s in salad["steps"])
-    assert cooking.fitting_extras("stir_fry", fridge) == []
+    assert salad is not None and any("dressing creamy" in s for s in salad["steps"])
+    # every dish its own yoghurt sauce, with fresh garden herbs where there are any
+    wok = cooking.render({"technique": "stir_fry", "produce": ["kale"], "extras": ["yoghurt"]}, db, "nl")
+    assert wok is not None and any("sojasaus" in s and "dipsausje" in s for s in wok["steps"])
+    curry = cooking.render(
+        {"technique": "stew", "produce": ["pumpkin", "carrot"], "extras": ["yoghurt"]}, db, "nl", ["dille"]
+    )
+    assert curry is not None and any(s.startswith("Maak een raita") and "dille" in s for s in curry["steps"])
+    rosemary = cooking.render(
+        {"technique": "roast", "produce": ["carrot", "pumpkin"], "extras": ["yoghurt"]}, db, "nl", ["rozemarijn"]
+    )
+    assert rosemary is not None and not any("rozemarijn" in s and "yoghurt" in s for s in rosemary["steps"])
+    assert cooking.fitting_extras("stir_fry", fridge) == ["yoghurt"]  # as a soy-ginger dip, no cheese
     assert cooking.fitting_extras("plate", ["cream"], has_protein=False) == []
     assert cooking.fitting_extras("stew", ["cream", "yoghurt"]) == ["yoghurt"]  # coconut milk is the cream there
     assert cooking.fitting_extras("stoemp", ["cream", "mustard"]) == ["mustard", "cream"]
