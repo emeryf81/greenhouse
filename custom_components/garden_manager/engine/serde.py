@@ -56,6 +56,13 @@ def from_dict(cls: type[T], data: Any) -> T:
     return _convert(cls, data)
 
 
+def _nullable(tp: Any) -> bool:
+    """True when ``None`` is a valid value of ``tp`` (Optional, a union with None, Any)."""
+    if tp is Any or tp is type(None):
+        return True
+    return get_origin(tp) in (typing.Union, types.UnionType) and type(None) in get_args(tp)
+
+
 def _convert(tp: Any, value: Any) -> Any:
     if value is None:
         return None
@@ -101,11 +108,15 @@ def _convert(tp: Any, value: Any) -> Any:
             if not isinstance(value, dict):
                 raise TypeError(f"Expected mapping for {tp.__name__}")
             hints = _hints(tp)
-            kwargs = {
-                f.name: _convert(hints[f.name], value[f.name])
-                for f in dataclasses.fields(tp)
-                if f.name in value and f.init
-            }
+            kwargs = {}
+            for f in dataclasses.fields(tp):
+                if not f.init or f.name not in value:
+                    continue
+                if value[f.name] is None and not _nullable(hints[f.name]):
+                    if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING:
+                        raise TypeError(f"{tp.__name__}.{f.name} is required")
+                    continue  # null where a value is required: keep the default
+                kwargs[f.name] = _convert(hints[f.name], value[f.name])
             return tp(**kwargs)
         if issubclass(tp, Enum):
             return tp(value)

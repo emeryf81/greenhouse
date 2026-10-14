@@ -23,9 +23,9 @@ from typing import Any
 
 from .models import GardenData, IrrigationAction
 from .watering import IrrigationRecommendation
-from .weather import FrostAssessment
+from .weather import NEAR_HOURS, FrostAssessment
 
-LOCKOUT_WINDOW_H = 12
+LOCKOUT_WINDOW_H = NEAR_HOURS  # hours ahead a forecast frost locks the valves
 
 
 @dataclass(slots=True)
@@ -76,6 +76,8 @@ def frost_lockout(
     """(locked, temperature that triggered it)."""
     if outdoor_temp is not None and outdoor_temp <= limit:
         return True, outdoor_temp
+    if frost is not None and frost.near_min_c is not None and frost.near_min_c <= limit:
+        return True, frost.near_min_c  # freezing within the lockout window (a colder night later does not hide it)
     if frost is None or frost.plant_level_min_c is None or frost.plant_level_min_c > limit:
         return False, None
     if frost.min_at is None or frost.min_at <= now + timedelta(hours=LOCKOUT_WINDOW_H):

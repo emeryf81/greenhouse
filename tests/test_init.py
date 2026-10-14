@@ -357,3 +357,21 @@ async def test_plan_and_hardware_services_are_for_administrators(
     await hass.services.async_call(
         DOMAIN, "add_task", {"title": "Weed"}, blocking=True, return_response=True, context=user
     )
+
+
+async def test_impossible_settings_are_refused_and_nothing_changes(
+    hass: HomeAssistant, setup_garden, hass_ws_client
+) -> None:
+    """A frost date of 13-01 or a time of 25:00 would break every calculation after a restart."""
+    entry, _ = setup_garden
+    before = entry.runtime_data.repo.data.settings.region.last_frost
+    client = await hass_ws_client(hass)
+    for patch in (
+        {"region": {"mode": "custom", "last_frost": "13-01"}},
+        {"region": {"mode": "custom", "first_frost": "02-30"}},
+        {"notifications": {"digest_time": "25:00"}},
+    ):
+        await client.send_json_auto_id({"type": f"{DOMAIN}/settings/save", "settings": patch})
+        res = await _result(client)
+        assert not res["success"] and res["error"]["code"] == "invalid_settings", patch
+    assert entry.runtime_data.repo.data.settings.region.last_frost == before

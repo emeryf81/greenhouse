@@ -113,6 +113,12 @@ class FrostAssessment:
     hours_below_zero: float = 0.0
     source: Literal["hourly", "daily", "sensor", "none"] = "none"
     horizon_hours: int = 48
+    # Plant-level minimum over the next NEAR_HOURS only (hourly forecasts): what tonight brings,
+    # even when a colder night follows later in the horizon.
+    near_min_c: float | None = None
+
+
+NEAR_HOURS = 12
 
 
 def classify_frost(plant_level_min: float | None) -> RiskLevel:
@@ -148,11 +154,15 @@ def assess_frost(
         best_adj: float | None = None
         below_zero_h = 0.0
         first_below: datetime | None = None
+        near_min: float | None = None
+        near_end = now + timedelta(hours=NEAR_HOURS)
         for idx, point in enumerate(hourly):
             if point.temperature is None:
                 continue
             local_hour = point.at.astimezone(tz).hour
             adj = point.temperature + offset_c + radiative_adjustment(point, local_hour)
+            if point.at <= near_end and (near_min is None or adj < near_min):
+                near_min = adj
             if best_adj is None or adj < best_adj:
                 best, best_adj = point, adj
             if adj <= 0.0:
@@ -170,6 +180,7 @@ def assess_frost(
                 hours_below_zero=round(below_zero_h, 1),
                 source="hourly",
                 horizon_hours=horizon_hours,
+                near_min_c=round(near_min, 1) if near_min is not None else None,
             )
 
     if weather.available and weather.daily:

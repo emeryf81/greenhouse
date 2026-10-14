@@ -87,8 +87,11 @@ export class GardenApi {
     }>("plants/windows", { plant_id: plantId, zone_id: zoneId ?? null, season: season ?? null });
   }
 
-  savePlan(doc: PlanDoc, baseRevision: number | null, season?: number): Promise<{ revision: number }> {
-    return this.call("plan/save", { ...doc, base_revision: baseRevision, ...(season != null ? { season } : {}) });
+  /** ``gardenId``: the garden the draft was made for (a pending save must not land in another one). */
+  savePlan(doc: PlanDoc, baseRevision: number | null, season?: number, gardenId?: string): Promise<{ revision: number }> {
+    return this.call("plan/save", {
+      ...doc, base_revision: baseRevision, ...(season != null ? { season } : {}), ...(gardenId ? { garden_id: gardenId } : {}),
+    });
   }
 
   yearPreview(fromSeason?: number): Promise<TransitionPreview> {

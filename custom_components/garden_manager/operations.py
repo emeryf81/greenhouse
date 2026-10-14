@@ -280,6 +280,11 @@ def _sync_devices(hass: HomeAssistant, runtime: GardenRuntime, before: tuple[lis
         async_dispatcher_send(hass, SIGNAL_LAYOUT_CHANGED)
 
 
+_BEFORE_HARVEST = frozenset((
+    PlantingStatus.PLANNED, PlantingStatus.SOWN_INDOORS, PlantingStatus.SOWN, PlantingStatus.TRANSPLANTED,
+))  # fmt: skip
+
+
 @callback
 def op_save_plan(
     hass: HomeAssistant,
@@ -316,6 +321,15 @@ def op_save_plan(
     for bed in new_beds:
         if bed.id in old_tests:
             bed.soil_tests = old_tests[bed.id]
+    # Likewise the lifecycle that harvests record (first harvest, "harvesting"): a draft opened
+    # before the first harvest must not undo it.
+    old_plantings = {p.id: p for p in data.plantings}
+    for p in new_plantings:
+        was = old_plantings.get(p.id)
+        if was is not None and was.harvest_started_on is not None and p.harvest_started_on is None:
+            p.harvest_started_on = was.harvest_started_on
+            if was.status is PlantingStatus.HARVESTING and p.status in _BEFORE_HARVEST:
+                p.status = PlantingStatus.HARVESTING
     before = _live_layout_snapshot(data)
     features_now = new_features if new_features is not None else (current.features if current else [])
     live = seasons.store_layout(data, season, new_zones, new_beds, features_now, now=dt_util.now())
@@ -426,7 +440,8 @@ def op_save_plant(runtime: GardenRuntime, raw: Mapping[str, Any], mode: str) -> 
         base = repo.db.get(plant_id)
         if base is None or base.source == "custom":
             raise _err("unknown_plant", plant=plant_id)
-        patch = {k: v for k, v in raw.items() if k not in ("id", "source")}
+        # an edit adds to the earlier customisations of this plant (resetting is a separate action)
+        patch = {**repo.data.plant_overrides.get(plant_id, {}), **{k: v for k, v in raw.items() if k not in ("id", "source")}}
         validate_plant_dict({**to_dict(base), **patch})
         repo.data.plant_overrides[plant_id] = patch
     else:
@@ -467,6 +482,36 @@ def _deep_merge(base: dict[str, Any], patch: Mapping[str, Any]) -> dict[str, Any
 
 
 @callback
+def _validate_settings(settings: GardenSettings) -> None:
+    """What the engine relies on: real frost dates, real clock times, finite numbers."""
+    import dataclasses
+    import re
+
+    from .engine.region import season_anchors
+
+    region = settings.region
+    for name in ("last_frost", "first_frost"):
+        value = getattr(region, name)
+        if not re.fullmatch(r"\d{2}-\d{2}", str(value)):
+            raise ValueError(f"{name} must be MM-DD")
+        month, day = (int(x) for x in str(value).split("-"))
+        if not 1 <= month <= 12 or not 1 <= day <= (29 if month == 2 else 30 if month in (4, 6, 9, 11) else 31):
+            raise ValueError(f"{name} {value} is not a date")
+    season_anchors(region, 2024)  # a leap year and an ordinary one both resolve
+    season_anchors(region, 2025)
+
+    def walk(obj: Any, path: str) -> None:
+        if dataclasses.is_dataclass(obj):
+            for f in dataclasses.fields(obj):
+                walk(getattr(obj, f.name), f"{path}.{f.name}" if path else f.name)
+        elif isinstance(obj, float) and not math.isfinite(obj):
+            raise ValueError(f"{path} must be a finite number")
+        elif isinstance(obj, str) and path.endswith("_time") and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", obj):
+            raise ValueError(f"{path} must be HH:MM")
+
+    walk(settings, "")
+
+
 def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> GardenSettings:
     repo = runtime.repo
     merged = _deep_merge(to_dict(repo.data.settings), patch)
@@ -481,9 +526,11 @@ def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> Garden
             if not all(math.isfinite(v) and v > 0 for v in converted.values()):
                 raise ValueError("prices must be positive numbers")
             merged["economy"]["prices"] = converted
-        repo.data.settings = from_dict(GardenSettings, merged)
+        candidate = from_dict(GardenSettings, merged)
+        _validate_settings(candidate)
     except (TypeError, ValueError, KeyError) as err:
         raise _err("invalid_settings", reason=str(err)) from err
+    repo.data.settings = candidate
     repo.async_changed("settings")
     return repo.data.settings
 
@@ -855,8 +902,10 @@ def op_save_soil_test(runtime: GardenRuntime, bed_ref: str, raw: Mapping[str, An
         raise _err("invalid_soil_test", reason=str(err)) from err
     if test.ph is not None and not 3.0 <= test.ph <= 10.0:
         raise _err("invalid_soil_test", reason="pH 3-10")
-    bed.soil_tests = [s for s in bed.soil_tests if s.date != test.date] + [test]
-    bed.soil_tests.sort(key=lambda s: s.date)
+    if not isinstance(test.date, date):
+        raise _err("invalid_soil_test", reason="date")
+    # build and sort aside: a failure leaves the bed as it was
+    bed.soil_tests = sorted([s for s in bed.soil_tests if s.date != test.date] + [test], key=lambda s: s.date)
     # Soil tests are records, not layout: an open planner must not get a conflict.
     runtime.repo.async_changed("plan", bump_revision=False)
     return test

@@ -272,3 +272,22 @@ def test_overrides_and_search(db):
     assert {p.id for p in db.search("tomaat")} == {"tomato", "cherry_tomato", "beefsteak_tomato"}
     assert {"pea", "bush_bean", "broad_bean", "runner_bean"} <= {p.id for p in db.search(family="Fabaceae")}
     assert [p.id for p in db.search("bieslook")] == ["chives", "garlic_chives"]
+
+
+def test_import_takes_old_seasons_and_tasks_along(garden, make_planting):
+    """A crop in last year's plan whose bed is gone now, and the tasks of the file, both come back."""
+    import dataclasses
+    from datetime import date, datetime
+    import json
+
+    from custom_components.garden_manager.engine.models import GardenLayout, Task, TaskType
+
+    old_bed = dataclasses.replace(garden.beds[0], id="bed_old", name="Old bed")
+    garden.layouts = {"2025": GardenLayout(zones=list(garden.zones), beds=[old_bed])}
+    garden.layout_season = 2026
+    garden.plantings = [make_planting("carrot", "bed_old", 2025)]
+    garden.tasks = [Task(id="t1", title="Weed", type=TaskType.WEED, due=date(2026, 5, 1))]
+    doc = json.loads(json.dumps(export_plan(garden, include_tasks=True, now=datetime(2026, 1, 1))))
+    fresh = GardenData()
+    counts = import_plan(fresh, doc, "replace")
+    assert counts["plantings"] == 1 and counts["tasks"] == 1 and [t.id for t in fresh.tasks] == ["t1"]

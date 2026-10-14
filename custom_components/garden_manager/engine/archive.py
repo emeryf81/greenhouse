@@ -20,6 +20,8 @@ back in for that one request (:func:`with_season`).
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 from typing import Any
 
 from .models import GardenData, GardenLayout, Planting, PlantingStatus, RotationRecord, present_in
@@ -46,31 +48,44 @@ def archive_candidates(data: GardenData, current_season: int, keep: int = KEEP_S
     return moved
 
 
-def archive_index(archive: dict[str, dict[str, Any]]) -> dict[str, tuple[frozenset[str], bool]]:
-    """Per season: the archived planting ids and whether the layout is archived."""
+def _fingerprint(item: Any) -> str:
+    raw = item if isinstance(item, dict) else to_dict(item)
+    return hashlib.sha1(json.dumps(raw, sort_keys=True, default=str).encode()).hexdigest()
+
+
+ArchiveIndex = dict[str, tuple[dict[str, str], str | None]]
+
+
+def archive_index(archive: dict[str, dict[str, Any]]) -> ArchiveIndex:
+    """Per season: the archived plantings (id -> content fingerprint) and the layout's fingerprint."""
     return {
-        season: (frozenset(str(p.get("id")) for p in part.get("plantings") or []), part.get("layout") is not None)
+        season: (
+            {str(p.get("id")): _fingerprint(p) for p in part.get("plantings") or []},
+            _fingerprint(part["layout"]) if part.get("layout") is not None else None,
+        )
         for season, part in archive.items()
     }
 
 
 def prune_archived(
     data: GardenData,
-    stored: dict[str, tuple[frozenset[str], bool]],
+    stored: ArchiveIndex,
     current_season: int,
     db: PlantDatabase,
     keep: int = KEEP_SEASONS,
 ) -> int:
     """Remove old seasons from ``data`` that ``stored`` (an :func:`archive_index` of the archive
-    as read from disk) already holds.  Crop rotation gets a record for each removed planting.
+    as read from disk) already holds - with the same content: a planting or layout edited after
+    it was copied stays until the newer copy is archived too.  Crop rotation gets a record for
+    each removed planting.
     Returns the number of plantings and layouts removed."""
     cutoff = current_season - keep + 1
     seen = {(r.bed_id, r.season, r.family) for r in data.rotation_history}
     kept: list[Planting] = []
     removed = 0
     for p in data.plantings:
-        ids = stored.get(str(p.season), (frozenset(), False))[0]
-        if p.season >= cutoff or present_in(p, True, current_season) or p.id not in ids:
+        prints = stored.get(str(p.season), ({}, None))[0]
+        if p.season >= cutoff or present_in(p, True, current_season) or prints.get(p.id) != _fingerprint(p):
             kept.append(p)
             continue
         removed += 1
@@ -82,7 +97,13 @@ def prune_archived(
                 data.rotation_history.append(RotationRecord(p.bed_id, p.season, plant.family, p.plant_id, "planting"))
     data.plantings = kept
     for key in list(data.layouts):
-        if key.isdigit() and int(key) < cutoff and stored.get(key, (frozenset(), False))[1]:
+        layout_print = stored.get(key, ({}, None))[1]
+        if (
+            key.isdigit()
+            and int(key) < cutoff
+            and layout_print is not None
+            and layout_print == _fingerprint(data.layouts[key])
+        ):
             del data.layouts[key]
             removed += 1
     return removed

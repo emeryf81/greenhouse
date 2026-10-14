@@ -155,6 +155,8 @@ export class PlannerView extends LitElement {
   private history: History<PlanDoc> | null = null;
   private baseRevision: number | null = null;
   private saveTimer?: number;
+  /** The garden (config entry) the draft belongs to. */
+  private draftGarden = "";
   private checkTimers = new Map<string, number>();
   private ghostCheckAt = 0;
   private plantMap = new Map<string, Plant>();
@@ -409,7 +411,14 @@ export class PlannerView extends LitElement {
       this.stepPending = true;
     }
     const unchangedLocally = this.saveState === "saved";
-    if (force || !this.history || (unchangedLocally && snap.revision !== this.baseRevision)) {
+    const otherGarden = (snap.entry_id ?? "") !== this.draftGarden;
+    if (otherGarden && this.saveState === "dirty") void this.save(); // finish the old garden's edits (saved to that garden)
+    if (force || !this.history || otherGarden || (unchangedLocally && snap.revision !== this.baseRevision)) {
+      if (otherGarden) {
+        window.clearTimeout(this.saveTimer);
+        this.saveState = "saved";
+      }
+      this.draftGarden = snap.entry_id ?? "";
       const layout = layoutOf(snap, this.season) ?? { zones: [], beds: [], features: [] };
       const doc = { zones: clone(layout.zones), beds: clone(layout.beds), plantings: clone(snap.plantings), features: clone(layout.features ?? []) };
       this.history ? this.history.reset(doc) : (this.history = new History(doc));
@@ -464,6 +473,13 @@ export class PlannerView extends LitElement {
     if (this.selection && !this.findItem(this.selection)) this.selection = null;
   }
 
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    // leaving the tab: save what is pending now (to the garden it was made for)
+    window.clearTimeout(this.saveTimer);
+    if (this.saveState === "dirty") void this.save();
+  }
+
   private scheduleSave(): void {
     window.clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => this.save(), 1200);
@@ -474,7 +490,9 @@ export class PlannerView extends LitElement {
     const doc = this.draft;
     this.saveState = "saving";
     try {
-      const res = await this.api.savePlan(doc, this.baseRevision, this.season);
+      const garden = this.draftGarden;
+      const res = await this.api.savePlan(doc, this.baseRevision, this.season, garden || undefined);
+      if (garden !== this.draftGarden) return; // another garden is shown meanwhile
       this.baseRevision = res.revision;
       this.saveState = this.draft === doc ? "saved" : "dirty";
       if (this.saveState === "dirty") this.scheduleSave();

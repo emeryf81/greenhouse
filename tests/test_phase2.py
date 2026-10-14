@@ -425,11 +425,19 @@ async def test_records_services_and_websocket(hass: HomeAssistant, garden, hass_
             "base_revision": revision,
             "zones": [to_dict(z) for z in repo.data.zones],
             "beds": stale_beds,
-            "plantings": [to_dict(p) for p in repo.data.plantings],
+            # ... nor undoes the first harvest recorded since it was opened
+            "plantings": [
+                {**to_dict(p), "harvest_started_on": None, "status": "transplanted"}
+                if p.id == planting.id
+                else to_dict(p)
+                for p in repo.data.plantings
+            ],
         }
     )
     assert (await _result(client))["success"]
     assert repo.data.beds[0].latest_soil_test.ph == 6.1
+    kept = repo.data.planting(planting.id)
+    assert kept.harvest_started_on is not None and kept.status == "harvesting"
     await client.send_json_auto_id(
         {"type": f"{DOMAIN}/records/seeds/save", "packet": {"plant_id": "carrot", "year": 2025}}
     )
@@ -1298,3 +1306,16 @@ async def test_stop_ends_a_valve_test_pump_first(hass: HomeAssistant, garden, mo
     result = await test
     assert result["stopped"] and not runtime.irrigation.running
     assert order.index(("switch.pump", False)) < order.index((valve, False))
+
+
+async def test_a_second_customisation_keeps_the_first(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """Change spacing, later only the name: the spacing stays customised."""
+    entry, _calls = garden
+    client = await hass_ws_client(hass)
+    for patch in ({"spacing_cm": 7}, {"names": {"en": "Mighty carrot", "nl": "Wortel"}}):
+        await client.send_json_auto_id(
+            {"type": f"{DOMAIN}/plants/save", "mode": "override", "plant": {"id": "carrot", **patch}}
+        )
+        assert (await _result(client))["success"]
+    assert entry.runtime_data.repo.data.plant_overrides["carrot"]["spacing_cm"] == 7
+    assert entry.runtime_data.repo.db.get("carrot").spacing_cm == 7

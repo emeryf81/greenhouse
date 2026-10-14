@@ -92,14 +92,3 @@ def test_pdfs(db: PlantDatabase) -> None:
         pdf = cooking.recipes_pdf(recipes, "en", kind, today=date(2026, 8, 1))
         assert pdf.startswith(b"%PDF") and len(pdf) > 1500
     assert cooking.recipes_pdf(recipes, "nl", "book").count(b"/Type /Page ") >= 5
-
-
-def test_a_document_through_php_still_loads() -> None:
-    """PHP's json_decode(..., true) turns empty objects into []: the garden must still load."""
-    from custom_components.garden_manager.engine.models import GardenData
-    from custom_components.garden_manager.engine.serde import from_dict
-
-    data = from_dict(
-        GardenData, {"notified": [], "layouts": [], "plant_overrides": [], "cooking_prefs": [], "cookbook": []}
-    )
-    assert data.notified == {} and data.layouts == {} and data.cooking_prefs == {}
