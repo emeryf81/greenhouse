@@ -35,6 +35,9 @@ ID_LISTS = (
     "harvest_log",
     "journal",
     "seed_stock",
+    "expenses",
+    "archived_plans",
+    "cookbook",
 )
 # list collections without an id: an item is identified by its full content
 CONTENT_LISTS = ("rotation_history", "irrigation_log")
@@ -257,6 +260,12 @@ def reference(col: str, key: str, item: Any, *, bed_names: Mapping[str, str]) ->
     if col == "journal":
         text = str(item.get("text") or "")
         return {"name": text[:80] + ("…" if len(text) > 80 else "")}
+    if col == "expenses":
+        return {"name": item.get("note") or item.get("category")}
+    if col == "archived_plans":
+        return {"name": item.get("name"), "season": item.get("season")}
+    if col == "cookbook":
+        return {"name": item.get("title") or (item.get("spec") or {}).get("technique")}
     if col == "irrigation_log":
         bed = item.get("bed_id")
         return {"bed": bed_names.get(bed, bed)}

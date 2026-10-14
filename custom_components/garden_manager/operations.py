@@ -19,8 +19,9 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, EVENT_TASK_COMPLETED, SIGNAL_LAYOUT_CHANGED
-from .engine import seasons
+from .engine import cooking, seasons
 from .engine.models import (
+    CookbookRecipe,
     Expense,
     Feature,
     GardenBed,
@@ -132,6 +133,8 @@ def op_complete_task(
     user_id: str | None = None,
 ) -> CompletionResult:
     data = runtime.repo.data
+    existing = data.task(task_id)
+    was_open = existing is not None and existing.is_open
     try:
         result = complete_task(
             data,
@@ -147,6 +150,8 @@ def op_complete_task(
     except KeyError as err:
         raise _err("unknown_task", task=task_id) from err
     task = result.task
+    if not was_open:
+        return result  # already done (a second dashboard, a retried automation): nothing to book twice
     bed = data.bed(task.bed_id) if task.bed_id else None
     if task.type is TaskType.WATER and not skipped and bed is not None and bed.area_m2 > 0:
         # A ticked-off watering task feeds the bed's water balance.
@@ -279,6 +284,11 @@ def _sync_devices(hass: HomeAssistant, runtime: GardenRuntime, before: tuple[lis
         async_dispatcher_send(hass, SIGNAL_LAYOUT_CHANGED)
 
 
+_BEFORE_HARVEST = frozenset((
+    PlantingStatus.PLANNED, PlantingStatus.SOWN_INDOORS, PlantingStatus.SOWN, PlantingStatus.TRANSPLANTED,
+))  # fmt: skip
+
+
 @callback
 def op_save_plan(
     hass: HomeAssistant,
@@ -315,6 +325,15 @@ def op_save_plan(
     for bed in new_beds:
         if bed.id in old_tests:
             bed.soil_tests = old_tests[bed.id]
+    # Likewise the lifecycle that harvests record (first harvest, "harvesting"): a draft opened
+    # before the first harvest must not undo it.
+    old_plantings = {p.id: p for p in data.plantings}
+    for p in new_plantings:
+        was = old_plantings.get(p.id)
+        if was is not None and was.harvest_started_on is not None and p.harvest_started_on is None:
+            p.harvest_started_on = was.harvest_started_on
+            if was.status in (PlantingStatus.HARVESTING, PlantingStatus.FINISHED) and p.status in _BEFORE_HARVEST:
+                p.status = was.status  # never back to before the harvest, nor reopen a finished crop
     before = _live_layout_snapshot(data)
     features_now = new_features if new_features is not None else (current.features if current else [])
     live = seasons.store_layout(data, season, new_zones, new_beds, features_now, now=dt_util.now())
@@ -425,7 +444,15 @@ def op_save_plant(runtime: GardenRuntime, raw: Mapping[str, Any], mode: str) -> 
         base = repo.db.get(plant_id)
         if base is None or base.source == "custom":
             raise _err("unknown_plant", plant=plant_id)
-        patch = {k: v for k, v in raw.items() if k not in ("id", "source")}
+        # an edit adds to the earlier customisations of this plant (resetting is a separate action)
+        patch = dict(repo.data.plant_overrides.get(plant_id, {}))
+        for key, value in raw.items():
+            if key in ("id", "source"):
+                continue
+            # names (and other per-language texts) are edited one language at a time
+            patch[key] = (
+                {**patch[key], **value} if isinstance(value, dict) and isinstance(patch.get(key), dict) else value
+            )
         validate_plant_dict({**to_dict(base), **patch})
         repo.data.plant_overrides[plant_id] = patch
     else:
@@ -466,6 +493,36 @@ def _deep_merge(base: dict[str, Any], patch: Mapping[str, Any]) -> dict[str, Any
 
 
 @callback
+def _validate_settings(settings: GardenSettings) -> None:
+    """What the engine relies on: real frost dates, real clock times, finite numbers."""
+    import dataclasses
+    import re
+
+    from .engine.region import season_anchors
+
+    region = settings.region
+    for name in ("last_frost", "first_frost"):
+        value = getattr(region, name)
+        if not re.fullmatch(r"\d{2}-\d{2}", str(value)):
+            raise ValueError(f"{name} must be MM-DD")
+        month, day = (int(x) for x in str(value).split("-"))
+        if not 1 <= month <= 12 or not 1 <= day <= (29 if month == 2 else 30 if month in (4, 6, 9, 11) else 31):
+            raise ValueError(f"{name} {value} is not a date")
+    season_anchors(region, 2024)  # a leap year and an ordinary one both resolve
+    season_anchors(region, 2025)
+
+    def walk(obj: Any, path: str) -> None:
+        if dataclasses.is_dataclass(obj):
+            for f in dataclasses.fields(obj):
+                walk(getattr(obj, f.name), f"{path}.{f.name}" if path else f.name)
+        elif isinstance(obj, float) and not math.isfinite(obj):
+            raise ValueError(f"{path} must be a finite number")
+        elif isinstance(obj, str) and path.endswith("_time") and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", obj):
+            raise ValueError(f"{path} must be HH:MM")
+
+    walk(settings, "")
+
+
 def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> GardenSettings:
     repo = runtime.repo
     merged = _deep_merge(to_dict(repo.data.settings), patch)
@@ -480,9 +537,11 @@ def op_save_settings(runtime: GardenRuntime, patch: Mapping[str, Any]) -> Garden
             if not all(math.isfinite(v) and v > 0 for v in converted.values()):
                 raise ValueError("prices must be positive numbers")
             merged["economy"]["prices"] = converted
-        repo.data.settings = from_dict(GardenSettings, merged)
+        candidate = from_dict(GardenSettings, merged)
+        _validate_settings(candidate)
     except (TypeError, ValueError, KeyError) as err:
         raise _err("invalid_settings", reason=str(err)) from err
+    repo.data.settings = candidate
     repo.async_changed("settings")
     return repo.data.settings
 
@@ -854,8 +913,10 @@ def op_save_soil_test(runtime: GardenRuntime, bed_ref: str, raw: Mapping[str, An
         raise _err("invalid_soil_test", reason=str(err)) from err
     if test.ph is not None and not 3.0 <= test.ph <= 10.0:
         raise _err("invalid_soil_test", reason="pH 3-10")
-    bed.soil_tests = [s for s in bed.soil_tests if s.date != test.date] + [test]
-    bed.soil_tests.sort(key=lambda s: s.date)
+    if not isinstance(test.date, date):
+        raise _err("invalid_soil_test", reason="date")
+    # build and sort aside: a failure leaves the bed as it was
+    bed.soil_tests = sorted([s for s in bed.soil_tests if s.date != test.date] + [test], key=lambda s: s.date)
     # Soil tests are records, not layout: an open planner must not get a conflict.
     runtime.repo.async_changed("plan", bump_revision=False)
     return test
@@ -987,3 +1048,89 @@ def op_delete_plan(runtime: GardenRuntime, plan_id: str) -> None:
     if not seasons.delete_plan(runtime.repo.data, plan_id):
         raise _err("unknown_record", record=plan_id)
     runtime.repo.async_changed("plan")
+
+
+# --------------------------------------------------------------------------- #
+# Cookbook
+# --------------------------------------------------------------------------- #
+COOKBOOK_MAX = 500
+
+
+def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
+
+    tech = str(raw.get("technique") or "")
+    produce = cooking.str_ids(raw.get("produce"))[:6]
+    if tech not in cooking.TECHNIQUE or not produce:
+        raise _err("invalid_recipe")
+    side = str(raw.get("side") or "")
+    protein = str(raw.get("protein") or "")
+    return {
+        "technique": tech,
+        "produce": produce,
+        "side": side if side in cooking.SIDES else "",
+        "protein": protein if protein in cooking.PROTEINS else "",
+        "extras": [x for x in cooking.str_ids(raw.get("extras")) if x in cooking.PANTRY][:12],
+        "servings": cooking.servings_of(raw.get("servings")),
+    }
+
+
+@callback
+def op_cookbook_save(runtime: GardenRuntime, raw: Mapping[str, Any]) -> CookbookRecipe:
+    """Keep a recipe in the cookbook (the same dish twice stays one entry)."""
+
+    data = runtime.repo.data
+    spec = _clean_spec(raw.get("spec") or {})
+    rid = cooking.spec_id(spec)
+    entry = next((r for r in data.cookbook if r.id == rid), None)
+    if entry is None:
+        if len(data.cookbook) >= COOKBOOK_MAX:
+            raise _err("cookbook_full", max=COOKBOOK_MAX)
+        entry = CookbookRecipe(id=rid, spec=spec, added=dt_util.now().date())
+        data.cookbook.append(entry)
+    _apply_cookbook_fields(entry, raw)
+    runtime.repo.async_changed("records")
+    return entry
+
+
+def _apply_cookbook_fields(entry: CookbookRecipe, raw: Mapping[str, Any]) -> None:
+    if "title" in raw:
+        entry.title = str(raw.get("title") or "").strip()[:120]
+    if "note" in raw:
+        entry.note = str(raw.get("note") or "")[:1000]
+    if "favorite" in raw:
+        entry.favorite = bool(raw.get("favorite"))
+    if "shared" in raw:
+        entry.shared = bool(raw.get("shared"))
+    if raw.get("cooked"):
+        entry.cooked = [*entry.cooked, dt_util.now().date()][-50:]
+
+
+@callback
+def op_cookbook_update(runtime: GardenRuntime, recipe_id: str, raw: Mapping[str, Any]) -> CookbookRecipe:
+    entry = next((r for r in runtime.repo.data.cookbook if r.id == recipe_id), None)
+    if entry is None:
+        raise _err("unknown_recipe", recipe=recipe_id)
+    _apply_cookbook_fields(entry, raw)
+    runtime.repo.async_changed("records")
+    return entry
+
+
+@callback
+def op_cookbook_delete(runtime: GardenRuntime, recipe_id: str) -> None:
+    data = runtime.repo.data
+    before = len(data.cookbook)
+    data.cookbook = [r for r in data.cookbook if r.id != recipe_id]
+    if len(data.cookbook) == before:
+        raise _err("unknown_recipe", recipe=recipe_id)
+    runtime.repo.async_changed("records")
+
+
+@callback
+def op_cooking_prefs(runtime: GardenRuntime, raw: Mapping[str, Any]) -> dict[str, Any]:
+    """Remember what the cook usually has in the house, likes, and for how many."""
+    from dataclasses import asdict
+
+    prefs = asdict(cooking.Prefs.from_dict(raw))
+    runtime.repo.data.cooking_prefs = prefs
+    runtime.repo.async_changed("records")
+    return prefs

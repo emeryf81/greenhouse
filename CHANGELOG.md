@@ -1,5 +1,62 @@
 # Changelog
 
+## 1.7.0 – 2026-10
+
+### Added
+- **Cooking** (new menu place): a seasonal cookbook from what the garden gives right now.
+  Hortulus looks at the crops that are ready to pick (plus anything you add from the cellar)
+  and proposes dishes for them – soup, oven tray, stir-fry, pasta, risotto, salad, gratin,
+  stew or curry, frittata, stoemp, stuffed vegetables, a plate with meat and fries, pesto and
+  a fruit crumble. Lettuce, cucumber and radish only go in salads.
+  - Tick what is in the fridge to use up, the meat or fish you like (chicken, chicken mince,
+    beef, steak, stewing beef, pork, pork tenderloin, mince, burger, sweetbreads, sausage,
+    bacon, ham, salmon, white fish, prawns – or tofu, chickpeas, lentils, egg, halloumi,
+    goat's cheese) and the side: pasta, rice, bulgur, couscous, pearl couscous, gnocchi,
+    potatoes, fries, bread or noodles. Every recipe can change its side, meat and servings.
+  - Each dish gets a picture: the crops on a plate (or in a bowl, or an oven dish) with the
+    side underneath and the meat in the middle.
+  - Recipes in Dutch, French and English, with quantities per person, what comes from the
+    garden and what to buy.
+  - Your own cookbook: keep recipes, mark favourites, add notes, note when you cooked them.
+  - One shopping list for the dishes you pick: print it, save it as PDF, send it to your
+    phone or put it on a Home Assistant to-do list. A recipe, a whole cookbook or the list
+    as PDF (with the dish pictures).
+  - On the Hortulus website a recipe can be shared: whoever may see your garden sees it.
+
+- **Look at a garden**: a read-only view of the plan alone (click a zone, bed, crop or element
+  for its details, pick the year). The Hortulus website shows it to visitors without an account.
+
+### Fixed (whole-code review)
+- Services that change the plan, plant data or hardware need an administrator, like their
+  websocket commands.
+- Stop and Close end a running valve test; a run that is cancelled or fails during start-up
+  stops the pump before any valve closes.
+- Frost lockout looks at the next 12 hours on its own, so a colder night later in the forecast
+  no longer hides tonight's frost.
+- Impossible settings (a frost date of 13-01, a time of 25:00) are refused instead of breaking
+  every calculation after a restart.
+- A planner save goes to the garden it was made for, one request at a time; a draft opened
+  before the first harvest no longer undoes it or reopens a finished crop.
+- Archive pruning keeps edits made after a season was copied to the archive.
+- Plant customisations add up (also per language) and keep extra sowing windows.
+- Import accepts plantings of older seasons and brings back exported tasks; each bed is
+  checked against its own plan.
+- Deleting a plan set aside can be undone (also expenses and the cookbook are in the system log).
+- A watering task ticked twice books its water once; water given on a day without
+  temperatures still counts; crops of earlier seasons never ticked out stop counting as standing.
+- A greenhouse vent or shade command that failed is tried again at the next update.
+- null for a required field is refused; a soil test without a date is refused.
+- A shared view whose tab list allows nothing shows no part of the garden; the narrow-screen
+  Settings button follows the list too.
+- A garden document whose empty objects came back as empty lists (PHP) loads again.
+
+## 1.6.1 – 2026-10
+
+### Added
+- The panel can show a subset of its tabs (`panel.config.tabs`). The Hortulus website uses it
+  to let visitors look around a garden its owner shares (read only, only the parts the owner
+  chose); in Home Assistant nothing changes.
+
 ## 1.6.0 – 2026-10
 
 ### Added

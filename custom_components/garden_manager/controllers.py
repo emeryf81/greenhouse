@@ -233,17 +233,18 @@ class IrrigationController:
                 _LOGGER.error("Irrigation run aborted: %s", err)
                 self.status.last_error = str(err)
             finally:
-                # Belt and braces: everything off, whatever happened.
-                for entity_id in touched:
-                    try:
-                        await _switch(self.hass, entity_id, False)
-                    except HomeAssistantError:
-                        _LOGGER.exception("Could not close %s", entity_id)
+                # Belt and braces: everything off, whatever happened - the pump first,
+                # so it never pushes against valves that are already shut.
                 if pump:
                     try:
                         await _switch(self.hass, pump, False)
                     except HomeAssistantError:
                         _LOGGER.exception("Could not stop pump %s", pump)
+                for entity_id in touched:
+                    try:
+                        await _switch(self.hass, entity_id, False)
+                    except HomeAssistantError:
+                        _LOGGER.exception("Could not close %s", entity_id)
                 self.status.running = False
                 self.status.bed_id = None
                 self.status.ends_at = None
@@ -258,25 +259,27 @@ class IrrigationController:
         (it reported open, then closed while Hortulus still wanted water).
         """
         touched.add(entity_id)
-        await _switch(self.hass, entity_id, True)
         seen_open = False
-        if pump:
-            # the pump only ever runs against a valve that reported open
-            state = await self._wait_for(entity_id, True)
-            if _is_open(state) is not True:
-                await _switch(self.hass, entity_id, False)
-                touched.discard(entity_id)
-                self._problem(entity_id, "valve_did_not_open", state)
-                return 0.0, False
-            seen_open = True
-            await asyncio.sleep(VALVE_SETTLE_S)
-            await _switch(self.hass, pump, True)
+        pump_on = False
         started = dt_util.now()
         held = 0.0
         last_open = 0.0  # held seconds at the last sample that saw the valve open
         closed_early = False
         done = False
         try:
+            await _switch(self.hass, entity_id, True)
+            if pump:
+                # the pump only ever runs against a valve that reported open
+                state = await self._wait_for(entity_id, True)
+                if _is_open(state) is not True:
+                    self._problem(entity_id, "valve_did_not_open", state)
+                    done = True
+                    return 0.0, False
+                seen_open = True
+                await asyncio.sleep(VALVE_SETTLE_S)
+                pump_on = True  # set before the call: a pump that starts and then raises is stopped too
+                await _switch(self.hass, pump, True)
+            started = dt_util.now()
             while held < seconds:
                 step = min(HOLD_STEP_S, seconds - held)
                 await asyncio.sleep(step)
@@ -293,8 +296,10 @@ class IrrigationController:
             done = True
         finally:
             if not done:
-                self._partial_s = min(seconds, (dt_util.now() - started).total_seconds())
-            if pump:
+                self._partial_s = (
+                    min(seconds, (dt_util.now() - started).total_seconds()) if pump_on or not pump else 0.0
+                )
+            if pump_on:
                 await _switch(self.hass, pump, False)
                 await asyncio.sleep(self.coordinator.repo.data.settings.irrigation.pump_lead_s)
             await _switch(self.hass, entity_id, False)
@@ -428,6 +433,31 @@ class IrrigationController:
         if not with_pump:
             pump = None
         result: dict[str, Any] = {"entity_id": entity_id, "seconds": seconds, "before": self._state(entity_id)}
+        # a task of its own, like a watering run: Stop (and Close) can end it, pump first
+        task = self.hass.async_create_background_task(
+            self._test(entity_id, seconds, pump, result), "hortulus_valve_test"
+        )
+        self._task = task
+        try:
+            await task
+        except asyncio.CancelledError:
+            me = asyncio.current_task()
+            if not task.cancelled() or (me is not None and me.cancelling()):
+                raise  # not stopped by Stop/Close, but this call itself was cancelled
+            result["stopped"] = True
+            result.setdefault("closed_state", self._state(entity_id))
+            result["closed"] = _is_open(result["closed_state"]) is False
+        ok = bool(result.get("opened")) and result["closed"]
+        result["ok"] = ok
+        if result.get("stopped"):
+            pass  # stopped on purpose: nothing to report
+        elif not result.get("opened"):
+            self._problem(entity_id, "valve_did_not_open", result.get("open_state"))
+        elif not result["closed"]:
+            self._problem(entity_id, "valve_not_closed", result["closed_state"])
+        return result
+
+    async def _test(self, entity_id: str, seconds: float, pump: str | None, result: dict[str, Any]) -> None:
         async with self._lock:
             try:
                 await _switch(self.hass, entity_id, True)
@@ -451,13 +481,6 @@ class IrrigationController:
             result["closed_state"] = await self._wait_for(entity_id, False)
             result["closed"] = _is_open(result["closed_state"]) is False
             result["pump"] = pump
-        ok = bool(result.get("opened")) and result["closed"]
-        result["ok"] = ok
-        if not result.get("opened"):
-            self._problem(entity_id, "valve_did_not_open", result.get("open_state"))
-        elif not result["closed"]:
-            self._problem(entity_id, "valve_not_closed", result["closed_state"])
-        return result
 
     async def async_close(self, entity_id: str) -> str | None:
         """Close a valve that stayed open (button in the panel)."""
@@ -578,18 +601,22 @@ class ClimateController:
                 self._set(f"vent:{zone.id}", zone.vent_entity, vent or humid, shade=False)
 
     def _set(self, key: str, entity_id: str, wanted: bool | None, *, shade: bool) -> None:
+        key = f"{key}:{entity_id}"  # another entity mapped to the zone is switched afresh
         if wanted is None or self._last.get(key) == wanted:
             return
         self._last[key] = wanted
         # A shade *cover* is deployed by closing it; switches are simply on.
         on = (not wanted) if shade and entity_id.startswith("cover.") else wanted
-        self.hass.async_create_task(self._safe_switch(entity_id, on))
+        self.hass.async_create_task(self._safe_switch(key, entity_id, on, wanted))
 
-    async def _safe_switch(self, entity_id: str, on: bool) -> None:
+    async def _safe_switch(self, key: str, entity_id: str, on: bool, wanted: bool) -> None:
         try:
             await _switch(self.hass, entity_id, on)
         except HomeAssistantError as err:
             _LOGGER.warning("Could not switch %s: %s", entity_id, err)
+            # not done: forget it, so the next update (every few minutes) tries again
+            if self._last.get(key) == wanted:
+                self._last.pop(key, None)
 
 
 def _float(value: Any) -> float | None:

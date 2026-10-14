@@ -155,6 +155,8 @@ export class PlannerView extends LitElement {
   private history: History<PlanDoc> | null = null;
   private baseRevision: number | null = null;
   private saveTimer?: number;
+  /** The garden (config entry) the draft belongs to. */
+  private draftGarden = "";
   private checkTimers = new Map<string, number>();
   private ghostCheckAt = 0;
   private plantMap = new Map<string, Plant>();
@@ -409,7 +411,17 @@ export class PlannerView extends LitElement {
       this.stepPending = true;
     }
     const unchangedLocally = this.saveState === "saved";
-    if (force || !this.history || (unchangedLocally && snap.revision !== this.baseRevision)) {
+    const otherGarden = (snap.entry_id ?? "") !== this.draftGarden;
+    if (force || !this.history || otherGarden || (unchangedLocally && snap.revision !== this.baseRevision)) {
+      if (otherGarden && this.history) {
+        // the old garden's unsaved edits go to that garden, on their own (retried, never into this one)
+        window.clearTimeout(this.saveTimer);
+        if (this.saveState === "dirty" || this.saveState === "error") {
+          void this.saveDetached(this.draft, this.baseRevision, this.season, this.draftGarden);
+        }
+        this.saveState = "saved";
+      }
+      this.draftGarden = snap.entry_id ?? "";
       const layout = layoutOf(snap, this.season) ?? { zones: [], beds: [], features: [] };
       const doc = { zones: clone(layout.zones), beds: clone(layout.beds), plantings: clone(snap.plantings), features: clone(layout.features ?? []) };
       this.history ? this.history.reset(doc) : (this.history = new History(doc));
@@ -464,21 +476,38 @@ export class PlannerView extends LitElement {
     if (this.selection && !this.findItem(this.selection)) this.selection = null;
   }
 
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    // leaving the tab: save what is pending now (to the garden it was made for)
+    window.clearTimeout(this.saveTimer);
+    if (this.saveState === "dirty") void this.save();
+  }
+
   private scheduleSave(): void {
     window.clearTimeout(this.saveTimer);
     this.saveTimer = window.setTimeout(() => this.save(), 1200);
   }
 
+  private saving = false;
+
   private async save(): Promise<void> {
     if (this.saveState !== "dirty") return;
+    // one request at a time: an edit made meanwhile is saved right after, on the new revision
+    if (this.saving) return;
     const doc = this.draft;
+    const garden = this.draftGarden;
+    this.saving = true;
     this.saveState = "saving";
     try {
-      const res = await this.api.savePlan(doc, this.baseRevision, this.season);
+      const res = await this.api.savePlan(doc, this.baseRevision, this.season, garden || undefined);
+      if (garden !== this.draftGarden) return; // another garden is shown meanwhile
       this.baseRevision = res.revision;
       this.saveState = this.draft === doc ? "saved" : "dirty";
-      if (this.saveState === "dirty") this.scheduleSave();
     } catch (err) {
+      if (garden !== this.draftGarden) {
+        void this.saveDetached(doc, this.baseRevision, this.season, garden);
+        return;
+      }
       const code = (err as { code?: string }).code;
       if (code === "revision_conflict") {
         this.saveState = "saved";
@@ -489,6 +518,23 @@ export class PlannerView extends LitElement {
         this.saveState = "error";
         this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
       }
+    } finally {
+      this.saving = false;
+      // also after an early return: an edit made meanwhile (in this or another garden) still goes out
+      if (this.saveState === "dirty") void this.save();
+    }
+  }
+
+  /** Edits of a garden no longer shown: saved to that garden, retried a few times, never lost silently. */
+  private async saveDetached(doc: PlanDoc, revision: number | null, season: number, garden: string, attempt = 1): Promise<void> {
+    try {
+      await this.api.savePlan(doc, revision, season, garden || undefined);
+    } catch (err) {
+      if ((err as { code?: string }).code !== "revision_conflict" && attempt < 3) {
+        await new Promise((r) => window.setTimeout(r, 1500 * attempt));
+        return this.saveDetached(doc, revision, season, garden, attempt + 1);
+      }
+      this.toast(this.t("common.error", { message: (err as Error).message ?? String(err) }));
     }
   }
 

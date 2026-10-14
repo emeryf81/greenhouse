@@ -30,8 +30,10 @@ SYSLOG_SAVE_DELAY_SECONDS = 10
 # panel actions); read when the change is written to the system log.
 current_user: ContextVar[str | None] = ContextVar("hortulus_user", default=None)
 
-PLAN_COLLECTIONS = frozenset({"zones", "beds", "plantings", "features", "rotation_history", "layouts", "meta"})
-RECORD_COLLECTIONS = frozenset({"harvest_log", "journal", "seed_stock", "irrigation_log"})
+PLAN_COLLECTIONS = frozenset(
+    {"zones", "beds", "plantings", "features", "rotation_history", "layouts", "meta", "archived_plans"}
+)
+RECORD_COLLECTIONS = frozenset({"harvest_log", "journal", "seed_stock", "irrigation_log", "expenses", "cookbook"})
 
 
 def undo_reasons(collections: set[str]) -> list[str]:
@@ -89,7 +91,7 @@ class GardenRepository:
         self.archive_store = Store[dict[str, Any]](hass, 1, f"{key}.archive")
         self.archive: dict[str, dict[str, Any]] = {}
         # What the archive held when it was read from disk: only that is safe to drop from the garden.
-        self._archive_stored: dict[str, tuple[frozenset[str], bool]] = {}
+        self._archive_stored: archive.ArchiveIndex = {}
         self.syslog: list[dict[str, Any]] = []
         self._baseline: dict[str, dict[str, Any]] = syslog.snapshot(to_dict(self.data))
         self._pending_undo_of: str | None = None

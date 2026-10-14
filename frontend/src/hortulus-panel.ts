@@ -29,6 +29,8 @@ import "./views/handbook-view";
 import "./views/print-view";
 import "./views/advice-view";
 import "./views/journal-view";
+import "./views/cooking-view";
+import "./views/garden-viewer";
 import "./views/analysis-view";
 import "./views/crops-view";
 import { setPersons } from "./util/people";
@@ -39,8 +41,9 @@ import "./components/modal";
 import "./components/plant-detail";
 import { familyColor, plantName, familyName } from "./util/garden";
 
-type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
+type Tab = "wall" | "view" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "cooking" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string }[] = [
+  { id: "view", icon: "garden" }, // a visitor's look at the plan (website), never in Home Assistant's menu
   { id: "dashboard", icon: "home" },
   { id: "planner", icon: "planner" },
   { id: "layout", icon: "layout" },
@@ -48,6 +51,7 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: "calendar", icon: "calendar" },
   { id: "weather", icon: "weather" },
   { id: "journal", icon: "journal" },
+  { id: "cooking", icon: "cooking" },
   { id: "library", icon: "library" },
   { id: "advice", icon: "advice" },
   { id: "handbook", icon: "handbook" },
@@ -57,13 +61,15 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: "wall", icon: "wall" }, // the wall screen: no menu, reached from Today
 ];
 /** The menu: seven places, the related tabs of a place in a row underneath. */
-type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "knowledge" | "manage";
+type Group = "view" | "today" | "garden" | "calendar" | "weather" | "journal" | "kitchen" | "knowledge" | "manage";
 const GROUPS: { id: Group; icon: string; tabs: Tab[] }[] = [
+  { id: "view", icon: "garden", tabs: ["view"] },
   { id: "today", icon: "home", tabs: ["dashboard"] },
   { id: "garden", icon: "garden", tabs: ["planner", "layout", "crops"] },
   { id: "calendar", icon: "calendar", tabs: ["calendar"] },
   { id: "weather", icon: "weather", tabs: ["weather"] },
   { id: "journal", icon: "journal", tabs: ["journal"] },
+  { id: "kitchen", icon: "cooking", tabs: ["cooking"] },
   { id: "knowledge", icon: "knowledge", tabs: ["library", "advice", "handbook"] },
   { id: "manage", icon: "manage", tabs: ["analysis", "print", "settings"] },
 ];
@@ -81,6 +87,41 @@ export class HortulusPanel extends LitElement {
   @state() private plants: Plant[] = [];
   @state() private families: Record<string, FamilyInfo> = {};
   @state() private tab: Tab = "dashboard";
+
+  /**
+   * The tabs this panel may show: `panel.config.tabs` (the website's read-only view of a
+   * garden someone shares) or all of them (Home Assistant).
+   */
+  /** The website passes extra settings here (`tabs`, `viewer`, `web`); Home Assistant none. */
+  private get panelConfig(): { tabs?: string[]; viewer?: unknown; web?: boolean } {
+    return (this.panel as { config?: { tabs?: string[]; viewer?: unknown; web?: boolean } } | undefined)?.config ?? {};
+  }
+
+  private get allowedTabs(): Set<Tab> | null {
+    const tabs = (this.panel as { config?: { tabs?: string[] } } | undefined)?.config?.tabs;
+    // no list: everything (Home Assistant); a list, even an empty one, restricts
+    return Array.isArray(tabs) ? new Set(tabs as Tab[]) : null;
+  }
+
+  /** Where a tab that may not be shown leads: Today, else the first allowed tab. */
+  private get fallbackTab(): Tab {
+    if (this.tabAllowed("dashboard")) return "dashboard";
+    return TABS.find((t) => this.tabAllowed(t.id))?.id ?? "dashboard";
+  }
+
+  private tabAllowed(tab: Tab): boolean {
+    const allowed = this.allowedTabs;
+    return allowed ? allowed.has(tab) : tab !== "view";
+  }
+
+  /** The menu as this panel shows it: places without an allowed tab are left out. */
+  private get groups(): { id: Group; icon: string; tabs: Tab[] }[] {
+    return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => this.tabAllowed(t)) })).filter((g) => g.tabs.length);
+  }
+
+  private groupOf(tab: Tab): { id: Group; icon: string; tabs: Tab[] } {
+    return this.groups.find((g) => g.tabs.includes(tab)) ?? this.groups[0] ?? groupOf(tab);
+  }
   @state() private toastMsg = "";
   @state() private openTask: Task | null = null;
   @state() private creatingTask = false;
@@ -200,8 +241,10 @@ export class HortulusPanel extends LitElement {
     }
     if (changed.has("route") && this.route) {
       const [seg, sub] = this.route.path.replace(/^\//, "").split("/") as [Tab, string | undefined];
-      this.tab = TABS.some((t) => t.id === seg) ? seg : "dashboard";
+      this.tab = TABS.some((t) => t.id === seg) && this.tabAllowed(seg) ? seg : this.fallbackTab;
       if (this.tab === "handbook") this.chapter = sub ?? "";
+    } else if (changed.has("panel") && !this.tabAllowed(this.tab)) {
+      this.tab = this.fallbackTab; // the allowed tabs changed under the open one
     }
   }
 
@@ -286,6 +329,7 @@ export class HortulusPanel extends LitElement {
   }
 
   private openHandbook(chapter = ""): void {
+    if (!this.tabAllowed("handbook")) return;
     this.chapter = chapter;
     const base = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/handbook${chapter ? `/${chapter}` : ""}`;
     history.pushState(null, "", base);
@@ -300,12 +344,13 @@ export class HortulusPanel extends LitElement {
   }
 
   private navigate(tab: Tab, ev?: Event): void {
+    if (!this.tabAllowed(tab)) tab = this.fallbackTab;
     ev?.preventDefault();
     const path = `/${this.route?.prefix?.replace(/^\//, "") || "hortulus"}/${tab === "dashboard" ? "" : tab}`.replace(/\/$/, "");
     history.pushState(null, "", path);
     window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
     this.tab = tab;
-    this.lastInGroup = { ...this.lastInGroup, [groupOf(tab).id]: tab };
+    this.lastInGroup = { ...this.lastInGroup, [this.groupOf(tab).id]: tab };
   }
 
   private openPlant(id: string): void {
@@ -393,6 +438,8 @@ export class HortulusPanel extends LitElement {
     const snap = this.snapshot!;
     const admin = this.hass.user?.is_admin ?? true;
     const plantMap = new Map(this.plants.map((p) => [p.id, p]));
+    // a shared view that allows no tab at all shows nothing of the garden
+    if (!this.tabAllowed(this.tab)) return html`<div class="card empty">${this.t("nav.nothing_shared")}</div>`;
     switch (this.tab) {
       case "layout":
         return html`<hl-planner-view mode="layout" .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
@@ -418,6 +465,11 @@ export class HortulusPanel extends LitElement {
       case "journal":
         return html`<hl-journal-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin}></hl-journal-view>`;
+      case "view":
+        return html`<hl-garden-viewer .snapshot=${snap} .plants=${this.plants} .families=${this.families} .t=${this.t} .lang=${this.uiLang}></hl-garden-viewer>`;
+      case "cooking":
+        return html`<hl-cooking-view .api=${this.api!} .t=${this.t} .hass=${this.hass} .lang=${this.uiLang} .gardenKey=${this.api?.gardenId ?? ""}
+          .readonly=${!!this.panelConfig.viewer} .web=${!!this.panelConfig.web}></hl-cooking-view>`;
       case "advice":
         return html`<hl-advice-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin}></hl-advice-view>`;
@@ -441,14 +493,14 @@ export class HortulusPanel extends LitElement {
   }
 
   /** Open a place: the tab you used last there, else its first tab. */
-  private openGroup(group: (typeof GROUPS)[number], e: Event): void {
+  private openGroup(group: { id: Group; tabs: Tab[] }, e: Event): void {
     const last = this.lastInGroup[group.id];
     this.navigate(last && group.tabs.includes(last) ? last : group.tabs[0], e);
   }
 
   /** The tabs of the current place, as a row under the app bar. */
   private renderSubnav(): TemplateResult | typeof nothing {
-    const group = groupOf(this.tab);
+    const group = this.groupOf(this.tab);
     if (group.tabs.length < 2) return nothing;
     return html`<nav class="sub" aria-label=${this.t(`nav.group.${group.id}`)}>
       ${group.tabs.map((id) => {
@@ -459,10 +511,11 @@ export class HortulusPanel extends LitElement {
     </nav>`;
   }
 
-  private renderNav(cls: string): TemplateResult {
-    const current = groupOf(this.tab).id;
+  private renderNav(cls: string): TemplateResult | typeof nothing {
+    if (this.groups.length < 2) return nothing; // one place only (a visitor's plan): no menu
+    const current = this.groupOf(this.tab).id;
     return html`<nav class=${cls} aria-label="Hortulus">
-      ${GROUPS.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>
+      ${this.groups.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>
         ${gicon(g.icon, 19)}${this.t(g.tabs.length > 1 ? `nav.group.${g.id}` : `nav.${g.tabs[0]}`)}${g.tabs.includes("analysis") ? this.renderBadge() : nothing}</a>`)}
     </nav>`;
   }
@@ -496,7 +549,7 @@ export class HortulusPanel extends LitElement {
           ${this.snapshot!.gardens!.map((g) => html`<option value=${g.entry_id} ?selected=${g.entry_id === this.snapshot!.entry_id}>${g.title}</option>`)}
         </select>` : nothing}
         ${this.renderNav("top")}
-        ${this.narrow ? html`<span style="flex:1"></span>
+        ${this.narrow && this.tabAllowed("settings") ? html`<span style="flex:1"></span>
           <button class="icon-btn" aria-label=${this.t("nav.settings")} aria-pressed=${String(this.tab === "settings")} @click=${() => this.navigate("settings")}>
             <ha-icon icon="mdi:cog-outline"></ha-icon></button>` : nothing}
       </header>

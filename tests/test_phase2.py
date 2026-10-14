@@ -425,11 +425,19 @@ async def test_records_services_and_websocket(hass: HomeAssistant, garden, hass_
             "base_revision": revision,
             "zones": [to_dict(z) for z in repo.data.zones],
             "beds": stale_beds,
-            "plantings": [to_dict(p) for p in repo.data.plantings],
+            # ... nor undoes the first harvest recorded since it was opened
+            "plantings": [
+                {**to_dict(p), "harvest_started_on": None, "status": "transplanted"}
+                if p.id == planting.id
+                else to_dict(p)
+                for p in repo.data.plantings
+            ],
         }
     )
     assert (await _result(client))["success"]
     assert repo.data.beds[0].latest_soil_test.ph == 6.1
+    kept = repo.data.planting(planting.id)
+    assert kept.harvest_started_on is not None and kept.status == "harvesting"
     await client.send_json_auto_id(
         {"type": f"{DOMAIN}/records/seeds/save", "packet": {"plant_id": "carrot", "year": 2025}}
     )
@@ -1188,3 +1196,213 @@ async def test_money_must_be_a_real_number(hass: HomeAssistant, garden) -> None:
     operations.op_save_settings(runtime, {"economy": {"prices": {"tomato": "4.5", "carrot": ""}}})
     assert runtime.repo.data.settings.economy.prices == {"tomato": 4.5}
     assert operations.op_save_expense(runtime, {"amount": "12.5", "category": "seeds"}).amount == 12.5
+
+
+async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """Recipes from the garden; the cookbook keeps them; PDF and to-do list work."""
+    import base64
+
+    from homeassistant.core import SupportsResponse
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/suggest", "produce": ["kale", "carrot", "leek"], "prefs": {"proteins": ["pork"]}}
+    )
+    res = (await _result(client))["result"]
+    assert res["recipes"] and res["catalog"]["sides"] and res["book"] == []
+    assert any(p["plant_id"] == "kale" for p in res["catalog"]["edible"])
+    recipe = res["recipes"][0]
+    assert {i["plant_id"] for i in recipe["ingredients"] if i["source"] == "garden"} <= {"kale", "carrot", "leek"}
+
+    spec = {**recipe["spec"], "side": "bulgur"}
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/render", "spec": spec})
+    changed = (await _result(client))["result"]
+    assert changed["saved"] is False and any(i["id"] == "bulgur" for i in changed["recipe"]["ingredients"])
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": spec, "favorite": True}})
+    saved = (await _result(client))["result"]
+    assert saved["id"] == changed["recipe"]["id"] and saved["book"][0]["favorite"] is True
+    assert len(repo.data.cookbook) == 1
+    # malformed lists are refused or cleaned, never an unknown_error
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/render", "spec": {**spec, "produce": 1}})
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": {**spec, "produce": 1}}})
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": {**spec, "extras": [{}, *spec.get("extras", [])]}}}
+    )
+    assert (await _result(client))["success"] and len(repo.data.cookbook) == 1
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/cooking/book/update",
+            "recipe_id": saved["id"],
+            "changes": {"shared": True, "title": "Ons recept"},
+        }
+    )
+    book = (await _result(client))["result"]["book"]
+    assert book[0]["shared"] is True and book[0]["title"] == "Ons recept"
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/pdf", "kind": "book", "ids": [saved["id"]]})
+    pdf = (await _result(client))["result"]
+    assert base64.b64decode(pdf["pdf"]).startswith(b"%PDF") and pdf["filename"].endswith(".pdf")
+
+    items: list[str] = []
+    hass.states.async_set("todo.shopping_list", "0")
+
+    async def get_items(call: ServiceCall):
+        return {"todo.shopping_list": {"items": [{"summary": s} for s in items]}}
+
+    async def add_item(call: ServiceCall) -> None:
+        items.append(call.data["item"])
+
+    hass.services.async_register("todo", "get_items", get_items, supports_response=SupportsResponse.ONLY)
+    hass.services.async_register("todo", "add_item", add_item)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/to_todo", "entity_id": "todo.shopping_list", "ids": [saved["id"]]}
+    )
+    first = (await _result(client))["result"]
+    assert first["added"] == len(items) > 0
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/to_todo", "entity_id": "todo.shopping_list", "ids": [saved["id"]]}
+    )
+    assert (await _result(client))["result"]["added"] == 0
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/send", "what": "shopping", "ids": [saved["id"]]})
+    assert "bulgur" in (await _result(client))["result"]["text"]
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/prefs", "prefs": {"pantry": ["rice", "nope"], "servings": 3}}
+    )
+    assert (await _result(client))["result"]["prefs"]["pantry"] == ["rice"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/delete", "recipe_id": saved["id"]})
+    assert (await _result(client))["result"]["book"] == []
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/delete", "recipe_id": saved["id"]})
+    assert not (await _result(client))["success"]
+
+
+async def test_stop_ends_a_valve_test_pump_first(hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stop (or Close) during a valve test: the pump goes off before the valve shuts."""
+    from custom_components.garden_manager import controllers
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    runtime.repo.data.settings.irrigation.pump_entity = "switch.pump"
+    real_sleep = asyncio.sleep
+    holding = asyncio.Event()
+
+    async def sleep(seconds: float) -> None:
+        if seconds >= 60:  # the test holds the valve open: wait until stopped
+            holding.set()
+            await asyncio.Event().wait()
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", sleep)
+    order: list[tuple[str, bool]] = []
+
+    async def switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        order.append((entity_id, on))
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(controllers, "_switch", switch)
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    hass.states.async_set(valve, "off")
+    test = hass.async_create_task(runtime.irrigation.async_test(valve, seconds=60))
+    await holding.wait()
+    assert runtime.irrigation.running and ("switch.pump", True) in order
+    await runtime.irrigation.async_stop()
+    result = await test
+    assert result["stopped"] and not runtime.irrigation.running
+    assert order.index(("switch.pump", False)) < order.index((valve, False))
+
+
+async def test_a_second_customisation_keeps_the_first(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """Change spacing, later only the name: the spacing stays customised."""
+    entry, _calls = garden
+    client = await hass_ws_client(hass)
+    for patch in ({"spacing_cm": 7}, {"names": {"en": "Mighty carrot"}}, {"names": {"fr": "Carotte royale"}}):
+        await client.send_json_auto_id(
+            {"type": f"{DOMAIN}/plants/save", "mode": "override", "plant": {"id": "carrot", **patch}}
+        )
+        assert (await _result(client))["success"]
+    assert entry.runtime_data.repo.data.plant_overrides["carrot"]["spacing_cm"] == 7
+    names = entry.runtime_data.repo.data.plant_overrides["carrot"]["names"]
+    assert names["en"] == "Mighty carrot" and names["fr"] == "Carotte royale"
+    assert entry.runtime_data.repo.db.get("carrot").spacing_cm == 7
+
+
+async def test_a_stale_draft_does_not_reopen_a_finished_crop(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    from datetime import date
+
+    from custom_components.garden_manager.engine.models import PlantingStatus
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    planting = repo.data.plantings[0]
+    stale = [to_dict(p) for p in repo.data.plantings]
+    planting.harvest_started_on, planting.status = date(2026, 5, 1), PlantingStatus.FINISHED
+    stale[0] = {**stale[0], "status": "transplanted", "harvest_started_on": None}
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/plan/save",
+            "base_revision": repo.data.revision,
+            "zones": [to_dict(z) for z in repo.data.zones],
+            "beds": [to_dict(b) for b in repo.data.beds],
+            "plantings": stale,
+        }
+    )
+    assert (await _result(client))["success"]
+    assert repo.data.planting(planting.id).status == "finished"
+
+
+async def test_a_watering_task_ticked_twice_books_its_water_once(hass: HomeAssistant, garden) -> None:
+    from datetime import date
+
+    from custom_components.garden_manager.engine.models import Task, TaskType
+    from custom_components.garden_manager.operations import op_complete_task
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    bed = next(b for b in runtime.repo.data.beds if b.area_m2 > 0)
+    runtime.repo.data.tasks.append(
+        Task(
+            id="t_water",
+            title="Water",
+            type=TaskType.WATER,
+            due=date(2026, 5, 25),
+            bed_id=bed.id,
+            title_params={"liters": 10},
+        )
+    )
+    before = len(runtime.repo.data.irrigation_log)
+    op_complete_task(hass, runtime, "t_water")
+    op_complete_task(hass, runtime, "t_water")  # a second dashboard, a retried automation
+    assert len(runtime.repo.data.irrigation_log) == before + 1
+
+
+async def test_a_failed_vent_command_is_tried_again(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.garden_manager import controllers
+
+    entry, _calls = garden
+    climate = entry.runtime_data.climate
+    tries: list[bool] = []
+
+    async def flaky(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        tries.append(on)
+        if len(tries) == 1:
+            raise HomeAssistantError("device unavailable")
+
+    monkeypatch.setattr(controllers, "_switch", flaky)
+    climate._set("vent:z", "cover.vent", True, shade=False)
+    await hass.async_block_till_done()
+    climate._set("vent:z", "cover.vent", True, shade=False)  # the next update: tried again
+    await hass.async_block_till_done()
+    climate._set("vent:z", "cover.vent", True, shade=False)  # now done: not sent a third time
+    await hass.async_block_till_done()
+    assert tries == [True, True]

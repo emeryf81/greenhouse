@@ -129,3 +129,19 @@ def test_greenhouse_ventilation_and_shading_advice():
     assert hot.action.value == "shade"
     empty = greenhouse_advice(zone, snap, now, inside_now=40.0, plants=[])
     assert empty.action.value == "none"
+
+
+def test_frost_tonight_locks_valves_even_when_a_colder_night_follows():
+    """-1 °C in five hours, -5 °C in thirty: tonight's frost must still lock the valves."""
+    from datetime import timedelta
+
+    from custom_components.garden_manager.engine.irrigation import frost_lockout
+
+    now = datetime(2026, 4, 10, 12, 0, tzinfo=UTC)
+    temps = {5: -1.0, 30: -5.0}
+    hourly = [ForecastPoint(at=now + timedelta(hours=h), temperature=temps.get(h, 6.0), cloud_coverage=100, wind_speed=20)
+              for h in range(48)]  # fmt: skip
+    frost = assess_frost(WeatherSnapshot(available=True, hourly=hourly), now, AMS)
+    assert frost.plant_level_min_c <= -5 and frost.near_min_c <= -1
+    locked, temp = frost_lockout(frost, 8.0, 0.5, now)
+    assert locked and temp == frost.near_min_c

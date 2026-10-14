@@ -93,6 +93,29 @@
         if (type === "qa/ask") return x.qa_answers[`${msg.subject}/${msg.problem}/${msg.target ?? ""}`] ?? Object.values(x.qa_answers)[0];
         if (type === "supplies") return x.supplies;
         if (type === "records/overview") return x.records;
+        if (type.startsWith("cooking/")) {
+          const c = x.cooking;
+          const find = (spec) => c.recipes.find((r) => r.technique === spec.technique) ?? c.recipes[0];
+          if (type === "cooking/suggest") return c;
+          if (type === "cooking/render") {
+            const r = find(msg.spec);
+            return { recipe: { ...r, spec: { ...r.spec, ...msg.spec }, servings: msg.spec.servings ?? r.servings }, saved: false };
+          }
+          if (type === "cooking/book/save") {
+            const r = find(msg.recipe.spec);
+            c.book = [...c.book.filter((b) => b.id !== r.id), { ...r, saved: true, favorite: !!msg.recipe.favorite, shared: !!msg.recipe.shared, cooked: [] }];
+            return { id: r.id, book: c.book };
+          }
+          if (type === "cooking/book/update") {
+            c.book = c.book.map((b) => (b.id === msg.recipe_id ? { ...b, ...msg.changes, cooked: msg.changes.cooked ? [...(b.cooked || []), "2026-08-02"] : b.cooked } : b));
+            return { id: msg.recipe_id, book: c.book };
+          }
+          if (type === "cooking/book/delete") { c.book = c.book.filter((b) => b.id !== msg.recipe_id); return { book: c.book }; }
+          if (type === "cooking/prefs") return { prefs: msg.prefs };
+          if (type === "cooking/pdf") return { pdf: btoa("%PDF-1.4 mock"), filename: "hortulus-mock.pdf" };
+          if (type === "cooking/send") return { sent: !msg.dry_run, title: "Boodschappen", text: "- kip (600 g)" };
+          if (type === "cooking/to_todo") return { added: 3, skipped: 0 };
+        }
         if (type === "irrigation/plan" || type === "irrigation/run") return { ...x.irrigation_plan, started: true };
         return {};
       },
@@ -121,6 +144,8 @@
   const el = document.createElement("hortulus-panel");
   el.hass = hass;
   el.narrow = params.get("narrow") === "1";
+  // ?tabs=dashboard,planner: only these tabs (the website's read-only view of a shared garden)
+  if (params.has("tabs")) el.panel = { config: { tabs: params.get("tabs").split(",").filter(Boolean) } };
   el.route = { prefix: "/hortulus", path: "/" + (params.get("tab") || "") };
   document.body.appendChild(el);
   window.addEventListener("error", (e) => (window.__errors = [...(window.__errors || []), String(e.message)]));

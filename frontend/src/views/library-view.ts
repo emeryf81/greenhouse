@@ -168,8 +168,16 @@ export class LibraryView extends LitElement {
     const f = ev.target as HTMLFormElement;
     const v = (n: string) => (f.elements.namedItem(n) as HTMLInputElement).value;
     const num = (n: string) => Number(v(n));
-    const win = (prefix: string): Window[] => ((f.elements.namedItem(`${prefix}_on`) as HTMLInputElement).checked
-      ? [{ start_week: num(`${prefix}_start`), end_week: num(`${prefix}_end`), anchor: "last_frost" }] : []);
+    // The form edits the first window of each calendar; further windows (garlic in autumn and
+    // spring, lettuce in several sowings) and each window's anchor stay as they were.
+    const win = (prefix: string, existing: Window[]): Window[] => {
+      if (!(f.elements.namedItem(`${prefix}_on`) as HTMLInputElement).checked) return [];
+      const first = existing[0];
+      const start = num(`${prefix}_start`);
+      const end = num(`${prefix}_end`);
+      if (first && first.start_week === start && first.end_week === end) return existing;
+      return [{ ...(first ?? { anchor: "last_frost" }), start_week: start, end_week: end } as Window, ...existing.slice(1)];
+    };
     const nameEn = v("name_en").trim();
     const plant: Plant = {
       ...original,
@@ -183,7 +191,12 @@ export class LibraryView extends LitElement {
       water_needs: v("water") as Plant["water_needs"], nutrient_needs: v("nutrients") as Plant["nutrient_needs"],
       rotation_years: num("rotation"),
       greenhouse: { ...original.greenhouse, suitability: v("gh") as Plant["greenhouse"]["suitability"] },
-      sowing: { indoor_sow: win("indoor"), direct_sow: win("direct"), transplant: win("transplant") },
+      sowing: {
+        ...original.sowing,
+        indoor_sow: win("indoor", original.sowing.indoor_sow ?? []),
+        direct_sow: win("direct", original.sowing.direct_sow ?? []),
+        transplant: win("transplant", original.sowing.transplant ?? []),
+      },
       pests: v("pests").split(",").map((s) => s.trim().replace(/\s+/g, "_")).filter(Boolean),
       diseases: v("diseases").split(",").map((s) => s.trim().replace(/\s+/g, "_")).filter(Boolean),
     };

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from .migrations import STORAGE_MINOR_VERSION, STORAGE_VERSION, migrate
-from .models import Feature, GardenBed, GardenData, GardenLayout, Plant, Planting, RotationRecord, Zone
+from .models import Feature, GardenBed, GardenData, GardenLayout, Plant, Planting, RotationRecord, Task, Zone
 from .serde import from_dict, to_dict
 
 FORMAT = "hortulus-plan"
@@ -38,7 +38,9 @@ def export_plan(
         "rotation_history": [to_dict(r) for r in data.rotation_history],
     }
     if include_tasks:
-        doc["tasks"] = [to_dict(t) for t in data.tasks]
+        # only tasks of the plantings in the file (and the garden-wide ones)
+        kept = {p.id for p in plantings}
+        doc["tasks"] = [to_dict(t) for t in data.tasks if not t.planting_id or t.planting_id in kept]
     return doc
 
 
@@ -69,14 +71,24 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         plantings = [from_dict(Planting, p) for p in upgraded.get("plantings", [])]
         plants = [from_dict(Plant, p) for p in upgraded.get("custom_plants", [])]
         history = [from_dict(RotationRecord, r) for r in upgraded.get("rotation_history", [])]
+        tasks = [from_dict(Task, t) for t in upgraded["tasks"]] if isinstance(upgraded.get("tasks"), list) else None
     except (TypeError, ValueError, KeyError) as err:
         raise PlanImportError(f"Invalid plan: {err}") from err
 
-    zone_ids = {z.id for z in zones} | ({z.id for z in data.zones} if mode == "merge" else set())
-    for bed in beds:
-        if bed.zone_id not in zone_ids:
-            raise PlanImportError(f"Bed {bed.name!r} references unknown zone {bed.zone_id!r}")
+    # Each plan's beds must sit in that plan's zones; plantings of other seasons may refer to
+    # the beds of that season's plan.
+    def check_beds(plan_beds: list[GardenBed], plan_zone_ids: set[str]) -> None:
+        for bed in plan_beds:
+            if bed.zone_id not in plan_zone_ids:
+                raise PlanImportError(f"Bed {bed.name!r} references unknown zone {bed.zone_id!r}")
+
+    check_beds(beds, {z.id for z in zones} | ({z.id for z in data.zones} if mode == "merge" else set()))
+    for season, lay in layouts.items():
+        kept = data.layouts.get(season) if mode == "merge" else None
+        check_beds(lay.beds, {z.id for z in lay.zones} | ({z.id for z in kept.zones} if kept else set()))
+    all_layouts = [*layouts.values(), *(data.layouts.values() if mode == "merge" else [])]
     bed_ids = {b.id for b in beds} | ({b.id for b in data.beds} if mode == "merge" else set())
+    bed_ids |= {b.id for lay in all_layouts for b in lay.beds}
     for planting in plantings:
         if planting.bed_id not in bed_ids:
             raise PlanImportError(f"Planting {planting.id!r} references unknown bed {planting.bed_id!r}")
@@ -121,6 +133,8 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         if data.layout_season is None:
             data.layout_season = upgraded.get("layout_season")
     data.plantings = upsert(data.plantings, plantings)
+    if tasks is not None:  # the file was exported with its tasks
+        data.tasks = upsert(data.tasks, tasks)
     data.custom_plants = upsert(data.custom_plants, plants)
     overrides = upgraded.get("plant_overrides") or {}
     data.plant_overrides = dict(overrides) if mode == "replace" else {**data.plant_overrides, **overrides}
@@ -138,4 +152,5 @@ def import_plan(data: GardenData, doc: Mapping[str, Any], mode: ImportMode = "me
         "plantings": len(plantings),
         "custom_plants": len(plants),
         "rotation_history": len(history),
+        "tasks": len(tasks or []),
     }

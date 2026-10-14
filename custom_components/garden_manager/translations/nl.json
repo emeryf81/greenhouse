@@ -1088,6 +1088,15 @@
     },
     "invalid_expense": {
       "message": "Geef een bedrag boven nul en een bekende soort uitgave."
+    },
+    "invalid_recipe": {
+      "message": "Dit recept is onvolledig: het heeft een bereidingswijze en minstens één groente nodig."
+    },
+    "unknown_recipe": {
+      "message": "Recept {recipe} staat niet in het kookboek."
+    },
+    "cookbook_full": {
+      "message": "Het kookboek is vol ({max} recepten). Verwijder er eerst een paar."
     }
   }
 }

@@ -832,3 +832,95 @@ export interface UndoResult {
   undone_by: string | null;
   revision: number;
 }
+
+// -- kitchen ------------------------------------------------------------------ //
+export interface RecipeSpec {
+  technique: string;
+  produce: string[];
+  side: string;
+  protein: string;
+  extras: string[];
+  servings: number;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  plant_id?: string;
+  name: string;
+  qty: number;
+  unit: string;
+  label: string;
+  group: string;
+  kind?: string;
+  source: "garden" | "pantry" | "shop" | "basic";
+  color?: string;
+  extra?: boolean;
+}
+
+export interface Recipe {
+  id: string;
+  spec: RecipeSpec;
+  title: string;
+  subtitle: string;
+  technique: string;
+  technique_name: string;
+  minutes: number;
+  servings: number;
+  ingredients: RecipeIngredient[];
+  steps: string[];
+  shopping: { id: string; name: string; qty: number; unit: string; label: string; group: string }[];
+  tags: string[];
+  tag_names: string[];
+  garden_share: number;
+  picture: {
+    produce: { plant_id: string; kind: string; color: string; icon?: string; emoji?: string }[];
+    side: string;
+    protein: string;
+    extras: string[];
+    technique: string;
+  };
+  // in the cookbook
+  saved?: boolean;
+  favorite?: boolean;
+  shared?: boolean;
+  note?: string;
+  added?: string | null;
+  cooked?: string[];
+}
+
+export interface CookingPrefs {
+  pantry: string[];
+  use: string[];
+  proteins: string[];
+  side: string;
+  servings: number;
+}
+
+export interface CookingProduce {
+  plant_id: string;
+  name: string;
+  kind: string;
+  until?: string | null;
+  beds?: string[];
+  icon?: string;
+  color?: string;
+  emoji?: string;
+}
+
+export interface CookingCatalog {
+  sides: { id: string; name: string }[];
+  proteins: { id: string; name: string; group: string }[];
+  pantry: { id: string; name: string; group: string }[];
+  techniques: { id: string; name: string }[];
+  edible: CookingProduce[];
+}
+
+export interface CookingOverview {
+  ready: CookingProduce[];
+  produce: CookingProduce[];
+  recipes: Recipe[];
+  prefs: CookingPrefs | null;
+  used_prefs: CookingPrefs;
+  catalog: CookingCatalog;
+  book: Recipe[];
+}

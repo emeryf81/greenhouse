@@ -811,6 +811,20 @@ class Expense:
 
 
 @dataclass(slots=True)
+class CookbookRecipe:
+    """A recipe kept in the garden's own cookbook (rendered from its spec in any language)."""
+
+    id: str
+    spec: dict[str, Any] = field(default_factory=dict)
+    title: str = ""  # the cook's own name for it ("" = the generated title)
+    favorite: bool = False
+    shared: bool = False  # visible to whoever may look at the garden (web)
+    note: str = ""
+    added: date | None = None
+    cooked: list[date] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class GardenSettings:
     region: RegionProfile = field(default_factory=RegionProfile)
     weather_entity: str | None = None
@@ -975,6 +989,9 @@ class GardenData:
     layouts: dict[str, GardenLayout] = field(default_factory=dict)
     # Plans set aside with "start a new plan"; one can be made active again.
     archived_plans: list[ArchivedPlan] = field(default_factory=list)
+    # The kitchen: saved recipes and what the cook usually has in the house.
+    cookbook: list[CookbookRecipe] = field(default_factory=list)
+    cooking_prefs: dict[str, Any] = field(default_factory=dict)
 
     # -- lookups ---------------------------------------------------------- #
     def zone(self, zone_id: str | None) -> Zone | None:

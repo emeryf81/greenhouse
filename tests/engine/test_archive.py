@@ -63,6 +63,13 @@ def test_candidates_leave_the_garden_alone_until_the_archive_is_stored(garden, d
     assert [(r.season, r.family) for r in garden.rotation_history] == [(2021, "Solanaceae")]
     assert prune_archived(garden, {}, 2026, db) == 0  # nothing stored: nothing removed
 
+    # edited after it was copied: the newer content stays until it is archived as well
+    older.width_cm += 10
+    stale = archive_index(
+        {"2020": {"plantings": [{**to_dict(older), "width_cm": older.width_cm - 10}], "layout": None}}
+    )
+    assert prune_archived(garden, stale, 2026, db) == 0 and [p.id for p in garden.plantings] == ["older"]
+
 
 def test_merge_keeps_the_newest_copy_of_a_planting(make_planting):
     archive: dict = {}

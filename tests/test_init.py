@@ -337,3 +337,41 @@ async def test_starter_garden_only_in_an_empty_garden(hass: HomeAssistant, setup
     assert msg["result"]["plantings"] > 0
     assert repo.data.settings.region is region  # the gardener's settings are kept
     assert any(f.type.value == "compost" for f in repo.data.features)
+
+
+async def test_plan_and_hardware_services_are_for_administrators(
+    hass: HomeAssistant, setup_garden, hass_read_only_user, hass_admin_user
+) -> None:
+    """Like the websocket commands: a non-admin may log a harvest, not replace the plan or open valves."""
+    from homeassistant.core import Context
+    from homeassistant.exceptions import Unauthorized
+
+    user = Context(user_id=hass_read_only_user.id)
+    plan = await hass.services.async_call(DOMAIN, "export_plan", {}, blocking=True, return_response=True, context=user)
+    for service, data in (("import_plan", {"plan": plan, "mode": "replace"}), ("stop_irrigation", {})):
+        with pytest.raises(Unauthorized):
+            await hass.services.async_call(DOMAIN, service, data, blocking=True, context=user)
+    await hass.services.async_call(
+        DOMAIN, "stop_irrigation", {}, blocking=True, context=Context(user_id=hass_admin_user.id)
+    )
+    await hass.services.async_call(
+        DOMAIN, "add_task", {"title": "Weed"}, blocking=True, return_response=True, context=user
+    )
+
+
+async def test_impossible_settings_are_refused_and_nothing_changes(
+    hass: HomeAssistant, setup_garden, hass_ws_client
+) -> None:
+    """A frost date of 13-01 or a time of 25:00 would break every calculation after a restart."""
+    entry, _ = setup_garden
+    before = entry.runtime_data.repo.data.settings.region.last_frost
+    client = await hass_ws_client(hass)
+    for patch in (
+        {"region": {"mode": "custom", "last_frost": "13-01"}},
+        {"region": {"mode": "custom", "first_frost": "02-30"}},
+        {"notifications": {"digest_time": "25:00"}},
+    ):
+        await client.send_json_auto_id({"type": f"{DOMAIN}/settings/save", "settings": patch})
+        res = await _result(client)
+        assert not res["success"] and res["error"]["code"] == "invalid_settings", patch
+    assert entry.runtime_data.repo.data.settings.region.last_frost == before
