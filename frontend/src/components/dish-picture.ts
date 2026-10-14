@@ -163,8 +163,9 @@ export function dishSvg(pic: DishPicture, size = 320, seed = ""): string {
   const cx = 160;
   const cy = 168;
   const tech = pic.technique;
-  const soup = tech === "soup" || tech === "cold_soup" || tech === "compote"; // served in a bowl
-  const oven = tech === "gratin" || tech === "roast" || tech === "stuffed" || tech === "dessert";
+  const bowl = ["soup", "cold_soup", "compote", "velvet", "minestrone", "green_soup", "chowder", "waterzooi", "fool", "panna_cotta", "cups", "sorbet", "jam", "chutney", "passata", "quick_pickle", "sauerkraut"];
+  const soup = bowl.includes(tech); // served in a bowl
+  const oven = ["gratin", "roast", "stuffed", "dessert", "tart", "tian", "clafoutis", "cake", "baked_fruit", "rolls", "steaks", "shakshuka"].includes(tech);
   const produce = pic.produce.filter((p) => p.kind !== "herb");
   const herbs = pic.produce.filter((p) => p.kind === "herb");
   const parts: string[] = [];

@@ -1889,6 +1889,7 @@ def ws_cooking_suggest(hass: HomeAssistant, connection: websocket_api.ActiveConn
             "ready": ready,
             "produce": chosen,
             "recipes": cooking.suggest(chosen, db, prefs, lang, msg["limit"]),
+            "menus": cooking.menus(chosen, db, prefs, lang, 4, dt_util.now().date()),
             "prefs": saved or None,
             "used_prefs": {
                 "pantry": prefs.pantry,

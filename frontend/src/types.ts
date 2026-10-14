@@ -884,8 +884,8 @@ export interface Recipe {
   subtitle: string;
   technique: string;
   technique_name: string;
-  /** The cookbook chapter: soup, starter, main or dessert. */
-  course?: "soup" | "starter" | "main" | "dessert";
+  /** The cookbook chapter: soup, starter, main, dessert or preserving. */
+  course?: "soup" | "starter" | "main" | "dessert" | "preserve";
   course_name?: string;
   minutes: number;
   servings: number;
@@ -935,15 +935,28 @@ export interface CookingProduce {
 export interface CookingCatalog {
   sides: { id: string; name: string }[];
   proteins: { id: string; name: string; group: string }[];
-  pantry: { id: string; name: string; group: string }[];
-  techniques: { id: string; name: string }[];
+  /** `fridge: false`: a cupboard item (baking powder ...), not offered as "use up from the fridge". */
+  pantry: { id: string; name: string; group: string; fridge?: boolean }[];
+  techniques: { id: string; name: string; course?: string }[];
   edible: CookingProduce[];
+}
+
+/** A starter (or soup), a main course and a dessert that belong together. */
+export interface CookingMenu {
+  id: string;
+  /** A themed menu ("provence", "flemish_spring" ...); empty for one built around a main course. */
+  theme: string;
+  title: string;
+  courses: { course: "soup" | "starter" | "main" | "dessert"; recipe: Recipe }[];
+  minutes: number;
+  servings: number;
 }
 
 export interface CookingOverview {
   ready: CookingProduce[];
   produce: CookingProduce[];
   recipes: Recipe[];
+  menus?: CookingMenu[];
   prefs: CookingPrefs | null;
   used_prefs: CookingPrefs;
   catalog: CookingCatalog;

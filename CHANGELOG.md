@@ -19,6 +19,25 @@
     fish. Each step sits at the right moment in the method.
 
 ### Added
+- **Cooking: 36 new dishes and complete menus**, collected from home-cooking sources on the seasonal
+  kitchen garden (the methods are written out in our own words, in Dutch, English and French):
+  - soups: roasted velouté, minestrone, green soup (peas, spinach, courgette ...), chowder;
+  - starters: courgette and vegetable fritters, carpaccio, crunchy remoulade, tabbouleh, caprese,
+    caponata, asparagus the Flemish way, warm vinaigrette (leek, beetroot ...), corn on the cob with
+    herb butter;
+  - main courses: ratatouille, Provençal tian, shakshuka, tart, gnudi, braised peas and beans,
+    waterzooi (chicken, fish or vegetables), vegetable steaks with tahini sauce, stuffed cabbage rolls;
+  - desserts: clafoutis, fools, sorbet, panna cotta, vegetable cakes (carrot, courgette, beetroot,
+    pumpkin ...), baked fruit with honey, berry cream cups;
+  - **a chapter "Preserving & pickles"** for the surplus: quick pickles, chutney, passata, pesto
+    cubes, jam, blanching and freezing, sauerkraut (amounts are a batch, not one plate).
+  Dishes made for certain plants only take those plants (no tomato cake), and each dish only gets
+  the protein that suits it; some take it in their own way (chicken poached in the waterzooi,
+  ham next to the asparagus).
+- **Menus**: a soup or starter, a main course and a dessert that belong together, built from what
+  is ready to pick – themed ones of the season (a Provençal garden dinner, a Sicilian evening,
+  Levantine mezze, courgette glut, a Flemish spring menu, a winter comfort menu ...) and menus around a
+  main course. One click puts all three dishes on the shopping list or in your cookbook.
 - **Cooking: chapters.** Ideas, your cookbook and the cookbook PDF are split into Soups, Starters,
   Main courses and Desserts (a chapter page each in the PDF, a chapter filter in the cookbook). Ideas
   are spread over the chapters so none is crowded out. New dishes to fill them: chilled soup

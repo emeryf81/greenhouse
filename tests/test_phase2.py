@@ -1212,6 +1212,22 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     )
     res = (await _result(client))["result"]
     assert res["recipes"] and res["catalog"]["sides"] and res["book"] == []
+    assert all(len(m["courses"]) == 3 and m["title"] for m in res["menus"])
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/cooking/suggest",
+            "produce": ["tomato", "courgette", "basil", "strawberry", "carrot"],
+            "limit": 6,
+        }
+    )
+    summer = (await _result(client))["result"]
+    assert summer["menus"] and all(
+        r["spec"]["produce"] for m in summer["menus"] for c in m["courses"] for r in [c["recipe"]]
+    )
+    assert any(r["course"] == "preserve" for r in summer["recipes"])
+    assert any(not p["fridge"] for p in summer["catalog"]["pantry"]) and any(
+        p["fridge"] for p in summer["catalog"]["pantry"]
+    )
     assert any(p["plant_id"] == "kale" for p in res["catalog"]["edible"])
     recipe = res["recipes"][0]
     assert {i["plant_id"] for i in recipe["ingredients"] if i["source"] == "garden"} <= {"kale", "carrot", "leek"}

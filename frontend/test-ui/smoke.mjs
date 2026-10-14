@@ -231,9 +231,9 @@ await step("cooking: a dish from the garden, another side, kept, on the list, pr
   await page.evaluate(() => localStorage.clear());
   await open("cooking");
   const view = page.locator("hl-cooking-view");
-  const chapters = await view.locator("h3.chapter-title").allInnerTexts();
+  const chapters = await view.locator(".chapter:not(.menus) h3.chapter-title").allInnerTexts();
   assert.ok(chapters[0].startsWith("Soepen") && chapters.some((c) => c.startsWith("Desserten")), `chapters: ${chapters}`);
-  await view.locator(".chapter", { hasText: "Hoofdgerechten" }).locator("button.recipe").first().click();
+  await view.locator(".chapter:not(.menus)", { hasText: "Hoofdgerechten" }).locator("button.recipe").first().click();
   await modalOpen();
   await view.locator("hl-modal select#side").selectOption("bulgur");
   await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/render") && c.spec.side === "bulgur"));
@@ -246,6 +246,24 @@ await step("cooking: a dish from the garden, another side, kept, on the list, pr
   assert.ok((await view.locator("table tr").count()) > 2, "shopping list is empty");
   await view.locator("button:has(ha-icon[icon=\"mdi:file-pdf-box\"])").first().click();
   await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/pdf") && c.kind === "shopping"));
+});
+
+await step("cooking: complete menus and the preserving chapter", async () => {
+  await page.evaluate(() => localStorage.clear());
+  await open("cooking");
+  const view = page.locator("hl-cooking-view");
+  const menu = view.locator("section.menus article.menu").first();
+  await menu.waitFor();
+  assert.equal(await menu.locator(".menu-courses li").count(), 3, "a menu has three courses");
+  const chapters = await view.locator(".chapter:not(.menus) h3.chapter-title").allInnerTexts();
+  assert.ok(chapters.some((c) => c.startsWith("Bewaren")), `chapters: ${chapters}`);
+  await menu.locator("button.linklike").first().click();
+  await modalOpen();
+  await page.keyboard.press("Escape");
+  await menu.locator("button", { hasText: "Alles op de boodschappenlijst" }).click();
+  await view.locator("button[role=tab]", { hasText: "Boodschappenlijst" }).click();
+  await view.locator(".basket-item").first().waitFor();
+  assert.equal(await view.locator(".basket-item").count(), 3, "the three dishes of the menu are on the list");
 });
 
 await step("cooking: the cook's own version (ingredients and steps by hand)", async () => {

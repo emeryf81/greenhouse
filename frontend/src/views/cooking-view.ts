@@ -9,7 +9,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
-import type { CookingOverview, CookingPrefs, CookingProduce, CustomIngredient, HomeAssistant, Recipe, RecipeSpec, RecipeTarget } from "../types";
+import type { CookingMenu, CookingOverview, CookingPrefs, CookingProduce, CustomIngredient, HomeAssistant, Recipe, RecipeSpec, RecipeTarget } from "../types";
 import { formatDate } from "../util/garden";
 import { glyphIcon, GLYPHS } from "../planner/plant-glyphs";
 import { dishDataUrl, dishJpeg } from "../components/dish-picture";
@@ -17,8 +17,8 @@ import "../components/modal";
 
 type Section = "ideas" | "book" | "shopping";
 type BookFilter = "all" | "favorite" | "shared";
-type Course = "soup" | "starter" | "main" | "dessert";
-const COURSES: Course[] = ["soup", "starter", "main", "dessert"];
+type Course = "soup" | "starter" | "main" | "dessert" | "preserve";
+const COURSES: Course[] = ["soup", "starter", "main", "dessert", "preserve"];
 
 interface WebHooks {
   mailSelf?: (subject: string, text: string) => Promise<{ ok: boolean; to?: string; error?: string }>;
@@ -128,6 +128,13 @@ export class CookingView extends LitElement {
       table { width: 100%; border-collapse: collapse; font-size: var(--hl-fs-sm); }
       td, th { padding: 6px; border-bottom: 1px solid var(--hl-border); text-align: left; }
       td.num { text-align: right; white-space: nowrap; }
+      .menu-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+      .menu { display: flex; flex-direction: column; gap: 6px; }
+      .menu .actions { margin-top: auto; }
+      .menu h4 { margin: 0; font-family: var(--hl-font-display, inherit); }
+      .menu-courses { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+      .menu-courses li { display: flex; flex-direction: column; }
+      .linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--hl-leaf-700, inherit); text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
       .basket-item { display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hl-border); }
       .basket-item img { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; }
       .note { width: 100%; min-height: 60px; }
@@ -563,6 +570,7 @@ export class CookingView extends LitElement {
           <button class="btn small ghost" ?disabled=${!d.recipes.length || !!this.busy} @click=${() => this.pdf("book", d.recipes)}>
             <ha-icon icon="mdi:book-open-variant"></ha-icon>${this.t("cook.pdf_ideas")}</button>
         </div>
+        ${d.menus?.length ? this.renderMenus(d.menus) : nothing}
         ${d.recipes.length ? this.renderChapters(d.recipes)
           : html`<div class="card empty">${this.produce.length ? this.t("cook.no_ideas") : this.t("cook.pick_produce")}</div>`}
       </section>
@@ -593,7 +601,7 @@ export class CookingView extends LitElement {
 
         <h3>${this.t("cook.fridge")}</h3>
         <p class="xs muted" style="margin:0">${this.t("cook.fridge_hint")}</p>
-        <div class="pick">${d.catalog.pantry.map((p) => html`<button class="text" aria-pressed=${this.prefs.use.includes(p.id)}
+        <div class="pick">${d.catalog.pantry.filter((p) => p.fridge !== false).map((p) => html`<button class="text" aria-pressed=${this.prefs.use.includes(p.id)}
           @click=${() => this.toggle("use", p.id)}>${p.name}</button>`)}</div>
 
         <button class="btn small ghost" aria-expanded=${this.showPantry} @click=${() => (this.showPantry = !this.showPantry)}>${this.t("cook.in_house")} (${this.prefs.pantry.length})</button>
@@ -604,7 +612,40 @@ export class CookingView extends LitElement {
     `;
   }
 
-  /** Recipes under their chapter headings: soups, starters, main courses, desserts. */
+  /** Complete menus: a soup or starter, a main course and a dessert that belong together. */
+  private renderMenus(menus: CookingMenu[]): TemplateResult {
+    return html`<section class="chapter menus" aria-label=${this.t("cook.menus")}>
+      <h3 class="chapter-title">${this.t("cook.menus")} <span class="xs muted">${menus.length}</span></h3>
+      <p class="xs muted" style="margin:0 0 var(--hl-s2)">${this.t("cook.menus_hint")}</p>
+      <div class="grid menu-grid">${menus.map((m) => this.renderMenu(m))}</div></section>`;
+  }
+
+  private renderMenu(m: CookingMenu): TemplateResult {
+    const recipes = m.courses.map((c) => c.recipe);
+    const onList = recipes.every((r) => this.inBasket(r));
+    return html`<article class="card menu" aria-label=${m.title}>
+      <h4>${m.title}</h4>
+      <span class="xs muted">${this.t("cook.minutes", { n: m.minutes })} · ${this.t("cook.n_persons", { n: m.servings })}</span>
+      <ol class="menu-courses">${m.courses.map((c) => html`<li>
+        <span class="xs muted">${this.t(`cook.course.${c.course}`)}</span>
+        <button class="linklike" @click=${() => this.openRecipe(c.recipe, recipes)}>${c.recipe.title}</button></li>`)}</ol>
+      <div class="actions">
+        <button class="btn small ${onList ? "ghost" : ""}" @click=${() => this.menuToList(recipes, onList)}>
+          ${onList ? this.t("cook.menu_off_list") : this.t("cook.menu_to_list")}</button>
+        ${this.readonly ? nothing : html`<button class="btn small ghost" @click=${() => this.menuToBook(recipes)}>${this.t("cook.menu_to_book")}</button>`}
+      </div></article>`;
+  }
+
+  /** All the dishes of a menu on the shopping list at once (or all off it). */
+  private menuToList(recipes: Recipe[], off: boolean): void {
+    for (const r of recipes) if (this.inBasket(r) === off) this.toggleBasket(r);
+  }
+
+  private async menuToBook(recipes: Recipe[]): Promise<void> {
+    for (const r of recipes) if (!this.isSaved(r)) await this.save(r);
+  }
+
+  /** Recipes under their chapter headings: soups, starters, main courses, desserts, preserving. */
   private renderChapters(list: Recipe[]): TemplateResult {
     const ordered = COURSES.flatMap((c) => list.filter((r) => (r.course ?? "main") === c));
     return html`${COURSES.map((c) => {

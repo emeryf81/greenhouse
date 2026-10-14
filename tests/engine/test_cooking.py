@@ -30,18 +30,19 @@ def test_suggestions_put_the_garden_first(db: PlantDatabase) -> None:
     assert len(recipes) >= 10
     assert len({r["id"] for r in recipes}) == len(recipes)
     techniques = {r["technique"] for r in recipes}
-    assert {"soup", "salad", "pasta", "dessert"} <= techniques  # spread over the chapters
+    assert {"soup", "starter", "main", "dessert"} <= {r["course"] for r in recipes}  # spread over the chapters
+    assert len(techniques) >= 8  # and over many kinds of dish
     for r in recipes:
         garden = [i for i in r["ingredients"] if i["source"] == "garden"]
         assert garden, r["title"]
         assert all(i["group"] != "garden" for i in r["shopping"])
         assert r["steps"] and r["servings"] == 4
-        if r["technique"] not in ("salad", "cold_soup", "crostini"):  # lettuce and cucumber are eaten raw
+        if not cooking.TECHNIQUE[r["technique"]].raw:  # lettuce and cucumber are eaten raw
             assert not {"lettuce", "cucumber"} & {i["id"] for i in garden}, r["title"]
-        if r["course"] == "dessert":
-            assert r["spec"]["protein"] == "" and "apple" in r["spec"]["produce"]
-        else:
-            assert r["spec"]["protein"] in ("chicken", "mince")
+        if r["course"] in ("dessert", "preserve"):
+            assert r["spec"]["protein"] == ""
+        else:  # a dish made for certain proteins may go without
+            assert r["spec"]["protein"] in ("chicken", "mince") or cooking.TECHNIQUE[r["technique"]].strict
         feta = any(i["id"] == "feta" for i in r["ingredients"])
         assert feta == (
             r["technique"] in {"soup", "cold_soup", "crostini", "roast", "salad", "pasta", "frittata", "stuffed"}
@@ -214,9 +215,9 @@ def test_the_cooks_own_version(db: PlantDatabase) -> None:
 def test_chapters_soups_starters_mains_desserts(db: PlantDatabase) -> None:
     recipes = cooking.suggest(_produce(db), db, cooking.Prefs.from_dict({"proteins": ["chicken"]}), "nl", limit=12)
     courses = [r["course"] for r in recipes]
-    assert set(courses) == set(cooking.COURSES)  # every chapter gets ideas
-    assert courses == sorted(courses, key=cooking.COURSES.index)  # soups first, desserts last
-    assert {r["course_name"] for r in recipes} == {"Soepen", "Voorgerechten", "Hoofdgerechten", "Desserten"}
+    assert set(cooking.MEAL_COURSES) <= set(courses)  # every chapter of a meal gets ideas
+    assert courses == sorted(courses, key=cooking.COURSES.index)  # soups first, desserts last, preserving after
+    assert {"Soepen", "Voorgerechten", "Hoofdgerechten", "Desserten"} <= {r["course_name"] for r in recipes}
     assert cooking.course_of("salad") == "starter" and cooking.course_of("salad", "chicken") == "main"
     assert cooking.course_of("pesto", side="bread") == "starter" and cooking.course_of("pesto", side="pasta") == "main"
     assert cooking.course_of("cold_soup") == "soup" and cooking.course_of("compote") == "dessert"
@@ -249,3 +250,129 @@ def test_new_dishes_hold_together(db: PlantDatabase) -> None:
     assert at("instead of the sugar") < at("Simmer it gently")  # said before the fruit simmers
     cold = cooking.render({"technique": "cold_soup", "produce": ["tomato"]}, db, "en")
     assert cold is not None and cold["minutes"] >= 45  # the chilling counts
+
+
+# --------------------------------------------------------------------------- #
+# The dishes of cooking_dishes, the chapter on preserving and the menus
+# --------------------------------------------------------------------------- #
+def _fitting_plants(db: PlantDatabase, tech: cooking.Technique) -> list[str]:
+    """Garden plants a technique takes, as ids of the plant database."""
+    ids = []
+    for plant in db.all():
+        kind = cooking.produce_kind(plant)
+        if kind not in tech.kinds or (tech.plants and plant.id not in tech.plants):
+            continue
+        if plant.id in cooking.RAW_ONLY and not tech.raw:
+            continue
+        ids.append(plant.id)
+    return ids
+
+
+def test_every_dish_reads_well_in_every_language(db: PlantDatabase) -> None:
+    for tech in cooking.TECHNIQUES:
+        ids = _fitting_plants(db, tech)
+        assert ids, tech.id
+        assert all(item in cooking.PANTRY for item in tech.staples), tech.id
+        assert tech.sides == () or all(side in cooking.SIDES for side in tech.sides), tech.id
+        for lang in ("en", "nl", "fr"):
+            assert len(cooking._STEPS[lang][tech.id]) == len(cooking._STEPS["en"][tech.id]) >= 3, (tech.id, lang)
+            # a herb dish needs its herb; the others take a vegetable or fruit first
+            pick = ids[:1]
+            if tech.needs_herb:
+                pick = [i for i in ids if cooking.produce_kind(db.get(i)) == "herb"][:1]
+            recipe = cooking.render({"technique": tech.id, "produce": pick, "servings": 4}, db, lang)
+            assert recipe is not None, (tech.id, lang)
+            text = " ".join([recipe["title"], recipe["technique_name"], *recipe["steps"]])
+            assert "{" not in text and "}" not in text, (tech.id, lang, text)
+            assert recipe["course"] == (tech.course or recipe["course"])
+            assert recipe["course"] in cooking.COURSES and recipe["course_name"]
+
+
+def test_dishes_made_for_certain_plants_refuse_the_others(db: PlantDatabase) -> None:
+    assert cooking.render({"technique": "cake", "produce": ["tomato"]}, db) is None
+    assert cooking.render({"technique": "cake", "produce": ["carrot"]}, db) is not None
+    assert cooking.render({"technique": "passata", "produce": ["courgette"]}, db) is None
+    assert cooking.render({"technique": "passata", "produce": ["tomato"], "servings": 4}, db) is not None
+    assert cooking.render({"technique": "sauerkraut", "produce": ["lettuce"]}, db) is None
+    # a garden herb never spoils a dish: it is only scattered over it
+    assert cooking.render({"technique": "ratatouille", "produce": ["tomato", "aubergine", "basil"]}, db) is not None
+
+
+def test_preserving_is_a_chapter_of_its_own(db: PlantDatabase) -> None:
+    passata = cooking.render({"technique": "passata", "produce": ["tomato"], "servings": 4}, db, "en")
+    assert passata["course"] == "preserve" and passata["course_name"] == "Preserving & pickles"
+    assert passata["ingredients"][0]["qty"] >= 2000  # a batch, not one plate
+    assert cooking.course_name("preserve", "nl") == "Bewaren & inmaken"
+    ideas = cooking.suggest(_produce(db), db, cooking.Prefs.from_dict({}), "nl", limit=9)
+    preserve = [r for r in ideas if r["course"] == "preserve"]
+    assert 1 <= len(preserve) <= 2 and ideas[-len(preserve) :] == preserve  # after the meal, never crowding it out
+    assert len([r for r in ideas if r["course"] != "preserve"]) == 9
+    book = cooking.recipes_pdf(ideas, "nl")
+    assert book.startswith(b"%PDF")
+    assert all(
+        not i["fridge"] for i in cooking.catalog("en")["pantry"] if i["id"] in ("tahini", "gelatine", "soup_pasta")
+    )
+    assert next(i for i in cooking.catalog("en")["pantry"] if i["id"] == "feta")["fridge"] is True
+
+
+def test_flemish_asparagus_and_waterzooi(db: PlantDatabase) -> None:
+    assert cooking.course_of("flemish") == "starter" and cooking.course_of("flemish", "ham") == "main"
+    water = cooking.render(
+        {"technique": "waterzooi", "produce": ["leek", "carrot"], "protein": "chicken", "side": "potatoes"}, db, "en"
+    )
+    assert any("Poach" in s for s in water["steps"]) and not any("hot pan" in s for s in water["steps"])
+    assert water["subtitle"] == "with chicken breast"
+
+
+def test_grain_dishes_keep_their_grain(db: PlantDatabase) -> None:
+    tab = cooking.render({"technique": "tabbouleh", "produce": ["parsley", "tomato"], "side": "pasta"}, db, "en")
+    assert tab["spec"]["side"] == "bulgur"  # a tabbouleh is made with bulgur, whatever side was asked
+    none = cooking.render({"technique": "rolls", "produce": ["savoy_cabbage"], "side": ""}, db, "en")
+    assert none["spec"]["side"] == "rice"
+    cake = cooking.render({"technique": "cake", "produce": ["carrot"], "side": "rice", "protein": "beef"}, db, "en")
+    assert cake["spec"]["side"] == "" and not any(i["id"] in ("rice", "beef") for i in cake["ingredients"])
+
+
+def test_menus_are_three_courses_that_belong_together(db: PlantDatabase) -> None:
+    ids = [
+        "tomato",
+        "courgette",
+        "aubergine",
+        "sweet_pepper",
+        "basil",
+        "parsley",
+        "cucumber",
+        "strawberry",
+        "raspberry_summer",
+        "carrot",
+    ]
+    prefs = cooking.Prefs.from_dict({"proteins": ["chicken"], "servings": 4})
+    menus = cooking.menus(_produce(db, ids), db, prefs, "nl", 5, date(2026, 8, 10))
+    assert len(menus) >= 4
+    assert menus[0]["theme"]  # the season's themed menus come first
+    seen: set[str] = set()
+    for menu in menus:
+        assert [c["course"] for c in menu["courses"]][1:] == ["main", "dessert"]
+        assert menu["courses"][0]["course"] in ("soup", "starter")
+        recipes = [c["recipe"] for c in menu["courses"]]
+        assert menu["minutes"] == sum(r["minutes"] for r in recipes) and menu["servings"] == 4
+        assert not seen & {r["id"] for r in recipes}, menu["title"]  # a dish is in one menu only
+        seen |= {r["id"] for r in recipes}
+        assert all(set(r["spec"]["produce"]) <= set(ids) for r in recipes)
+    titles = {m["title"] for m in menus}
+    assert "Provençaals tuinmenu" in titles or "Siciliaanse avond" in titles
+    plain = cooking.menus(_produce(db, ["kale", "potato", "leek", "apple"]), db, prefs, "en", 3, date(2026, 1, 10))
+    assert plain and all(m["title"] for m in plain)
+    assert cooking.menus([], db, prefs, "en") == []
+
+
+def test_a_themed_menu_needs_its_produce(db: PlantDatabase) -> None:
+    prefs = cooking.Prefs.from_dict({})
+    winter = cooking.menus(
+        _produce(db, ["kale", "carrot", "leek", "potato", "apple"]), db, prefs, "en", 6, date(2026, 8, 1)
+    )
+    assert "Courgette glut menu" not in {m["title"] for m in winter}  # no courgette in the garden
+    summer = cooking.menus(
+        _produce(db, ["courgette", "basil", "strawberry", "tomato"]), db, prefs, "en", 6, date(2026, 8, 1)
+    )
+    assert {m["theme"] for m in summer} & {"courgette", "tomato", "provence"}
