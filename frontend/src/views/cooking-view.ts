@@ -418,6 +418,7 @@ export class CookingView extends LitElement {
       this.error = this.t("cook.edit_need_both");
       return;
     }
+    this.error = ""; // a message from an earlier try must not hide this save
     await this.updateRecipe(r, { ingredients, steps });
     if (!this.error) {
       this.draft = null;

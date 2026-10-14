@@ -7,7 +7,8 @@ several, the produce decides which one, so two dishes rarely get the same idea.
 
 ``USES[technique][item]``: the preparations that suit that dish, as keys of ``PREP``.
 An item a technique does not list stays in the fridge for another dish.
-``PREP[key]``: (where the step goes, text nl, en, fr).  "mid": after the second step of
+``PREP[key]``: (where the step goes, text nl, en, fr).  "early": after the first step (before
+the cooking starts); "mid": after the second step of
 the method (onion softened, vegetables in the pan or on the tray); "during": just before
 its last step (the oven or grill step a "for the last 10 minutes" addition times);
 "late": at the end.
@@ -165,10 +166,10 @@ USES: dict[str, dict[str, tuple[str, ...]]] = {
         "mozzarella": ("crostini_mozzarella",),
         "parmesan": ("roast_parm_shave",),
         "yoghurt": ("crostini_yog",),
-        "lemon": ("pasta_lemon",),
+        "lemon": ("crostini_lemon",),
         "honey": ("crostini_honey",),
         "vinegar": ("crostini_vinegar",),
-        "nuts": ("pasta_nuts",),
+        "nuts": ("crostini_nuts",),
     },
     "compote": {
         "yoghurt": ("dessert_yog_honey", "compote_yog_layer"),
@@ -208,6 +209,7 @@ GROUP: dict[str, str] = {
     **dict.fromkeys(("dessert_yog_honey", "dessert_yog_lemon", "dessert_cream", "compote_yog_layer"), "dessert_side"),
     **dict.fromkeys(("crostini_feta", "crostini_yog"), "bed"),
     **dict.fromkeys(("compote_nuts", "compote_crunch"), "crunch"),
+    **dict.fromkeys(("plate_cream_sauce", "plate_wine_jus"), "pan_sauce"),
 }
 # A dish takes at most this many things from the fridge; the rest waits for another dish.
 MAX_PER_DISH = 3
@@ -750,10 +752,18 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Rooster de {x} met een snuf kaneel en strooi ze over de compote.",
         "Toast the {x} with a pinch of cinnamon and scatter them over the compote.",
         "Torréfiez {x} avec une pincée de cannelle et parsemez-en la compote."),
-    "compote_honey": ("mid",
-        "Vervang de suiker door een lepel {x}.",
-        "Use a spoonful of {x} instead of the sugar.",
-        "Remplacez le sucre par une cuillerée de {x}."),
+    "compote_honey": ("early",
+        "Stoof het fruit straks met een lepel {x} in plaats van suiker.",
+        "Simmer the fruit with a spoonful of {x} instead of the sugar.",
+        "Faites mijoter les fruits avec une cuillerée de {x} au lieu du sucre."),
+    "crostini_lemon": ("late",
+        "Rasp wat {x}schil over de toastjes en druppel er een beetje sap over.",
+        "Grate a little {x} zest over the toasts and add a few drops of juice.",
+        "Râpez un peu de zeste de {x} sur les toasts et ajoutez quelques gouttes de jus."),
+    "crostini_nuts": ("late",
+        "Rooster de {x}, hak ze grof en strooi ze over de toastjes.",
+        "Toast the {x}, chop them coarsely and scatter them over the toasts.",
+        "Torréfiez {x}, concassez-les et parsemez-en les toasts."),
     "compote_crunch": ("late",
         "Rooster de {x} in een pan met een klontje boter en een lepel suiker en strooi ze als krokante topping over de compote.",
         "Toast the {x} in a pan with a knob of butter and a spoonful of sugar and scatter them over the compote as a crunchy topping.",

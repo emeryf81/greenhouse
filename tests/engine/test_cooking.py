@@ -189,7 +189,7 @@ def test_every_dish_its_own_idea(db: PlantDatabase) -> None:
             assert item in cooking.PANTRY, item
             for key in keys:
                 where, *texts = x.PREP[key]
-                assert where in ("mid", "during", "late") and len(texts) == 3 and all(texts), key
+                assert where in ("early", "mid", "during", "late") and len(texts) == 3 and all(texts), key
 
 
 def test_the_cooks_own_version(db: PlantDatabase) -> None:
@@ -230,3 +230,22 @@ def test_chapters_soups_starters_mains_desserts(db: PlantDatabase) -> None:
     assert cold is not None and cold["course"] == "soup"  # cucumber may go raw in a chilled soup
     pdf = cooking.recipes_pdf(recipes, "nl", "book", today=date(2026, 8, 1))
     assert pdf.count(b"/Type /Page ") >= len(recipes) + 1 + 4 + 1  # cover, 4 chapter pages, recipes, shopping list
+
+
+def test_new_dishes_hold_together(db: PlantDatabase) -> None:
+    plate = cooking.fitting_extras("plate", ["cream", "white_wine"], produce=["kale"])
+    assert plate in (["cream"], ["white_wine"])  # one pan sauce, not two
+    toasts = cooking.render(
+        {"technique": "crostini", "produce": ["tomato"], "side": "", "extras": ["lemon", "nuts"]}, db, "en"
+    )
+    assert toasts is not None and any(i["id"] == "bread" for i in toasts["shopping"])  # always their bread
+    assert not any("pasta" in s.lower() for s in toasts["steps"])
+    prefs = cooking.Prefs.from_dict({"side": "none"})
+    crostini = [r for r in cooking.suggest(_produce(db), db, prefs, "en", 20) if r["technique"] == "crostini"]
+    assert all(r["spec"]["side"] == "bread" for r in crostini)
+    sweet = cooking.render({"technique": "compote", "produce": ["apple"], "extras": ["honey"]}, db, "en")
+    assert sweet is not None
+    at = lambda word: next(n for n, s in enumerate(sweet["steps"]) if word in s)  # noqa: E731
+    assert at("instead of the sugar") < at("Simmer it gently")  # said before the fruit simmers
+    cold = cooking.render({"technique": "cold_soup", "produce": ["tomato"]}, db, "en")
+    assert cold is not None and cold["minutes"] >= 45  # the chilling counts

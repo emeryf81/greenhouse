@@ -237,13 +237,17 @@ export class HortulusPanel extends LitElement {
   private async loadLook(): Promise<void> {
     if (this.lookLoaded || !this.hass?.connection || this.panelConfig.web) return;
     this.lookLoaded = true;
+    const before = { theme: themeChoice(), appearance: appearanceChoice() };
     try {
       const res = await this.hass.connection.sendMessagePromise<{ value?: { theme?: string; appearance?: string } | null }>({
         type: "frontend/get_user_data", key: "hortulus_look" });
       const v = res?.value;
       this.lookSaving = true;
-      if (v?.theme && THEMES.includes(v.theme as ThemeChoice) && v.theme !== themeChoice()) setThemeChoice(v.theme as ThemeChoice);
-      if (v?.appearance && APPEARANCES.includes(v.appearance as Appearance) && v.appearance !== appearanceChoice()) setAppearanceChoice(v.appearance as Appearance);
+      // a choice made while the request ran wins over the saved one
+      const theme = themeChoice() === before.theme ? v?.theme : undefined;
+      const look = appearanceChoice() === before.appearance ? v?.appearance : undefined;
+      if (theme && THEMES.includes(theme as ThemeChoice) && theme !== themeChoice()) setThemeChoice(theme as ThemeChoice);
+      if (look && APPEARANCES.includes(look as Appearance) && look !== appearanceChoice()) setAppearanceChoice(look as Appearance);
     } catch {
       /* older Home Assistant or no user data: the choice stays on this device */
     } finally {
