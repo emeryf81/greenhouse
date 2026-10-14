@@ -1088,6 +1088,15 @@
     },
     "invalid_expense": {
       "message": "Indiquez un montant supérieur à zéro et un type de dépense connu."
+    },
+    "invalid_recipe": {
+      "message": "Cette recette est incomplète : il faut une préparation et au moins un légume."
+    },
+    "unknown_recipe": {
+      "message": "La recette {recipe} n'est pas dans le livre de cuisine."
+    },
+    "cookbook_full": {
+      "message": "Le livre de cuisine est plein ({max} recettes). Supprimez-en d'abord quelques-unes."
     }
   }
 }

@@ -1188,3 +1188,78 @@ async def test_money_must_be_a_real_number(hass: HomeAssistant, garden) -> None:
     operations.op_save_settings(runtime, {"economy": {"prices": {"tomato": "4.5", "carrot": ""}}})
     assert runtime.repo.data.settings.economy.prices == {"tomato": 4.5}
     assert operations.op_save_expense(runtime, {"amount": "12.5", "category": "seeds"}).amount == 12.5
+
+
+async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, hass_ws_client) -> None:
+    """Recipes from the garden; the cookbook keeps them; PDF and to-do list work."""
+    import base64
+
+    from homeassistant.core import SupportsResponse
+
+    entry, _calls = garden
+    repo = entry.runtime_data.repo
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/suggest", "produce": ["kale", "carrot", "leek"], "prefs": {"proteins": ["pork"]}}
+    )
+    res = (await _result(client))["result"]
+    assert res["recipes"] and res["catalog"]["sides"] and res["book"] == []
+    assert any(p["plant_id"] == "kale" for p in res["catalog"]["edible"])
+    recipe = res["recipes"][0]
+    assert {i["plant_id"] for i in recipe["ingredients"] if i["source"] == "garden"} <= {"kale", "carrot", "leek"}
+
+    spec = {**recipe["spec"], "side": "bulgur"}
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/render", "spec": spec})
+    changed = (await _result(client))["result"]
+    assert changed["saved"] is False and any(i["id"] == "bulgur" for i in changed["recipe"]["ingredients"])
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": spec, "favorite": True}})
+    saved = (await _result(client))["result"]
+    assert saved["id"] == changed["recipe"]["id"] and saved["book"][0]["favorite"] is True
+    assert len(repo.data.cookbook) == 1
+    await client.send_json_auto_id(
+        {
+            "type": f"{DOMAIN}/cooking/book/update",
+            "recipe_id": saved["id"],
+            "changes": {"shared": True, "title": "Ons recept"},
+        }
+    )
+    book = (await _result(client))["result"]["book"]
+    assert book[0]["shared"] is True and book[0]["title"] == "Ons recept"
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/pdf", "kind": "book", "ids": [saved["id"]]})
+    pdf = (await _result(client))["result"]
+    assert base64.b64decode(pdf["pdf"]).startswith(b"%PDF") and pdf["filename"].endswith(".pdf")
+
+    items: list[str] = []
+    hass.states.async_set("todo.shopping_list", "0")
+
+    async def get_items(call: ServiceCall):
+        return {"todo.shopping_list": {"items": [{"summary": s} for s in items]}}
+
+    async def add_item(call: ServiceCall) -> None:
+        items.append(call.data["item"])
+
+    hass.services.async_register("todo", "get_items", get_items, supports_response=SupportsResponse.ONLY)
+    hass.services.async_register("todo", "add_item", add_item)
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/to_todo", "entity_id": "todo.shopping_list", "ids": [saved["id"]]}
+    )
+    first = (await _result(client))["result"]
+    assert first["added"] == len(items) > 0
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/to_todo", "entity_id": "todo.shopping_list", "ids": [saved["id"]]}
+    )
+    assert (await _result(client))["result"]["added"] == 0
+
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/send", "what": "shopping", "ids": [saved["id"]]})
+    assert "bulgur" in (await _result(client))["result"]["text"]
+
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/prefs", "prefs": {"pantry": ["rice", "nope"], "servings": 3}}
+    )
+    assert (await _result(client))["result"]["prefs"]["pantry"] == ["rice"]
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/delete", "recipe_id": saved["id"]})
+    assert (await _result(client))["result"]["book"] == []
+    await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/delete", "recipe_id": saved["id"]})
+    assert not (await _result(client))["success"]

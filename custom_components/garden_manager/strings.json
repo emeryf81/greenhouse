@@ -1088,6 +1088,15 @@
     },
     "invalid_expense": {
       "message": "Give an amount above zero and a known kind of expense."
+    },
+    "invalid_recipe": {
+      "message": "This recipe is incomplete: it needs a way of cooking and at least one vegetable."
+    },
+    "unknown_recipe": {
+      "message": "Recipe {recipe} is not in the cookbook."
+    },
+    "cookbook_full": {
+      "message": "The cookbook is full ({max} recipes). Remove a few first."
     }
   }
 }

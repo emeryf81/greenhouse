@@ -455,12 +455,38 @@ def build(lang: str) -> dict:
             "expenses": [],
         },
         "supplies": {**catalog(lang), "shopping": [i.to_dict() for i in shopping_list(data, db, analysis, lang)]},
+        "cooking": _cooking(data, db, analysis, lang),
     }
     return {
         "snapshot": snapshot,
         "plants": {"plants": db.as_dicts(), "families": FAMILIES, "overrides": {}},
         "extras": extras,
     }
+
+
+def _cooking(data, db, analysis, lang: str) -> dict:
+    """What the Cooking tab shows: the garden's ready produce (plus a late-summer basket) as recipes."""
+    from custom_components.garden_manager.engine import cooking
+
+    report = kitchen_report(data, db, analysis.timelines, analysis.today, lang)
+    extra = [{"plant_id": p, "until": None} for p in ("tomato", "courgette", "kale", "carrot", "basil", "pumpkin", "apple")]
+    produce = cooking.ready_produce([*report.get("ready", []), *extra], db)
+    for p in produce:
+        plant = db.get(p["plant_id"])
+        p.update(name=plant.name(lang), icon=plant.icon, color=plant.color, emoji=plant.emoji)
+    prefs = cooking.Prefs.from_dict({"proteins": ["chicken", "salmon"], "use": ["feta"], "servings": 4})
+    recipes = cooking.suggest(produce, db, prefs, lang, 12)
+    edible = sorted(
+        ({"plant_id": p.id, "name": p.name(lang), "kind": k, "icon": p.icon, "color": p.color} for p in db.all()
+         if (k := cooking.produce_kind(p)) is not None),
+        key=lambda x: x["name"].lower(),
+    )  # fmt: skip
+    book = [{**recipes[1], "saved": True, "favorite": True, "shared": False, "note": "", "added": "2026-08-01", "cooked": []}]
+    return {
+        "ready": produce, "produce": produce, "recipes": recipes, "prefs": None,
+        "used_prefs": {"pantry": [], "use": prefs.use, "proteins": prefs.proteins, "side": "", "servings": prefs.servings},
+        "catalog": {**cooking.catalog(lang), "edible": edible}, "book": book,
+    }  # fmt: skip
 
 
 if __name__ == "__main__":

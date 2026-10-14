@@ -60,7 +60,7 @@ const modal = () => page.locator("hl-modal");
 const modalOpen = () => page.locator("hl-modal dialog[open]").first().waitFor();
 const modalTitle = () => modal().first().evaluate((m) => m.shadowRoot.querySelector("h2")?.textContent ?? "");
 
-const TABS = ["dashboard", "layout", "planner", "crops", "library", "calendar", "weather", "journal", "advice", "analysis", "handbook", "print", "settings"];
+const TABS = ["dashboard", "layout", "planner", "crops", "library", "calendar", "weather", "journal", "cooking", "advice", "analysis", "handbook", "print", "settings"];
 for (const lang of ["nl", "en"]) {
   for (const tab of TABS) {
     await step(`${lang}: ${tab} renders`, async () => {
@@ -227,16 +227,35 @@ await step("journal: kitchen, harvest value and an expense", async () => {
   assert.equal(sent?.expense?.amount, 12.5);
 });
 
+await step("cooking: a dish from the garden, another side, kept, on the list, printed", async () => {
+  await page.evaluate(() => localStorage.clear());
+  await open("cooking");
+  const view = page.locator("hl-cooking-view");
+  await view.locator("button.recipe").first().click();
+  await modalOpen();
+  await view.locator("hl-modal select#side").selectOption("bulgur");
+  await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/render") && c.spec.side === "bulgur"));
+  await view.locator("hl-modal button", { hasText: "Bewaar in mijn kookboek" }).click();
+  await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/book/save")));
+  await view.locator("hl-modal button", { hasText: "Op boodschappenlijst" }).click();
+  await page.keyboard.press("Escape");
+  await view.locator("button[role=tab]", { hasText: "Boodschappenlijst" }).click();
+  await view.locator("table tr").first().waitFor();
+  assert.ok((await view.locator("table tr").count()) > 2, "shopping list is empty");
+  await view.locator("button:has(ha-icon[icon=\"mdi:file-pdf-box\"])").first().click();
+  await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/pdf") && c.kind === "shopping"));
+});
+
 await step("dashboard: pest calendar card", async () => {
   await open("dashboard");
   const n = await page.locator("hl-dashboard-view").evaluate((el) => el.shadowRoot.querySelectorAll(".pests li").length);
   assert.ok(n > 0, "no pest warnings shown");
 });
 
-await step("menu: seven places, the garden's tabs underneath", async () => {
+await step("menu: eight places, the garden's tabs underneath", async () => {
   await open("crops");
   const top = await page.locator("hortulus-panel").evaluate((el) => el.shadowRoot.querySelectorAll("nav.top a").length);
-  assert.equal(top, 7);
+  assert.equal(top, 8);
   await page.locator("hortulus-panel nav.sub a", { hasText: "Tuinplan" }).click();
   await page.locator("hl-planner-view").waitFor();
   await page.locator("hortulus-panel nav.top a", { hasText: "Weer" }).click();
@@ -272,6 +291,10 @@ await step("shared view: only the tabs the owner shows", async () => {
   // without Today in the list, a tab that is not shown falls back to the first one that is
   await page.goto(`${base}?tab=journal&lang=nl&tabs=planner,crops`);
   await page.locator("hl-planner-view").waitFor();
+  // an empty list shows no part of the garden, not even Today
+  await page.goto(`${base}?tab=dashboard&lang=nl&tabs=`);
+  await page.locator("hortulus-panel main .empty").waitFor();
+  assert.equal(await page.locator("hl-dashboard-view").count(), 0);
 });
 
 await step("wall screen: clock and big tick-boxes, back to Today", async () => {

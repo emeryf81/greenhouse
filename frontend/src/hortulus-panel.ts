@@ -29,6 +29,7 @@ import "./views/handbook-view";
 import "./views/print-view";
 import "./views/advice-view";
 import "./views/journal-view";
+import "./views/cooking-view";
 import "./views/analysis-view";
 import "./views/crops-view";
 import { setPersons } from "./util/people";
@@ -39,7 +40,7 @@ import "./components/modal";
 import "./components/plant-detail";
 import { familyColor, plantName, familyName } from "./util/garden";
 
-type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "advice" | "analysis" | "handbook" | "print" | "settings";
+type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "cooking" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string }[] = [
   { id: "dashboard", icon: "home" },
   { id: "planner", icon: "planner" },
@@ -48,6 +49,7 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: "calendar", icon: "calendar" },
   { id: "weather", icon: "weather" },
   { id: "journal", icon: "journal" },
+  { id: "cooking", icon: "cooking" },
   { id: "library", icon: "library" },
   { id: "advice", icon: "advice" },
   { id: "handbook", icon: "handbook" },
@@ -57,13 +59,14 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: "wall", icon: "wall" }, // the wall screen: no menu, reached from Today
 ];
 /** The menu: seven places, the related tabs of a place in a row underneath. */
-type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "knowledge" | "manage";
+type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "kitchen" | "knowledge" | "manage";
 const GROUPS: { id: Group; icon: string; tabs: Tab[] }[] = [
   { id: "today", icon: "home", tabs: ["dashboard"] },
   { id: "garden", icon: "garden", tabs: ["planner", "layout", "crops"] },
   { id: "calendar", icon: "calendar", tabs: ["calendar"] },
   { id: "weather", icon: "weather", tabs: ["weather"] },
   { id: "journal", icon: "journal", tabs: ["journal"] },
+  { id: "kitchen", icon: "cooking", tabs: ["cooking"] },
   { id: "knowledge", icon: "knowledge", tabs: ["library", "advice", "handbook"] },
   { id: "manage", icon: "manage", tabs: ["analysis", "print", "settings"] },
 ];
@@ -86,6 +89,11 @@ export class HortulusPanel extends LitElement {
    * The tabs this panel may show: `panel.config.tabs` (the website's read-only view of a
    * garden someone shares) or all of them (Home Assistant).
    */
+  /** The website passes extra settings here (`tabs`, `viewer`, `web`); Home Assistant none. */
+  private get panelConfig(): { tabs?: string[]; viewer?: unknown; web?: boolean } {
+    return (this.panel as { config?: { tabs?: string[]; viewer?: unknown; web?: boolean } } | undefined)?.config ?? {};
+  }
+
   private get allowedTabs(): Set<Tab> | null {
     const tabs = (this.panel as { config?: { tabs?: string[] } } | undefined)?.config?.tabs;
     // no list: everything (Home Assistant); a list, even an empty one, restricts
@@ -427,6 +435,8 @@ export class HortulusPanel extends LitElement {
     const snap = this.snapshot!;
     const admin = this.hass.user?.is_admin ?? true;
     const plantMap = new Map(this.plants.map((p) => [p.id, p]));
+    // a shared view that allows no tab at all shows nothing of the garden
+    if (!this.tabAllowed(this.tab)) return html`<div class="card empty">${this.t("nav.nothing_shared")}</div>`;
     switch (this.tab) {
       case "layout":
         return html`<hl-planner-view mode="layout" .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
@@ -452,6 +462,9 @@ export class HortulusPanel extends LitElement {
       case "journal":
         return html`<hl-journal-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin}></hl-journal-view>`;
+      case "cooking":
+        return html`<hl-cooking-view .api=${this.api!} .t=${this.t} .hass=${this.hass} .lang=${this.uiLang} .gardenKey=${this.api?.gardenId ?? ""}
+          .readonly=${!!this.panelConfig.viewer} .web=${!!this.panelConfig.web}></hl-cooking-view>`;
       case "advice":
         return html`<hl-advice-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin}></hl-advice-view>`;
@@ -530,7 +543,7 @@ export class HortulusPanel extends LitElement {
           ${this.snapshot!.gardens!.map((g) => html`<option value=${g.entry_id} ?selected=${g.entry_id === this.snapshot!.entry_id}>${g.title}</option>`)}
         </select>` : nothing}
         ${this.renderNav("top")}
-        ${this.narrow ? html`<span style="flex:1"></span>
+        ${this.narrow && this.tabAllowed("settings") ? html`<span style="flex:1"></span>
           <button class="icon-btn" aria-label=${this.t("nav.settings")} aria-pressed=${String(this.tab === "settings")} @click=${() => this.navigate("settings")}>
             <ha-icon icon="mdi:cog-outline"></ha-icon></button>` : nothing}
       </header>

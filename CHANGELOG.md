@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.7.0 – 2026-10
+
+### Added
+- **Cooking** (new menu place): a seasonal cookbook from what the garden gives right now.
+  Hortulus looks at the crops that are ready to pick (plus anything you add from the cellar)
+  and proposes dishes for them – soup, oven tray, stir-fry, pasta, risotto, salad, gratin,
+  stew or curry, frittata, stoemp, stuffed vegetables, a plate with meat and fries, pesto and
+  a fruit crumble. Lettuce, cucumber and radish only go in salads.
+  - Tick what is in the fridge to use up, the meat or fish you like (chicken, chicken mince,
+    beef, steak, stewing beef, pork, pork tenderloin, mince, burger, sweetbreads, sausage,
+    bacon, ham, salmon, white fish, prawns – or tofu, chickpeas, lentils, egg, halloumi,
+    goat's cheese) and the side: pasta, rice, bulgur, couscous, pearl couscous, gnocchi,
+    potatoes, fries, bread or noodles. Every recipe can change its side, meat and servings.
+  - Each dish gets a picture: the crops on a plate (or in a bowl, or an oven dish) with the
+    side underneath and the meat in the middle.
+  - Recipes in Dutch, French and English, with quantities per person, what comes from the
+    garden and what to buy.
+  - Your own cookbook: keep recipes, mark favourites, add notes, note when you cooked them.
+  - One shopping list for the dishes you pick: print it, save it as PDF, send it to your
+    phone or put it on a Home Assistant to-do list. A recipe, a whole cookbook or the list
+    as PDF (with the dish pictures).
+  - On the Hortulus website a recipe can be shared: whoever may see your garden sees it.
+
+### Fixed
+- A shared view whose tab list allows nothing shows no part of the garden (it showed Today);
+  the narrow-screen Settings button follows the list too.
+- A garden document whose empty objects came back as empty lists (PHP) loads again.
+
 ## 1.6.1 – 2026-10
 
 ### Added

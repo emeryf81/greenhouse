@@ -80,6 +80,8 @@ def _convert(tp: Any, value: Any) -> Any:
 
     if origin is dict:
         _key_tp, val_tp = get_args(tp) or (str, Any)
+        if isinstance(value, (list, tuple)) and not value:
+            return {}  # an empty object that went through PHP's json_decode(..., true) comes back as []
         if not isinstance(value, dict):
             raise TypeError(f"Expected mapping, got {type(value).__name__}")
         return {str(k): _convert(val_tp, v) for k, v in value.items()}

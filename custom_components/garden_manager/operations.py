@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN, EVENT_TASK_COMPLETED, SIGNAL_LAYOUT_CHANGED
 from .engine import seasons
 from .engine.models import (
+    CookbookRecipe,
     Expense,
     Feature,
     GardenBed,
@@ -987,3 +988,93 @@ def op_delete_plan(runtime: GardenRuntime, plan_id: str) -> None:
     if not seasons.delete_plan(runtime.repo.data, plan_id):
         raise _err("unknown_record", record=plan_id)
     runtime.repo.async_changed("plan")
+
+
+# --------------------------------------------------------------------------- #
+# Cookbook
+# --------------------------------------------------------------------------- #
+COOKBOOK_MAX = 500
+
+
+def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
+    from .engine import cooking
+
+    tech = str(raw.get("technique") or "")
+    produce = [str(p) for p in raw.get("produce") or [] if isinstance(p, str)][:6]
+    if tech not in cooking.TECHNIQUE or not produce:
+        raise _err("invalid_recipe")
+    side = str(raw.get("side") or "")
+    protein = str(raw.get("protein") or "")
+    return {
+        "technique": tech,
+        "produce": produce,
+        "side": side if side in cooking.SIDES else "",
+        "protein": protein if protein in cooking.PROTEINS else "",
+        "extras": [x for x in raw.get("extras") or [] if x in cooking.PANTRY][:12],
+        "servings": max(1, min(12, int(raw.get("servings") or 2))),
+    }
+
+
+@callback
+def op_cookbook_save(runtime: GardenRuntime, raw: Mapping[str, Any]) -> CookbookRecipe:
+    """Keep a recipe in the cookbook (the same dish twice stays one entry)."""
+    from .engine import cooking
+
+    data = runtime.repo.data
+    spec = _clean_spec(raw.get("spec") or {})
+    rid = cooking.spec_id(spec)
+    entry = next((r for r in data.cookbook if r.id == rid), None)
+    if entry is None:
+        if len(data.cookbook) >= COOKBOOK_MAX:
+            raise _err("cookbook_full", max=COOKBOOK_MAX)
+        entry = CookbookRecipe(id=rid, spec=spec, added=dt_util.now().date())
+        data.cookbook.append(entry)
+    _apply_cookbook_fields(entry, raw)
+    runtime.repo.async_changed("records")
+    return entry
+
+
+def _apply_cookbook_fields(entry: CookbookRecipe, raw: Mapping[str, Any]) -> None:
+    if "title" in raw:
+        entry.title = str(raw.get("title") or "").strip()[:120]
+    if "note" in raw:
+        entry.note = str(raw.get("note") or "")[:1000]
+    if "favorite" in raw:
+        entry.favorite = bool(raw.get("favorite"))
+    if "shared" in raw:
+        entry.shared = bool(raw.get("shared"))
+    if raw.get("cooked"):
+        entry.cooked = [*entry.cooked, dt_util.now().date()][-50:]
+
+
+@callback
+def op_cookbook_update(runtime: GardenRuntime, recipe_id: str, raw: Mapping[str, Any]) -> CookbookRecipe:
+    entry = next((r for r in runtime.repo.data.cookbook if r.id == recipe_id), None)
+    if entry is None:
+        raise _err("unknown_recipe", recipe=recipe_id)
+    _apply_cookbook_fields(entry, raw)
+    runtime.repo.async_changed("records")
+    return entry
+
+
+@callback
+def op_cookbook_delete(runtime: GardenRuntime, recipe_id: str) -> None:
+    data = runtime.repo.data
+    before = len(data.cookbook)
+    data.cookbook = [r for r in data.cookbook if r.id != recipe_id]
+    if len(data.cookbook) == before:
+        raise _err("unknown_recipe", recipe=recipe_id)
+    runtime.repo.async_changed("records")
+
+
+@callback
+def op_cooking_prefs(runtime: GardenRuntime, raw: Mapping[str, Any]) -> dict[str, Any]:
+    """Remember what the cook usually has in the house, likes, and for how many."""
+    from dataclasses import asdict
+
+    from .engine import cooking
+
+    prefs = asdict(cooking.Prefs.from_dict(raw))
+    runtime.repo.data.cooking_prefs = prefs
+    runtime.repo.async_changed("records")
+    return prefs
