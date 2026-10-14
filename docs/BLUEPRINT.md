@@ -150,21 +150,37 @@ greenhouse/                                  ← repository (brand: Hortulus)
 ### 2.1 Runtime architecture
 
 ```mermaid
-flowchart LR
-  subgraph HA[Home Assistant]
-    W[weather.home] -- get_forecasts (30 min / on change) --> C
-    S[soil / air sensors] -- state_changed (debounced) --> C
-    C[GardenCoordinator] --> A[[engine.analyze]]
-    A --> T[[engine.tasks: generate + merge]]
-    R[(GardenRepository<br/>.storage: garden · syslog · archive)] <--> C
-    C --> E[sensors · binary_sensors · calendar · todo]
-    C --> N[notifications: persistent · push + buttons · TTS · bus events]
-    C --> H[controllers: irrigation · vent / shade]
-    SV[services] --> O[operations] --> R
-    WS[websocket API] --> O
-    VO[Assist intents] --> C
+flowchart TB
+  P["Hortulus panel<br/>Lit + TypeScript"]
+  subgraph HA["Home Assistant"]
+    direction TB
+    WS["websocket API"]
+    SV["services"]
+    VO["Assist intents"]
+    O["operations"]
+    R[("GardenRepository<br/>garden, syslog and archive<br/>in .storage")]
+    W["weather entity"]
+    S["soil and air sensors"]
+    C["GardenCoordinator"]
+    A[["engine: analyze"]]
+    T[["engine: generate and merge tasks"]]
+    E["sensors, binary sensors,<br/>calendar, to-do list"]
+    N["notifications: persistent, push with buttons,<br/>TTS, bus events"]
+    H["controllers: irrigation,<br/>vents and shade"]
   end
-  P[Hortulus panel<br/>Lit + TS] <-- subscribe / plan/save / plan/check --> WS
+  P <-->|"subscribe, save, check"| WS
+  WS --> O
+  SV --> O
+  O --> R
+  R <--> C
+  W -->|"forecast every 30 min or on change"| C
+  S -->|"state changes, debounced"| C
+  VO --> C
+  C --> A
+  A --> T
+  C --> E
+  C --> N
+  C --> H
 ```
 
 One config entry is one garden: each has its own repository, coordinator, notifier and
