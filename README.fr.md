@@ -37,7 +37,12 @@ et, sans caméra radar dans Home Assistant, la carte publique de Buienradar dans
 en Belgique et aux Pays‑Bas. Le panneau entier, la base de plantes, le
 manuel et les recettes existent en **français, anglais et néerlandais**.
 
-<p align="center"><img src="docs/images/fr/dashboard.png" alt="Aujourd'hui : tâches, météo, alertes de gel et de chaleur" width="92%"></p>
+<table>
+  <tr>
+    <td width="34%" valign="top"><img src="assets/brand/Hortulus_EN.png" alt="Hortulus: your kitchen garden, planned and cared for"></td>
+    <td width="66%" valign="top"><img src="docs/images/fr/dashboard.png" alt="Aujourd'hui : tâches, météo, alertes de gel et de chaleur"></td>
+  </tr>
+</table>
 
 ## Ce que contient Hortulus
 

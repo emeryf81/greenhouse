@@ -37,7 +37,12 @@ Assistant, the public Buienradar map on the Weather tab in the Netherlands and B
 The whole panel, the plant database, the handbook and the recipes come in **English,
 Dutch and French**.
 
-<p align="center"><img src="docs/images/en/dashboard.png" alt="Today: tasks, weather, frost and heat warnings" width="92%"></p>
+<table>
+  <tr>
+    <td width="34%" valign="top"><img src="assets/brand/Hortulus_EN.png" alt="Hortulus: your kitchen garden, planned and cared for"></td>
+    <td width="66%" valign="top"><img src="docs/images/en/dashboard.png" alt="Today: tasks, weather, frost and heat warnings"></td>
+  </tr>
+</table>
 
 ## What is in the box
 

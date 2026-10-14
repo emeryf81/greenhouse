@@ -37,7 +37,12 @@ Home Assistant, de openbare Buienradar‑kaart op het tabblad Weer in Nederland 
 Het hele paneel, de plantendatabase, het handboek en de recepten zijn er in het
 **Nederlands, Engels en Frans**.
 
-<p align="center"><img src="docs/images/nl/dashboard.png" alt="Vandaag: taken, weer, vorst‑ en hittewaarschuwingen" width="92%"></p>
+<table>
+  <tr>
+    <td width="34%" valign="top"><img src="assets/brand/Hortulus_NL.png" alt="Hortulus: jouw moestuin, gepland en met zorg verzorgd"></td>
+    <td width="66%" valign="top"><img src="docs/images/nl/dashboard.png" alt="Vandaag: taken, weer, vorst‑ en hittewaarschuwingen"></td>
+  </tr>
+</table>
 
 ## Wat zit erin
 
