@@ -133,6 +133,8 @@ def op_complete_task(
     user_id: str | None = None,
 ) -> CompletionResult:
     data = runtime.repo.data
+    existing = data.task(task_id)
+    was_open = existing is not None and existing.is_open
     try:
         result = complete_task(
             data,
@@ -148,6 +150,8 @@ def op_complete_task(
     except KeyError as err:
         raise _err("unknown_task", task=task_id) from err
     task = result.task
+    if not was_open:
+        return result  # already done (a second dashboard, a retried automation): nothing to book twice
     bed = data.bed(task.bed_id) if task.bed_id else None
     if task.type is TaskType.WATER and not skipped and bed is not None and bed.area_m2 > 0:
         # A ticked-off watering task feeds the bed's water balance.

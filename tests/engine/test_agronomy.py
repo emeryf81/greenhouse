@@ -228,6 +228,21 @@ def test_greenhouse_bed_learns_nothing_when_the_sensor_matches_the_model(garden,
     assert wb.model_et_mm < et0_hargreaves(14.0, 28.0, 51.0, day0) * 1.0 * ENCLOSED_ET_FACTOR + 0.1
 
 
+def test_water_given_on_a_day_without_temperatures_still_counts(garden, db, make_planting):
+    """No weather that day: no drying is known, but the watering is booked."""
+    from custom_components.garden_manager.engine.models import IrrigationEvent
+    from custom_components.garden_manager.engine.waterbalance import advance_water_balance
+
+    garden.plantings = [make_planting("lettuce", "bed_1", 2026, status=PlantingStatus.SOWN)]
+    day0 = date(2026, 6, 10)
+    timelines = analyze(garden, db, WeatherSnapshot(), {}, now=datetime(2026, 6, 10, 8, tzinfo=TZ), tz=TZ).timelines
+    garden.water_balance["bed_1"] = WaterBalance(day0, 20.0)
+    garden.climate_log = []
+    garden.irrigation_log = [IrrigationEvent("bed_1", datetime(2026, 6, 10, 9, tzinfo=TZ), 15.0, 30.0, source="manual")]
+    advance_water_balance(garden, db, timelines, day0 + timedelta(days=1), latitude=51.0, tz=TZ)
+    assert garden.water_balance["bed_1"].depletion_mm == pytest.approx(5.0, abs=0.2)
+
+
 # --------------------------------------------------------------------------- #
 # Fertiliser
 # --------------------------------------------------------------------------- #

@@ -23,9 +23,31 @@
     as PDF (with the dish pictures).
   - On the Hortulus website a recipe can be shared: whoever may see your garden sees it.
 
-### Fixed
-- A shared view whose tab list allows nothing shows no part of the garden (it showed Today);
-  the narrow-screen Settings button follows the list too.
+- **Look at a garden**: a read-only view of the plan alone (click a zone, bed, crop or element
+  for its details, pick the year). The Hortulus website shows it to visitors without an account.
+
+### Fixed (whole-code review)
+- Services that change the plan, plant data or hardware need an administrator, like their
+  websocket commands.
+- Stop and Close end a running valve test; a run that is cancelled or fails during start-up
+  stops the pump before any valve closes.
+- Frost lockout looks at the next 12 hours on its own, so a colder night later in the forecast
+  no longer hides tonight's frost.
+- Impossible settings (a frost date of 13-01, a time of 25:00) are refused instead of breaking
+  every calculation after a restart.
+- A planner save goes to the garden it was made for, one request at a time; a draft opened
+  before the first harvest no longer undoes it or reopens a finished crop.
+- Archive pruning keeps edits made after a season was copied to the archive.
+- Plant customisations add up (also per language) and keep extra sowing windows.
+- Import accepts plantings of older seasons and brings back exported tasks; each bed is
+  checked against its own plan.
+- Deleting a plan set aside can be undone (also expenses and the cookbook are in the system log).
+- A watering task ticked twice books its water once; water given on a day without
+  temperatures still counts; crops of earlier seasons never ticked out stop counting as standing.
+- A greenhouse vent or shade command that failed is tried again at the next update.
+- null for a required field is refused; a soil test without a date is refused.
+- A shared view whose tab list allows nothing shows no part of the garden; the narrow-screen
+  Settings button follows the list too.
 - A garden document whose empty objects came back as empty lists (PHP) loads again.
 
 ## 1.6.1 – 2026-10

@@ -1346,3 +1346,54 @@ async def test_a_stale_draft_does_not_reopen_a_finished_crop(hass: HomeAssistant
     )
     assert (await _result(client))["success"]
     assert repo.data.planting(planting.id).status == "finished"
+
+
+async def test_a_watering_task_ticked_twice_books_its_water_once(hass: HomeAssistant, garden) -> None:
+    from datetime import date
+
+    from custom_components.garden_manager.engine.models import Task, TaskType
+    from custom_components.garden_manager.operations import op_complete_task
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    bed = next(b for b in runtime.repo.data.beds if b.area_m2 > 0)
+    runtime.repo.data.tasks.append(
+        Task(
+            id="t_water",
+            title="Water",
+            type=TaskType.WATER,
+            due=date(2026, 5, 25),
+            bed_id=bed.id,
+            title_params={"liters": 10},
+        )
+    )
+    before = len(runtime.repo.data.irrigation_log)
+    op_complete_task(hass, runtime, "t_water")
+    op_complete_task(hass, runtime, "t_water")  # a second dashboard, a retried automation
+    assert len(runtime.repo.data.irrigation_log) == before + 1
+
+
+async def test_a_failed_vent_command_is_tried_again(
+    hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.garden_manager import controllers
+
+    entry, _calls = garden
+    climate = entry.runtime_data.climate
+    tries: list[bool] = []
+
+    async def flaky(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        tries.append(on)
+        if len(tries) == 1:
+            raise HomeAssistantError("device unavailable")
+
+    monkeypatch.setattr(controllers, "_switch", flaky)
+    climate._set("vent:z", "cover.vent", True, shade=False)
+    await hass.async_block_till_done()
+    climate._set("vent:z", "cover.vent", True, shade=False)  # the next update: tried again
+    await hass.async_block_till_done()
+    climate._set("vent:z", "cover.vent", True, shade=False)  # now done: not sent a third time
+    await hass.async_block_till_done()
+    assert tries == [True, True]

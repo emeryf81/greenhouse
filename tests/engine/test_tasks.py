@@ -247,3 +247,18 @@ def test_companion_flowers_get_no_harvest_task(garden, db, make_planting):
     _, merge = run(garden, db, datetime(2026, 2, 15, 9, tzinfo=TZ))
     assert not any(t.type is TaskType.HARVEST for t in merge.created)
     assert any(t.type is TaskType.SOW_INDOOR for t in merge.created)
+
+
+def test_a_crop_of_last_year_never_ticked_out_is_not_standing_now():
+    from datetime import date, timedelta
+
+    from custom_components.garden_manager.engine.models import Planting, PlantingStatus, SowMethod
+    from custom_components.garden_manager.engine.schedule import PlantingTimeline
+    from custom_components.garden_manager.engine.tasks import is_active
+
+    p = Planting(id="p", plant_id="carrot", bed_id="b", season=2025, status=PlantingStatus.TRANSPLANTED)
+    tl = PlantingTimeline(SowMethod.DIRECT_SOW, None, None, None, None, None,
+                          date(2025, 4, 1), date(2025, 7, 1), date(2025, 9, 1))  # fmt: skip
+    assert is_active(p, tl, date(2025, 8, 1))
+    assert is_active(p, tl, date(2025, 9, 1) + timedelta(days=20))  # a little late
+    assert not is_active(p, tl, date(2026, 6, 1))

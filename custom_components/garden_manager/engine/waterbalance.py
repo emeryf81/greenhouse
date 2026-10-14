@@ -119,6 +119,18 @@ def advance_water_balance(
                 )
                 if wb.calibrated_on is not None:  # the model's own drying, before the learned factor
                     wb.model_et_mm = round(wb.model_et_mm + et0 * kc * (ENCLOSED_ET_FACTOR if enclosed else 1.0), 2)
+            else:
+                # no temperatures that day: no drying is known, but the water given and the rain still count
+                _kc, taw = _bed_state(bed, plantings, timelines, db, day, data.settings.root_zone_depth_mm)
+                depletion = update_water_balance(
+                    min(depletion, taw),
+                    et0_mm=0.0,
+                    kc=0.0,
+                    rain_mm=rain,
+                    irrigation_mm=given,
+                    taw_mm=taw,
+                    enclosed=enclosed,
+                )
             if wb.calibrated_on is not None:  # water in stops learning, also on a day without temperatures
                 wb.wet_since = wb.wet_since or given > 0 or (rain > 1.0 and not enclosed)
             day += timedelta(days=1)

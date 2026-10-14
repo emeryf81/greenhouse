@@ -601,18 +601,22 @@ class ClimateController:
                 self._set(f"vent:{zone.id}", zone.vent_entity, vent or humid, shade=False)
 
     def _set(self, key: str, entity_id: str, wanted: bool | None, *, shade: bool) -> None:
+        key = f"{key}:{entity_id}"  # another entity mapped to the zone is switched afresh
         if wanted is None or self._last.get(key) == wanted:
             return
         self._last[key] = wanted
         # A shade *cover* is deployed by closing it; switches are simply on.
         on = (not wanted) if shade and entity_id.startswith("cover.") else wanted
-        self.hass.async_create_task(self._safe_switch(entity_id, on))
+        self.hass.async_create_task(self._safe_switch(key, entity_id, on, wanted))
 
-    async def _safe_switch(self, entity_id: str, on: bool) -> None:
+    async def _safe_switch(self, key: str, entity_id: str, on: bool, wanted: bool) -> None:
         try:
             await _switch(self.hass, entity_id, on)
         except HomeAssistantError as err:
             _LOGGER.warning("Could not switch %s: %s", entity_id, err)
+            # not done: forget it, so the next update (every few minutes) tries again
+            if self._last.get(key) == wanted:
+                self._last.pop(key, None)
 
 
 def _float(value: Any) -> float | None:

@@ -175,12 +175,17 @@ def escalate(priority: TaskPriority, due: date, window_end: date | None, today: 
     return priority
 
 
+STALE_GRACE_DAYS = 30
+
+
 def is_active(planting: Planting, timeline: PlantingTimeline | None, today: date) -> bool:
     """Is the planting physically in the bed today?"""
     if planting.status not in ACTIVE_STATUSES or timeline is None:
         return False
     if planting.status in (PlantingStatus.SOWN, PlantingStatus.TRANSPLANTED, PlantingStatus.HARVESTING):
-        return True
+        # ticked in, but never ticked out: a crop of an earlier season does not stand forever
+        # (its own occupancy plus a month of grace; a perennial carried over gets this year's timeline)
+        return today <= timeline.occupancy.end + timedelta(days=STALE_GRACE_DAYS)
     # Not every gardener ticks off tasks: once the planned date has passed we
     # optimistically assume the crop is in the ground (frost / water advice).
     return timeline.in_ground <= today <= timeline.harvest_end
