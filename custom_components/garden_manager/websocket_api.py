@@ -14,7 +14,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.auth.permissions.const import POLICY_CONTROL
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError, Unauthorized
@@ -1801,6 +1800,7 @@ def _book_entry(entry: Any, db: Any, lang: str, garden_herbs: list[str], pantry:
 
 
 PRINT_MAX = 200  # recipes in one PDF, mail or to-do export
+POLICY_CONTROL = "control"  # Home Assistant's permission policy (the website's runtime has no homeassistant.auth)
 
 
 def _in_house(runtime: GardenRuntime, msg: dict[str, Any] | None = None) -> list[str]:
