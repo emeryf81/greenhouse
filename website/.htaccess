@@ -1,0 +1,50 @@
+# Hortulus web
+Options -Indexes
+DirectoryIndex index.php
+AddDefaultCharset utf-8
+
+<IfModule mod_mime.c>
+  AddType application/wasm .wasm
+  AddType application/javascript .mjs .js
+  AddType application/zip .zip
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Photos as the garden app asks for them (same URL shape as Home Assistant).
+  RewriteRule ^api/image/serve/([a-f0-9]{32})/([0-9x]+)$ media.php?photo=$1&size=$2 [L,QSA]
+  # The app's own routes (/hortulus/app/calendar ...).
+  RewriteRule ^app(/.*)?$ app.php [L,QSA]
+  # Never serve the private folder, dot-files or build leftovers.
+  RewriteRule ^private(/|$) - [F,L]
+  RewriteRule (^|/)\. - [F,L]
+</IfModule>
+
+<FilesMatch "\.(sql|md|log|ini|sh|py|lock|dist)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(wasm|zip|js|mjs|css|svg|png|jpg|webp)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json application/wasm image/svg+xml
+</IfModule>
+
+# Larger photo uploads (only works where PHP runs as an Apache module; otherwise use .user.ini).
+<IfModule mod_php.c>
+  php_value upload_max_filesize 16M
+  php_value post_max_size 20M
+  php_flag display_errors off
+  php_flag session.cookie_httponly on
+</IfModule>

@@ -1,0 +1,37 @@
+/* Hortulus web – the garden app page */
+:root{--green:#2f6b4f;color-scheme:light dark}
+html,body{margin:0;height:100%}
+body{font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f6f4ee;color:#1d2a24;display:flex;flex-direction:column}
+@media (prefers-color-scheme:dark){:root:not([data-mode=light]) body{background:#111;color:#e6eee9}}
+:root[data-mode=dark] body{background:#111;color:#e6eee9}
+:root[data-theme=earth]{--green:#8a4f2a}:root[data-theme=night]{--green:#1f4a3c}
+:root[data-theme=season-autumn]{--green:#9a4b22}:root[data-theme=season-winter]{--green:#2f6690}:root[data-theme=season-summer]{--green:#3b7334}
+.look{position:relative;margin-left:4px}
+.look>summary{list-style:none;cursor:pointer;padding:2px 6px;border-radius:8px}
+.look>summary::-webkit-details-marker{display:none}
+.look .menu{position:absolute;right:0;top:calc(100% + 8px);z-index:10;background:#fff;color:#1d2a24;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);padding:12px;width:230px;display:flex;flex-direction:column;gap:8px}
+.look .menu b{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:#66756d}
+.look .opts{display:flex;flex-wrap:wrap;gap:6px}
+.look button{font:inherit;font-size:.82rem;padding:4px 10px;border-radius:999px;border:1px solid #dfe6e1;background:#fff;color:#1d2a24;cursor:pointer}
+.look button[aria-pressed=true]{background:#e6f1ea;border-color:var(--green);font-weight:600}
+.look button:disabled{opacity:.45;cursor:default}
+.appbar{display:flex;align-items:center;gap:12px;height:40px;padding:0 14px;padding-top:env(safe-area-inset-top);background:var(--green);color:#fff;flex:none}
+.appbar a{color:#fff;text-decoration:none;opacity:.9}
+.appbar a:hover{opacity:1}
+.gtitle{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status{margin-left:auto;font-size:.8rem;opacity:.9}
+.status.offline,.status.conflict{background:#b3261e;padding:2px 8px;border-radius:999px;opacity:1}
+hortulus-panel{display:block;flex:1;min-height:0}
+hortulus-panel[hidden]{display:none}
+.boot{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center}
+.boot img{animation:pulse 1.6s ease-in-out infinite}
+.boot .bar{width:min(280px,70vw);height:6px;border-radius:3px;background:rgba(47,107,79,.15);overflow:hidden}
+.boot .bar span{display:block;height:100%;width:3%;background:var(--green);transition:width .3s}
+.boot .err{color:#b3261e;font-weight:600}
+.boot pre{max-width:90vw;white-space:pre-wrap;font-size:.75rem;text-align:left}
+@keyframes pulse{50%{transform:scale(1.06);opacity:.8}}
+.status.readonly{background:rgba(255,255,255,.18);padding:2px 8px;border-radius:999px}
+.viewing{font-size:.78rem;background:rgba(255,255,255,.18);padding:2px 9px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gicon{--h:120;display:inline-grid;place-items:center;border-radius:7px;background:hsl(var(--h) 55% 90%)}
+.gicon.sm{width:24px;height:24px;font-size:14px;vertical-align:middle}
+@media (max-width:600px){.viewing{display:none}}
