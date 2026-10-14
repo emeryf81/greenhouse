@@ -47,6 +47,7 @@ STUCK_MARGIN_MIN = 10
 TEST_MAX_S = 60
 # Watering is held in steps so a valve that shuts by itself is noticed.
 HOLD_STEP_S = 30.0
+LOST_VALVE_S = 60.0  # a pumped valve that reports nothing for this long ends the run
 # The valve's own timer is left this much room before Hortulus re-opens it.
 TIMER_MARGIN_MIN = 1.0
 # A pause between closing and re-opening a valve with its own timer.
@@ -266,16 +267,18 @@ class IrrigationController:
         last_open = 0.0  # held seconds at the last sample that saw the valve open
         closed_early = False
         done = False
+        lost_s = 0.0  # seconds the valve has reported nothing at all
         try:
             await _switch(self.hass, entity_id, True)
+            # the pump only ever runs against a valve that reported open; without a pump a valve that
+            # plainly stays closed ends the run too (one that reports nothing is trusted)
+            state = await self._wait_for(entity_id, True)
+            if _is_open(state) is not True and (pump or _is_open(state) is False):
+                self._problem(entity_id, "valve_did_not_open", state)
+                done = True
+                return 0.0, False
+            seen_open = _is_open(state) is True
             if pump:
-                # the pump only ever runs against a valve that reported open
-                state = await self._wait_for(entity_id, True)
-                if _is_open(state) is not True:
-                    self._problem(entity_id, "valve_did_not_open", state)
-                    done = True
-                    return 0.0, False
-                seen_open = True
                 await asyncio.sleep(VALVE_SETTLE_S)
                 pump_on = True  # set before the call: a pump that starts and then raises is stopped too
                 await _switch(self.hass, pump, True)
@@ -285,6 +288,15 @@ class IrrigationController:
                 await asyncio.sleep(step)
                 held += step
                 is_open = _is_open(self._state(entity_id))
+                if is_open is None and pump:
+                    lost_s += step
+                    if lost_s >= LOST_VALVE_S:  # no way to tell the pump still has an open outlet
+                        self._problem(entity_id, "valve_lost", self._state(entity_id))
+                        closed_early = True
+                        held = last_open
+                        break
+                else:
+                    lost_s = 0.0
                 if is_open is True:
                     seen_open = True
                     last_open = held

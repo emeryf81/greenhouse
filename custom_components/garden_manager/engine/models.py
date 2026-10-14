@@ -696,6 +696,7 @@ class Task:
     postponed_count: int = 0
     original_due: date | None = None
     user_modified: bool = False
+    text_modified: bool = False  # the cook rewrote the title or description: recalculation leaves them
     created_at: datetime | None = None
     updated_at: datetime | None = None
     # Household member doing it: a person.* entity id (or None = anyone).

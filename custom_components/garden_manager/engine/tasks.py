@@ -909,10 +909,11 @@ def _apply_spec(task: Task, spec: TaskSpec, lang: str, now: datetime, *, progres
     """Refresh a generated task from its spec, preserving user decisions."""
     changes: dict[str, Any] = {}
     title = t(spec.title_key, lang, **spec.title_params)
-    if title != task.title or spec.title_params != task.title_params:
-        changes.update(title=title, title_key=spec.title_key, title_params=dict(spec.title_params))
-    if spec.description != task.description:
-        changes["description"] = spec.description
+    if not task.text_modified:  # a title or description the cook rewrote stays
+        if title != task.title or spec.title_params != task.title_params:
+            changes.update(title=title, title_key=spec.title_key, title_params=dict(spec.title_params))
+        if spec.description != task.description:
+            changes["description"] = spec.description
     if (spec.window_start, spec.window_end) != (task.window_start, task.window_end):
         changes.update(window_start=spec.window_start, window_end=spec.window_end)
     if spec.recurrence != task.recurrence:

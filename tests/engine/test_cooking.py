@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import re
 
 from custom_components.garden_manager.engine import cooking
 from custom_components.garden_manager.engine.plantdb import PlantDatabase
@@ -201,7 +202,7 @@ def test_the_cooks_own_version(db: PlantDatabase) -> None:
             if (r := cooking.custom_ingredient(x, n)) is not None]  # fmt: skip
     assert (
         [r["name"] for r in rows] == ["Pompoen", "Gember"]
-        and rows[1]["id"] == "custom-1"
+        and rows[1]["id"].startswith("custom-")
         and rows[1]["group"] == "other"
     )
     own = cooking.apply_custom(dict(recipe), rows, ["Alles in de pot.", "Mixen."], "nl")
@@ -280,6 +281,8 @@ def test_every_dish_reads_well_in_every_language(db: PlantDatabase) -> None:
             pick = ids[:1]
             if tech.needs_herb:
                 pick = [i for i in ids if cooking.produce_kind(db.get(i)) == "herb"][:1]
+            if tech.needs_main:  # ... and a vegetable or fruit besides
+                pick += [i for i in ids if cooking.produce_kind(db.get(i)) != "herb"][:1]
             recipe = cooking.render({"technique": tech.id, "produce": pick, "servings": 4}, db, lang)
             assert recipe is not None, (tech.id, lang)
             text = " ".join([recipe["title"], recipe["technique_name"], *recipe["steps"]])
@@ -376,3 +379,101 @@ def test_a_themed_menu_needs_its_produce(db: PlantDatabase) -> None:
         _produce(db, ["courgette", "basil", "strawberry", "tomato"]), db, prefs, "en", 6, date(2026, 8, 1)
     )
     assert {m["theme"] for m in summer} & {"courgette", "tomato", "provence"}
+
+
+# --------------------------------------------------------------------------- #
+# Findings of the whole-repository review
+# --------------------------------------------------------------------------- #
+def test_nothing_is_offered_raw_that_must_be_cooked(db: PlantDatabase) -> None:
+    for tech in ("sorbet", "cups", "panna_cotta", "salad", "carpaccio", "crostini"):
+        for plant in ("elderberry", "bush_bean", "runner_bean"):
+            assert cooking.render({"technique": tech, "produce": [plant]}, db) is None, (tech, plant)
+    assert cooking.render({"technique": "fool", "produce": ["elderberry"]}, db) is not None  # cooked
+    assert cooking.render({"technique": "pasta", "produce": ["bush_bean"]}, db) is not None
+    prefs = cooking.Prefs.from_dict({"servings": 2})
+    ideas = cooking.suggest(_produce(db, ["elderberry", "bush_bean", "lettuce", "strawberry"]), db, prefs, "en", 30)
+    for r in ideas:
+        if r["technique"] in cooking._UNCOOKED:
+            assert not {"elderberry", "bush_bean"} & set(r["spec"]["produce"]), r["title"]
+
+
+def test_a_dish_needs_its_main_ingredient_not_just_herbs(db: PlantDatabase) -> None:
+    for tech, herbs in (
+        ("flemish", ["parsley"]),
+        ("cob", ["parsley"]),
+        ("caprese", ["basil"]),
+        ("tabbouleh", ["parsley", "peppermint"]),
+    ):
+        assert cooking.render({"technique": tech, "produce": herbs}, db) is None, tech
+    prefs = cooking.Prefs.from_dict({})
+    only_parsley = cooking.suggest(_produce(db, ["parsley"]), db, prefs, "en", 30)
+    assert not {r["technique"] for r in only_parsley} & {"flemish", "cob", "tabbouleh", "caprese"}
+    only_basil = cooking.suggest(_produce(db, ["basil"]), db, prefs, "en", 30)
+    assert "caprese" not in {r["technique"] for r in only_basil}
+    assert any(r["technique"] == "herb_cubes" for r in only_basil)  # herbs alone can be frozen as pesto cubes
+
+
+def test_more_suitable_vegetables_never_remove_a_dish(db: PlantDatabase) -> None:
+    prefs = cooking.Prefs.from_dict({})
+    five = ["tomato", "cherry_tomato", "courgette", "aubergine", "sweet_pepper"]
+    ideas = cooking.suggest(_produce(db, five), db, prefs, "en", 40)
+    assert {"ratatouille", "tian"} <= {r["technique"] for r in ideas}
+    rata = next(r for r in ideas if r["technique"] == "ratatouille")
+    assert len(rata["spec"]["produce"]) == 4  # distinct kinds first, then the rest fills the places
+    assert cooking.suggest(_produce(db, five[:2]), db, prefs, "en", 40)  # two of a kind still make dishes
+
+
+def test_a_dish_keeps_the_grain_and_cooks_it_once(db: PlantDatabase) -> None:
+    prefs = cooking.Prefs.from_dict({"side": "none", "servings": 2})
+    ideas = cooking.suggest(_produce(db, ["pumpkin", "carrot", "potato", "kale", "tomato"]), db, prefs, "en", 40)
+    for r in ideas:
+        if r["technique"] in ("risotto", "pasta", "stoemp", "stuffed"):
+            ids = {i["id"] for i in r["ingredients"]}
+            assert ids & {"rice", "pasta", "gnocchi", "potatoes", "bulgur", "couscous"}, r["title"]
+    risotto = cooking.render({"technique": "risotto", "produce": ["pumpkin"], "side": "rice"}, db, "en")
+    assert sum("rice" in s.lower() for s in risotto["steps"]) == 1  # toasted in the method, not cooked before
+    assert not any("as on the pack" in s for s in risotto["steps"])
+    stoemp = cooking.render({"technique": "stoemp", "produce": ["kale"], "side": "potatoes"}, db, "en")
+    assert sum("Boil the potatoes" in s for s in stoemp["steps"]) == 1
+
+
+def test_dry_lentils_are_cooked(db: PlantDatabase) -> None:
+    recipe = cooking.render({"technique": "soup", "produce": ["carrot"], "protein": "lentils"}, db, "en")
+    assert any("simmer them in plenty of unsalted water" in s for s in recipe["steps"])
+
+
+def test_the_cooks_own_quantities_and_ingredients_stay_as_typed() -> None:
+    saffron = cooking.custom_ingredient({"name": "Saffron", "qty": 1, "unit": "g"}, 3)
+    spice = cooking.custom_ingredient({"name": "Spice", "qty": 0.25, "unit": "tbsp"}, 4)
+    assert saffron["qty"] == 1 and spice["qty"] == 0.25
+    a = cooking.custom_ingredient({"name": "Mushrooms", "qty": 100, "unit": "g", "source": "shop"}, 8)
+    b = cooking.custom_ingredient({"name": "Olives", "qty": 50, "unit": "g", "source": "shop"}, 8)
+    assert a["id"] != b["id"] and a["id"].startswith("custom-")
+    again = cooking.custom_ingredient({"name": " mushrooms ".strip().upper(), "qty": 1, "unit": "g"}, 0)
+    assert again["id"] == a["id"]  # the same thing is one thing, wherever it sits
+    kept = cooking.custom_ingredient({"id": "tomato", "name": "Tomato", "qty": 1, "unit": "g"}, 0)
+    assert kept["id"] == "tomato"
+    lst = cooking.shopping_list([{"ingredients": [a]}, {"ingredients": [b]}], "en")
+    assert {r["name"] for r in lst["buy"]} == {"Mushrooms", "Olives"}
+
+
+def test_what_a_preparation_needs_joins_the_ingredients(db: PlantDatabase) -> None:
+    spec = {"technique": "roast", "produce": ["carrot", "pumpkin"], "extras": ["yoghurt"]}
+    for produce in (["carrot", "pumpkin"], ["carrot", "pumpkin", "beetroot"], ["pumpkin"], ["carrot"]):
+        recipe = cooking.render({**spec, "produce": produce}, db, "en", [], [])
+        ids = {i["id"] for i in recipe["ingredients"]}
+        key = cooking._plan_extras("roast", ["yoghurt"], False, produce)["yoghurt"]
+        for need in cooking._x.DEPENDS.get(key, ()):
+            assert need in ids, (key, need)
+            assert next(i for i in recipe["ingredients"] if i["id"] == need)["source"] == "shop"
+    honey = cooking.render({**spec, "produce": ["carrot", "pumpkin", "beetroot"]}, db, "en", [], ["honey", "mustard"])
+    assert all(i["source"] == "pantry" for i in honey["ingredients"] if i["id"] in ("honey", "mustard"))
+
+
+def test_a_long_recipe_continues_on_another_page(db: PlantDatabase) -> None:
+    recipe = cooking.render({"technique": "soup", "produce": ["pumpkin"]}, db, "en")
+    short = cooking.recipes_pdf([recipe], "en", "recipe")
+    long = dict(recipe, steps=[f"Step {n}: " + "stir gently and wait a little longer. " * 8 for n in range(1, 31)])
+    longer = cooking.recipes_pdf([long], "en", "recipe")
+    pages = lambda pdf: len(re.findall(rb"/Type\s*/Page\b(?!s)", pdf))  # noqa: E731
+    assert pages(longer) > pages(short)

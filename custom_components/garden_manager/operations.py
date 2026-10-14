@@ -201,15 +201,22 @@ def op_update_task(runtime: GardenRuntime, task_id: str, changes: Mapping[str, A
     task = runtime.repo.data.task(task_id)
     if task is None:
         raise _err("unknown_task", task=task_id)
+    try:  # convert everything first: a refused change leaves the task as it was
+        priority = TaskPriority(changes["priority"]) if "priority" in changes else None
+        minutes = int(changes["estimated_minutes"]) if "estimated_minutes" in changes else None
+    except (TypeError, ValueError) as err:
+        raise _err("invalid_task") from err
     if "title" in changes:
         task.title = str(changes["title"])
         task.title_key = None
+        task.text_modified = True
     if "description" in changes:
         task.description = str(changes["description"])
-    if "priority" in changes:
-        task.priority = TaskPriority(changes["priority"])
-    if "estimated_minutes" in changes:
-        task.estimated_minutes = int(changes["estimated_minutes"])
+        task.text_modified = True
+    if priority is not None:
+        task.priority = priority
+    if minutes is not None:
+        task.estimated_minutes = minutes
     if changes.get("note"):
         task.notes.append(TaskNote(dt_util.now(), str(changes["note"])))
     if "photos" in changes:
@@ -242,6 +249,11 @@ def op_delete_task(runtime: GardenRuntime, task_id: str) -> None:
 # --------------------------------------------------------------------------- #
 # Plan
 # --------------------------------------------------------------------------- #
+def _sized(*sizes: Any) -> bool:
+    """Real, positive and finite sizes (a NaN or an infinity never passes)."""
+    return all(isinstance(v, (int, float)) and math.isfinite(v) and 0 < v <= 1_000_000 for v in sizes)
+
+
 def validate_layout(
     zones: list[Zone],
     beds: list[GardenBed],
@@ -255,7 +267,7 @@ def validate_layout(
     for bed in beds:
         if bed.zone_id not in zone_ids:
             raise _err("invalid_plan", reason=f"bed {bed.name} has unknown zone")
-        if bed.width_cm <= 0 or bed.length_cm <= 0:
+        if not _sized(bed.width_cm, bed.length_cm):
             raise _err("invalid_plan", reason=f"bed {bed.name} has no size")
         bed_ids.add(bed.id)
     for planting in plantings:
@@ -476,7 +488,9 @@ def op_delete_plant(runtime: GardenRuntime, plant_id: str) -> None:
     if plant_id in repo.data.plant_overrides:
         del repo.data.plant_overrides[plant_id]  # reset to built-in
     else:
-        if any(p.plant_id == plant_id for p in repo.data.plantings):
+        if any(p.plant_id == plant_id for p in repo.data.plantings) or any(
+            p.plant_id == plant_id for plan in repo.data.archived_plans for p in plan.plantings
+        ):
             raise _err("plant_in_use", plant=plant_id)
         repo.data.custom_plants = [p for p in repo.data.custom_plants if p.id != plant_id]
     repo.async_changed("plants")
@@ -565,7 +579,9 @@ def _check_planting(runtime: GardenRuntime, planting: Planting) -> None:
         raise _err("unknown_bed", bed=planting.bed_id)
     if repo.db.get(planting.plant_id) is None:
         raise _err("unknown_plant", plant=planting.plant_id)
-    if planting.width_cm <= 0 or planting.length_cm <= 0:
+    if not _sized(planting.width_cm, planting.length_cm) or not all(
+        isinstance(v, (int, float)) and math.isfinite(v) for v in (planting.x_cm, planting.y_cm)
+    ):
         raise _err("invalid_plan", reason="planting has no size")
 
 
@@ -779,7 +795,7 @@ def op_log_harvest(runtime: GardenRuntime, raw: Mapping[str, Any]) -> HarvestEnt
         planting = _harvest_planting(runtime, plant_id, bed.id if bed else raw.get("bed_id"), harvest_day)
     kg = float(raw.get("kg") or 0)
     count = int(raw["count"]) if raw.get("count") not in (None, "") else None
-    if kg < 0 or (count is not None and count < 0) or (kg == 0 and not count):
+    if not math.isfinite(kg) or kg < 0 or kg > 100000 or (count is not None and count < 0) or (kg == 0 and not count):
         raise _err("invalid_harvest")
     day = raw.get("day") or dt_util.now().date()
     entry = HarvestEntry(
@@ -1110,7 +1126,9 @@ def _cookbook_changes(raw: Mapping[str, Any]) -> dict[str, Any]:
         items = raw.get("ingredients")
         if not isinstance(items, list):
             raise _err("invalid_recipe")
-        rows = [row for n, x in enumerate(items[:40]) if (row := cooking.custom_ingredient(x, n)) is not None]
+        if len(items) > cooking.MAX_INGREDIENTS:
+            raise _err("recipe_too_long", ingredients=cooking.MAX_INGREDIENTS, steps=cooking.MAX_STEPS)
+        rows = [row for n, x in enumerate(items) if (row := cooking.custom_ingredient(x, n)) is not None]
         if items and not rows:
             raise _err("invalid_recipe")
         out["ingredients"] = rows
@@ -1118,7 +1136,9 @@ def _cookbook_changes(raw: Mapping[str, Any]) -> dict[str, Any]:
         steps = raw.get("steps")
         if not isinstance(steps, list):
             raise _err("invalid_recipe")
-        out["steps"] = [s for x in steps[:30] if isinstance(x, str) and (s := x.strip()[:600])]
+        if len(steps) > cooking.MAX_STEPS:
+            raise _err("recipe_too_long", ingredients=cooking.MAX_INGREDIENTS, steps=cooking.MAX_STEPS)
+        out["steps"] = [s for x in steps if isinstance(x, str) and (s := x.strip()[:600])]
     return out
 
 

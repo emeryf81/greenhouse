@@ -51,6 +51,27 @@
   the PDFs follow it, and "Back to the original" restores the generated recipe.
 
 ### Fixed
+- **Whole-repository review (22 findings):**
+  - **Food safety:** elderberries and beans (also chickpeas, edamame) are never offered raw or half-cooked
+    (no elderberry sorbet, no raw-bean salad); a dish also refuses them when the spec is written by hand.
+  - **Permissions:** exporting a shopping list or the seeds to a to-do list follows the user's own rights.
+  - **Imports:** a refused plan file changes nothing (it used to wipe the live plan before failing on a
+    bad `plant_overrides`); plans set aside now travel with an export and an import.
+  - **Input checks:** NaN and infinity are refused for sizes, positions and harvest weights; a refused
+    task change changes nothing; a custom plant a set-aside plan still needs cannot be deleted; autofill
+    skips a bed too narrow for its margins.
+  - **Watering:** a valve that stays closed ends the run and books no water, also without a pump; a
+    valve that goes silent for a minute while the pump runs ends the run and stops the pump.
+  - **Tasks:** a title or description you rewrote is kept when tasks are recalculated.
+  - **Cooking:** a dish needs its main ingredient, not just herbs (no caprese of basil alone); more
+    suitable vegetables no longer remove ratatouille or a tian; risotto, pasta, stoemp and stuffed
+    vegetables keep their rice, pasta or potatoes (also for "no side"), and rice or potatoes are no longer
+    cooked twice; dry lentils get a cooking step; honey, mustard and other things a fridge preparation
+    needs join the ingredients and the shopping list; your own quantities stay as typed (1 g saffron stays
+    1 g); new ingredients of different recipes no longer merge on a shopping list; the recipe editor
+    refuses (and stops offering) more than 40 ingredients or 30 steps instead of cutting them off; a
+    cookbook of more than 60 recipes prints in full (up to 200, with a message beyond that) and a long
+    recipe continues on another page; a shopping-list reload can no longer bring back recipes you removed.
 - **Colour themes on iPhone (Home Assistant app, Safari):** the theme and the dark palette are now
   set as inline colours on the panel instead of `:host([theme])` rules, so they take effect at once
   in every browser; the dashboard no longer uses `:host-context`, which Safari does not support.

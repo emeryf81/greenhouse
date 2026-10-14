@@ -234,6 +234,28 @@ HERB: dict[str, tuple[str, str, str]] = {  # nl, en, fr
 # Preparations that keep their own herb whatever the garden gives (spring onion is no herb to swap).
 FIXED_HERB = frozenset(("yog_soy", "roast_feta_block"))
 
+# Pantry items a preparation needs besides the fridge item itself (they join the ingredients and the
+# shopping list unless the cook has them at home); "if you like" touches are left out.
+DEPENDS: dict[str, tuple[str, ...]] = {
+    "yog_honey_mustard": ("honey", "mustard"),
+    "salad_yog_honey": ("honey", "mustard", "lemon"),
+    "yog_soy": ("soy_sauce", "ginger", "honey"),
+    "yog_curry_dip": ("curry_paste", "lemon"),
+    "roast_feta_block": ("honey",),
+    "roast_soy": ("honey",),
+    "soup_nuts_honey": ("honey",),
+    "dessert_yog_honey": ("honey",),
+    "tzatziki": ("garlic", "lemon"),
+    "yog_lemon_bed": ("lemon", "garlic"),
+    "wok_curry": ("garlic", "ginger"),
+    "wok_honey": ("soy_sauce",),
+    "stew_ginger": ("curry_paste",),
+    "salad_pickled_onion": ("vinegar",),
+    "plate_mustard_butter": ("butter",),
+    "pasta_pangrattato": ("garlic", "lemon"),
+    "compote_crunch": ("butter", "sugar"),
+}
+
 PREP: dict[str, tuple[str, str, str, str]] = {
     # -- soup --------------------------------------------------------------------------- #
     "soup_yog_herb": ("late",

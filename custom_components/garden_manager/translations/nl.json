@@ -1095,6 +1095,15 @@
     "unknown_recipe": {
       "message": "Recept {recipe} staat niet in het kookboek."
     },
+    "invalid_task": {
+      "message": "Deze taak kon niet worden aangepast: controleer de prioriteit en de minuten."
+    },
+    "recipe_too_long": {
+      "message": "Een recept heeft hoogstens {ingredients} ingrediënten en {steps} stappen."
+    },
+    "too_many_recipes": {
+      "message": "Print, verstuur of zet hoogstens {max} recepten tegelijk op een lijst."
+    },
     "cookbook_full": {
       "message": "Het kookboek is vol ({max} recepten). Verwijder er eerst een paar."
     }

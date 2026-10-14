@@ -14,9 +14,10 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.auth.permissions.const import POLICY_CONTROL
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError, Unauthorized
 from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
@@ -1732,12 +1733,14 @@ async def ws_seeds_to_todo(
     if not entity_id.startswith("todo.") or hass.states.get(entity_id) is None:
         connection.send_error(msg["id"], "invalid_format", f"{entity_id} is not a to-do list")
         return
+    if not connection.user.permissions.check_entity(entity_id, POLICY_CONTROL):
+        raise Unauthorized(context=connection.context(msg), entity_id=entity_id)  # the user's own rights apply
     needs = planning.seed_needs(runtime.repo.data, runtime.repo.db, msg["season"])
     items = planning.seed_todo_items(needs, runtime.repo.db, msg["season"], runtime.coordinator.lang)
     try:
         current = await hass.services.async_call(
             "todo", "get_items", {"status": ["needs_action"]}, target={"entity_id": entity_id},
-            blocking=True, return_response=True,
+            blocking=True, return_response=True, context=connection.context(msg),
         )  # fmt: skip
         open_items = {i.get("summary") for i in (current or {}).get(entity_id, {}).get("items", [])}
         added = 0
@@ -1746,7 +1749,7 @@ async def ws_seeds_to_todo(
                 continue
             await hass.services.async_call(
                 "todo", "add_item", {"item": item["summary"], "description": item["description"]},
-                target={"entity_id": entity_id}, blocking=True,
+                target={"entity_id": entity_id}, blocking=True, context=connection.context(msg),
             )  # fmt: skip
             added += 1
     except (HomeAssistantError, ValueError) as err:
@@ -1797,6 +1800,9 @@ def _book_entry(entry: Any, db: Any, lang: str, garden_herbs: list[str], pantry:
     }
 
 
+PRINT_MAX = 200  # recipes in one PDF, mail or to-do export
+
+
 def _in_house(runtime: GardenRuntime, msg: dict[str, Any] | None = None) -> list[str]:
     """What the cook has at home: the list sent along (unsaved choices) or the saved "always in the
     house" and "use up from the fridge" lists."""
@@ -1842,7 +1848,13 @@ def _specs_or_ids(runtime: GardenRuntime, msg: dict[str, Any], lang: str) -> lis
         recipe = cooking.render(spec, db, lang, [], pantry) if isinstance(spec, dict) else None
         if recipe is not None and all(r["id"] != recipe["id"] for r in out):
             out.append(recipe)
-    return out[:60]
+    if len(out) > PRINT_MAX:  # never cut a cookbook off silently
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="too_many_recipes",
+            translation_placeholders={"max": str(PRINT_MAX)},
+        )
+    return out
 
 
 @websocket_api.websocket_command(
@@ -2021,7 +2033,7 @@ async def ws_cooking_pdf(hass: HomeAssistant, connection: websocket_api.ActiveCo
         connection.send_error(msg["id"], "invalid_recipe", "No recipe to print")
         return
     images: dict[str, bytes] = {}
-    for rid, b64 in list((msg.get("images") or {}).items())[:60]:
+    for rid, b64 in list((msg.get("images") or {}).items())[:PRINT_MAX]:
         try:
             images[rid] = base64.b64decode(b64.split(",")[-1], validate=False)
         except (binascii.Error, ValueError):
@@ -2108,12 +2120,14 @@ async def ws_cooking_to_todo(
     if not entity_id.startswith("todo.") or hass.states.get(entity_id) is None:
         connection.send_error(msg["id"], "invalid_format", f"{entity_id} is not a to-do list")
         return
+    if not connection.user.permissions.check_entity(entity_id, POLICY_CONTROL):
+        raise Unauthorized(context=connection.context(msg), entity_id=entity_id)  # the user's own rights apply
     lang = _cooking_lang(runtime, msg)
     rows = cooking.shopping_list(_specs_or_ids(runtime, msg, lang), lang)["buy"]
     try:
         current = await hass.services.async_call(
             "todo", "get_items", {"status": ["needs_action"]}, target={"entity_id": entity_id},
-            blocking=True, return_response=True,
+            blocking=True, return_response=True, context=connection.context(msg),
         )  # fmt: skip
         open_items = {str(i.get("summary", "")).lower() for i in (current or {}).get(entity_id, {}).get("items", [])}
         added = 0
@@ -2122,7 +2136,7 @@ async def ws_cooking_to_todo(
                 continue
             await hass.services.async_call(
                 "todo", "add_item", {"item": row["name"], "description": row["label"]},
-                target={"entity_id": entity_id}, blocking=True,
+                target={"entity_id": entity_id}, blocking=True, context=connection.context(msg),
             )  # fmt: skip
             added += 1
     except (HomeAssistantError, ValueError) as err:

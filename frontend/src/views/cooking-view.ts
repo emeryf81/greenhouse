@@ -31,6 +31,9 @@ const KIND_GLYPH: Record<string, string> = {
 const PROTEIN_GROUPS = ["meat", "fish", "veg_protein"] as const;
 const UNITS = ["g", "ml", "pc", "tbsp", "clove", "slice", "cube", "can"] as const;
 const SOURCES = ["garden", "pantry", "shop"] as const;
+/** What the backend accepts in a recipe of the cook's own. */
+const MAX_INGREDIENTS = 40;
+const MAX_STEPS = 30;
 const SHOP_ORDER = ["meat", "fish", "veg_protein", "dairy", "side", "pantry", "other"];
 
 /** The cook's own version of a recipe while it is being edited. */
@@ -191,7 +194,11 @@ export class CookingView extends LitElement {
     return `hortulus-cook-basket-${this.gardenKey || "default"}`;
   }
 
+  /** Bumped at every change of the basket: a reload that started before it must not put old recipes back. */
+  private basketGen = 0;
+
   private storeBasket(): void {
+    this.basketGen++;
     try {
       localStorage.setItem(this.basketKey, JSON.stringify(this.basket));
     } catch {
@@ -342,6 +349,7 @@ export class CookingView extends LitElement {
   }
 
   private async loadBasket(): Promise<void> {
+    const gen = this.basketGen;
     const out: Recipe[] = [];
     for (const spec of this.basket) {
       try {
@@ -351,7 +359,7 @@ export class CookingView extends LitElement {
         /* a crop that is no longer known: drop it */
       }
     }
-    this.basketRecipes = out;
+    if (gen === this.basketGen) this.basketRecipes = out;
   }
 
   private shoppingRows(): { buy: { name: string; label: string; group: string; qty: number; unit: string }[]; garden: { name: string; qty: number }[] } {
@@ -768,7 +776,7 @@ export class CookingView extends LitElement {
         <button class="icon-btn" aria-label=${this.t("cook.edit_remove")} title=${this.t("cook.edit_remove")}
           @click=${() => this.draft && (this.draft = { ...this.draft, ingredients: this.draft.ingredients.filter((_, i) => i !== n) })}>✕</button>
       </div>`)}
-      <button class="btn small ghost" @click=${() => this.draft && (this.draft = { ...this.draft, ingredients: [...this.draft.ingredients, { ...blank }] })}>
+      <button class="btn small ghost" ?disabled=${draft.ingredients.length >= MAX_INGREDIENTS} @click=${() => this.draft && (this.draft = { ...this.draft, ingredients: [...this.draft.ingredients, { ...blank }] })}>
         + ${this.t("cook.edit_add_ingredient")}</button>
       <h3>${this.t("cook.method")}</h3>
       ${draft.steps.map((step, n) => html`<div class="ed-step">
@@ -781,7 +789,7 @@ export class CookingView extends LitElement {
           <button class="icon-btn" aria-label=${this.t("cook.edit_remove")} @click=${() => this.editSteps(draft.steps.filter((_, i) => i !== n))}>✕</button>
         </span>
       </div>`)}
-      <button class="btn small ghost" @click=${() => this.editSteps([...draft.steps, ""])}>+ ${this.t("cook.edit_add_step")}</button>
+      <button class="btn small ghost" ?disabled=${draft.steps.length >= MAX_STEPS} @click=${() => this.editSteps([...draft.steps, ""])}>+ ${this.t("cook.edit_add_step")}</button>
     </div>`;
   }
 
