@@ -297,6 +297,17 @@ await step("shared view: only the tabs the owner shows", async () => {
   assert.equal(await page.locator("hl-dashboard-view").count(), 0);
 });
 
+await step("visitor without account: only the plan, clickable, with a year choice", async () => {
+  await page.goto(`${base}?lang=nl&tabs=view`);
+  const viewer = page.locator("hl-garden-viewer");
+  await viewer.locator("hl-garden-canvas").waitFor();
+  assert.equal(await page.locator("hortulus-panel").evaluate((el) => el.shadowRoot.querySelectorAll("nav a").length), 0);
+  assert.ok((await viewer.locator("select option").count()) >= 1, "no year to choose");
+  const box = await viewer.locator("hl-garden-canvas").boundingBox();
+  await page.mouse.click(box.x + 260, box.y + 340);
+  await viewer.locator("aside h3").waitFor();
+});
+
 await step("wall screen: clock and big tick-boxes, back to Today", async () => {
   await page.goto(`${base}?tab=wall&lang=nl`);
   await page.locator("hl-wall-view .clock").waitFor();

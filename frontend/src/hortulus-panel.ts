@@ -30,6 +30,7 @@ import "./views/print-view";
 import "./views/advice-view";
 import "./views/journal-view";
 import "./views/cooking-view";
+import "./views/garden-viewer";
 import "./views/analysis-view";
 import "./views/crops-view";
 import { setPersons } from "./util/people";
@@ -40,8 +41,9 @@ import "./components/modal";
 import "./components/plant-detail";
 import { familyColor, plantName, familyName } from "./util/garden";
 
-type Tab = "wall" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "cooking" | "advice" | "analysis" | "handbook" | "print" | "settings";
+type Tab = "wall" | "view" | "dashboard" | "layout" | "planner" | "crops" | "library" | "calendar" | "weather" | "journal" | "cooking" | "advice" | "analysis" | "handbook" | "print" | "settings";
 const TABS: { id: Tab; icon: string }[] = [
+  { id: "view", icon: "garden" }, // a visitor's look at the plan (website), never in Home Assistant's menu
   { id: "dashboard", icon: "home" },
   { id: "planner", icon: "planner" },
   { id: "layout", icon: "layout" },
@@ -59,8 +61,9 @@ const TABS: { id: Tab; icon: string }[] = [
   { id: "wall", icon: "wall" }, // the wall screen: no menu, reached from Today
 ];
 /** The menu: seven places, the related tabs of a place in a row underneath. */
-type Group = "today" | "garden" | "calendar" | "weather" | "journal" | "kitchen" | "knowledge" | "manage";
+type Group = "view" | "today" | "garden" | "calendar" | "weather" | "journal" | "kitchen" | "knowledge" | "manage";
 const GROUPS: { id: Group; icon: string; tabs: Tab[] }[] = [
+  { id: "view", icon: "garden", tabs: ["view"] },
   { id: "today", icon: "home", tabs: ["dashboard"] },
   { id: "garden", icon: "garden", tabs: ["planner", "layout", "crops"] },
   { id: "calendar", icon: "calendar", tabs: ["calendar"] },
@@ -108,7 +111,7 @@ export class HortulusPanel extends LitElement {
 
   private tabAllowed(tab: Tab): boolean {
     const allowed = this.allowedTabs;
-    return !allowed || allowed.has(tab);
+    return allowed ? allowed.has(tab) : tab !== "view";
   }
 
   /** The menu as this panel shows it: places without an allowed tab are left out. */
@@ -462,6 +465,8 @@ export class HortulusPanel extends LitElement {
       case "journal":
         return html`<hl-journal-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin}></hl-journal-view>`;
+      case "view":
+        return html`<hl-garden-viewer .snapshot=${snap} .plants=${this.plants} .families=${this.families} .t=${this.t} .lang=${this.uiLang}></hl-garden-viewer>`;
       case "cooking":
         return html`<hl-cooking-view .api=${this.api!} .t=${this.t} .hass=${this.hass} .lang=${this.uiLang} .gardenKey=${this.api?.gardenId ?? ""}
           .readonly=${!!this.panelConfig.viewer} .web=${!!this.panelConfig.web}></hl-cooking-view>`;
@@ -506,7 +511,8 @@ export class HortulusPanel extends LitElement {
     </nav>`;
   }
 
-  private renderNav(cls: string): TemplateResult {
+  private renderNav(cls: string): TemplateResult | typeof nothing {
+    if (this.groups.length < 2) return nothing; // one place only (a visitor's plan): no menu
     const current = this.groupOf(this.tab).id;
     return html`<nav class=${cls} aria-label="Hortulus">
       ${this.groups.map((g) => html`<a href="#" aria-current=${g.id === current ? "page" : "false"} @click=${(e: Event) => this.openGroup(g, e)}>

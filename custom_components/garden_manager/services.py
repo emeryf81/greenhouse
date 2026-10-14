@@ -11,7 +11,7 @@ from homeassistant.core import (
     SupportsResponse,
     callback,
 )
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError, Unauthorized
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 import voluptuous as vol
@@ -236,10 +236,23 @@ def _with_garden(schema: Any) -> Any:
     return validate
 
 
-def _for_garden(handler: Any) -> Any:
+# Services that change the plan, the plant data or the hardware: like their websocket
+# commands, only for administrators (automations and scripts run without a user).
+ADMIN_SERVICES = frozenset((
+    SERVICE_IMPORT_PLAN, SERVICE_ADD_PLANTING, SERVICE_UPDATE_PLANTING, SERVICE_REMOVE_PLANTING,
+    SERVICE_RUN_IRRIGATION, SERVICE_STOP_IRRIGATION, SERVICE_SET_SHADING, SERVICE_AUTOFILL, SERVICE_EXPORT_PDF,
+    SERVICE_GENERATE_TASKS, SERVICE_RECALCULATE_PLAN, "install_voice_sentences",
+))  # fmt: skip
+
+
+def _for_garden(handler: Any, admin_hass: HomeAssistant | None = None) -> Any:
     """Run a service handler for the garden named by ``garden`` (default: the first)."""
 
     async def run(call: ServiceCall) -> ServiceResponse:
+        if admin_hass is not None and call.context.user_id:
+            user = await admin_hass.auth.async_get_user(call.context.user_id)
+            if user is None or not user.is_admin:
+                raise Unauthorized(context=call.context)
         token = service_garden.set(call.data.get("garden"))
         try:
             return await handler(call)
@@ -518,5 +531,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
     ]
     for name, handler, schema, supports in reg:
         hass.services.async_register(
-            DOMAIN, name, _for_garden(handler), schema=_with_garden(schema), supports_response=supports
+            DOMAIN,
+            name,
+            _for_garden(handler, hass if name in ADMIN_SERVICES else None),
+            schema=_with_garden(schema),
+            supports_response=supports,
         )

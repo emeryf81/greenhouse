@@ -1263,3 +1263,38 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     assert (await _result(client))["result"]["book"] == []
     await client.send_json_auto_id({"type": f"{DOMAIN}/cooking/book/delete", "recipe_id": saved["id"]})
     assert not (await _result(client))["success"]
+
+
+async def test_stop_ends_a_valve_test_pump_first(hass: HomeAssistant, garden, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stop (or Close) during a valve test: the pump goes off before the valve shuts."""
+    from custom_components.garden_manager import controllers
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    runtime.repo.data.settings.irrigation.pump_entity = "switch.pump"
+    real_sleep = asyncio.sleep
+    holding = asyncio.Event()
+
+    async def sleep(seconds: float) -> None:
+        if seconds >= 60:  # the test holds the valve open: wait until stopped
+            holding.set()
+            await asyncio.Event().wait()
+        await real_sleep(0)
+
+    monkeypatch.setattr(controllers.asyncio, "sleep", sleep)
+    order: list[tuple[str, bool]] = []
+
+    async def switch(hass_: HomeAssistant, entity_id: str, on: bool) -> None:
+        order.append((entity_id, on))
+        hass_.states.async_set(entity_id, "on" if on else "off")
+
+    monkeypatch.setattr(controllers, "_switch", switch)
+    valve = next(b.irrigation_entity for b in runtime.repo.data.beds if b.irrigation_entity)
+    hass.states.async_set(valve, "off")
+    test = hass.async_create_task(runtime.irrigation.async_test(valve, seconds=60))
+    await holding.wait()
+    assert runtime.irrigation.running and ("switch.pump", True) in order
+    await runtime.irrigation.async_stop()
+    result = await test
+    assert result["stopped"] and not runtime.irrigation.running
+    assert order.index(("switch.pump", False)) < order.index((valve, False))
