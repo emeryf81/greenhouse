@@ -408,7 +408,12 @@ export class CookingView extends LitElement {
 
   private editIngredient(n: number, change: Partial<CustomIngredient>): void {
     if (!this.draft) return;
-    const ingredients = this.draft.ingredients.map((x, i) => (i === n ? { ...x, ...change } : x));
+    const ingredients = this.draft.ingredients.map((x, i) => {
+      if (i !== n) return x;
+      const next = { ...x, ...change };
+      if ("name" in change && change.name !== x.name) delete next.id; // a renamed row is a new ingredient: the server names it
+      return next;
+    });
     this.draft = { ...this.draft, ingredients };
   }
 

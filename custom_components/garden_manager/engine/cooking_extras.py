@@ -254,6 +254,15 @@ DEPENDS: dict[str, tuple[str, ...]] = {
     "plate_mustard_butter": ("butter",),
     "pasta_pangrattato": ("garlic", "lemon"),
     "compote_crunch": ("butter", "sugar"),
+    "soup_yog_garlic": ("garlic",),
+    "soup_crumbs": ("garlic",),
+    "salad_crumbs": ("garlic",),
+    "soup_feta_lemon": ("lemon",),
+    "feta_whip": ("lemon",),
+    "stew_yog_lemon": ("lemon",),
+    "frittata_yog": ("lemon",),
+    "pasta_cream": ("lemon",),
+    "salad_egg_poached": ("vinegar",),
 }
 
 PREP: dict[str, tuple[str, str, str, str]] = {

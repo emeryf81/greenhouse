@@ -238,10 +238,12 @@ export class HortulusPanel extends LitElement {
     if (this.lookLoaded || !this.hass?.connection || this.panelConfig.web) return;
     this.lookLoaded = true;
     const before = { theme: themeChoice(), appearance: appearanceChoice() };
+    let changedMeanwhile = false;
     try {
       const res = await this.hass.connection.sendMessagePromise<{ value?: { theme?: string; appearance?: string } | null }>({
         type: "frontend/get_user_data", key: "hortulus_look" });
       const v = res?.value;
+      changedMeanwhile = themeChoice() !== before.theme || appearanceChoice() !== before.appearance;
       this.lookSaving = true;
       // a choice made while the request ran wins over the saved one
       const theme = themeChoice() === before.theme ? v?.theme : undefined;
@@ -253,13 +255,21 @@ export class HortulusPanel extends LitElement {
     } finally {
       this.lookSaving = false;
     }
+    // a choice made while the request ran only went to this device with the old other half: send the pair
+    if (changedMeanwhile) this.saveLook();
   }
+
+  /** Writes go one after the other, each carrying the choices of the moment it is sent, so the last word is the latest. */
+  private lookChain: Promise<unknown> = Promise.resolve();
 
   private saveLook = (): void => {
     if (this.lookSaving || !this.hass?.connection || this.panelConfig.web) return;
-    void this.hass.connection
-      .sendMessagePromise({ type: "frontend/set_user_data", key: "hortulus_look", value: { theme: themeChoice(), appearance: appearanceChoice() } })
-      .catch(() => undefined);
+    const connection = this.hass.connection;
+    this.lookChain = this.lookChain.then(() =>
+      connection
+        .sendMessagePromise({ type: "frontend/set_user_data", key: "hortulus_look", value: { theme: themeChoice(), appearance: appearanceChoice() } })
+        .catch(() => undefined),
+    );
   };
 
   // ---------------------------------------------------------------------- //

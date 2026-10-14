@@ -72,6 +72,14 @@
     refuses (and stops offering) more than 40 ingredients or 30 steps instead of cutting them off; a
     cookbook of more than 60 recipes prints in full (up to 200, with a message beyond that) and a long
     recipe continues on another page; a shopping-list reload can no longer bring back recipes you removed.
+- **Second review round:** the garden's mint now reaches tzatziki and raita (the sauce herbs listed a
+  plant id that does not exist); a green soup no longer takes shelling beans (borlotti, runner beans),
+  which need far longer than its few minutes; garlic, lemon or vinegar a fridge preparation names joins
+  the ingredients and the shopping list; a long step or ingredient that would run off the page moves to
+  the next one whole; renaming an ingredient in your own version gives it a new identity (no merge with
+  another recipe's row on the shopping list); an import with a present but wrongly typed `archived_plans`
+  or `plant_overrides` is refused instead of ignored; a colour choice made while your saved choice is
+  still loading is saved as a pair, and quick successive choices are sent one after the other.
 - **Colour themes on iPhone (Home Assistant app, Safari):** the theme and the dark palette are now
   set as inline colours on the panel instead of `:host([theme])` rules, so they take effect at once
   in every browser; the dashboard no longer uses `:host-context`, which Safari does not support.

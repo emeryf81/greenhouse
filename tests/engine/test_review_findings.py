@@ -51,3 +51,17 @@ def test_a_bed_too_narrow_for_its_margins_is_skipped_not_a_crash(garden: GardenD
     garden.plantings = []
     result = autoplan(garden, db, AutoplanOptions(season=2027), today=date(2026, 12, 1))
     assert result is not None and not result.plantings
+
+
+def test_a_present_field_of_the_wrong_type_is_refused_not_ignored(garden: GardenData) -> None:
+    before = copy.deepcopy(garden)
+    for field, bad in (("archived_plans", {}), ("plant_overrides", []), ("plant_overrides", "x")):
+        doc = planio.export_plan(garden, now=NOW)
+        doc[field] = bad
+        with pytest.raises(planio.PlanImportError):
+            planio.import_plan(garden, doc, "replace")
+    assert garden.zones == before.zones and garden.plant_overrides == before.plant_overrides
+    doc = planio.export_plan(garden, now=NOW)
+    doc.pop("plant_overrides")  # an older file without the field is fine
+    doc.pop("archived_plans")
+    assert planio.import_plan(garden, doc, "merge")["zones"] == len(garden.zones)

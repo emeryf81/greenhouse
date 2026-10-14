@@ -477,3 +477,21 @@ def test_a_long_recipe_continues_on_another_page(db: PlantDatabase) -> None:
     longer = cooking.recipes_pdf([long], "en", "recipe")
     pages = lambda pdf: len(re.findall(rb"/Type\s*/Page\b(?!s)", pdf))  # noqa: E731
     assert pages(longer) > pages(short)
+
+
+def test_review_round_two(db: PlantDatabase) -> None:
+    # the garden's mint reaches the sauces
+    assert {"peppermint", "spearmint", "apple_mint"} <= set(cooking._SAUCE_HERBS) and "mint" not in cooking._SAUCE_HERBS
+    # shelling beans are not offered in a green soup that cooks them for minutes
+    assert cooking.render({"technique": "green_soup", "produce": ["borlotti_bean"]}, db) is None
+    assert cooking.render({"technique": "green_soup", "produce": ["runner_bean"]}, db) is None
+    assert cooking.render({"technique": "green_soup", "produce": ["pea"]}, db) is not None
+    # what these preparations name (garlic, lemon, vinegar) is on the list
+    for key in ("soup_yog_garlic", "soup_crumbs", "salad_crumbs", "soup_feta_lemon", "feta_whip", "stew_yog_lemon",
+                "frittata_yog", "pasta_cream", "salad_egg_poached"):  # fmt: skip
+        assert key in cooking._x.DEPENDS, key
+    # a step longer than the room left on the page starts a new one
+    recipe = cooking.render({"technique": "soup", "produce": ["pumpkin"]}, db, "en")
+    steps = ["Short step."] * 22 + ["word " * 110]
+    page_count = lambda r: len(re.findall(rb"/Type\s*/Page\b(?!s)", cooking.recipes_pdf([r], "en", "recipe")))  # noqa: E731
+    assert page_count(dict(recipe, steps=steps)) > page_count(dict(recipe, steps=steps[:22]))

@@ -391,5 +391,12 @@ def test_the_website_runtime_gets_the_homeassistant_modules_it_has_stubs_for() -
     }  # fmt: skip
     for name in ("websocket_api.py", "operations.py", "storage.py"):
         for node in ast.walk(ast.parse((package / name).read_text(encoding="utf-8"))):
-            if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("homeassistant"):
-                assert node.module in known, f"{name} imports {node.module}: the website has no stand-in for it"
+            if isinstance(node, ast.ImportFrom):
+                modules = [node.module] if node.module else []
+            elif isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            else:
+                continue
+            for module in modules:
+                if module.startswith("homeassistant"):
+                    assert module in known, f"{name} imports {module}: the website has no stand-in for it"

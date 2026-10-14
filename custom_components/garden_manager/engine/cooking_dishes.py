@@ -55,7 +55,7 @@ SPECS: tuple[dict[str, Any], ...] = (
      "minutes": 45, "min_garden": 2, "max_garden": 4, "tags": ("warm",), "course": "soup", "strict": True},
     {"id": "green_soup", "kinds": ("legume", "leafy", "brassica", "fruiting", "allium"), "sides": ("bread",),
      "proteins": ("ham", "bacon", "egg"), "staples": ("onion", "butter", "stock", "cream"), "minutes": 30,
-     "plants": (*PEAS, *BEANS, *GREENS, "courgette", "broccoli", "leek", "spring_onion"),
+     "plants": (*PEAS, "bush_bean", "pole_bean", "broad_bean", "edamame", *GREENS, "courgette", "broccoli", "leek", "spring_onion"),  # quick-cooking beans only
      "tags": ("fresh", "quick"), "course": "soup", "strict": True},
     {"id": "chowder", "kinds": ("corn", "potato", "fruiting", "allium", "root"), "sides": ("potatoes",),
      "proteins": ("bacon", "white_fish", "shrimp", "ham"), "staples": ("onion", "butter", "milk", "stock"),

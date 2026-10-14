@@ -26,7 +26,7 @@ from typing import Any
 
 from . import cooking_dishes as _d, cooking_extras as _x
 from .models import Plant, PlantCategory
-from .pdf import Image, PdfDocument, PdfPage, wrap
+from .pdf import PT_TO_MM, Image, PdfDocument, PdfPage, wrap
 from .plantdb import PlantDatabase
 
 # --------------------------------------------------------------------------- #
@@ -592,7 +592,7 @@ _SERVE_SIDE = {"en": "Serve with the {s}.", "nl": "Serveer met de {s}.", "fr": "
 _CHEESES = frozenset(("parmesan", "feta", "mozzarella", "grated_cheese"))
 _CREAMY = frozenset(("cream", "coconut_milk", "milk"))
 # Garden herbs that belong in a cold sauce or butter (rosemary or sage do not)
-_SAUCE_HERBS = ("dill", "mint", "parsley", "chives", "coriander")
+_SAUCE_HERBS = ("dill", *_d.MINTS, "parsley", "chives", "coriander")
 _LANG_IX = {"nl": 0, "en": 1, "fr": 2}
 _LANG_IX_EN = {"en": 0, "nl": 1, "fr": 2}  # the order of the texts of ``cooking_dishes``
 # A fridge item the dish's own garden produce already brings
@@ -1360,6 +1360,7 @@ def _picture(page: PdfPage, x: float, y: float, size: float, recipe: Mapping[str
 
 
 _PAGE_END = 268.0  # below this a new page starts
+_PAGE_LIMIT = 284.0  # ... and a block that would end below this goes to the next page whole
 
 
 def _continued_page(doc: PdfDocument, recipe: Mapping[str, Any]) -> PdfPage:
@@ -1400,10 +1401,13 @@ def _recipe_page(doc: PdfDocument, recipe: Mapping[str, Any], lang: str, image: 
     for ing in recipe["ingredients"]:
         if ing.get("source") == "basic":
             continue
-        if yi > _PAGE_END:  # a long list goes on to a page of its own
+        label = (f"{ing['label']}  " if ing.get("label") else "") + str(ing["name"])
+        lines = len(wrap(label, col - 4, 9.5))
+        if (
+            yi > _PAGE_END or yi + lines * 9.5 * PT_TO_MM * 1.3 + 1 > _PAGE_LIMIT
+        ):  # a long list goes on to a page of its own
             ipage = _continued_page(doc, recipe)
             yi = 26.0
-        label = (f"{ing['label']}  " if ing.get("label") else "") + str(ing["name"])
         if ing.get("source") == "garden":
             ipage.circle(x + 1.2, yi + 3.3, 1.2, fill=ing.get("color", "#5a9a3c"))
         yi = ipage.text_block(x + (4 if ing.get("source") == "garden" else 0), yi, col - 4, label, size=9.5, color=_INK)
@@ -1415,7 +1419,8 @@ def _recipe_page(doc: PdfDocument, recipe: Mapping[str, Any], lang: str, image: 
     ym = y + 3
     spage = page
     for n, step in enumerate(recipe["steps"], 1):
-        if ym > _PAGE_END:  # the method goes on, full width, on the next page
+        height = len(wrap(step, mw - 7, 10)) * 10 * PT_TO_MM * 1.35 + 3
+        if ym > _PAGE_END or ym + height > _PAGE_LIMIT:  # the method goes on, full width, on the next page
             spage = _continued_page(doc, recipe)
             mx, mw, ym = x, w, 26.0
         spage.circle(mx + 2.3, ym + 4.2, 2.3, fill=_GREEN)
