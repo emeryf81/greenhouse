@@ -63,6 +63,18 @@ export class GardenViewer extends LitElement {
       this.season = layoutOf(this.snapshot, today) ? today : (this.snapshot.layout_season ?? this.seasons[0] ?? today);
       this.sel = null;
     }
+    // a selection that no longer exists in the new snapshot (pruned, removed) is let go
+    if (this.sel && changed.has("snapshot") && !this.selectionExists()) this.sel = null;
+  }
+
+  private selectionExists(): boolean {
+    const sel = this.sel;
+    const layout = layoutOf(this.snapshot, this.season);
+    if (!sel || !layout) return false;
+    if (sel.kind === "planting") return this.plantingsIn(this.season).some((p) => p.id === sel.id);
+    if (sel.kind === "bed") return layout.beds.some((b) => b.id === sel.id);
+    if (sel.kind === "zone") return layout.zones.some((z) => z.id === sel.id);
+    return layout.features.some((f) => f.id === sel.id);
   }
 
   private plantingsIn(season: number): Planting[] {

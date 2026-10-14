@@ -520,8 +520,9 @@ export class PlannerView extends LitElement {
       }
     } finally {
       this.saving = false;
+      // also after an early return: an edit made meanwhile (in this or another garden) still goes out
+      if (this.saveState === "dirty") void this.save();
     }
-    if (this.saveState === "dirty") void this.save();
   }
 
   /** Edits of a garden no longer shown: saved to that garden, retried a few times, never lost silently. */

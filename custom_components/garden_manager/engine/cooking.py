@@ -640,10 +640,10 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
            pantry: Iterable[str] = ()) -> dict[str, Any] | None:  # fmt: skip
     """The full recipe for a spec, in ``lang``.  None when the spec no longer makes sense."""
     lang = _lang(lang)
+    if not isinstance(spec, Mapping):
+        return None
     tech = TECHNIQUE.get(str(spec.get("technique")))
     if tech is None:
-        return None
-    if not isinstance(spec, Mapping):
         return None
     servings = servings_of(spec.get("servings"))
     produce: list[tuple[Plant, str]] = []

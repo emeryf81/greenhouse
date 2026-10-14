@@ -99,3 +99,4 @@ def test_unreadable_input_falls_back(db: PlantDatabase) -> None:
     assert prefs.servings == 2 and prefs.pantry == [] and prefs.proteins == ["beef"] and prefs.side == ""
     assert cooking.Prefs.from_dict(["nope"]).servings == 2  # type: ignore[arg-type]
     assert cooking.render({"technique": "soup", "produce": ["carrot"], "servings": "many"}, db)["servings"] == 2
+    assert cooking.render(["soup"], db) is None  # type: ignore[arg-type]
