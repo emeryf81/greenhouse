@@ -1069,9 +1069,7 @@ def _clean_spec(raw: Mapping[str, Any]) -> dict[str, Any]:
         "produce": produce,
         "side": side if side in cooking.SIDES else "",
         "protein": protein if protein in cooking.PROTEINS else "",
-        "extras": cooking.fitting_extras(
-            tech, cooking.str_ids(raw.get("extras")), protein in cooking.PROTEINS, produce
-        ),
+        "extras": cooking.fitting_extras(tech, cooking.str_ids(raw.get("extras")), cooking.pan_meat(protein), produce),
         "servings": cooking.servings_of(raw.get("servings")),
     }
 
@@ -1082,6 +1080,7 @@ def op_cookbook_save(runtime: GardenRuntime, raw: Mapping[str, Any]) -> Cookbook
 
     data = runtime.repo.data
     spec = _clean_spec(raw.get("spec") or {})
+    changes = _cookbook_changes(raw)  # a refused request changes nothing
     rid = cooking.spec_id(spec)
     entry = next((r for r in data.cookbook if r.id == rid), None)
     if entry is None:
@@ -1089,31 +1088,42 @@ def op_cookbook_save(runtime: GardenRuntime, raw: Mapping[str, Any]) -> Cookbook
             raise _err("cookbook_full", max=COOKBOOK_MAX)
         entry = CookbookRecipe(id=rid, spec=spec, added=dt_util.now().date())
         data.cookbook.append(entry)
-    _apply_cookbook_fields(entry, raw)
+    _apply_cookbook_fields(entry, changes)
     runtime.repo.async_changed("records")
     return entry
 
 
-def _apply_cookbook_fields(entry: CookbookRecipe, raw: Mapping[str, Any]) -> None:
+def _cookbook_changes(raw: Mapping[str, Any]) -> dict[str, Any]:
+    """The requested cookbook fields, cleaned and checked (raises before anything changes)."""
+    out: dict[str, Any] = {}
     if "title" in raw:
-        entry.title = str(raw.get("title") or "").strip()[:120]
+        out["title"] = str(raw.get("title") or "").strip()[:120]
     if "note" in raw:
-        entry.note = str(raw.get("note") or "")[:1000]
+        out["note"] = str(raw.get("note") or "")[:1000]
     if "favorite" in raw:
-        entry.favorite = bool(raw.get("favorite"))
+        out["favorite"] = bool(raw.get("favorite"))
     if "shared" in raw:
-        entry.shared = bool(raw.get("shared"))
+        out["shared"] = bool(raw.get("shared"))
     if raw.get("cooked"):
-        entry.cooked = [*entry.cooked, dt_util.now().date()][-50:]
+        out["cooked"] = True
     if "ingredients" in raw:  # [] goes back to the generated list
         items = raw.get("ingredients") if isinstance(raw.get("ingredients"), list) else []
         rows = [row for n, x in enumerate(items[:40]) if (row := cooking.custom_ingredient(x, n)) is not None]
         if items and not rows:
             raise _err("invalid_recipe")
-        entry.ingredients = rows
+        out["ingredients"] = rows
     if "steps" in raw:  # [] goes back to the generated method
         steps = raw.get("steps") if isinstance(raw.get("steps"), list) else []
-        entry.steps = [s for x in steps[:30] if isinstance(x, str) and (s := x.strip()[:600])]
+        out["steps"] = [s for x in steps[:30] if isinstance(x, str) and (s := x.strip()[:600])]
+    return out
+
+
+def _apply_cookbook_fields(entry: CookbookRecipe, changes: Mapping[str, Any]) -> None:
+    for key in ("title", "note", "favorite", "shared", "ingredients", "steps"):
+        if key in changes:
+            setattr(entry, key, changes[key])
+    if changes.get("cooked"):
+        entry.cooked = [*entry.cooked, dt_util.now().date()][-50:]
 
 
 @callback
@@ -1121,7 +1131,7 @@ def op_cookbook_update(runtime: GardenRuntime, recipe_id: str, raw: Mapping[str,
     entry = next((r for r in runtime.repo.data.cookbook if r.id == recipe_id), None)
     if entry is None:
         raise _err("unknown_recipe", recipe=recipe_id)
-    _apply_cookbook_fields(entry, raw)
+    _apply_cookbook_fields(entry, _cookbook_changes(raw))
     runtime.repo.async_changed("records")
     return entry
 

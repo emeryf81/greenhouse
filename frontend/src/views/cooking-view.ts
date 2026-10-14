@@ -275,6 +275,8 @@ export class CookingView extends LitElement {
     try {
       const { book, id } = await this.api.cookbookSave({ spec: specOf(r), ...extra }, this.lang);
       if (this.data) this.data = { ...this.data, book };
+      const fresh = book.find((b) => b.id === id);
+      if (fresh) this.basketRecipes = this.basketRecipes.map((b) => (b.id === id ? fresh : b));
       if (this.open?.id === id) this.open = book.find((b) => b.id === id) ?? this.open;
       this.flash(this.t("cook.saved"));
     } catch (err) {
@@ -290,7 +292,9 @@ export class CookingView extends LitElement {
     try {
       const { book } = await this.api.cookbookUpdate(r.id, changes, this.lang);
       if (this.data) this.data = { ...this.data, book };
-      if (this.open?.id === r.id) this.open = book.find((b) => b.id === r.id) ?? this.open;
+      const fresh = book.find((b) => b.id === r.id);
+      if (this.open?.id === r.id) this.open = fresh ?? this.open;
+      if (fresh) this.basketRecipes = this.basketRecipes.map((b) => (b.id === r.id ? fresh : b)); // the list follows an edit
     } catch (err) {
       this.error = (err as Error).message;
     }

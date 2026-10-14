@@ -123,6 +123,17 @@ def test_fridge_items_only_go_where_they_fit(db: PlantDatabase) -> None:
     assert {i["id"]: i["source"] for i in roast["ingredients"]}["yoghurt"] == "pantry"
     assert cooking.fitting_extras("stir_fry", fridge) == ["yoghurt"]  # as a dip, no cheese
     assert cooking.fitting_extras("plate", ["cream"], has_protein=False) == []
+    tofu = cooking.render({"technique": "plate", "produce": ["kale"], "protein": "tofu", "extras": ["cream"]}, db, "en")
+    assert tofu is not None and tofu["spec"]["extras"] == []  # no meat pan to make a cream sauce in
+    steak = cooking.render(
+        {"technique": "plate", "produce": ["kale"], "protein": "steak", "extras": ["cream"]}, db, "en"
+    )
+    assert steak is not None and steak["spec"]["extras"] == ["cream"]
+    # "for the last 8 minutes" is said before the oven step it times, not after it
+    eggs = cooking.render({"technique": "roast", "produce": ["carrot", "pumpkin"], "extras": ["eggs"]}, db, "en")
+    assert eggs is not None
+    at = lambda word: next(n for n, s in enumerate(eggs["steps"]) if word in s)  # noqa: E731
+    assert at("crack the eggs") < at("Roast for 30-35 minutes")
     assert cooking.fitting_extras("stew", ["cream", "yoghurt"]) == ["yoghurt"]  # coconut milk is the cream there
     assert cooking.fitting_extras("stoemp", ["cream", "mustard"]) == ["mustard", "cream"]
     assert cooking.fitting_extras("frittata", ["milk", "cream"]) == ["milk"]  # one is enough
@@ -173,7 +184,7 @@ def test_every_dish_its_own_idea(db: PlantDatabase) -> None:
             assert item in cooking.PANTRY, item
             for key in keys:
                 where, *texts = x.PREP[key]
-                assert where in ("mid", "late") and len(texts) == 3 and all(texts), key
+                assert where in ("mid", "during", "late") and len(texts) == 3 and all(texts), key
 
 
 def test_the_cooks_own_version(db: PlantDatabase) -> None:

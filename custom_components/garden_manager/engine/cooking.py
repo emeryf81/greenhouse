@@ -535,6 +535,12 @@ def _plan_extras(technique: str, items: Iterable[str], has_protein: bool, produc
     return out
 
 
+def pan_meat(protein_id: str) -> bool:
+    """Meat or fish leaves a pan to make a sauce in (tofu, eggs or chickpeas do not)."""
+    item = PROTEINS.get(protein_id)
+    return item is not None and item.group in ("meat", "fish")
+
+
 def fitting_extras(
     technique: str, items: Iterable[str], has_protein: bool = True, produce: Sequence[str] = ()
 ) -> list[str]:
@@ -543,20 +549,22 @@ def fitting_extras(
 
 
 def _extra_steps(technique: str, extras: Sequence[str], lang: str, herbs: Sequence[str] = (),
-                 produce: Sequence[str] = (), has_protein: bool = True) -> tuple[list[str], list[str]]:  # fmt: skip
-    """The steps for the fridge items: (after the second technique step, after the last).
+                 produce: Sequence[str] = (), has_protein: bool = True) -> tuple[list[str], list[str], list[str]]:  # fmt: skip
+    """The steps for the fridge items: (after the second technique step, before the last – the
+    timed oven or grill additions –, after the last).
     ``herbs``: fresh garden herbs for a sauce or butter (else the one the preparation suggests)."""
     plan = _plan_extras(technique, extras, has_protein, produce)
     ix = _LANG_IX[lang]
     mid: list[str] = []
+    during: list[str] = []
     late: list[str] = []
     for item, key in plan.items():
         where, *texts = _x.PREP[key]
         default = _x.HERB.get(key, ("verse kruiden", "fresh herbs", "fines herbes"))[ix]
         h = _join(list(herbs)[:2], lang) if herbs and key not in _x.FIXED_HERB else default
         name = PANTRY[item].name(lang).split(" (")[0]  # "nuts (walnuts, pine nuts)" -> "nuts"
-        (mid if where == "mid" else late).append(texts[ix].format(x=name, h=h))
-    return mid, late
+        {"mid": mid, "during": during}.get(where, late).append(texts[ix].format(x=name, h=h))
+    return mid, during, late
 
 
 _HERBS = {"en": "Scatter over the {h} just before serving.", "nl": "Strooi vlak voor het opdienen de {h} erover.",
@@ -736,9 +744,8 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
     protein_id = str(spec.get("protein") or "")
     protein = PROTEINS.get(protein_id)
     produce_ids = [p.id for p, _ in produce]
-    extras = fitting_extras(
-        tech.id, [x for x in str_ids(spec.get("extras")) if x in PANTRY], protein is not None, produce_ids
-    )
+    meat = pan_meat(protein_id if protein else "")
+    extras = fitting_extras(tech.id, [x for x in str_ids(spec.get("extras")) if x in PANTRY], meat, produce_ids)
     in_house = set(pantry) | set(extras)  # what the cook took from the fridge is in the house
 
     names = [short_name(p, lang) for p, _ in produce]
@@ -814,13 +821,17 @@ def render(spec: Mapping[str, Any], db: PlantDatabase, lang: str | None = "en", 
         )
         steps.append(_PROTEIN_STEP[lang][key].format(p=protein.name(lang).split(" (")[0].lower()))
     fresh = {short_name(p, lang) for i in _SAUCE_HERBS if (p := db.get(i)) is not None}
-    mid, late = _extra_steps(tech.id, extras, lang, [h for h in herbs if h in fresh], produce_ids, protein is not None)
-    for n, step in enumerate(_STEPS[lang][tech.id]):
+    mid, during, late = _extra_steps(tech.id, extras, lang, [h for h in herbs if h in fresh], produce_ids, meat)
+    method = _STEPS[lang][tech.id]
+    for n, step in enumerate(method):
+        if n == len(method) - 1:  # "for the last 10 minutes ...": said before the oven or grill step it times
+            steps += mid + during
+            mid = during = []
         steps.append(step.format(prep=prep or a, side=side_name.lower(), veg=_join(names, lang)))
         if n == 1:
             steps += mid
             mid = []
-    steps += mid + late
+    steps += mid + during + late
     if herbs and tech.id not in ("pesto", "dessert"):
         steps.append(_HERBS[lang].format(h=_join(herbs[:3], lang)))
     if side_id == "bread":

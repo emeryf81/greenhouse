@@ -1252,9 +1252,19 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     assert mine["custom"] is True and mine["steps"] == ["Alles in de pan.", "Proeven."] and mine["id"] == saved["id"]
     assert [i["name"] for i in mine["shopping"]] == ["Gerookte paprika"]
     await client.send_json_auto_id(
-        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"ingredients": [{"name": ""}]}}
+        {
+            "type": f"{DOMAIN}/cooking/book/update",
+            "recipe_id": saved["id"],
+            "changes": {"title": "Kapot", "ingredients": [{"name": ""}]},
+        }
     )
     assert (await _result(client))["error"]["code"] == "invalid_recipe"
+    assert repo.data.cookbook[0].title == "Ons recept"  # a refused change changes nothing
+    other = {**spec, "servings": 7}  # another dish: a refused save adds no entry
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": other, "ingredients": [{"name": " "}]}}
+    )
+    assert (await _result(client))["error"]["code"] == "invalid_recipe" and len(repo.data.cookbook) == 1
     await client.send_json_auto_id(
         {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"ingredients": [], "steps": []}}
     )

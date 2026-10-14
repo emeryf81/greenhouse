@@ -8,7 +8,9 @@ several, the produce decides which one, so two dishes rarely get the same idea.
 ``USES[technique][item]``: the preparations that suit that dish, as keys of ``PREP``.
 An item a technique does not list stays in the fridge for another dish.
 ``PREP[key]``: (where the step goes, text nl, en, fr).  "mid": after the second step of
-the method (onion softened, vegetables in the pan or on the tray); "late": at the end.
+the method (onion softened, vegetables in the pan or on the tray); "during": just before
+its last step (the oven or grill step a "for the last 10 minutes" addition times);
+"late": at the end.
 Texts may use {x} (the item's name) and {h} (fresh herbs: from the garden when it has
 fitting ones, else ``HERB[key]``).
 """
@@ -274,7 +276,7 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Roer de {x} met citroenrasp, een geperst teentje look en een draad olijfolie, strijk uit op een schaal en leg de warme groenten erop.",
         "Stir the {x} with lemon zest, a crushed garlic clove and a drizzle of olive oil, spread it on a platter and pile the hot vegetables on top.",
         "Mélangez {x} avec du zeste de citron, une gousse d'ail écrasée et un filet d'huile, étalez sur un plat et dressez les légumes chauds dessus."),
-    "roast_feta_block": ("late",
+    "roast_feta_block": ("during",
         "Leg de {x} in één blok de laatste 15 minuten midden tussen de groenten, besprenkel met olijfolie, een draadje honing en {h} en laat zacht worden; prak hem bij het opdienen door de groenten.",
         "Put the {x} in one block among the vegetables for the last 15 minutes, drizzle with olive oil, a little honey and {h} and let it soften; break it through the vegetables when serving.",
         "Posez {x} en bloc au milieu des légumes les 15 dernières minutes, arrosé d'huile d'olive, d'un filet de miel et de {h} ; écrasez-le dans les légumes au service."),
@@ -282,15 +284,15 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Mix de {x} met een scheut olijfolie en wat citroensap tot een romige crème, strijk ze uit op het bord en leg de geroosterde groenten erop.",
         "Blend the {x} with a splash of olive oil and a little lemon juice into a creamy whip, spread it on the plate and pile the roast vegetables on top.",
         "Mixez {x} avec un trait d'huile d'olive et un peu de citron en crème onctueuse, étalez-la sur l'assiette et dressez les légumes rôtis dessus."),
-    "roast_mozzarella": ("late",
+    "roast_mozzarella": ("during",
         "Scheur de {x} in stukken en leg ze de laatste 8 minuten op de groenten tot ze smelten.",
         "Tear the {x} and lay it on the vegetables for the last 8 minutes until it melts.",
         "Déchirez {x} et posez-la sur les légumes les 8 dernières minutes pour qu'elle fonde."),
-    "roast_cheese_crust": ("late",
+    "roast_cheese_crust": ("during",
         "Strooi de {x} de laatste 10 minuten over de groenten voor een krokant kaaskorstje.",
         "Scatter the {x} over the vegetables for the last 10 minutes for a crisp cheese crust.",
         "Parsemez {x} sur les légumes les 10 dernières minutes pour une croûte croustillante."),
-    "roast_parm_crumb": ("late",
+    "roast_parm_crumb": ("during",
         "Meng de {x} met wat paneermeel of fijngehakte noten en een draad olie en strooi het de laatste 10 minuten over de groenten: een krokante korst.",
         "Mix the {x} with a few breadcrumbs or chopped nuts and a drizzle of oil and scatter it over the vegetables for the last 10 minutes: a crisp crust.",
         "Mélangez {x} avec un peu de chapelure ou de noix hachées et un filet d'huile et parsemez-en les légumes les 10 dernières minutes."),
@@ -298,11 +300,11 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Schaaf er bij het opdienen dunne krullen {x} over met een draad olijfolie en wat citroensap.",
         "Shave thin curls of {x} over it when serving, with a drizzle of olive oil and a little lemon juice.",
         "Au service, ajoutez des copeaux de {x}, un filet d'huile d'olive et un peu de citron."),
-    "roast_eggs": ("late",
+    "roast_eggs": ("during",
         "Maak de laatste 8 minuten kuiltjes tussen de groenten, breek er de {x} in en laat ze stollen tot het wit gaar en de dooier nog zacht is.",
         "For the last 8 minutes make hollows among the vegetables, crack the {x} into them and bake until the whites are set and the yolks still soft.",
         "Les 8 dernières minutes, creusez des nids entre les légumes, cassez-y {x} et laissez prendre (blanc cuit, jaune coulant)."),
-    "roast_nuts": ("late",
+    "roast_nuts": ("during",
         "Rooster de {x} de laatste 5 minuten mee op de bakplaat en schep ze erdoor.",
         "Roast the {x} on the tray for the last 5 minutes and toss them through.",
         "Ajoutez {x} sur la plaque les 5 dernières minutes et mélangez."),
@@ -310,11 +312,11 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Leg partjes {x} mee op de bakplaat; knijp ze bij het opdienen uit over de groenten.",
         "Put {x} wedges on the tray too; squeeze them over the vegetables when serving.",
         "Ajoutez des quartiers de {x} sur la plaque ; pressez-les sur les légumes au service."),
-    "roast_honey": ("late",
+    "roast_honey": ("during",
         "Besprenkel de groenten de laatste 10 minuten met {x} (met een snuf chilivlokken als je van pikant houdt) voor een glanzend laagje.",
         "Drizzle the vegetables with {x} for the last 10 minutes (with a pinch of chilli flakes if you like heat) for a glossy glaze.",
         "Arrosez les légumes de {x} les 10 dernières minutes (avec une pincée de piment si vous aimez) pour les laquer."),
-    "roast_soy": ("late",
+    "roast_soy": ("during",
         "Schep de groenten halverwege om met een scheutje {x} en een lepel honing: zoetzout en glanzend.",
         "Halfway through, toss the vegetables with a dash of {x} and a spoonful of honey: sweet, salty and glossy.",
         "À mi-cuisson, enrobez les légumes d'un trait de {x} et d'une cuillerée de miel : sucré-salé et laqué."),
@@ -330,7 +332,7 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Sprenkel er net uit de oven een scheutje (balsamico)azijn over: dat maakt de zoete groenten fris.",
         "Sprinkle a dash of (balsamic) vinegar over them straight out of the oven: it lifts the sweet vegetables.",
         "À la sortie du four, un trait de vinaigre (balsamique) réveille les légumes."),
-    "roast_crumbs": ("late",
+    "roast_crumbs": ("during",
         "Meng het {x} met olijfolie, een geperst teentje look en fijngehakte {h} en strooi het de laatste 10 minuten over de groenten.",
         "Mix the {x} with olive oil, a crushed garlic clove and finely chopped {h} and scatter it over the vegetables for the last 10 minutes.",
         "Mélangez {x} avec de l'huile, une gousse d'ail écrasée et {h} ciselé(e) et parsemez-en les légumes les 10 dernières minutes."),
@@ -523,7 +525,7 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Leg dunne ringen {x} tussen de lagen groenten.",
         "Layer thin rings of {x} between the vegetables.",
         "Intercalez de fines rondelles d'{x} entre les légumes."),
-    "gratin_butter": ("late",
+    "gratin_butter": ("during",
         "Leg er voor het bakken een paar klontjes {x} op voor een goudbruine korst.",
         "Dot with a few knobs of {x} before baking for a golden crust.",
         "Parsemez de quelques noisettes de {x} avant d'enfourner pour une croûte dorée."),
@@ -573,7 +575,7 @@ PREP: dict[str, tuple[str, str, str, str]] = {
         "Verkruimel de {x} door het eimengsel: zoute, smeuïge stukjes.",
         "Crumble the {x} into the egg mixture: salty, creamy pockets.",
         "Émiettez {x} dans les œufs : des petits morceaux salés et fondants."),
-    "frittata_mozzarella": ("late",
+    "frittata_mozzarella": ("during",
         "Leg plakjes {x} op de frittata voor ze onder de grill gaat.",
         "Lay slices of {x} on the frittata before it goes under the grill.",
         "Posez des tranches de {x} sur la frittata avant de la passer sous le gril."),
