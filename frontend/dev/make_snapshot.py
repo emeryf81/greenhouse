@@ -108,6 +108,9 @@ PROGRESS = {
 
 
 def build(lang: str) -> dict:
+    def pick(en: str, nl: str, fr: str) -> str:
+        return {"en": en, "nl": nl, "fr": fr}[lang]
+
     db = PlantDatabase(load_builtin_json())
     data = build_initial_data(
         ENTRY, latitude=52.1, time_zone="Europe/Amsterdam", language=lang, today=NOW.date(), db=db
@@ -131,7 +134,7 @@ def build(lang: str) -> dict:
     data.features = [
         Feature(
             "ft_path",
-            "Path" if lang == "en" else "Pad",
+            pick("Path", "Pad", "Allée"),
             FeatureType.PATH,
             x_cm=-20,
             y_cm=-90,
@@ -140,7 +143,7 @@ def build(lang: str) -> dict:
         ),
         Feature(
             "ft_butt",
-            "Water butt" if lang == "en" else "Regenton",
+            pick("Water butt", "Regenton", "Récupérateur d'eau"),
             FeatureType.WATER_BUTT,
             x_cm=-110,
             y_cm=0,
@@ -153,7 +156,7 @@ def build(lang: str) -> dict:
     bottom = max(z.y_cm + z.length_cm for z in data.zones) + 120
     orchard = Zone(
         "zone_orchard",
-        "Boomgaard" if lang == "nl" else "Orchard",
+        pick("Orchard", "Boomgaard", "Verger"),
         ZoneType.ORCHARD,
         x_cm=-20,
         y_cm=bottom,
@@ -162,7 +165,7 @@ def build(lang: str) -> dict:
     )
     fruit = Zone(
         "zone_fruit",
-        "Fruithoek" if lang == "nl" else "Fruit corner",
+        pick("Fruit corner", "Fruithoek", "Coin à fruits"),
         ZoneType.FRUIT,
         x_cm=920,
         y_cm=bottom,
@@ -217,10 +220,10 @@ def build(lang: str) -> dict:
                  method=SowMethod.TRANSPLANT, status=PlantingStatus.TRANSPLANTED),
     ]  # fmt: skip
     data.features += [
-        Feature("ft_lawn", "Gazon" if lang == "nl" else "Lawn", FeatureType.LAWN, x_cm=1080, y_cm=-90, width_cm=340, length_cm=420),
-        Feature("ft_terrace", "Terras" if lang == "nl" else "Terrace", FeatureType.TERRACE, x_cm=920, y_cm=bottom + 330,
+        Feature("ft_lawn", pick("Lawn", "Gazon", "Pelouse"), FeatureType.LAWN, x_cm=1080, y_cm=-90, width_cm=340, length_cm=420),
+        Feature("ft_terrace", pick("Terrace", "Terras", "Terrasse"), FeatureType.TERRACE, x_cm=920, y_cm=bottom + 330,
                 width_cm=500, length_cm=270),
-        Feature("ft_fence", "Omheining" if lang == "nl" else "Fence", FeatureType.FENCE, x_cm=-160, y_cm=bottom + 620,
+        Feature("ft_fence", pick("Fence", "Omheining", "Clôture"), FeatureType.FENCE, x_cm=-160, y_cm=bottom + 620,
                 width_cm=1580, length_cm=10),
     ]  # fmt: skip
     data.settings.resources = GardenResources(
@@ -232,7 +235,6 @@ def build(lang: str) -> dict:
     data.irrigation_log = [IrrigationEvent(bed1.id, NOW - timedelta(days=1, hours=2), 6.0, 12.0, 3.0, "auto")]
     data.revision = 7
     # Records: last year's harvests (learned yields), diary, seed box, water meter, soil test.
-    nl = lang == "nl"
     data.harvest_log = [
         HarvestEntry("h1", date(2025, 7, 20), "lettuce", 1.4, None, next(p.id for p in data.plantings if p.plant_id == "lettuce"), bed1.id, 4),
         HarvestEntry("h2", date(2025, 8, 12), "tomato", 3.2, 28, next((p.id for p in data.plantings if p.plant_id == "tomato"), None), None, 5),
@@ -246,11 +248,11 @@ def build(lang: str) -> dict:
         HarvestEntry("h5", date(2026, 5, 18), "lettuce", 0.8, 3, None, bed1.id, 5),
     ]  # fmt: skip
     data.journal = [
-        JournalEntry("j1", NOW - timedelta(days=6), "Eerste bloemen aan de tomaten." if nl else "First flowers on the tomatoes.", kind="milestone",
+        JournalEntry("j1", NOW - timedelta(days=6), pick("First flowers on the tomatoes.", "Eerste bloemen aan de tomaten.", "Premières fleurs sur les tomates."), kind="milestone",
                      plant_id="tomato", zone_id=data.zones[1].id),
-        JournalEntry("j2", NOW - timedelta(days=2), "Bladluis op de tuinbonen - met water afgespoten." if nl else "Aphids on the broad beans - hosed them off.",
+        JournalEntry("j2", NOW - timedelta(days=2), pick("Aphids on the broad beans - hosed them off.", "Bladluis op de tuinbonen - met water afgespoten.", "Pucerons sur les fèves - rincés au jet d'eau."),
                      kind="problem", bed_id=bed1.id),
-        JournalEntry("j3", NOW - timedelta(hours=20), "Courgette goed aangeslagen na het uitplanten." if nl else "Courgette settled well after planting out.",
+        JournalEntry("j3", NOW - timedelta(hours=20), pick("Courgette settled well after planting out.", "Courgette goed aangeslagen na het uitplanten.", "Les courgettes ont bien repris après la plantation."),
                      kind="observation", planting_id="pl_courgette", bed_id=bed2.id, plant_id="courgette"),
     ]  # fmt: skip
     data.seed_stock = [
@@ -469,7 +471,9 @@ def _cooking(data, db, analysis, lang: str) -> dict:
     from custom_components.garden_manager.engine import cooking
 
     report = kitchen_report(data, db, analysis.timelines, analysis.today, lang)
-    extra = [{"plant_id": p, "until": None} for p in ("tomato", "courgette", "kale", "carrot", "basil", "pumpkin", "apple")]
+    extra = [
+        {"plant_id": p, "until": None} for p in ("tomato", "courgette", "kale", "carrot", "basil", "pumpkin", "apple")
+    ]
     produce = cooking.ready_produce([*report.get("ready", []), *extra], db)
     for p in produce:
         plant = db.get(p["plant_id"])
@@ -482,7 +486,17 @@ def _cooking(data, db, analysis, lang: str) -> dict:
          if (k := cooking.produce_kind(p)) is not None),
         key=lambda x: x["name"].lower(),
     )  # fmt: skip
-    book = [{**recipes[1], "saved": True, "favorite": True, "shared": False, "note": "", "added": "2026-08-01", "cooked": []}]
+    book = [
+        {
+            **recipes[1],
+            "saved": True,
+            "favorite": True,
+            "shared": False,
+            "note": "",
+            "added": "2026-08-01",
+            "cooked": [],
+        }
+    ]
     return {
         "ready": produce, "produce": produce, "recipes": recipes, "menus": menus, "prefs": None,
         "used_prefs": {"pantry": [], "use": prefs.use, "proteins": prefs.proteins, "side": "", "servings": prefs.servings},
