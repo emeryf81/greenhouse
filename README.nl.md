@@ -96,7 +96,7 @@ erin.
 * **Automatisch invullen** – stelt een heel seizoen voor op basis van je bedden,
   gezinsgrootte, uren per week, water en compost: juiste hoeveelheden per persoon, hoge
   gewassen weg van de zon, vruchtwisseling en buren gerespecteerd, snelle gewassen in
-  opeenvolgende zaaiingen, tere gewassen onder glas. Voorkeuren: verplichte en nooit‑gewassen,
+  opeenvolgende zaaiingen, tere gewassen onder glas. Voorkeuren: verplichte en uitgesloten gewassen,
   keuzevrijheid, bestuiversbloemen, oogst het hele jaar, meerjarigen toegestaan, het
   zonetype respecteren.
 * **Meerjarigen blijven** – een appelboom die dit jaar is geplant staat er volgend jaar

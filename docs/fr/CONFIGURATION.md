@@ -493,8 +493,8 @@ déroulantes qui n'affichent que les entités adaptées) :
 Un arrosage se termine quand une vanne reste fermée, ou ne répond plus pendant une minute alors que la
 pompe tourne (la pompe est alors arrêtée en premier) ; une vanne ou une pompe ouverte bien plus
 longtemps que n'importe quel arrosage (durée max. + 10 minutes) déclenche un bandeau avec *Fermer la
-vanne* ; de l'eau comptée pendant 15 minutes alors que toutes les vannes sont fermées est signalée
-comme une fuite.
+vanne* ; avec la notification de fuite activée dans les Paramètres et un compteur d'eau défini, au moins 5 L comptés en
+15 minutes calmes (aucun arrosage en cours, toutes les vannes fermées) sont signalés comme une fuite.
 
 ---
 

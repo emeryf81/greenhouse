@@ -25,7 +25,26 @@ await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
 const base = `http://127.0.0.1:${server.address().port}/frontend/dev/index.html`;
 const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 
+for (const lang of process.argv.slice(2).length ? process.argv.slice(2) : ["en", "nl", "fr"]) {
+  try {
+    await readFile(join(ROOT, "frontend", "dev", `data-${lang}.json`));
+  } catch {
+    console.error(`frontend/dev/data-${lang}.json is missing: run  python frontend/dev/make_snapshot.py ${lang} frontend/dev/data-${lang}.json`);
+    process.exit(1);
+  }
+}
+const failures = [];
 const only = process.env.ONLY ? process.env.ONLY.split(",") : null;
+// the panel is there and its tab has drawn something (not just the loading view)
+const rendered = async (p) => {
+  await p.locator("hortulus-panel").waitFor();
+  await p.waitForFunction(() => {
+    const root = document.querySelector("hortulus-panel")?.shadowRoot;
+    const tab = root?.querySelector(".view")?.firstElementChild ?? root?.querySelector("hl-wall-view");
+    return !!tab && (tab.shadowRoot?.childElementCount ?? 0) > 0;
+  });
+  await p.waitForTimeout(600);
+};
 const langs = process.argv.slice(2).length ? process.argv.slice(2) : ["en", "nl", "fr"];
 for (const lang of langs) {
   const out = join(ROOT, "docs", "images", lang);
@@ -37,8 +56,7 @@ for (const lang of langs) {
   page.on("pageerror", (e) => errors.push(e.message));
   const open = async (tab, extra = "") => {
     await page.goto(`${base}?tab=${tab}&lang=${lang}${extra}`);
-    await page.locator("hortulus-panel").waitFor();
-    await page.waitForTimeout(1200);
+    await rendered(page);
   };
   const shot = (name, opts = {}) => page.screenshot({ path: join(out, `${name}.png`), ...opts });
   const view = (sel) => page.locator(sel);
@@ -50,7 +68,12 @@ for (const lang of langs) {
   // states: a chip of a view, a popup, a filled form
   const attempt = async (name, fn) => {
     if (only && !only.includes(name)) return;
-    try { await fn(); } catch (e) { console.warn(lang, name, "skipped:", String(e.message).split("\n")[0]); }
+    try {
+      await fn();
+    } catch (e) {
+      failures.push(`${lang}/${name}`);
+      console.warn(lang, name, "failed:", String(e.message).split("\n")[0]);
+    }
   };
   const chip = async (tab, host, n, name, extra = "") => attempt(name, async () => {
     await open(tab, extra);
@@ -122,7 +145,7 @@ for (const lang of langs) {
   await mobile.route(/wikipedia|wikimedia/, (route) => route.abort());
   for (const [tab, name] of [["dashboard", "mobile-dashboard"], ["planner", "mobile-planner"], ["cooking", "mobile-cooking"]]) {
     await mobile.goto(`${base}?tab=${tab}&lang=${lang}&narrow=1`);
-    await mobile.waitForTimeout(1500);
+    await rendered(mobile);
     await mobile.screenshot({ path: join(out, `${name}.png`) });
   }
   await phone.close();
@@ -132,3 +155,7 @@ for (const lang of langs) {
 }
 await browser.close();
 server.close();
+if (failures.length) {
+  console.error("screenshot failures:", failures.join(", "));
+  process.exitCode = 1;
+}

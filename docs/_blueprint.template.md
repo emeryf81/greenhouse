@@ -971,7 +971,7 @@ integration adds to every dashboard by itself (no resource to register). `src/ty
 
 ### 5.9 Menu, views and components
 
-Eight *places* (Today, Garden, Calendar, Weather, Journal, Kitchen, Knowledge, Manage; the website adds a ninth, the read‑only view) with the related tabs of a place in a row underneath (a place reopens on the tab last
+Eight *places* (Today, Garden, Calendar, Weather, Journal, Cooking, Knowledge, Manage; the website adds a ninth, the read‑only view) with the related tabs of a place in a row underneath (a place reopens on the tab last
 used; URLs of the tabs never changed):
 
 | Place | Tabs (`src/views/`) |

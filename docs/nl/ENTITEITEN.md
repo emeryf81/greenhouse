@@ -6,7 +6,7 @@ vertaalde entiteitsnaam en de apparaatnaam op het moment dat een entiteit voor h
 aangemaakt. Op een Nederlandstalige installatie wordt `sensor.hortulus_frost_risk_next_48h`
 dus `sensor.hortulus_vorstrisico_komende_48_uur`. Unieke id's veranderen nooit; hernoem gerust.
 Een tweede tuin ([meerdere tuinen](CONFIGURATIE.md#9-meerdere-tuinen)) krijgt eigen apparaten en
-entiteiten; haar item heet “Hortulus 2”, dus haar id's beginnen met `sensor.hortulus_2_`.
+entiteiten; haar item heet “Hortulus 2”, dus haar tuinbrede id's beginnen met `sensor.hortulus_2_`.
 
 ## Apparaten
 
@@ -192,7 +192,7 @@ worden aan het einde, na een fout en bij annuleren uitgeschakeld. Elke beurt wor
 (liters van de watermeter als die er is) en voedt de waterbalans van het bed. Na elke beurt
 controleert Hortulus of de klep dicht meldt; een klep of pomp die langer dan de maximale
 looptijd + 10 minuten openstaat terwijl er geen beurt actief is, geeft een dashboardbanner, een
-melding en een regel in het systeemlogboek (*Kraan sluiten*). Water dat 15 minuten geteld
+melding en een regel in het systeemlogboek (*Kraan sluiten*). Minstens 5 L water die binnen 15 minuten geteld
 wordt terwijl alle kranen dicht zijn, wordt als lek gemeld (uit te zetten in Instellingen).
 
 ## Kalender, takenlijst, knoppen

@@ -6,8 +6,8 @@ du nom d'entité traduit et du nom de l'appareil au moment où une entité est c
 fois ; sur une installation en français, `sensor.hortulus_frost_risk_next_48h` devient donc
 `sensor.hortulus_risque_de_gel_dans_les_48_h`. Les identifiants uniques ne changent jamais ;
 renommez librement. Un second jardin ([plusieurs jardins](CONFIGURATION.md#9-plusieurs-jardins))
-reçoit ses propres appareils et entités ; son entrée s'appelle « Hortulus 2 », ses identifiants
-commencent donc par `sensor.hortulus_2_`.
+reçoit ses propres appareils et entités ; son entrée s'appelle « Hortulus 2 », ses identifiants d'entités
+propres au jardin commencent donc par `sensor.hortulus_2_`.
 
 ## Appareils
 
@@ -172,8 +172,8 @@ cas d'annulation. Chaque arrosage est enregistré (litres du compteur d'eau s'il
 alimente le bilan hydrique de la planche. Après chaque arrosage, Hortulus vérifie que la vanne indique
 fermée ; une vanne ou une pompe ouverte plus longtemps que la durée max. + 10 minutes alors qu'aucun
 arrosage n'est actif déclenche un bandeau du tableau de bord, une notification et une entrée du
-journal système (*Fermer la vanne*). De l'eau comptée pendant 15 minutes alors que toutes les vannes
-sont fermées est signalée comme une fuite (peut être désactivé dans les Paramètres).
+journal système (*Fermer la vanne*). Au moins 5 L d'eau comptés en 15 minutes alors que toutes les vannes
+sont fermées sont signalés comme une fuite (peut être désactivé dans les Paramètres).
 
 ## Calendrier, liste de tâches, boutons
 

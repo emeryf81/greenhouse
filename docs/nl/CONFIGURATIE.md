@@ -485,8 +485,8 @@ keuzelijsten die alleen passende entiteiten tonen):
 
 Een beurt eindigt als een klep dicht blijft, of een minuut lang niets meldt terwijl de pomp
 draait (eerst gaat de pomp uit); een klep of pomp die veel langer open staat dan een beurt kan
-duren (maximale looptijd + 10 minuten) geeft een banner met *Kraan sluiten*; water dat 15
-minuten geteld wordt terwijl alle kranen dicht zijn, wordt als lek gemeld.
+duren (maximale looptijd + 10 minuten) geeft een banner met *Kraan sluiten*; met de lekmelding aan in Instellingen en een watermeter ingesteld wordt minstens 5 L die binnen
+15 rustige minuten (geen beurt bezig, alle kranen dicht) geteld wordt als lek gemeld.
 
 ---
 

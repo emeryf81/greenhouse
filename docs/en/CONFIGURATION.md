@@ -463,8 +463,8 @@ entities that fit):
 
 A run ends when a valve stays closed, or goes silent for a minute while the pump runs
 (the pump is stopped first); a valve or pump open far longer than any run (max runtime +
-10 minutes) raises a banner with *Close valve*; water counted for 15 minutes while every
-valve is closed is reported as a leak.
+10 minutes) raises a banner with *Close valve*; with the leak notification on in Settings and a water meter set, at least 5 L counted
+within 15 quiet minutes (no run in progress, every valve closed) is reported as a leak.
 
 ---
 

@@ -6,7 +6,7 @@ entity name and the device name at the moment an entity is first created, so on 
 install `sensor.hortulus_frost_risk_next_48h` becomes
 `sensor.hortulus_vorstrisico_komende_48_uur`. Unique ids never change; rename freely.
 A second garden ([more than one garden](CONFIGURATION.md#9-more-than-one-garden)) gets its own
-devices and entities; its entry is titled “Hortulus 2”, so its ids start with `sensor.hortulus_2_`.
+devices and entities; its entry is titled “Hortulus 2”, so its garden-wide entity ids start with `sensor.hortulus_2_`.
 
 ## Devices
 
@@ -167,7 +167,7 @@ end, after an error and on cancellation. Each run is logged (litres from the wat
 there is one) and feeds the bed's water balance. After every run Hortulus checks that the
 valve reports closed; a valve or pump open for more than max runtime + 10 minutes while no
 run is active raises a dashboard banner, a notification and a system log entry (*Close
-valve*). Water counted for 15 minutes while every valve is closed is reported as a leak
+valve*). At least 5 L of water counted within 15 minutes while every valve is closed is reported as a leak
 (can be switched off in Settings).
 
 ## Calendar, to‑do list, buttons
