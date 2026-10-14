@@ -884,6 +884,9 @@ export interface Recipe {
   subtitle: string;
   technique: string;
   technique_name: string;
+  /** The cookbook chapter: soup, starter, main or dessert. */
+  course?: "soup" | "starter" | "main" | "dessert";
+  course_name?: string;
   minutes: number;
   servings: number;
   ingredients: RecipeIngredient[];

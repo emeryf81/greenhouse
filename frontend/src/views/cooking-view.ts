@@ -17,6 +17,8 @@ import "../components/modal";
 
 type Section = "ideas" | "book" | "shopping";
 type BookFilter = "all" | "favorite" | "shared";
+type Course = "soup" | "starter" | "main" | "dessert";
+const COURSES: Course[] = ["soup", "starter", "main", "dessert"];
 
 interface WebHooks {
   mailSelf?: (subject: string, text: string) => Promise<{ ok: boolean; to?: string; error?: string }>;
@@ -66,6 +68,7 @@ export class CookingView extends LitElement {
   @state() private error = "";
   @state() private bookFilter: BookFilter = "all";
   @state() private bookSearch = "";
+  @state() private bookCourse: Course | "" = "";
   @state() private todoEntity = "";
   @state() private notifyService = "";
   @state() private showPantry = false;
@@ -151,6 +154,9 @@ export class CookingView extends LitElement {
         .ed-ingr input[type=text] { grid-column: 1 / 4; grid-row: 1; }
         .ed-ingr .icon-btn { grid-column: 4; grid-row: 1; }
       }
+      .chapter + .chapter { margin-top: var(--hl-s5); }
+      .chapter-title { font-family: var(--hl-font-serif); font-size: var(--hl-fs-xl); text-transform: none; letter-spacing: 0; color: var(--hl-text);
+        margin: 0 0 var(--hl-s3); display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid var(--hl-border); padding-bottom: 6px; }
       .banner { padding: 10px 12px; border-radius: var(--hl-r-md); background: var(--hl-surface-2); margin-bottom: var(--hl-s3); }
       .banner.err { background: var(--hl-tomato-100, #fde3dd); }
     `,
@@ -556,7 +562,7 @@ export class CookingView extends LitElement {
           <button class="btn small ghost" ?disabled=${!d.recipes.length || !!this.busy} @click=${() => this.pdf("book", d.recipes)}>
             <ha-icon icon="mdi:book-open-variant"></ha-icon>${this.t("cook.pdf_ideas")}</button>
         </div>
-        ${d.recipes.length ? html`<div class="grid">${d.recipes.map((r) => this.renderCard(r, d.recipes))}</div>`
+        ${d.recipes.length ? this.renderChapters(d.recipes)
           : html`<div class="card empty">${this.produce.length ? this.t("cook.no_ideas") : this.t("cook.pick_produce")}</div>`}
       </section>
     </div>`;
@@ -595,6 +601,17 @@ export class CookingView extends LitElement {
             @click=${() => this.toggle("pantry", p.id)}>${p.name}</button>`)}</div>` : nothing}
         <button class="btn small" @click=${() => this.savePrefs()}>${this.t("cook.save_prefs")}</button>
     `;
+  }
+
+  /** Recipes under their chapter headings: soups, starters, main courses, desserts. */
+  private renderChapters(list: Recipe[]): TemplateResult {
+    const ordered = COURSES.flatMap((c) => list.filter((r) => (r.course ?? "main") === c));
+    return html`${COURSES.map((c) => {
+      const rows = ordered.filter((r) => (r.course ?? "main") === c);
+      return rows.length ? html`<section class="chapter" aria-label=${this.t(`cook.course.${c}`)}>
+        <h3 class="chapter-title">${this.t(`cook.course.${c}`)} <span class="xs muted">${rows.length}</span></h3>
+        <div class="grid">${rows.map((r) => this.renderCard(r, ordered))}</div></section>` : nothing;
+    })}`;
   }
 
   private renderCard(r: Recipe, list: Recipe[]): TemplateResult {
@@ -730,6 +747,7 @@ export class CookingView extends LitElement {
     const all = this.data?.book ?? [];
     const q = this.bookSearch.trim().toLowerCase();
     const list = all.filter((r) => (this.bookFilter === "favorite" ? r.favorite : this.bookFilter === "shared" ? r.shared : true))
+      .filter((r) => !this.bookCourse || (r.course ?? "main") === this.bookCourse)
       .filter((r) => !q || `${r.title} ${r.subtitle} ${r.ingredients.map((i) => i.name).join(" ")}`.toLowerCase().includes(q));
     return html`
       ${this.readonly ? html`<p class="muted">${this.t("cook.visitor_intro")}</p>` : nothing}
@@ -741,7 +759,12 @@ export class CookingView extends LitElement {
         <button class="btn small ghost" ?disabled=${!list.length || !!this.busy} @click=${() => this.pdf("book", list)}>
           <ha-icon icon="mdi:book-open-variant"></ha-icon>${this.t("cook.pdf_book")}</button>
       </div>
-      ${list.length ? html`<div class="grid">${list.map((r) => this.renderCard(r, list))}</div>`
+      <div class="toolbar chapters" role="group" aria-label=${this.t("cook.chapters")}>
+        ${(["", ...COURSES] as (Course | "")[]).filter((c) => !c || all.some((r) => (r.course ?? "main") === c)).map((c) => html`<button
+          class="btn small ${this.bookCourse === c ? "primary" : "ghost"}" aria-pressed=${this.bookCourse === c}
+          @click=${() => (this.bookCourse = c)}>${c ? this.t(`cook.course.${c}`) : this.t("cook.course.all")}</button>`)}
+      </div>
+      ${list.length ? this.renderChapters(list)
         : html`<div class="card empty">${this.readonly ? this.t("cook.visitor_empty") : all.length ? this.t("cook.book_none_found") : this.t("cook.book_empty")}</div>`}`;
   }
 

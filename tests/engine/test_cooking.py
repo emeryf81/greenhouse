@@ -30,20 +30,22 @@ def test_suggestions_put_the_garden_first(db: PlantDatabase) -> None:
     assert len(recipes) >= 10
     assert len({r["id"] for r in recipes}) == len(recipes)
     techniques = {r["technique"] for r in recipes}
-    assert {"soup", "salad", "pasta", "dessert", "pesto"} <= techniques
+    assert {"soup", "salad", "pasta", "dessert"} <= techniques  # spread over the chapters
     for r in recipes:
         garden = [i for i in r["ingredients"] if i["source"] == "garden"]
         assert garden, r["title"]
         assert all(i["group"] != "garden" for i in r["shopping"])
         assert r["steps"] and r["servings"] == 4
-        if r["technique"] != "salad":  # lettuce and cucumber are eaten raw
+        if r["technique"] not in ("salad", "cold_soup", "crostini"):  # lettuce and cucumber are eaten raw
             assert not {"lettuce", "cucumber"} & {i["id"] for i in garden}, r["title"]
-        if r["technique"] == "dessert":
+        if r["course"] == "dessert":
             assert r["spec"]["protein"] == "" and "apple" in r["spec"]["produce"]
         else:
             assert r["spec"]["protein"] in ("chicken", "mince")
         feta = any(i["id"] == "feta" for i in r["ingredients"])
-        assert feta == (r["technique"] in {"soup", "roast", "salad", "pasta", "frittata", "stuffed"}), r["title"]
+        assert feta == (
+            r["technique"] in {"soup", "cold_soup", "crostini", "roast", "salad", "pasta", "frittata", "stuffed"}
+        ), r["title"]
         if feta:  # taken from the fridge: in the house, never on the shopping list
             assert next(i for i in r["ingredients"] if i["id"] == "feta")["source"] == "pantry"
 
@@ -207,3 +209,24 @@ def test_the_cooks_own_version(db: PlantDatabase) -> None:
     assert [i["name"] for i in own["ingredients"] if i["source"] != "basic"] == ["Pompoen", "Gember"]
     assert cooking.shopping_list([own], "nl")["buy"][0]["name"] == "Gember"
     assert cooking.apply_custom(dict(recipe), [], [], "nl")["custom"] is False
+
+
+def test_chapters_soups_starters_mains_desserts(db: PlantDatabase) -> None:
+    recipes = cooking.suggest(_produce(db), db, cooking.Prefs.from_dict({"proteins": ["chicken"]}), "nl", limit=12)
+    courses = [r["course"] for r in recipes]
+    assert set(courses) == set(cooking.COURSES)  # every chapter gets ideas
+    assert courses == sorted(courses, key=cooking.COURSES.index)  # soups first, desserts last
+    assert {r["course_name"] for r in recipes} == {"Soepen", "Voorgerechten", "Hoofdgerechten", "Desserten"}
+    assert cooking.course_of("salad") == "starter" and cooking.course_of("salad", "chicken") == "main"
+    assert cooking.course_of("pesto", side="bread") == "starter" and cooking.course_of("pesto", side="pasta") == "main"
+    assert cooking.course_of("cold_soup") == "soup" and cooking.course_of("compote") == "dessert"
+    crostini = cooking.render(
+        {"technique": "crostini", "produce": ["tomato"], "side": "bread", "extras": ["feta"]}, db, "en"
+    )
+    assert crostini is not None and crostini["course"] == "starter"
+    assert not any(s.startswith("Toast the bread or warm it") for s in crostini["steps"])  # the toasts are the dish
+    assert any("spread" in s for s in crostini["steps"])
+    cold = cooking.render({"technique": "cold_soup", "produce": ["tomato", "cucumber"]}, db, "en")
+    assert cold is not None and cold["course"] == "soup"  # cucumber may go raw in a chilled soup
+    pdf = cooking.recipes_pdf(recipes, "nl", "book", today=date(2026, 8, 1))
+    assert pdf.count(b"/Type /Page ") >= len(recipes) + 1 + 4 + 1  # cover, 4 chapter pages, recipes, shopping list

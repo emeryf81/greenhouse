@@ -231,7 +231,9 @@ await step("cooking: a dish from the garden, another side, kept, on the list, pr
   await page.evaluate(() => localStorage.clear());
   await open("cooking");
   const view = page.locator("hl-cooking-view");
-  await view.locator("button.recipe").first().click();
+  const chapters = await view.locator("h3.chapter-title").allInnerTexts();
+  assert.ok(chapters[0].startsWith("Soepen") && chapters.some((c) => c.startsWith("Desserten")), `chapters: ${chapters}`);
+  await view.locator(".chapter", { hasText: "Hoofdgerechten" }).locator("button.recipe").first().click();
   await modalOpen();
   await view.locator("hl-modal select#side").selectOption("bulgur");
   await page.waitForFunction(() => window.__calls.some((c) => c.type.endsWith("/cooking/render") && c.spec.side === "bulgur"));
@@ -267,6 +269,19 @@ await step("cooking: the cook's own version (ingredients and steps by hand)", as
   await view.locator("hl-modal .chip", { hasText: "Eigen versie" }).waitFor();
   assert.ok(await view.locator("hl-modal ol.steps li", { hasText: "gerookte paprika" }).count(), "own step not shown");
   await page.keyboard.press("Escape");
+});
+
+await step("colour theme and light/dark go on as inline colours (also Safari / iPhone)", async () => {
+  await open("settings");
+  const view = page.locator("hl-settings-view");
+  await view.locator("button.theme-opt", { hasText: "Aarde" }).click();
+  const prop = (name) => page.locator("hortulus-panel").evaluate((el, n) => el.style.getPropertyValue(n), name);
+  assert.equal((await prop("--hl-primary")).trim(), "#8a4f2a", "earth palette not applied");
+  await view.locator("button.btn[role=radio]", { hasText: /^Donker$/ }).click();
+  assert.equal((await prop("--hl-bg")).trim(), "#17120e", "dark earth palette not applied");
+  await view.locator("button.btn[role=radio]", { hasText: /^Automatisch$/ }).click();
+  await view.locator("button.theme-opt", { hasText: "Klassiek groen" }).click();
+  assert.equal(await prop("--hl-primary"), "", "classic should leave the base palette");
 });
 
 await step("dashboard: pest calendar card", async () => {

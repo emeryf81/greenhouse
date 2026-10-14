@@ -123,98 +123,10 @@ export const tokens = css`
     color-scheme: light;
   }
 
-  :host([dark]) {
-    --hl-bg: #131811;
-    --hl-surface: #1c2219;
-    --hl-surface-2: #242b20;
-    --hl-surface-3: #2e3629;
-    --hl-text: #e8ede4;
-    --hl-text-muted: #a3ad9c;
-    --hl-border: #343c30;
-    --hl-primary: #78b866;
-    --hl-primary-hover: #8fcb7c;
-    --hl-on-primary: #10200d;
-    --hl-danger: #e2705c;
-    --hl-warning: #f0b450;
-    --hl-info: #8db7dc;
-    --hl-success: #8fcb7c;
-    --hl-focus: #7fb6ff;
-    --hl-canvas-bg: #1a2017;
-    --hl-grid-line: rgba(232, 237, 228, 0.07);
-    --hl-grid-line-strong: rgba(232, 237, 228, 0.16);
-    --hl-bed-fill: #5c4331;
-    --hl-bed-fill-raised: #4f3928;
-    --hl-container-fill: #6b5340;
-    --hl-zone-outdoor: rgba(120, 184, 102, 0.07);
-    --hl-zone-greenhouse: rgba(141, 183, 220, 0.1);
-    --hl-leaf-100: #24331f;
-    --hl-leaf-50: #1d2819;
-    --hl-sun-100: #3a2f1a;
-    --hl-tomato-100: #3c211c;
-    --hl-frost-100: #1d2a36;
-    --hl-soil-100: #2e261f;
-    --hl-leaf-300: #4f7a43;
-    --hl-chip-active-fg: var(--hl-primary);
-    --hl-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.02);
-    --hl-shadow-2: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-    --hl-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.5), 0 32px 64px rgba(0, 0, 0, 0.4);
-    --hl-shadow-primary: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(120, 184, 102, 0.22);
-    --hl-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    --hl-grad-spring: linear-gradient(135deg, #1e2a19 0%, #24361d 50%, #2f4a25 100%);
-    --hl-grad-summer: linear-gradient(135deg, #2a2416 0%, #3a2f17 50%, #4a3a17 100%);
-    --hl-grad-autumn: linear-gradient(135deg, #2b1f17 0%, #3a2618 50%, #4a2e19 100%);
-    --hl-grad-winter: linear-gradient(135deg, #1a2129 0%, #1f2b36 50%, #263848 100%);
-    --hl-hero-ink: #eef3ea;
-    color-scheme: dark;
-  }
 `;
 
-/**
- * Colour themes on top of the base palette (``theme`` attribute on the panel,
- * chosen per browser in Settings → Display). Each keeps the WCAG AA pairs:
- * only primary, accent, background and surfaces move.
- */
-export const themes = css`
-  :host([theme="earth"]) {
-    --hl-primary: #8a4f2a; --hl-primary-hover: #723f20; --hl-chip-active-fg: #723f20;
-    --hl-leaf-100: #f4e6da; --hl-leaf-50: #faf3ec; --hl-leaf-300: #d8b394; --hl-accent: #c8743a;
-    --hl-bg: #f7f1e8; --hl-surface-2: #f1e8dc; --hl-surface-3: #e6d9c7; --hl-border: #e3d5c3;
-    --hl-shadow-primary: 0 1px 2px rgba(80, 40, 15, 0.25), 0 4px 12px rgba(138, 79, 42, 0.28);
-    --hl-grad-spring: linear-gradient(135deg, #f8ede2 0%, #ecd3bb 45%, #d9ad86 100%);
-    --hl-grad-summer: linear-gradient(135deg, #fbefdc 0%, #f1cf9c 45%, #dfa760 100%);
-    --hl-grad-autumn: linear-gradient(135deg, #f7e4d6 0%, #e6b08c 45%, #c47a4c 100%);
-    --hl-grad-winter: linear-gradient(135deg, #f1ebe4 0%, #ddcfc0 45%, #bfa98f 100%);
-  }
-  :host([theme="earth"][dark]) {
-    --hl-primary: #e0a074; --hl-primary-hover: #ecb68f; --hl-on-primary: #2a1608; --hl-chip-active-fg: #e0a074;
-    --hl-bg: #17120e; --hl-surface: #211a14; --hl-surface-2: #2a2119; --hl-surface-3: #352a20; --hl-border: #3a2e23;
-    --hl-leaf-100: #3a281b; --hl-leaf-50: #2a1f16; --hl-leaf-300: #7a5236;
-    --hl-grad-spring: linear-gradient(135deg, #2a1d14 0%, #3a2819 50%, #4a321e 100%);
-    --hl-grad-summer: var(--hl-grad-spring); --hl-grad-autumn: var(--hl-grad-spring); --hl-grad-winter: var(--hl-grad-spring);
-  }
-  :host([theme="night"]) {
-    --hl-bg: #0d1214; --hl-surface: #141b1e; --hl-surface-2: #1a2327; --hl-surface-3: #223035; --hl-border: #24323a;
-    --hl-primary: #8fd0b0; --hl-primary-hover: #a6dcc1; --hl-on-primary: #0b1f16; --hl-chip-active-fg: #8fd0b0;
-    --hl-accent: #c9b8ff; --hl-leaf-100: #183028; --hl-leaf-50: #12221d; --hl-leaf-300: #3d7a62;
-    --hl-grad-spring: linear-gradient(135deg, #10201c 0%, #15302a 50%, #1c3e36 100%);
-    --hl-grad-summer: linear-gradient(135deg, #141a2b 0%, #1a2340 50%, #232f55 100%);
-    --hl-grad-autumn: linear-gradient(135deg, #1b1424 0%, #251a33 50%, #302144 100%);
-    --hl-grad-winter: linear-gradient(135deg, #0f1724 0%, #142036 50%, #1a2a48 100%);
-  }
-  :host([theme="season-spring"]) { --hl-primary: #3f8a3a; --hl-primary-hover: #34742f; --hl-accent: #e88fb0; --hl-bg: #f6f9f1; }
-  :host([theme="season-summer"]) { --hl-primary: #3b7334; --hl-accent: #f2b544; --hl-bg: #fbf7ec; --hl-surface-2: #f6efdc; }
-  :host([theme="season-autumn"]) {
-    --hl-primary: #9a4b22; --hl-primary-hover: #823d1a; --hl-chip-active-fg: #823d1a; --hl-accent: #d98e2b;
-    --hl-leaf-100: #f6e5d6; --hl-leaf-50: #fbf2ea; --hl-leaf-300: #e0b48f; --hl-bg: #faf4ec;
-    --hl-shadow-primary: 0 1px 2px rgba(80, 35, 10, 0.25), 0 4px 12px rgba(154, 75, 34, 0.28);
-  }
-  :host([theme="season-winter"]) {
-    --hl-primary: #2f6690; --hl-primary-hover: #25557a; --hl-chip-active-fg: #25557a; --hl-accent: #9fb8cf;
-    --hl-leaf-100: #e1ecf5; --hl-leaf-50: #f0f5fa; --hl-leaf-300: #9fc0dc; --hl-bg: #f4f7fa;
-    --hl-shadow-primary: 0 1px 2px rgba(20, 45, 70, 0.25), 0 4px 12px rgba(47, 102, 144, 0.28);
-  }
-  :host([theme^="season-"][dark]) { --hl-bg: #131811; --hl-primary: #8fcb7c; --hl-on-primary: #10200d; --hl-leaf-100: #24331f; --hl-leaf-50: #1d2819; --hl-leaf-300: #4f7a43; }
-`;
+/** Colour themes and the dark palette: see ``palettes.ts`` (set inline by the panel). */
+export const themes = css``;
 
 /**
  * Reusable component styles - buttons, cards, chips, inputs (with all states).

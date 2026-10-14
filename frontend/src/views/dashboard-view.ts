@@ -51,7 +51,7 @@ export class DashboardView extends LitElement {
       .hero::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0.55;
         background: radial-gradient(600px 220px at 85% 10%, rgba(255, 255, 255, 0.7), transparent 70%),
           radial-gradient(400px 200px at 0% 120%, rgba(255, 255, 255, 0.35), transparent 70%); }
-      :host-context([dark]) .hero::before { opacity: 0.08; }
+      .hero::before { opacity: var(--hl-hero-glow, 0.55); }
       .hero .wall { position: absolute; top: 16px; right: 16px; background: color-mix(in srgb, var(--hl-surface) 55%, transparent); }
       .hero .art { position: absolute; right: 18px; top: -6px; height: 150%; opacity: 0.9; z-index: -1; pointer-events: none; }
       .hero .eyebrow { color: color-mix(in srgb, var(--hl-hero-ink) 70%, transparent); }
@@ -60,7 +60,7 @@ export class DashboardView extends LitElement {
       .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 20px; max-width: 760px; }
       .stat { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--hl-surface) 62%, transparent);
         backdrop-filter: blur(6px); border: 1px solid color-mix(in srgb, #fff 45%, transparent); box-shadow: var(--hl-shadow-1); }
-      :host-context([dark]) .stat { border-color: rgba(255, 255, 255, 0.06); }
+      .stat { border-color: var(--hl-stat-edge, color-mix(in srgb, #fff 45%, transparent)); }
       .stat .v { font-family: var(--hl-font-serif); font-size: 26px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
       .stat .v small { font-family: var(--hl-font); font-size: 12px; font-weight: 600; margin-left: 2px; opacity: 0.7; }
       .stat .l { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.72; margin-top: 4px; }

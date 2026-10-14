@@ -19,12 +19,22 @@
     fish. Each step sits at the right moment in the method.
 
 ### Added
+- **Cooking: chapters.** Ideas, your cookbook and the cookbook PDF are split into Soups, Starters,
+  Main courses and Desserts (a chapter page each in the PDF, a chapter filter in the cookbook). Ideas
+  are spread over the chapters so none is crowded out. New dishes to fill them: chilled soup
+  (gazpacho-style, from tomatoes, peppers and cucumber), crostini as a starter and a warm fruit
+  compote; a salad without meat or fish and pesto on bread count as starters.
+- **Light or dark** next to the colour theme: automatic (follows Home Assistant or the device),
+  always light or always dark. In Home Assistant the choice follows your user to every device.
 - **Cooking: your own version of a recipe.** "Edit" in a recipe adds, removes or changes
   ingredients (name, amount, unit, from the garden / at home / to buy) and adds, removes,
   rewrites or reorders the steps. Your version goes into your cookbook, the shopping list and
   the PDFs follow it, and "Back to the original" restores the generated recipe.
 
 ### Fixed
+- **Colour themes on iPhone (Home Assistant app, Safari):** the theme and the dark palette are now
+  set as inline colours on the panel instead of `:host([theme])` rules, so they take effect at once
+  in every browser; the dashboard no longer uses `:host-context`, which Safari does not support.
 - **Cooking:** what you take from the fridge, and what you tick as always at home, shows as
   "at home" instead of "to buy", also before you save your choices.
 
