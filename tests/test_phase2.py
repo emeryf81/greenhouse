@@ -1260,6 +1260,15 @@ async def test_cooking_suggest_save_print_and_shop(hass: HomeAssistant, garden, 
     )
     assert (await _result(client))["error"]["code"] == "invalid_recipe"
     assert repo.data.cookbook[0].title == "Ons recept"  # a refused change changes nothing
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {"steps": "Alles in de pan."}}
+    )
+    assert (await _result(client))["error"]["code"] == "invalid_recipe"  # a wrong shape is no reset
+    await client.send_json_auto_id(
+        {"type": f"{DOMAIN}/cooking/book/update", "recipe_id": saved["id"], "changes": {}, "pantry": ["bulgur"]}
+    )
+    kept = (await _result(client))["result"]["book"][0]  # the answer follows the unsaved "at home" choices
+    assert next(i for i in kept["ingredients"] if i["id"] == "bulgur")["source"] == "pantry"
     other = {**spec, "servings": 7}  # another dish: a refused save adds no entry
     await client.send_json_auto_id(
         {"type": f"{DOMAIN}/cooking/book/save", "recipe": {"spec": other, "ingredients": [{"name": " "}]}}

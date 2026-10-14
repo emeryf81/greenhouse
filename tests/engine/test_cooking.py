@@ -140,6 +140,9 @@ def test_fridge_items_only_go_where_they_fit(db: PlantDatabase) -> None:
     assert cooking.fitting_extras("stuffed", ["parmesan", "feta"]) == ["feta"]  # one extra cheese
     assert cooking.fitting_extras("roast", ["parmesan"]) == ["parmesan"]
     assert cooking.fitting_extras("gratin", ["parmesan"]) == ["parmesan"]  # mixed into the crust
+    assert cooking.fitting_extras("soup", ["garlic"], produce=["pumpkin", "garlic"]) == []  # the garden gives it
+    assert cooking.fitting_extras("pasta", ["onion"], produce=["tomato", "leek"]) == []
+    assert cooking.fitting_extras("soup", ["garlic"], produce=["pumpkin"]) == ["garlic"]
     # an early step goes in after the vegetables are in the pan, not at the end
     sauce = cooking.render(
         {"technique": "pasta", "produce": ["tomato"], "side": "pasta", "extras": ["cream"]}, db, "en"

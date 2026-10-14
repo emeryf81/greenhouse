@@ -491,6 +491,8 @@ _CREAMY = frozenset(("cream", "coconut_milk", "milk"))
 # Garden herbs that belong in a cold sauce or butter (rosemary or sage do not)
 _SAUCE_HERBS = ("dill", "mint", "parsley", "chives", "coriander")
 _LANG_IX = {"nl": 0, "en": 1, "fr": 2}
+# A fridge item the dish's own garden produce already brings
+_GARDEN_GIVES = {"onion": {"onion", "shallot", "leek"}, "garlic": {"garlic", "elephant_garlic"}}
 
 
 def _seed(produce_ids: Sequence[str]) -> int:
@@ -513,8 +515,8 @@ def _plan_extras(technique: str, items: Iterable[str], has_protein: bool, produc
     for item, keys in _x.USES.get(technique, {}).items():
         if len(out) >= _x.MAX_PER_DISH:
             break
-        if item not in wanted or item in tech.staples:
-            continue
+        if item not in wanted or item in tech.staples or _GARDEN_GIVES.get(item, {item}) & set(produce):
+            continue  # the garden's own onion or garlic is in the dish already
         if item in _CHEESES and any(x in _CHEESES for x in out):
             continue
         # one cream per dish; a splash of milk in the recipe is no cream (stoemp still takes cream)

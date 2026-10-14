@@ -1929,6 +1929,7 @@ def ws_cooking_render(hass: HomeAssistant, connection: websocket_api.ActiveConne
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/book/save",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("recipe"): dict,
@@ -1939,12 +1940,13 @@ def ws_cookbook_save(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     runtime = _require_runtime(hass, connection, msg)
     if runtime is not None:
         _ws_op(connection, msg, lambda: {"id": op_cookbook_save(runtime, msg["recipe"]).id,
-                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg))})  # fmt: skip
+                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg), _in_house(runtime, msg))})  # fmt: skip
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/book/update",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("recipe_id"): str,
@@ -1956,12 +1958,13 @@ def ws_cookbook_update(hass: HomeAssistant, connection: websocket_api.ActiveConn
     runtime = _require_runtime(hass, connection, msg)
     if runtime is not None:
         _ws_op(connection, msg, lambda: {"id": op_cookbook_update(runtime, msg["recipe_id"], msg["changes"]).id,
-                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg))})  # fmt: skip
+                                         "book": _cookbook(runtime, _cooking_lang(runtime, msg), _in_house(runtime, msg))})  # fmt: skip
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/cooking/book/delete",
+        vol.Optional("pantry"): [str],  # what the cook has at home (unsaved choices)
         vol.Optional("garden_id"): str,
         vol.Optional("lang"): str,
         vol.Required("recipe_id"): str,
@@ -1974,7 +1977,7 @@ def ws_cookbook_delete(hass: HomeAssistant, connection: websocket_api.ActiveConn
 
         def run() -> dict[str, Any]:
             op_cookbook_delete(runtime, msg["recipe_id"])
-            return {"book": _cookbook(runtime, _cooking_lang(runtime, msg))}
+            return {"book": _cookbook(runtime, _cooking_lang(runtime, msg), _in_house(runtime, msg))}
 
         _ws_op(connection, msg, run)
 

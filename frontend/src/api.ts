@@ -339,16 +339,16 @@ export class GardenApi {
     return this.call("cooking/render", { spec, ...(lang ? { lang } : {}), ...(pantry ? { pantry } : {}) });
   }
 
-  cookbookSave(recipe: { spec: RecipeSpec; favorite?: boolean; shared?: boolean; title?: string; note?: string; ingredients?: CustomIngredient[]; steps?: string[] }, lang?: string): Promise<{ id: string; book: Recipe[] }> {
-    return this.call("cooking/book/save", { recipe, ...(lang ? { lang } : {}) });
+  cookbookSave(recipe: { spec: RecipeSpec; favorite?: boolean; shared?: boolean; title?: string; note?: string; ingredients?: CustomIngredient[]; steps?: string[] }, lang?: string, pantry?: string[]): Promise<{ id: string; book: Recipe[] }> {
+    return this.call("cooking/book/save", { recipe, ...(lang ? { lang } : {}), ...(pantry ? { pantry } : {}) });
   }
 
-  cookbookUpdate(recipeId: string, changes: Record<string, unknown>, lang?: string): Promise<{ id: string; book: Recipe[] }> {
-    return this.call("cooking/book/update", { recipe_id: recipeId, changes, ...(lang ? { lang } : {}) });
+  cookbookUpdate(recipeId: string, changes: Record<string, unknown>, lang?: string, pantry?: string[]): Promise<{ id: string; book: Recipe[] }> {
+    return this.call("cooking/book/update", { recipe_id: recipeId, changes, ...(lang ? { lang } : {}), ...(pantry ? { pantry } : {}) });
   }
 
-  cookbookDelete(recipeId: string, lang?: string): Promise<{ book: Recipe[] }> {
-    return this.call("cooking/book/delete", { recipe_id: recipeId, ...(lang ? { lang } : {}) });
+  cookbookDelete(recipeId: string, lang?: string, pantry?: string[]): Promise<{ book: Recipe[] }> {
+    return this.call("cooking/book/delete", { recipe_id: recipeId, ...(lang ? { lang } : {}), ...(pantry ? { pantry } : {}) });
   }
 
   cookingPrefs(prefs: CookingPrefs): Promise<{ prefs: CookingPrefs }> {

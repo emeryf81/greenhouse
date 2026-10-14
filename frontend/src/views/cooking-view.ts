@@ -273,7 +273,7 @@ export class CookingView extends LitElement {
 
   private async save(r: Recipe, extra: { favorite?: boolean; shared?: boolean; ingredients?: CustomIngredient[]; steps?: string[] } = {}): Promise<void> {
     try {
-      const { book, id } = await this.api.cookbookSave({ spec: specOf(r), ...extra }, this.lang);
+      const { book, id } = await this.api.cookbookSave({ spec: specOf(r), ...extra }, this.lang, this.home);
       if (this.data) this.data = { ...this.data, book };
       const fresh = book.find((b) => b.id === id);
       if (fresh) this.basketRecipes = this.basketRecipes.map((b) => (b.id === id ? fresh : b));
@@ -290,7 +290,7 @@ export class CookingView extends LitElement {
       return;
     }
     try {
-      const { book } = await this.api.cookbookUpdate(r.id, changes, this.lang);
+      const { book } = await this.api.cookbookUpdate(r.id, changes, this.lang, this.home);
       if (this.data) this.data = { ...this.data, book };
       const fresh = book.find((b) => b.id === r.id);
       if (this.open?.id === r.id) this.open = fresh ?? this.open;
@@ -303,7 +303,7 @@ export class CookingView extends LitElement {
   private async removeRecipe(r: Recipe): Promise<void> {
     if (!confirm(this.t("cook.delete_confirm", { title: r.title }))) return;
     try {
-      const { book } = await this.api.cookbookDelete(r.id, this.lang);
+      const { book } = await this.api.cookbookDelete(r.id, this.lang, this.home);
       if (this.data) this.data = { ...this.data, book };
       if (this.open?.id === r.id) this.open = null;
     } catch (err) {

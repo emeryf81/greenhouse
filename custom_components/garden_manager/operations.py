@@ -1107,13 +1107,17 @@ def _cookbook_changes(raw: Mapping[str, Any]) -> dict[str, Any]:
     if raw.get("cooked"):
         out["cooked"] = True
     if "ingredients" in raw:  # [] goes back to the generated list
-        items = raw.get("ingredients") if isinstance(raw.get("ingredients"), list) else []
+        items = raw.get("ingredients")
+        if not isinstance(items, list):
+            raise _err("invalid_recipe")
         rows = [row for n, x in enumerate(items[:40]) if (row := cooking.custom_ingredient(x, n)) is not None]
         if items and not rows:
             raise _err("invalid_recipe")
         out["ingredients"] = rows
     if "steps" in raw:  # [] goes back to the generated method
-        steps = raw.get("steps") if isinstance(raw.get("steps"), list) else []
+        steps = raw.get("steps")
+        if not isinstance(steps, list):
+            raise _err("invalid_recipe")
         out["steps"] = [s for x in steps[:30] if isinstance(x, str) and (s := x.strip()[:600])]
     return out
 
