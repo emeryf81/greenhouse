@@ -242,9 +242,9 @@ export class ClimateHistory extends LitElement {
     if (this.failed && !this.stats) return html`<section class="card"><h2>${this.t("climate.title")}</h2><p class="small muted">${this.t("climate.failed")}</p></section>`;
     const s = this.stats;
     if (!s) return html`<section class="card"><h2>${this.t("climate.title")}</h2><p class="small muted">${this.t("common.loading")}</p></section>`;
-    const cutoff = new Date(s.today);
-    cutoff.setDate(cutoff.getDate() - this.range + 1);
-    const rows = s.series.filter((r) => new Date(r.d) >= cutoff);
+    const [ty, tm, td] = s.today.split("-").map(Number);
+    const cutoff = new Date(Date.UTC(ty, tm - 1, td - this.range + 1)).toISOString().slice(0, 10);
+    const rows = s.series.filter((r) => r.d >= cutoff); // ISO days compare as text: no daylight-saving shift
     return html`<div class="grid" style="margin-top:var(--hl-s4)">
       <section class="card s12 chart">
         <header class="bar"><h2>${this.t("climate.title")}</h2>

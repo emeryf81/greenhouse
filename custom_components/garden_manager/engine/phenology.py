@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
 
@@ -48,6 +48,7 @@ class PhenologyInfo:
     dull_days: int | None = None  # last 14 days, None = no sunshine data
     weather_delay_days: int = 0  # what the weather added to the harvest date
     gdd_source: str = "outdoor"  # outdoor | zone_sensor | outdoor_buffered
+    delay_causes: dict[str, int] = field(default_factory=dict)  # the days behind weather_delay_days: heat / dull / cold
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -65,6 +66,7 @@ class PhenologyInfo:
             "dull_days": self.dull_days,
             "weather_delay_days": self.weather_delay_days,
             "gdd_source": self.gdd_source,
+            "delay_causes": dict(self.delay_causes),
         }
 
 
@@ -136,9 +138,14 @@ def phenology(
     if latitude is not None:
         info.dull_days = dull_days(climate_log, max(tl.in_ground, today - timedelta(days=14)), yesterday, latitude)
     delay = 0
+    causes: dict[str, int] = {}
     if fruiting:
-        delay += min(heat + info.heat_stress_logged, 10)  # flower drop, poor fruit set
-        delay += min((info.dull_days or 0) // 3, 5)  # little light, slow ripening
+        if heat + info.heat_stress_logged:  # flower drop, poor fruit set (forecast and logged hot days)
+            causes["heat"] = heat + info.heat_stress_logged
+            delay += min(causes["heat"], 10)
+        if (info.dull_days or 0) >= 3:  # little light, slow ripening
+            causes["dull"] = info.dull_days or 0
+            delay += min(causes["dull"] // 3, 5)
     low, high = tl.harvest_start - timedelta(days=21), tl.harvest_start + timedelta(days=21)
 
     if plant.gdd_to_maturity:
@@ -162,12 +169,16 @@ def phenology(
             # A GDD model should refine, not overrule, the calendar: ±21 days.
             info.harvest_estimate = min(max(estimate, low), high)
             info.weather_delay_days = delay
+            info.delay_causes = causes if delay else {}
             info.progress = gdd / plant.gdd_to_maturity
             info.stage = _stage(info.progress, fruiting)
             return info
     # No degree-day model (or too little logged): the calendar, held back by the weather.
-    delay += min(info.cold_stress_logged // 2, 10)  # growth stalls below the crop's minimum
+    if info.cold_stress_logged >= 2:  # growth stalls below the crop's minimum
+        causes["cold"] = info.cold_stress_logged
+        delay += min(info.cold_stress_logged // 2, 10)
     if delay:
         info.harvest_estimate = min(max(tl.harvest_start + timedelta(days=delay), low), high)
         info.weather_delay_days = delay
+        info.delay_causes = causes
     return info

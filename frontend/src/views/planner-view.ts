@@ -1733,10 +1733,11 @@ export class PlannerView extends LitElement {
 
   /** Why the weather moved the harvest: logged heat, cold and dull days. */
   private weatherDelayWhy(ph: Phenology): string {
+    const c = ph.delay_causes ?? {};
     const parts: string[] = [];
-    if (ph.heat_stress_logged) parts.push(this.t("planner.why_heat", { n: ph.heat_stress_logged }));
-    if (ph.cold_stress_logged) parts.push(this.t("planner.why_cold", { n: ph.cold_stress_logged }));
-    if (ph.dull_days) parts.push(this.t("planner.why_dull", { n: ph.dull_days }));
+    if (c.heat) parts.push(this.t("planner.why_heat", { n: c.heat }));
+    if (c.cold) parts.push(this.t("planner.why_cold", { n: c.cold }));
+    if (c.dull) parts.push(this.t("planner.why_dull", { n: c.dull }));
     return parts.join(" · ");
   }
 
