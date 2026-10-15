@@ -93,7 +93,8 @@ export class ClimateHistory extends LitElement {
 
   private date(iso: string | null | undefined, month = false): string {
     if (!iso) return "–";
-    const d = new Date(iso.length === 7 ? `${iso}-01` : iso);
+    const [year, monthNumber, day = 1] = iso.split("-").map(Number);
+    const d = new Date(year, monthNumber - 1, day); // a local calendar date: no shift west of UTC
     return d.toLocaleDateString(localeOf(this.lang), month || iso.length === 7 ? { month: "short", year: "numeric" } : { day: "numeric", month: "short" });
   }
 

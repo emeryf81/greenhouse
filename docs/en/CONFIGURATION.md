@@ -610,7 +610,7 @@ Import modes: **merge** (upsert by id, nothing deleted; the live season stays) o
 elements, the per‑season plans, plans set aside, plantings, custom plants, **plant
 overrides** and the rotation history, plus tasks when included. An older file without
 `features` or `archived_plans` leaves those already stored alone. Files from older versions
-are migrated automatically (storage version 1.7); unknown fields are ignored. References
+are migrated automatically (storage version 1.8); unknown fields are ignored. References
 are validated against the plan they belong to (a bed must point to a zone of its own plan,
 a planting to an existing bed, also in the plans set aside); a field of the wrong type
 (for example a `plant_overrides` that is not a mapping) refuses the whole file, and a refused file changes

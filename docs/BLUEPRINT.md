@@ -2116,6 +2116,8 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
         entry, new = _day(data.climate_log, day)
         before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         complete = entry.hours >= FULL_DAY_H
+        # measured days (own samples or recorder history) keep their values: the model only fills gaps
+        measured = entry.hours >= MODEL_BEATS_H or "history" in entry.source
         if source == "history":
             if tmin is not None:
                 entry.tmin = tmin if entry.tmin is None else min(entry.tmin, tmin)
@@ -2123,19 +2125,21 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
                 entry.tmax = tmax if entry.tmax is None else max(entry.tmax, tmax)
             if tmean is not None and not complete:
                 entry.tmean = tmean
-        elif entry.hours < MODEL_BEATS_H:
+        elif not measured:
             entry.tmin = tmin if tmin is not None else entry.tmin
             entry.tmax = tmax if tmax is not None else entry.tmax
             entry.tmean = tmean if tmean is not None else entry.tmean
+        else:
+            entry.tmin = entry.tmin if entry.tmin is not None else tmin
+            entry.tmax = entry.tmax if entry.tmax is not None else tmax
+            entry.tmean = entry.tmean if entry.tmean is not None else tmean
         rain = _f(rec.get("rain_mm"))
         rank = {"": 0, "forecast": 1, "model": 2, "history": 3, "gauge": 4}
         if rain is not None and rank.get(source, 0) >= rank.get(entry.rain_src, 0):
             entry.rain_mm, entry.rain_src = round(rain, 1), source
         for key in _FIELDS:
             value = _f(rec.get(key))
-            if value is not None and (
-                getattr(entry, key) is None or (source == "model" and entry.hours < MODEL_BEATS_H)
-            ):
+            if value is not None and (getattr(entry, key) is None or (source == "model" and not measured)):
                 setattr(entry, key, round(value, 2))
         after = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         if new or after != before:
@@ -3726,8 +3730,13 @@ def assess_disease(
             if min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
                 out.hutton_period = True
         out.wet_hours = round(out.wet_hours, 1)
-    elif not has_forecast and humidity_now is None and out.leaf_wet_now is None and not (recent and recent.get("days")):
-        return out  # unknown
+    elif (
+        not has_forecast
+        and humidity_now is None
+        and out.leaf_wet_now is None
+        and (enclosed or not (recent and recent.get("days")))
+    ):
+        return out  # unknown (the outdoor log says nothing about an enclosed zone)
 
     order = ["none", "low", "moderate", "high"]
     level = 0

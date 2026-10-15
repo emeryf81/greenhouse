@@ -239,6 +239,8 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
         entry, new = _day(data.climate_log, day)
         before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         complete = entry.hours >= FULL_DAY_H
+        # measured days (own samples or recorder history) keep their values: the model only fills gaps
+        measured = entry.hours >= MODEL_BEATS_H or "history" in entry.source
         if source == "history":
             if tmin is not None:
                 entry.tmin = tmin if entry.tmin is None else min(entry.tmin, tmin)
@@ -246,19 +248,21 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
                 entry.tmax = tmax if entry.tmax is None else max(entry.tmax, tmax)
             if tmean is not None and not complete:
                 entry.tmean = tmean
-        elif entry.hours < MODEL_BEATS_H:
+        elif not measured:
             entry.tmin = tmin if tmin is not None else entry.tmin
             entry.tmax = tmax if tmax is not None else entry.tmax
             entry.tmean = tmean if tmean is not None else entry.tmean
+        else:
+            entry.tmin = entry.tmin if entry.tmin is not None else tmin
+            entry.tmax = entry.tmax if entry.tmax is not None else tmax
+            entry.tmean = entry.tmean if entry.tmean is not None else tmean
         rain = _f(rec.get("rain_mm"))
         rank = {"": 0, "forecast": 1, "model": 2, "history": 3, "gauge": 4}
         if rain is not None and rank.get(source, 0) >= rank.get(entry.rain_src, 0):
             entry.rain_mm, entry.rain_src = round(rain, 1), source
         for key in _FIELDS:
             value = _f(rec.get(key))
-            if value is not None and (
-                getattr(entry, key) is None or (source == "model" and entry.hours < MODEL_BEATS_H)
-            ):
+            if value is not None and (getattr(entry, key) is None or (source == "model" and not measured)):
                 setattr(entry, key, round(value, 2))
         after = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         if new or after != before:
@@ -516,10 +520,19 @@ def zone_log(data: GardenData, zone_id: str | None) -> tuple[list[ClimateDay], s
     for d in data.climate_log:
         s = own.get(d.day)
         if s is not None:
-            out.append(ClimateDay(d.day, s.tmin, s.tmax, d.rain_mm, s.tmean))
+            out.append(ClimateDay(d.day, s.tmin, s.tmax, d.rain_mm, s.tmean, rs_mj=d.rs_mj, sun_h=d.sun_h))
             used_sensor = True
         elif d.tmin is not None and d.tmax is not None:
-            out.append(ClimateDay(d.day, d.tmin + GREENHOUSE_NIGHT_C, d.tmax + GREENHOUSE_DAY_C, d.rain_mm))
+            out.append(
+                ClimateDay(
+                    d.day,
+                    d.tmin + GREENHOUSE_NIGHT_C,
+                    d.tmax + GREENHOUSE_DAY_C,
+                    d.rain_mm,
+                    rs_mj=d.rs_mj,
+                    sun_h=d.sun_h,
+                )
+            )
     for day, s in own.items():  # days only the greenhouse sensor saw
         if not any(o.day == day for o in out):
             out.append(ClimateDay(day, s.tmin, s.tmax, None, s.tmean))

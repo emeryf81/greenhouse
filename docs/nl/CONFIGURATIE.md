@@ -634,7 +634,7 @@ reeds opgeslagen staan), tuinelementen, de plannen per seizoen, opzijgezette pla
 beplantingen, eigen planten, **plantoverrides** en de wisselteeltgeschiedenis, plus taken als
 die zijn meegenomen. Een ouder bestand zonder `features` of `archived_plans` laat de reeds
 opgeslagen exemplaren met rust. Bestanden van oudere versies worden automatisch gemigreerd
-(opslagversie 1.7); onbekende velden worden genegeerd. Verwijzingen worden gecontroleerd
+(opslagversie 1.8); onbekende velden worden genegeerd. Verwijzingen worden gecontroleerd
 tegen het plan waartoe ze behoren (een bed moet naar een zone van zijn eigen plan wijzen, een
 beplanting naar een bestaand bed, ook in de opzijgezette plannen); een veld van het verkeerde
 type (bijvoorbeeld een `plant_overrides` die geen mapping is) weigert het hele bestand, en een

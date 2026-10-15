@@ -628,8 +628,13 @@ def assess_disease(
             if min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
                 out.hutton_period = True
         out.wet_hours = round(out.wet_hours, 1)
-    elif not has_forecast and humidity_now is None and out.leaf_wet_now is None and not (recent and recent.get("days")):
-        return out  # unknown
+    elif (
+        not has_forecast
+        and humidity_now is None
+        and out.leaf_wet_now is None
+        and (enclosed or not (recent and recent.get("days")))
+    ):
+        return out  # unknown (the outdoor log says nothing about an enclosed zone)
 
     order = ["none", "low", "moderate", "high"]
     level = 0

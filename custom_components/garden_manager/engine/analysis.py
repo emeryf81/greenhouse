@@ -501,7 +501,8 @@ def analyze(
         hit = sorted({
             plants[p.id].name(lang)
             for p in data.plantings
-            if p.id in plants and is_active(p, timelines.get(p.id), today)
+            if p.id in plants and (tl := timelines.get(p.id)) is not None and tl.in_ground <= night.day
+            and is_active(p, tl, night.day)
             and (bed := data.bed(p.bed_id)) is not None and not (data.zone(bed.zone_id) or _NoZone).is_enclosed
             and night.tmin < plants[p.id].min_temp_c
         })  # fmt: skip
