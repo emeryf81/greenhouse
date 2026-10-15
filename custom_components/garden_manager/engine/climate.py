@@ -745,6 +745,9 @@ def climate_stats(
         "season_last_year": summarize(
             span(season_start - timedelta(days=365), year_ago), latitude, elevation_m, data.settings.gdd_base_c
         ),
+        "d7_last_year": summarize(
+            span(year_ago - timedelta(days=6), year_ago), latitude, elevation_m, data.settings.gdd_base_c
+        ),
         "d30_last_year": summarize(
             span(year_ago - timedelta(days=29), year_ago), latitude, elevation_m, data.settings.gdd_base_c
         ),

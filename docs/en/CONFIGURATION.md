@@ -65,12 +65,16 @@ Impossible dates (such as `13-01`) are refused.
   calls `weather.get_forecasts` every 30 minutes and whenever the weather entity
   updates (rate‑limited to once per 10 minutes). Forecast units are converted to °C,
   mm and km/h automatically.
-* **Outdoor temperature** (optional): used for the growing‑degree‑day log; falls back
-  to the weather entity's current temperature. °F sensors are converted.
-* **Rain sensor** (optional): a daily rain total in mm (or a binary rain detector).
+* **Outdoor temperature** (optional): used for the climate history and the
+  growing‑degree‑day log; falls back to the weather entity's current temperature. °F
+  sensors are converted.
+* **Rain sensor** (optional): a daily rain total in mm (or a binary rain detector). Without
+  a rain gauge the climate history books the forecast rain of the day, and recorded or
+  observed rain replaces it later.
 
-More weather inputs (outdoor humidity, leaf wetness, the optional Open‑Meteo forecast,
-elevation) are set later in the panel under *Settings → Weather*.
+More weather inputs (outdoor humidity, leaf wetness, wind speed, wind gusts, solar
+radiation, outdoor light, the optional Open‑Meteo forecast, elevation) are set later in the
+panel under *Settings → Weather*.
 
 ### Step 3 – Beds, greenhouses and containers
 Add as many areas as you like (*Add another…* menu). Each area asks for name, type
@@ -128,9 +132,28 @@ is not considered stale.
 
 Sensor kinds you can map in the panel (Settings): soil moisture, soil temperature, EC and
 N / P / K probes per bed; air temperature, air humidity, light, PAR and leaf wetness per
-zone; outdoor temperature, humidity, rain and leaf wetness for the garden. Once a day a
-moisture sensor also sets the bed's water balance, and each bed learns how fast it really
-dries out.
+zone; outdoor temperature, humidity, rain, leaf wetness, **wind speed**, **wind gusts**,
+**solar radiation** (W/m²) and **outdoor light** (lux) for the garden – together a small
+weather station for the climate history. Once a day a moisture sensor also sets the bed's
+water balance, and each bed learns how fast it really dries out.
+
+The outdoor station in detail (all optional; without a sensor the weather entity's value is
+used where it has one):
+
+| Sensor | Used for |
+|---|---|
+| Outdoor temperature | daily minimum, maximum and mean; degree days, frost dates, frost nights |
+| Outdoor humidity | daily minimum, maximum and mean humidity: Penman‑Monteith ET₀ and the logged Hutton criteria |
+| Rain | the day's rain (a daily total in mm); the water balance, after‑care tasks, rain statistics |
+| Wind speed | daily mean and maximum (km/h, m/s, mph and knots are converted to km/h); Penman‑Monteith ET₀ |
+| Wind gusts | the strongest gust of the day; the *check after a storm* task (gusts ≥ 60 km/h or wind ≥ 45 km/h) |
+| Solar radiation (W/m²) | radiation sum (MJ/m²) and sunshine hours (≥ 120 W/m²); Penman‑Monteith ET₀, dull days |
+| Outdoor light (lux) | used as radiation (lux × 0.0079) when there is no radiation sensor |
+| Leaf wetness | the disease model's wet‑leaf input |
+
+Every mapped **temperature sensor** – outdoor air, outdoor soil, the air temperature of a
+zone (greenhouse, cold frame), and the soil or air temperature of a bed – also gets its own
+daily minimum, maximum and mean in the climate history.
 
 ---
 
@@ -139,7 +162,7 @@ dries out.
 | Menu | Fields |
 |---|---|
 | Climate & frost dates | profile, hemisphere, preset/zone/custom dates |
-| Weather & outdoor sensors | weather entity, outdoor temperature, rain |
+| Weather & outdoor sensors | weather entity, outdoor temperature, rain (the other outdoor sensors are set in the panel) |
 | Notifications | persistent, push services, TTS, speakers, digest time, frost alerts, heat alerts, TTS frost announcement |
 | Advanced tuning | language of generated texts (auto/en/nl/fr), companion radius (10–300 cm), sensor stale minutes (15–2880), root‑zone depth (50–600 mm), max irrigation per session (2–60 mm) |
 
@@ -323,6 +346,65 @@ radar**: a radar camera from Home Assistant when there is one (e.g. Buienradar),
 Buienradar's public map for the Netherlands or Belgium (loaded by your browser, refreshed
 every 5 minutes). It needs a weather entity under *Settings → Weather*.
 
+#### Climate history
+
+Below the forecast (also without a weather entity) the **Climate history** card shows what
+the weather really did here:
+
+* a **daily chart** for 30 days, 90 days or a year: the band from lowest to highest
+  temperature, the daily mean and rain bars; hover a day for sunshine, wind and where the
+  data comes from (own sensors, recorder history, Open‑Meteo);
+* **lately, compared with last year**: the last 7 days, the last 30 days and the season so
+  far (from 1 January, or 1 July on the southern hemisphere), each with the same
+  period last year next to it – mean, lowest, highest, rain and rain days, frost nights,
+  days ≥ 25 °C (and ≥ 30 °C), sunshine, strongest wind, degree days, evaporation (ET₀) and the
+  water balance (rain − evaporation);
+* **records**: coldest, warmest, wettest day and strongest gust;
+* **every temperature sensor**: now, today's range, the 7‑day mean, the 30‑day range, record
+  low and high, and a 30‑day sparkline;
+* **month by month** with the change against the same month last year;
+* the **measured frost dates** per year against the regional preset, and *How Hortulus uses
+  it*.
+
+**How it is recorded.** Every update folds the outdoor sensors – or, without them, the
+weather entity – into today's record: minimum, maximum and mean temperature, humidity, wind
+and gusts, rain, radiation and sunshine hours. Means take at most one sample every 4 minutes
+per series; the day also records how many hours own samples covered.
+
+**How gaps are filled.** At start‑up and once a day Hortulus looks at the last 30 days:
+
+1. **Home Assistant's recorder** – the same sensors (temperature sensors, outdoor humidity,
+   wind and gusts) as the recorder kept them while Hortulus was not running. Units are
+   converted; extremes are combined with what Hortulus logged itself; a recorded mean only
+   replaces its own when the day was not covered for at least 20 hours.
+2. **Open‑Meteo's observed daily weather** (only with *Use Open‑Meteo* on in *Settings →
+   Weather*): temperature, rain, wind and gusts, radiation, sunshine, humidity and FAO ET₀
+   for the garden's location, the last 31 days. It fills only what was not measured well:
+   days that own samples covered for less than 12 hours, and values nobody measured.
+
+Own samples always win; for rain a gauge beats the recorder, the recorder beats Open‑Meteo,
+and Open‑Meteo beats the forecast. Today is always left to the own samples.
+
+**Retention.** Outdoor days stay in the daily log for 800 days (two seasons and a bit),
+temperature sensor days for 400 days. Older days are rolled up into **months** that are kept
+for good (lowest, highest, mean, rain, frost and hot days, sunshine, strongest wind), so
+records and year‑on‑year comparisons survive. Everything is stored in the garden file
+(`climate_log`, `sensor_log`, `climate_months`, `frost_years`).
+
+**Frost dates.** For every year Hortulus keeps the last spring frost and the first autumn
+frost it measured (outdoor minimum below 0 °C; spring = January–June, autumn = July–December,
+the other way round on the southern hemisphere). A half‑year counts once it is over and at
+least 80 % of its days were logged; the average of those years is shown against the preset
+(*x days earlier / later*). The measured dates are shown for comparison – the sowing
+calendar keeps using the frost dates under *Settings → Region*.
+
+**What the engine does with it.** Degree days per zone (greenhouses use their own air
+sensor, otherwise the outdoor day + 2 °C at night and + 4 °C by day), heat, cold and dull days
+that delay crops, the daily water balance (Penman‑Monteith ET₀ of the logged day), disease
+risk from wet, warm days behind us, sowing on the soil temperature of the last days, the
+after‑care tasks (after a storm, after a downpour, after a dry week) and the *it froze*
+alert. The four climate sensors in Home Assistant come from the same log (see
+[Entities](ENTITY_REFERENCE.md#climate-history)).
 ### Journal
 Sections:
 
@@ -438,7 +520,7 @@ entities that fit):
 | Section | Content |
 |---|---|
 | **Region** | hemisphere, profile (preset / USDA / custom), frost dates |
-| **Weather & outdoor sensors** | weather entity, outdoor temperature, rain, outdoor humidity, leaf wetness, **Open‑Meteo** opt‑in, elevation |
+| **Weather & outdoor sensors** | weather entity, outdoor temperature, rain, outdoor humidity, leaf wetness, **wind speed**, **wind gusts**, **solar radiation** (W/m²), **outdoor light** (lux), **Open‑Meteo** opt‑in (forecast and observed history for the climate history), elevation |
 | **Zones** | per zone: air temperature, humidity, light, leaf wetness, **PAR**; for greenhouses and cold frames also **vent** and **shade screen** entities with *off / advise / auto* control, *thermal mass*; *against a warm wall*, *heated* (+ minimum temperature) |
 | **Beds** | per bed: soil moisture, soil temperature, **EC, N, P, K** probes, valve, **Test** button, flow (L/min; the measured flow is shown when the water meter learned it), **valve timer** |
 | **Irrigation hardware** | mode (*off / advise / auto*), pump, start time, max runtime, frost lockout, rain skip, pump lead time |
@@ -554,7 +636,9 @@ file; they live in the garden store.
 ## 7. Performance
 
 * No sensor polling – state‑change listeners on exactly the mapped entities, debounced
-  10 s; the forecast is the only timed fetch (30 min).
+  10 s; the forecast is the only timed fetch (30 min). Once a day (and at start‑up) the
+  climate history asks the recorder – and Open‑Meteo when it is switched on – for the days
+  of the last month it did not cover; a failure there never stops an update.
 * All computation is pure Python on in‑memory data (milliseconds for a typical garden),
   storage writes are debounced (5 s, system log 10 s) and never block the event loop.
 * Seasons older than the last three move to the archive file, which keeps the garden file
@@ -621,3 +705,12 @@ in Home Assistant depends on it. What the repository itself shows:
 * The website runs the integration's websocket handlers, operations and storage on its own
   stand‑ins for Home Assistant's modules, so the plan files described in
   [section 5](#5-import--export-format) can be exchanged between the two.
+
+**Climate history on the website.** The website only computes while someone has the garden
+open, so it cannot sample the weather all day. It fills the same climate history from
+**Open‑Meteo's observed weather** for every garden and, for a garden linked to Home
+Assistant, from **that Home Assistant's recorder** through the garden's token (the linked
+sensors' daily minimum, maximum and mean). The engine merges both with the same rules as in
+Home Assistant (`merge_history`, `merge_sensor_history`), so the Climate history card,
+growth, water and disease work the same way there. Visitors of a shared garden do not see
+the climate history card.

@@ -26,13 +26,13 @@
 sur le potager de son monastère) fait de Home Assistant un compagnon de potager. Dessinez
 vos planches et votre serre, glissez-y les cultures, et Hortulus calcule **quand semer,
 repiquer, fertiliser, tailler et récolter** – puis garde ces plans réalistes grâce à vos
-**capteurs de sol et aux prévisions météo**. Il vous dit quoi faire aujourd'hui, tient
+**capteurs de sol, aux prévisions météo et à la météo réellement enregistrée chez vous**. Il vous dit quoi faire aujourd'hui, tient
 votre carnet de jardin et votre registre de récolte, et transforme ce qui est **prêt à
 cueillir** en **recettes, menus et liste de courses**.
 
 Tout fonctionne en local. Pas de compte, pas de cloud. Les seuls appels externes sont
-facultatifs : Open‑Meteo pour de meilleures estimations d'évaporation (désactivé tant que
-vous ne l'activez pas), les photos de plantes de Wikipédia dans votre navigateur (désactivables dans les Paramètres)
+facultatifs : Open‑Meteo pour de meilleures estimations d'évaporation et pour compléter
+l'historique du climat avec la météo observée (désactivé tant que vous ne l'activez pas), les photos de plantes de Wikipédia dans votre navigateur (désactivables dans les Paramètres)
 et, sans caméra radar dans Home Assistant, la carte publique de Buienradar dans l'onglet Météo
 en Belgique et aux Pays‑Bas. Le panneau entier, la base de plantes, le
 manuel et les recettes existent en **français, anglais et néerlandais**.
@@ -55,7 +55,7 @@ commandes vocales pour le reste de Home Assistant.
 | **Aujourd'hui** | Aujourd'hui · Écran mural | La journée en un coup d'œil : tâches, alertes, météo, récolte rapide, planches. |
 | **Jardin** | Planificateur · Plan du jardin · Cultures | Dessiner le terrain, organiser les zones, planter les planches ; toutes les cultures en une liste, frise, plan de semis, graines, successions et prévision de récolte. |
 | **Calendrier** | Calendrier | Mois, semaine, liste, frise de saison et vue annuelle de toutes les tâches et cultures. |
-| **Météo** | Météo | Prévisions, ce qu'elles signifient pour votre jardin, radar de pluie. |
+| **Météo** | Météo | Prévisions, ce qu'elles signifient pour votre jardin, radar de pluie et historique du climat avec statistiques de température. |
 | **Journal** | Carnet · Récolte · Cuisine · Boîte à graines · Eau · Bilan de saison · Journal système | Tout ce que vous notez, et ce que cela donne. |
 | **Cuisine** | Idées · Mon livre de cuisine · Liste de courses | Un livre de recettes de saison à partir de ce qui est prêt à cueillir. |
 | **Savoir** | Plantes · Conseils · Manuel | 232 cultures, questions et réponses, un manuel de 23 chapitres. |
@@ -123,8 +123,9 @@ endurcissement, plantation, fertilisation, taille, récolte – et **l'année du
 préparation du sol (avec les kilos de compost), nettoyage des vitres de la serre, ombrage
 mis et retiré, lutte biologique, purin d'ortie et de consoude, gouttières et tonneaux,
 nichoirs, récolte de graines, repos hivernal, entretien du verger. Les tâches s'adaptent à
-la météo (chaleur, sécheresse, tempête, fortes pluies), attendent un sol chaud et des
-prévisions sans gel, indiquent les outils nécessaires et vous rappellent poliment quand elles
+la météo prévue (chaleur, sécheresse, tempête, fortes pluies) comme à celle qui est déjà
+passée (suivi après une tempête ou une averse, arrosage en profondeur après une semaine
+sèche), attendent un sol chaud et des prévisions sans gel, indiquent les outils nécessaires et vous rappellent poliment quand elles
 sont en retard. Vous pouvez les attribuer à des personnes, les cocher depuis n'importe quel
 tableau de bord et voir un aperçu de la semaine à venir.
 
@@ -144,8 +145,25 @@ tableau de bord et voir un aperçu de la semaine à venir.
 * **Météo** – prévisions horaires et journalières, ce que les prochains jours signifient
   pour *votre* jardin (gel, journée chaude, pluie sur laquelle compter, une planche à
   arroser) et un radar de pluie.
+* **Historique du climat** – ce que la météo a vraiment fait chez vous, sous les prévisions
+  dans l'onglet Météo (voir ci‑dessous).
 * **Écran mural** – une vue de kiosque calme avec l'heure, la météo et les tâches pour une
   tablette dans la cuisine ; s'assombrit la nuit.
+
+### Historique du climat
+
+À chaque mise à jour, Hortulus enregistre la journée à partir de vos capteurs extérieurs –
+ou de l'entité météo : températures minimale, maximale et moyenne, humidité, vent et
+rafales, pluie, rayonnement et heures d'ensoleillement. **Chaque capteur de température**
+associé (air de la serre, sol, air près d'une planche) reçoit lui aussi son minimum, son
+maximum et sa moyenne par jour. Les jours où Hortulus ne tournait pas sont complétés une
+fois par jour depuis l'**enregistreur** (recorder) de Home Assistant et, si *Open‑Meteo* est
+activé, depuis la météo **observée** d'Open‑Meteo. Sous les prévisions, **Météo →
+Historique du climat** montre un graphique quotidien (30 jours, 90 jours ou 1 an), les 7 et
+30 derniers jours et la saison en cours (avec l'an dernier en regard), les records, un tableau de
+tous les capteurs de température, le mois par mois et les **dates de gel mesurées** face au
+préréglage régional. Et le moteur s'en sert : croissance, bilan hydrique, risque de maladie
+et tâches de suivi reposent sur le temps qu'il a réellement fait.
 
 ## Enregistrements, cuisine et savoir
 
@@ -242,7 +260,10 @@ haricots et les baies de sureau ne sont jamais proposés crus.
 * **ET₀ Penman‑Monteith** FAO‑56 (Hargreaves en repli), Kc par stade de croissance, un
   **bilan hydrique** de la zone racinaire par planche, un **indice d'équilibre nutritif**
   NPK/EC, le **risque de maladie** (critères de Hutton, humectation des feuilles, humidité
-  de la serre) et une phénologie en degrés‑jours avec des dates de récolte dynamiques.
+  de la serre, plus les jours chauds et humides déjà passés) et une phénologie en
+  degrés‑jours avec des dates de récolte dynamiques – le tout calculé sur la météo
+  enregistrée, pas seulement sur les prévisions. Une station météo (vent, rafales,
+  rayonnement solaire) rend l'évaporation plus exacte.
 * **Pilotage matériel sûr** – vannes et pompe avec **verrouillage de la pompe, durée
   maximale, blocage en cas de gel et saut en cas de pluie** ; une vanne qui ne répond plus
   met fin à l'arrosage et arrête la pompe ; surveillance des fuites et du débit via le
@@ -296,7 +317,11 @@ quatre thèmes de couleurs (Classique, Terre, Nuit et un qui suit la saison).
 
 * **Entités** – capteurs, capteurs binaires, nombres, sélecteurs, interrupteurs, boutons, un
   calendrier et une liste de tâches, avec diagnostics et traductions en français, anglais et
-  néerlandais.
+  néerlandais – dont des capteurs de climat (pluie, température moyenne et ensoleillement
+  sur 7 jours, nuits de gel de la saison) avec la valeur de l'an dernier en attribut.
+* **Historique du climat** – complété depuis l'**enregistreur** de Home Assistant pour les
+  jours où Hortulus ne tournait pas, et consultable par la commande websocket
+  `garden_manager/climate/stats`.
 * **Services** avec réponses et **événements du bus** pour vos automatisations ; **notifications**
   push, TTS et persistantes, avec des boutons d'action sur votre téléphone (fait, reporter).
 * **Foyer** – attribuez des tâches à des personnes avec des règles automatiques et des
@@ -376,6 +401,7 @@ Ouvrez ensuite **Hortulus** dans la barre latérale. Détails : [CONFIGURATION](
 | maladie et gel par zone | `sensor.<zone>_disease_risk`, `binary_sensor.<zone>_frost_risk_48h` |
 | pilotage de l'arrosage | `switch.hortulus_automatic_irrigation`, `select.hortulus_irrigation_mode`, `number.hortulus_irrigation_max_runtime` (+ blocage gel, saut pluie), `button.hortulus_water_now`, `binary_sensor.hortulus_irrigation_frost_lockout`, `binary_sensor.hortulus_irrigation_running` |
 | tâches | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week`, `sensor.hortulus_tasks_due_today`, `sensor.hortulus_next_task` |
+| climat enregistré | `sensor.hortulus_rain_7_days`, `sensor.hortulus_mean_temperature_7_days`, `sensor.hortulus_sunshine_7_days`, `sensor.hortulus_frost_nights_this_season` (valeur de l'an dernier en attribut `last_year`) |
 | enregistrements | `sensor.hortulus_harvest_this_season`, `sensor.hortulus_garden_water_7_days`, `sensor.hortulus_rain_water_available`, `garden_manager.log_harvest`, `.add_journal_entry`, `.save_soil_test`, `.assign_task` |
 | tableau de bord et voix | `type: custom:hortulus-tasks-card` (chargée automatiquement), intents Assist via `garden_manager.install_voice_sentences` |
 | `garden.add_task` … | `garden_manager.add_task`, `.complete_task`, `.postpone_task`, `.delete_task`, `.generate_tasks`, `.recalculate_plan`, `.export_plan`, `.import_plan` |
@@ -402,8 +428,10 @@ Automatisations prêtes à l'emploi – cliquez pour les importer dans Home Assi
   printemps* / *première gelée d'automne*, de sorte qu'une seule base sert les deux
   hémisphères et tous les climats. Les serres avancent les fenêtres de printemps d'un nombre
   de semaines propre à chaque culture.
-* **Affinements en direct :** le semis direct attend un sol assez chaud (capteur de sol), la
-  plantation des cultures frileuses attend des prévisions sans gel.
+* **Affinements en direct :** le semis direct attend un sol durablement chaud – la plus
+  basse entre la mesure actuelle du capteur de sol et la moyenne enregistrée des derniers
+  jours, pas un après‑midi chaud –, la plantation des cultures frileuses attend des
+  prévisions sans gel.
 * **Associations :** l'intensité de l'interaction diminue avec la distance ; les ennemies
   comptent double ; des plantations qui ne partagent jamais le sol en même temps
   (successions !) n'entrent jamais en conflit.
@@ -415,21 +443,39 @@ Automatisations prêtes à l'emploi – cliquez pour les importer dans Home Assi
   l'humidité, le vent et la nébulosité (Hargreaves quand ils manquent), Kc suit le stade de
   croissance. Les planches sans capteur d'humidité tiennent un **réservoir de zone
   racinaire** quotidien (eau disponible selon le sol × profondeur d'enracinement) et sont
-  arrosées quand la moitié est consommée.
+  arrosées quand la moitié est consommée. Pour les jours passés, ce bilan utilise la pluie
+  enregistrée et un Penman‑Monteith calculé sur la journée enregistrée (humidité, vent,
+  ensoleillement ou rayonnement) au lieu des seules températures minimale et maximale : un
+  jour venteux et ensoleillé assèche les planches plus vite, comme en vrai.
 * **Fertilisation :** compost par m² selon la culture suivante la plus gourmande (5 / 3 /
   1,5 kg, légumineuses 0,5), doses d'engrais liquide dans les tâches de fertilisation, et un
   indice d'équilibre nutritif de 0 à 100 à partir de sondes NPK ou EC comparées aux besoins
   N‑P‑K des cultures.
 * **Maladie :** deux jours chauds et humides de suite (critères de Hutton) signifient un
-  risque élevé de mildiou ; de longues périodes de feuilles mouillées, un capteur
+  risque élevé de mildiou – qu'ils soient prévus ou **déjà passés** d'après les jours
+  enregistrés, car les spores tombées pendant une période humide sont déjà au travail ;
+  plusieurs jours humides enregistrés, de longues périodes de feuilles mouillées, un capteur
   d'humectation ou un air de serre humide relèvent le niveau et créent des tâches
   d'inspection pour les cultures sensibles.
-* **Phénologie :** les degrés‑jours depuis la plantation déplacent la récolte attendue
-  (± 3 semaines autour de la date du calendrier) ; le stress thermique retarde les cultures
-  fruitières.
+* **Phénologie :** les degrés‑jours enregistrés depuis la plantation déplacent la récolte
+  attendue (± 3 semaines autour de la date du calendrier). Les cultures sous serre comptent
+  les degrés‑jours de leur propre capteur d'air (sinon la journée extérieure avec l'effet
+  tampon de la serre) au lieu d'un simple +3 forfaitaire. Les jours de chaleur enregistrés (le
+  dernier mois) et une série de jours sombres retardent les cultures fruitières ; les
+  cultures sans modèle de degrés‑jours sont retardées par les jours froids enregistrés sous
+  leur minimum. La fiche de la culture indique le retard et sa raison.
 * **Sécurité de l'arrosage :** une vanne à la fois, pompe seulement si une vanne est ouverte,
   durée maximale, pas d'arrosage extérieur si du gel est prévu dans les 12 h ou si assez de
   pluie arrive ; vannes et pompe sont toujours coupées à la fin, même après des erreurs.
+* **Historique du climat :** chaque jour extérieur (min/moy/max, humidité, vent et rafales,
+  pluie, rayonnement, ensoleillement) et chaque capteur de température sont enregistrés ;
+  les mesures propres priment toujours, l'enregistreur combine les extrêmes et la météo
+  observée d'Open‑Meteo ne comble que ce qui n'a pas été bien mesuré. Les jours restent deux
+  saisons (extérieur) ou 400 jours (capteurs), puis leurs chiffres mensuels sont gardés pour
+  toujours. Les dernières gelées de printemps et premières gelées d'automne sont mesurées
+  chaque année et comparées au préréglage. Une tempête (rafales ≥ 60 km/h), une averse ou
+  une semaine sèche déjà passée donnent une tâche de suivi ; un gel survenu alors que des
+  cultures frileuses étaient dehors donne une alerte.
 * **Gel :** prévisions horaires, ajustement par plante pour les nuits claires et calmes,
   tampon de serre, plancher pour les zones chauffées ; repli sur les prévisions
   journalières, puis sur le capteur en direct.

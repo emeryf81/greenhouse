@@ -519,7 +519,7 @@ export interface ClimateSensorStats {
 export interface ClimateStats {
   today: ISODate;
   season_start: ISODate;
-  periods: Record<"d7" | "d30" | "season" | "season_last_year" | "d30_last_year" | "d365", ClimatePeriod>;
+  periods: Record<"d7" | "d30" | "season" | "season_last_year" | "d7_last_year" | "d30_last_year" | "d365", ClimatePeriod>;
   records: Partial<Record<"tmin" | "tmax" | "wettest" | "gust_max", { value: number; when: string }>>;
   series: ClimateDayRow[];
   months: ClimateMonthRow[];

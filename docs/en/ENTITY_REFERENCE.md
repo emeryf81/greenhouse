@@ -111,11 +111,16 @@ Attributes: `available_water_mm` (TAW for the soil and rooting depth), `crop_coe
 
 ### `sensor.<zone>_disease_risk`
 Enum `none` · `low` · `moderate` · `high` · `unknown`. Attributes: `wet_hours_48h`,
-`hutton_period` (late‑blight weather), `humidity`, `leaf_wet`, `reasons`.
+`hutton_period` (late‑blight weather), `humidity`, `leaf_wet`, `reasons`. Outdoor zones also
+look back at the climate history: two humid, warm days that already happened (Hutton criteria
+from the logged days: minimum ≥ 10 °C and mean humidity ≥ 90 %, two days in a row) set the
+level to *high* (`reasons` contains `hutton_logged`); two or more wet days in the last three
+(≥ 5 mm rain or mean humidity ≥ 90 %) raise it one step (`wet_days_logged`).
 
 ### `sensor.<zone>_degree_days_this_season` *(disabled by default)*
-Season degree days for the zone; enclosed zones add 3 °C·d for every logged day (the
-greenhouse's day‑time warmth).
+Season degree days for the zone. Greenhouses and cold frames count their own air
+temperature sensor for the days it logged; other days (and enclosed zones without a sensor)
+use the outdoor day with greenhouse buffering (+ 2 °C at night, + 4 °C by day).
 
 ### `sensor.hortulus_harvest_this_season`
 kg harvested this season (from the harvest log; device class weight, state class `total`).
@@ -129,6 +134,34 @@ Settings → Water meter & rain butt (one reading per day is stored). Attributes
 ### `sensor.hortulus_rain_water_available`
 Litres in the rain water butts now (butt level % × total capacity, both set in Settings →
 Water meter & rain butt). Watering task descriptions say how much of it to use first.
+
+### Climate history
+
+Four garden‑wide sensors summarise the climate history (outdoor days as logged by Hortulus
+and filled from the recorder or Open‑Meteo, see
+[Configuration → Climate history](CONFIGURATION.md#climate-history)). Each compares with the
+same period a year earlier.
+
+| Entity | Unit | Period | State |
+|---|---|---|---|
+| `sensor.hortulus_rain_7_days` | mm | last 7 days (today included) | rain total |
+| `sensor.hortulus_mean_temperature_7_days` | °C (device class temperature) | last 7 days | mean of the daily means |
+| `sensor.hortulus_sunshine_7_days` | h | last 7 days | sunshine hours (needs a radiation or light sensor, or Open‑Meteo) |
+| `sensor.hortulus_frost_nights_this_season` | – (state class `total`) | season so far (from 1 January; 1 July on the southern hemisphere) | nights with a minimum below 0 °C |
+
+The state is `unknown` when no day of the period is logged. Attributes (all for the same
+period):
+
+| Attribute | Meaning |
+|---|---|
+| `days_logged` | days of the period in the log |
+| `last_year` | the same value for the same period a year ago |
+| `lowest`, `highest` | lowest minimum and highest maximum (°C) |
+| `rain_mm` | rain total |
+| `sunshine_h` | sunshine hours |
+| `gust_max_kmh` | strongest gust (or wind) |
+| `et0_mm` | reference evaporation (Penman‑Monteith of the logged days, Hargreaves fallback) |
+| `water_balance_mm` | rain − evaporation |
 
 ## Binary sensors
 
@@ -376,7 +409,25 @@ kept). Response: `{written: [paths]}`. See *Voice* below.
 | `garden_manager_irrigation_run` | a valve finished (or was stopped) | `bed_id, bed, minutes, liters, mm, source` |
 
 `severity` is `info`, `warning` or `critical`; `zone_id` is empty for the garden‑wide (outdoor)
-frost alert.
+frost alert. The *it froze* alert (`alert.frost_logged`, below) is a frost alert too: it fires
+`garden_manager_frost_warning` with `key: froze:<date>`, `temp` and `plants`.
+
+### Weather tasks and alerts
+
+Weather tasks carry a key starting with `w:` (see the task engine); regeneration never makes
+the same key twice. Besides the forecast tasks (`w:frost`, `w:heat`, `w:heat_gh`, `w:dry`,
+`w:storm`, `w:rain`) Hortulus creates after‑care tasks for weather that already happened,
+from the climate history (only while crops are in the ground):
+
+| Key | Type | When |
+|---|---|---|
+| `w:after_storm:<day>` | `check` | yesterday's gusts reached 60 km/h (or the wind 45 km/h): check stakes, supports and covers |
+| `w:rain:<day>` | `pest_check` | the slug patrol after a downpour: forecast ≥ 15 mm, **or** ≥ 15 mm logged yesterday by a gauge, the recorder or Open‑Meteo (not the forecast). Same key as the forecast task, so never twice |
+| `w:dry_logged:<monday>` | `water` | deep watering after a dry week: ≥ 6 of the last 7 days with known rain, together < 3 mm, at least 4 days ≥ 20 °C; one per week, and not when the forecast already made a `w:dry` task |
+
+| Alert key | Kind | When |
+|---|---|---|
+| `alert.frost_logged` | `frost` (warning) | last night (today's or yesterday's logged minimum) went below 0 °C and active crops outside a greenhouse cannot take that temperature; parameters `temp` and `plants`. The crops also appear in `plants_at_risk` of `binary_sensor.hortulus_frost_warning` |
 
 **Notification buttons.** The digest, the reminders, “beds need water” and “valve left open”
 notifications to phones with the companion app carry action buttons: *Done* (one task) and
@@ -406,12 +457,33 @@ cookbook are open to everyone.
 | Records | `records/overview` (harvest per crop and year, learned yields, seed box, water, year matrix, kitchen report, costs and expenses), `records/harvest/add`, `records/journal/save`, `records/seeds/save`, `records/expense/save`, `records/soil/save`, `records/soil/delete`, `records/delete` (`kind`: `harvest`, `journal`, `seed`, `expense`), `seeds/to_todo` (missing seed to a to‑do list), `report/season` |
 | Advice & handbook | `qa/options`, `qa/ask`, `handbook/index`, `handbook/chapter`, `handbook/search` |
 | Print | `print/render` (SVG preview pages) |
+| Climate | `climate/stats` (climate history and statistics; optional `days` 7–800, default 400: how many days of the daily series to return) |
 | Analysis | `analysis` (garden check), `analysis/explain` (“why not here?”), `analysis/fix` **admin** (one‑click repair), `analysis/still_possible` (what can still go in this season) |
 | System log | `syslog/list` (newest first, paged with `before`), `syslog/entry` **admin** (one entry with before/after per item), `syslog/undo` **admin** (`entry_id`, optional `force`) |
 | Cooking | `cooking/suggest` (ready produce, dishes, menus, cookbook, choices), `cooking/render` (a recipe again after changing side, meat or servings), `cooking/prefs`, `cooking/book/save`, `cooking/book/update`, `cooking/book/delete`, `cooking/pdf` (`kind`: `recipe`, `book`, `shopping`), `cooking/send` (a recipe or the shopping list to a `notify.*` service), `cooking/to_todo` (shopping list to a to‑do list; your own permissions on that list apply) |
 
 `seeds/to_todo` and `cooking/to_todo` check the calling user's own permissions on the target
 to‑do list.
+
+**Sensor mapping keys.** `settings/save` (`outdoor_sensors`) and `plan/save` (zone and bed
+`sensors`) use the same keys: `soil_moisture`, `soil_temperature`, `air_temperature`,
+`air_humidity`, `light`, `rain`, `par`, `ec`, `npk_n`, `npk_p`, `npk_k`, `leaf_wetness`, and
+for the outdoor weather station `wind_speed`, `wind_gust` (km/h, m/s, mph or knots) and
+`radiation` (W/m²).
+
+**`climate/stats` result.** Temperatures in °C, rain and evaporation in mm, wind in km/h,
+dates as ISO strings:
+
+| Key | Content |
+|---|---|
+| `today`, `season_start` | today, and the start of the season (1 January / 1 July) |
+| `periods` | `d7`, `d30`, `season`, `d365`, `d7_last_year`, `d30_last_year`, `season_last_year`; each `{days, days_with_temp, tmean, tmin, tmin_day, tmax, tmax_day, frost_nights, hot_days, very_hot_days, gdd, rain_mm, rain_days, wettest, wettest_day, sun_h, rs_mj, gust_max, gust_day, et0_mm, balance_mm, rh_mean}` (keys without data are missing or `null`) |
+| `records` | `tmin`, `tmax`, `wettest`, `gust_max`, each `{value, when}` (`when` is a day, or a month for months kept for good) |
+| `series` | one row per logged day of the last `days`: `{d, lo, hi, m, r, s, w, rh, et0, src}` (low, high, mean, rain, sunshine h, strongest wind, mean humidity, ET₀, source `sensor` / `history` / `model`, `+`‑joined when mixed) |
+| `months` | newest first, up to 24: `{month, days, tmin, tmax, tmean, rain_mm, frost_days, hot_days, sun_h, wind_max}` |
+| `frost` | `years` (per year `{last_spring, first_autumn, spring_complete, autumn_complete}`), `local` (average of the complete years: `last_spring`, `first_autumn` as `MM-DD`, `spring_diff_days`, `autumn_diff_days` against the preset, `years_spring`, `years_autumn`; `null` without a complete year), `preset_last`, `preset_first` |
+| `sensors` | per mapped temperature sensor: `{entity_id, label, kind (outdoor / zone_air / bed_air / soil), now, days, first_day, today {tmin, tmax, tmean}, d7, d30, record_low {t, when}, record_high {t, when}, series [{d, lo, hi, m}] (last 120 days), months}` |
+| `coverage` | `{days, first_day, sources {sensor, history, model: days}, months_kept}` |
 
 ## Lovelace card
 

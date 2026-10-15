@@ -535,7 +535,7 @@ Geeft alles wat *Weer → Klimaatgeschiedenis* toont (lezen mag elke gebruiker):
 |---|---|
 | `today`, `season_start` | datum van vandaag en begin van het seizoen (1 januari, zuidelijk halfrond 1 juli) |
 | `series` | één rij per buitendag binnen `days`: `d` (datum), `lo`/`hi`/`m` (min/max/gemiddelde °C), `r` (regen mm), `s` (zonuren), `w` (hardste stoot of wind km/u), `rh` (vochtigheid %), `et0` (mm), `src` (`sensor`, `history`, `model` of een combinatie met `+`) |
-| `periods` | `d7`, `d30`, `season`, `d365`, `d30_last_year`, `season_last_year`, elk met `days`, `tmean`, `tmin`/`tmin_day`, `tmax`/`tmax_day`, `frost_nights`, `hot_days` (≥ 25 °C), `very_hot_days` (≥ 30 °C), `gdd`, `rain_mm`, `rain_days` (≥ 1 mm), `wettest`, `sun_h`, `rs_mj`, `gust_max`/`gust_day`, `et0_mm`, `balance_mm`, `rh_mean` |
+| `periods` | `d7`, `d30`, `season`, `d365`, `d7_last_year`, `d30_last_year`, `season_last_year`, elk met `days`, `tmean`, `tmin`/`tmin_day`, `tmax`/`tmax_day`, `frost_nights`, `hot_days` (≥ 25 °C), `very_hot_days` (≥ 30 °C), `gdd`, `rain_mm`, `rain_days` (≥ 1 mm), `wettest`, `sun_h`, `rs_mj`, `gust_max`/`gust_day`, `et0_mm`, `balance_mm`, `rh_mean` |
 | `records` | `tmin`, `tmax`, `wettest`, `gust_max`, elk `{value, when}` (een dag of, uit de maandcijfers, een maand) |
 | `months` | buiten, nieuwste eerst (tot 24): `month`, `days`, `tmin`, `tmax`, `tmean`, `rain_mm`, `frost_days`, `hot_days`, `sun_h`, `wind_max` |
 | `frost` | `years` (per jaar `last_spring`, `first_autumn`, `spring_complete`, `autumn_complete`), `local` (gemiddelde gemeten data en het verschil in dagen met de regio, `null` zonder volledig jaar), `preset_last`, `preset_first` |

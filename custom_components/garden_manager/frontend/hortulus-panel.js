@@ -302,7 +302,7 @@ var mi=Object.defineProperty;var gi=Object.getOwnPropertyDescriptor;var p=(c,o,e
       ${s(this.t("climate.gdd"),this.n(e.gdd,0),this.delta(e.gdd,t?.gdd,"",0))}
       ${s(this.t("climate.et0"),this.n(e.et0_mm,0," mm"),u,e.balance_mm!=null?this.t("climate.balance",{mm:this.n(e.balance_mm,0)}):"")}
     </div>`}renderPeriods(e){let t=e.periods;return i`<div class="stack" style="gap:14px">
-      <div><h3>${this.t("climate.last_7")}</h3>${this.tiles(t.d7)}</div>
+      <div><h3>${this.t("climate.last_7")}</h3>${this.tiles(t.d7,t.d7_last_year?.days?t.d7_last_year:void 0)}</div>
       <div><h3>${this.t("climate.last_30")}</h3>${this.tiles(t.d30,t.d30_last_year.days?t.d30_last_year:void 0)}</div>
       <div><h3>${this.t("climate.season",{since:this.date(e.season_start)})}</h3>${this.tiles(t.season,t.season_last_year.days?t.season_last_year:void 0)}</div>
     </div>`}spark(e){let t=e.slice(-30).filter(h=>h.lo!=null&&h.hi!=null);if(t.length<2)return u;let s=Math.min(...t.map(h=>h.lo)),a=Math.max(...t.map(h=>h.hi)),n=h=>h/(t.length-1)*108+1,r=h=>24-(h-s)/Math.max(1,a-s)*22,l=t.map((h,m)=>`${m?"L":"M"}${n(m)},${r(h.hi)}`).join(" "),d=[...t].reverse().map((h,m)=>`L${n(t.length-1-m)},${r(h.lo)}`).join(" ");return i`<svg class="spark" viewBox="0 0 110 26" aria-hidden="true"><path d="${l} ${d} Z" fill="#f2b544" fill-opacity="0.35" stroke="#e08a2e" stroke-width="0.8"/></svg>`}renderSensors(e){return e.sensors.length?i`<div class="scroll"><table>

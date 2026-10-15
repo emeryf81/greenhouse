@@ -159,7 +159,7 @@ export class ClimateHistory extends LitElement {
   private renderPeriods(s: ClimateStats): TemplateResult {
     const p = s.periods;
     return html`<div class="stack" style="gap:14px">
-      <div><h3>${this.t("climate.last_7")}</h3>${this.tiles(p.d7)}</div>
+      <div><h3>${this.t("climate.last_7")}</h3>${this.tiles(p.d7, p.d7_last_year?.days ? p.d7_last_year : undefined)}</div>
       <div><h3>${this.t("climate.last_30")}</h3>${this.tiles(p.d30, p.d30_last_year.days ? p.d30_last_year : undefined)}</div>
       <div><h3>${this.t("climate.season", { since: this.date(s.season_start) })}</h3>${this.tiles(p.season, p.season_last_year.days ? p.season_last_year : undefined)}</div>
     </div>`;

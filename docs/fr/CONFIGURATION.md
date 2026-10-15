@@ -68,13 +68,15 @@ sans gel. Les dates impossibles (comme `13-01`) sont refusées.
   Hortulus appelle `weather.get_forecasts` toutes les 30 minutes et à chaque mise à jour de
   l'entité météo (au plus une fois toutes les 10 minutes). Les unités des prévisions sont
   converties automatiquement en °C, mm et km/h.
-* **Température extérieure** (facultatif) : sert au journal des degrés-jours de croissance ;
-  à défaut, la température actuelle de l'entité météo est utilisée. Les capteurs en °F sont convertis.
+* **Température extérieure** (facultatif) : alimente l'[historique du climat](#historique-du-climat)
+  (minimum, maximum et moyenne du jour) et donc les degrés-jours de croissance ; à défaut, la
+  température actuelle de l'entité météo est utilisée. Les capteurs en °F sont convertis.
 * **Capteur de pluie** (facultatif) : un cumul de pluie journalier en mm (ou un détecteur de
   pluie binaire).
 
-D'autres entrées météo (humidité extérieure, humectation des feuilles, prévisions Open‑Meteo
-facultatives, altitude) se règlent ensuite dans le panneau sous *Paramètres → Météo et capteurs extérieurs*.
+D'autres entrées météo (humidité extérieure, humectation des feuilles, une **station météo** avec
+vitesse du vent, rafales et rayonnement solaire, lumière extérieure, Open‑Meteo facultatif,
+altitude) se règlent ensuite dans le panneau sous *Paramètres → Météo et capteurs extérieurs*.
 
 ### Étape 3 – Planches, serres et bacs
 Ajoutez autant de zones que vous voulez (menu *Ajouter une autre planche, serre ou bac*). Chaque
@@ -135,8 +137,13 @@ n'est donc pas considéré comme obsolète.
 
 Types de capteurs que vous pouvez associer dans le panneau (Paramètres) : humidité du sol,
 température du sol, CE et sondes N / P / K par planche ; température de l'air, humidité de l'air,
-lumière, PAR et humectation des feuilles par zone ; température extérieure, humidité, pluie et
-humectation des feuilles pour le jardin. Une fois par jour, un capteur d'humidité règle aussi le
+lumière, PAR et humectation des feuilles par zone ; pour le jardin, les capteurs extérieurs :
+température extérieure, humidité, pluie, humectation des feuilles et, pour une **station météo**,
+vitesse du vent, rafales, rayonnement solaire (W/m²) et lumière extérieure (lux). Les vitesses
+de vent en m/s, mph ou nœuds sont converties en km/h ; sans capteur de rayonnement, la lumière
+extérieure en lux sert d'estimation (environ 127 lux par W/m²). Chaque capteur de température
+associé (extérieur, air d'une zone, air près d'une planche, sol) est aussi suivi jour par jour
+dans l'[historique du climat](#historique-du-climat). Une fois par jour, un capteur d'humidité règle aussi le
 bilan hydrique de la planche, et chaque planche apprend à quelle vitesse elle se dessèche vraiment.
 
 ---
@@ -343,6 +350,70 @@ s'il y en a une (p. ex. Buienradar), sinon la carte publique de Buienradar pour 
 Belgique (chargée par votre navigateur, actualisée toutes les 5 minutes). Il faut une entité météo
 sous *Paramètres → Météo et capteurs extérieurs*.
 
+#### Historique du climat
+Sous les prévisions, la section **Historique du climat** montre ce que la météo a vraiment fait
+chez vous :
+
+* **Températures et pluie par jour** – sur *30 jours*, *90 jours* ou *1 an* : une bande de la
+  température la plus basse à la plus haute du jour, une ligne pour la moyenne et des barres pour
+  la pluie. Survolez un jour pour le soleil, le vent et la source des données (*capteurs propres*,
+  *historique de l'enregistreur* ou *Open-Meteo (observé)*).
+* **Ces derniers temps, comparé à l'an dernier** – les *7 derniers jours*, les *30 derniers jours*
+  et *Cette saison* (chacun à côté de la même période l'an dernier, dès qu'elle a été
+  enregistrée) : moyenne, minimum, maximum,
+  pluie et jours de pluie, nuits de gel, jours ≥ 25 °C (dont ≥ 30 °C), ensoleillement, vent le
+  plus fort, degrés-jours, évaporation (ET₀) et le bilan pluie − évaporation.
+* **Records** – le plus froid, le plus chaud, le jour le plus pluvieux et la rafale la plus forte.
+* **Ce que Hortulus en fait** – un rappel de l'usage de ces données (degrés-jours, bilan hydrique,
+  maladies, tâches, retards et gel ; voir ci-dessous).
+* **Tous les capteurs de température** – chaque capteur associé (air extérieur, air serre / zone,
+  air près de la planche, sol) avec *Maintenant*, *Aujourd'hui*, *Moy. 7 j*, *Min–max 30 j*,
+  *Record bas*, *Record haut*, le nombre de jours et une petite courbe.
+* **Mois par mois** – les mêmes chiffres par mois, avec l'écart par rapport à l'an dernier.
+* **Dates de gel** – la dernière gelée de printemps et la première gelée d'automne **mesurées**
+  chaque année, et leur moyenne comparée au préréglage régional (*n jours plus tôt / plus tard*).
+  En cas de grand écart, indiquez vos propres dates de gel dans *Paramètres → Climat et région* :
+  toutes les fenêtres de semis suivent.
+
+**Comment l'historique se remplit.** À chaque mise à jour, Hortulus intègre à la journée les
+capteurs extérieurs – ou, à défaut, l'entité météo : températures minimale, maximale et moyenne,
+humidité, vent et rafales, pluie, rayonnement et heures d'ensoleillement (≥ 120 W/m², le seuil de
+l'OMM). Chaque capteur de température associé reçoit son propre minimum, maximum et moyenne par
+jour. Une fois par jour (et au démarrage), les jours qui n'ont pas été bien couverts sur les
+30 derniers jours sont complétés :
+
+1. depuis l'**enregistreur** (recorder) de Home Assistant – les mêmes capteurs, pendant que
+   Hortulus ne tournait pas (redémarrage, mise à jour) ; il faut que le recorder conserve ces
+   entités ;
+2. avec l'option *Utiliser Open-Meteo* activée, depuis la **météo quotidienne observée**
+   d'Open-Meteo pour l'emplacement du jardin (température, pluie, vent et rafales, rayonnement,
+   ensoleillement, humidité, ET₀ FAO) – les coordonnées arrondies sont envoyées à
+   api.open-meteo.com.
+
+Les mesures propres priment toujours ; l'historique de l'enregistreur combine les extrêmes ; la
+météo observée ne remplit que ce qui n'a pas été bien mesuré. Une prévision de pluie ne remplace
+jamais un pluviomètre ou une pluie enregistrée du même jour.
+
+**Conservation.** Les jours extérieurs restent dans le journal quotidien pendant **deux saisons**
+(800 jours), les jours par capteur pendant **400 jours**. Ensuite, ils sont regroupés en
+**chiffres mensuels conservés pour toujours** (moyenne, extrêmes, pluie, nuits de gel, jours
+chauds, ensoleillement, vent), si bien que les comparaisons d'une année sur l'autre survivent.
+Les **dates de gel mesurées** (minimum extérieur sous 0 °C) sont gardées par année ; une
+demi-année ne compte comme complète qu'une fois terminée et enregistrée à au moins 80 %. Tout cela
+vit dans le stockage du jardin (pas dans le fichier de plan) ; la commande websocket
+`garden_manager/climate/stats` le met à disposition (voir [Entités](ENTITES.md)).
+
+**Ce que le moteur en fait.** Les degrés-jours enregistrés déplacent les dates de récolte, et les
+serres comptent les degrés-jours de leur propre capteur d'air (sinon la journée extérieure avec
+l'effet tampon de la serre) ; chaleur, froid et jours sombres enregistrés retardent les cultures
+(la fiche de la culture indique pourquoi). Le bilan hydrique utilise Penman-Monteith sur la journée
+enregistrée (humidité, vent, ensoleillement ou rayonnement). Deux jours chauds et humides passés
+(critères de Hutton) signifient un risque de mildiou élevé, plusieurs jours humides relèvent le
+niveau. Le semis attend un sol durablement chaud (la plus basse entre la mesure actuelle et la
+moyenne des derniers jours). Après une tempête (rafales ≥ 60 km/h), une averse ou une semaine
+sèche, vous recevez une tâche de suivi ; s'il a gelé alors que des cultures frileuses étaient
+dehors, une alerte vous le signale.
+
 ### Journal
 Sections :
 
@@ -465,7 +536,7 @@ déroulantes qui n'affichent que les entités adaptées) :
 | Section | Contenu |
 |---|---|
 | **Climat et région** | hémisphère, profil (préréglage / USDA / personnalisé), dates de gel |
-| **Météo et capteurs extérieurs** | entité météo, température extérieure, pluie, humidité extérieure, humectation des feuilles, option **Open‑Meteo**, altitude |
+| **Météo et capteurs extérieurs** | entité météo, température extérieure, capteur de pluie, humidité extérieure, humectation des feuilles, **station météo** (vitesse du vent, rafales, rayonnement solaire en W/m², lumière extérieure en lux), option **Open‑Meteo** (humidité, vent et ensoleillement pour l'évaporation, et météo observée pour compléter l'[historique du climat](#historique-du-climat)), altitude |
 | **Zones et microclimats** | par zone : température de l'air, humidité, lumière, humectation des feuilles, **PAR** ; pour les serres et les châssis aussi les entités d'**ouvrant** et d'**écran d'ombrage** avec commande *désactivé / conseiller / automatique*, *masse thermique* ; *contre un mur chaud*, *chauffée* (+ température minimale) |
 | **Planches et capteurs** | par planche : humidité du sol, température du sol, sondes **CE, N, P, K**, vanne, bouton **Tester**, débit (L/min ; le débit mesuré s'affiche quand le compteur d'eau l'a appris), **minuterie de la vanne** |
 | **Matériel d'irrigation** | mode (*désactivé / conseiller / automatique*), pompe, heure de début, durée max., blocage en cas de gel, arrêt en cas de pluie, arrêt de la pompe avant la vanne |
@@ -559,15 +630,15 @@ sans elles conserve celles déjà stockées), éléments du jardin, les plans pa
 côté, les cultures, les plantes personnelles, les **surcharges de plantes** et l'historique de
 rotation, plus les tâches si elles sont incluses. Un fichier plus ancien sans `features` ni
 `archived_plans` laisse tranquilles ceux déjà stockés. Les fichiers de versions plus anciennes sont
-migrés automatiquement (version de stockage 1.7) ; les champs inconnus sont ignorés. Les références
+migrés automatiquement (version de stockage 1.8) ; les champs inconnus sont ignorés. Les références
 sont validées par rapport au plan auquel elles appartiennent (une planche doit pointer vers une zone
 de son propre plan, une culture vers une planche existante, y compris dans les plans mis de côté) ;
 un champ du mauvais type (par exemple un `plant_overrides` qui n'est pas un dictionnaire) fait refuser
 tout le fichier, et un fichier refusé ne change rien. Les saisons passées dans le fichier d'archive
 ne font **pas** partie d'un export.
 
-Les recettes, la liste de courses, les dépenses, le carnet et le journal des récoltes ne font pas
-partie du fichier de plan ; ils vivent dans le stockage du jardin.
+Les recettes, la liste de courses, les dépenses, le carnet, le journal des récoltes et
+l'historique du climat ne font pas partie du fichier de plan ; ils vivent dans le stockage du jardin.
 
 ---
 
@@ -589,6 +660,10 @@ partie du fichier de plan ; ils vivent dans le stockage du jardin.
 
 * Pas d'interrogation des capteurs – des écouteurs de changement d'état sur exactement les entités
   associées, avec 10 s d'anti-rebond ; la prévision est la seule récupération planifiée (30 min).
+  Le complément de l'historique du climat (enregistreur et, si activé, Open-Meteo) tourne au plus
+  une fois par jour, et une erreur à ce moment-là n'empêche jamais la mise à jour du jardin.
+* L'historique du climat reste petit : au plus deux saisons de jours extérieurs et 400 jours par
+  capteur, puis une ligne par mois.
 * Tous les calculs sont du Python pur sur des données en mémoire (quelques millisecondes pour un
   jardin typique) ; les écritures de stockage sont différées (5 s, journal système 10 s) et ne
   bloquent jamais la boucle d'événements.
@@ -660,3 +735,8 @@ Assistant n'en dépend. Ce que le dépôt lui-même en montre :
 * Le site web exécute les gestionnaires websocket, les opérations et le stockage de l'intégration sur
   ses propres équivalents des modules de Home Assistant, de sorte que les fichiers de plan décrits à la
   [section 5](#5-format-dimportation-et-dexportation) peuvent être échangés entre les deux.
+* **Historique du climat sur le site web.** Le site web tient le même historique du climat pour
+  chaque jardin, sans enregistreur local : il le remplit avec la météo observée d'**Open-Meteo**
+  pour l'emplacement du jardin et, quand le jardin est relié à un Home Assistant, avec
+  l'**enregistreur** de ce Home Assistant via le jeton du jardin. Les mêmes règles s'appliquent
+  (mesures propres d'abord, conservation de deux saisons / 400 jours, puis chiffres mensuels).

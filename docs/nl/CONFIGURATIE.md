@@ -366,7 +366,7 @@ zichtbaar in een alleen‑lezen gedeelde weergave).
   **90 dagen** of **1 jaar**. Wijs een dag aan voor zon, wind en de herkomst van de gegevens
   (*eigen sensoren*, *recorder‑geschiedenis* of *Open‑Meteo (waargenomen)*).
 * **Recent, vergeleken met vorig jaar** – de *Laatste 7 dagen*, de *Laatste 30 dagen* en
-  *Dit seizoen* (sinds 1 januari; op het zuidelijk halfrond sinds 1 juli), de laatste twee met
+  *Dit seizoen* (sinds 1 januari; op het zuidelijk halfrond sinds 1 juli), elk met
   dezelfde periode vorig jaar ernaast: gemiddeld, laagste, hoogste, regen en dagen met regen
   (≥ 1 mm), vorstnachten (minimum onder 0 °C), dagen ≥ 25 °C (waarvan ≥ 30 °C),
   zonneschijn, hardste wind, graaddagen (met de basistemperatuur uit de instellingen) en
