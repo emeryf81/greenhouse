@@ -131,6 +131,20 @@ def test_recorder_history_combines_extremes_of_the_same_sensor(garden):
     assert (d.tmin, d.tmax, d.tmean, d.sun_h) == (8.5, 21.0, 14.2, 6.0)
 
 
+def test_recorder_history_replaces_a_model_day(garden):
+    """The website fills Open-Meteo first: the recorder's measurement then wins, not a mix of both."""
+    today = date(2026, 6, 10)
+    climate.merge_history(
+        garden, [{"day": "2026-06-09", "tmin": 6.0, "tmax": 24.0, "tmean": 15.0, "rh_mean": 80.0}], "model", today
+    )
+    climate.merge_history(
+        garden, [{"day": "2026-06-09", "tmin": 8.5, "tmax": 21.0, "tmean": 14.2, "rh_mean": 70.0}], "history", today
+    )
+    d = garden.climate_log[0]
+    assert (d.tmin, d.tmax, d.tmean, d.rh_mean) == (8.5, 21.0, 14.2, 70.0)
+    assert d.source == "model+history"
+
+
 def test_sensor_history_fills_the_sensor_log(garden):
     today = date(2026, 6, 10)
     changed = climate.merge_sensor_history(
