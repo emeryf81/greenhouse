@@ -220,8 +220,7 @@ def logged_weather_specs(ctx: TaskContext) -> list[TaskSpec]:
     specs: list[TaskSpec] = []
     recent = [log[day] for i in range(1, AFTER_DAYS + 1) if (day := today - timedelta(days=i)) in log]  # newest first
     open_keys = {t_.key for t_ in data.tasks if t_.key and t_.is_open}
-    storm = next((d for d in recent if stormy(d)), None)
-    if storm is not None:
+    for storm in (d for d in recent if stormy(d)):  # every storm still in its after-care window
         wind = round(max(storm.gust_max or 0, storm.wind_max or 0))
         specs.append(
             TaskSpec(
@@ -239,16 +238,11 @@ def logged_weather_specs(ctx: TaskContext) -> list[TaskSpec]:
             )
         )
     # a downpour that was measured, or one the forecast already put on the list (its task stays until checked)
-    wet = next(
-        (
-            d
-            for d in recent
-            if (d.rain_mm or 0) >= HEAVY_RAIN_MM
-            and (d.rain_src != "forecast" or f"w:rain:{d.day.isoformat()}" in open_keys)
-        ),
-        None,
-    )
-    if wet is not None:
+    for wet in recent:
+        if (wet.rain_mm or 0) < HEAVY_RAIN_MM or (
+            wet.rain_src == "forecast" and f"w:rain:{wet.day.isoformat()}" not in open_keys
+        ):
+            continue
         specs.append(
             TaskSpec(
                 key=f"w:rain:{wet.day.isoformat()}",  # the same task the forecast would have made

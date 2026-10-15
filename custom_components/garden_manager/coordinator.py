@@ -365,7 +365,8 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
             if value is not None and unit in TEMPERATURE_UNITS:
                 value = _to_celsius(value, unit)
-            elif value is not None and unit in RAIN_MM:  # a rain gauge in inches books millimetres
+            elif value is not None and unit in RAIN_MM and entity_id == self.repo.data.settings.outdoor_sensors.rain:
+                # a rain gauge in inches books millimetres (a water butt level in cm stays as it is)
                 value = round(value * RAIN_MM[unit], 2)
             reported = getattr(state, "last_reported", None) or state.last_updated
             readings[entity_id] = SensorReading(entity_id, value, reported, stale=(now - reported) > stale_after)

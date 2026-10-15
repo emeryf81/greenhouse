@@ -389,8 +389,11 @@ def test_days_logged_before_1_8_stay_measured(garden):
 
     doc = _v1_7_to_1_8({"climate_log": [{"day": "2026-10-01", "tmin": -3.0, "tmax": 12.0, "rain_mm": 0.0}]})
     garden.climate_log = [from_dict(ClimateDay, d) for d in doc["climate_log"]]
-    assert garden.climate_log[0].source == "sensor"
-    climate.merge_history(garden, [{"day": "2026-10-01", "tmin": 1.0, "tmax": 10.0}], "model", date(2026, 10, 15))
+    assert (garden.climate_log[0].source, garden.climate_log[0].hours) == ("sensor", 0.0)  # coverage unknown
+    for _ in range(2):  # also once the model filled a gap of that day
+        climate.merge_history(
+            garden, [{"day": "2026-10-01", "tmin": 1.0, "tmax": 10.0, "sun_h": 4.0}], "model", date(2026, 10, 15)
+        )
     assert (garden.climate_log[0].tmin, garden.climate_log[0].tmax) == (-3.0, 12.0)  # the measured frost stays
 
 
@@ -408,7 +411,9 @@ def test_recorder_mean_of_a_whole_day_beats_own_samples_cut_short(garden):
     today = date(2026, 10, 15)
     garden.sensor_log = [SensorDay("sensor.soil", date(2026, 10, 14), 8.0, 12.0, 10.13, n=72)]
     climate.merge_sensor_history(
-        garden, {"sensor.soil": [{"day": "2026-10-14", "tmin": 8, "tmax": 14, "tmean": 10.28, "n": 48}]}, today
+        garden,
+        {"sensor.soil": [{"day": "2026-10-14", "tmin": 8, "tmax": 14, "tmean": 10.28, "n": 48, "hours": 24.0}]},
+        today,
     )
     s = garden.sensor_log[0]
     assert (s.tmean, s.tmax) == (10.28, 14.0)
@@ -450,9 +455,12 @@ def test_a_heatwave_keeps_one_task_and_after_care_lasts(db, garden):
         tasks = _weather_tasks(db, garden, today, out)
     assert tasks["w:rain:2026-07-20"] == "open"
 
-    # after a storm the check stays a few days
+    # after a storm the check stays a few days, also when the next day storms too
     garden.tasks = []
-    garden.climate_log = [ClimateDay(date(2026, 8, 1), 15, 22, rain_mm=0.0, gust_max=80.0, rain_src="gauge")]
+    garden.climate_log = [
+        ClimateDay(date(2026, 8, 1), 15, 22, rain_mm=0.0, gust_max=80.0, rain_src="gauge"),
+        ClimateDay(date(2026, 8, 2), 15, 22, rain_mm=0.0, gust_max=75.0, rain_src="gauge"),
+    ]
     for d in (2, 3):
         tasks = _weather_tasks(db, garden, date(2026, 8, d), [])
-    assert tasks["w:after_storm:2026-08-01"] == "open"
+    assert tasks["w:after_storm:2026-08-01"] == "open" and tasks["w:after_storm:2026-08-02"] == "open"

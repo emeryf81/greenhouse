@@ -2116,11 +2116,16 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
         before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         complete = entry.hours >= FULL_DAY_H
         # measured days (own samples or recorder history) keep their values: the model only fills gaps
-        # (a day from before 1.8 has no source yet: it was measured by the garden's own sensors)
+        # (a day from before 1.8 was measured by the garden's own sensors, without hours of coverage)
         measured = (
             entry.hours >= MODEL_BEATS_H
             or "history" in entry.source
-            or (entry.source == "" and not new and entry.tmin is not None)
+            or (
+                (entry.source == "" or "sensor" in entry.source)
+                and entry.hours == 0
+                and not new
+                and entry.tmin is not None
+            )
         )
         # values that came from the model only: a measurement replaces them instead of mixing in
         modelled = "model" in entry.source and not measured

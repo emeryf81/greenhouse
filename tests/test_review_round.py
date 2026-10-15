@@ -21,6 +21,11 @@ async def test_rain_gauge_in_inches_books_millimetres(hass: HomeAssistant, setup
     await rt.coordinator.async_recompute()
     day = rt.repo.data.climate_log[-1]
     assert (day.rain_mm, day.rain_src) == (25.4, "gauge")
+    # another mapped sensor in cm (not the rain gauge) keeps its value
+    rt.repo.data.settings.water.butt_level_entity = "sensor.level_cm"  # a water butt level
+    hass.states.async_set("sensor.level_cm", "40", {"unit_of_measurement": "cm"})
+    rt.coordinator.async_track_entities()
+    assert rt.coordinator.read_sensors()["sensor.level_cm"].value == 40.0
 
 
 async def test_water_meter_in_gallons(hass: HomeAssistant, setup_garden) -> None:

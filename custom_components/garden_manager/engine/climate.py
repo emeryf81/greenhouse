@@ -44,7 +44,6 @@ HOT_C = 25.0
 VERY_HOT_C = 30.0
 FULL_DAY_H = 20.0  # own samples covering this much make a complete day
 MODEL_BEATS_H = 12.0  # Open-Meteo replaces own extremes when they cover less
-RECORDER_FULL_DAY_N = 24  # a recorder day with at least hourly states covers the whole day
 GREENHOUSE_NIGHT_C = 2.0  # fallback when a greenhouse has no air sensor
 GREENHOUSE_DAY_C = 4.0
 STORM_GUST_KMH = 60.0
@@ -241,11 +240,16 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
         before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         complete = entry.hours >= FULL_DAY_H
         # measured days (own samples or recorder history) keep their values: the model only fills gaps
-        # (a day from before 1.8 has no source yet: it was measured by the garden's own sensors)
+        # (a day from before 1.8 was measured by the garden's own sensors, without hours of coverage)
         measured = (
             entry.hours >= MODEL_BEATS_H
             or "history" in entry.source
-            or (entry.source == "" and not new and entry.tmin is not None)
+            or (
+                (entry.source == "" or "sensor" in entry.source)
+                and entry.hours == 0
+                and not new
+                and entry.tmin is not None
+            )
         )
         # values that came from the model only: a measurement replaces them instead of mixing in
         modelled = "model" in entry.source and not measured
@@ -302,16 +306,17 @@ def merge_sensor_history(data: GardenData, series: Mapping[str, Iterable[Mapping
             if tmin is None and tmax is None:
                 continue
             entry, new = _sensor_day(data.sensor_log, entity_id, day)
-            before = (entry.tmin, entry.tmax, entry.tmean)
+            before = (entry.tmin, entry.tmax, entry.tmean, entry.n)
             if tmin is not None:
                 entry.tmin = tmin if entry.tmin is None else min(entry.tmin, tmin)
             if tmax is not None:
                 entry.tmax = tmax if entry.tmax is None else max(entry.tmax, tmax)
             n = int(_f(rec.get("n")) or 0)
             # the recorder's time-weighted mean of the whole day beats a day of own samples cut short
-            if tmean is not None and (n >= entry.n or n >= RECORDER_FULL_DAY_N):
+            covered = _f(rec.get("hours")) or 0.0
+            if tmean is not None and (n >= entry.n or covered >= FULL_DAY_H):
                 entry.tmean, entry.n = round(tmean, 2), n
-            if new or before != (entry.tmin, entry.tmax, entry.tmean):
+            if new or before != (entry.tmin, entry.tmax, entry.tmean, entry.n):
                 if new:
                     entry.source = "history"
                 changed = True
@@ -321,7 +326,8 @@ def merge_sensor_history(data: GardenData, series: Mapping[str, Iterable[Mapping
 
 
 def daily_from_samples(samples: Iterable[tuple[datetime, float]], tz: Any) -> list[dict[str, Any]]:
-    """Recorder states -> per local day ``{day, tmin, tmax, tmean, n}`` (time weighted mean)."""
+    """Recorder states -> per local day ``{day, tmin, tmax, tmean, n, hours}`` (time weighted mean;
+    ``hours`` is how much of the day the states cover)."""
     points = sorted((t.astimezone(tz), v) for t, v in samples if v is not None and math.isfinite(v))
     days: dict[date, dict[str, Any]] = {}
     for i, (at, value) in enumerate(points):
@@ -337,7 +343,8 @@ def daily_from_samples(samples: Iterable[tuple[datetime, float]], tz: Any) -> li
     out = []
     for d in days.values():
         out.append({"day": d["day"], "tmin": round(d["tmin"], 2), "tmax": round(d["tmax"], 2),
-                    "tmean": round(d["s"] / d["w"], 2) if d["w"] else None, "n": d["n"]})  # fmt: skip
+                    "tmean": round(d["s"] / d["w"], 2) if d["w"] else None, "n": d["n"],
+                    "hours": round(min(d["w"] / 3600, 24.0), 1)})  # fmt: skip
     return sorted(out, key=lambda r: r["day"])
 
 

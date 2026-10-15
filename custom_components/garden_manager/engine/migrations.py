@@ -106,8 +106,7 @@ def _v1_7_to_1_8(doc: Doc) -> Doc:
             and not day.get("source")
             and (day.get("tmin") is not None or day.get("tmax") is not None)
         ):
-            day["source"] = "sensor"
-            day["hours"] = 24.0
+            day["source"] = "sensor"  # (no hours: how much of the day they covered is not known)
     return doc
 
 
