@@ -303,6 +303,11 @@ The panel follows your phone, tablet or desktop, in light or dark, with four col
   records.
 * **Blueprints** – frost warning on a lamp, a button or NFC tag that logs a harvest,
   watering a dry bed at a good moment, spoken announcements of urgent jobs.
+* **Extras** (1.9, all on, each switchable in *Settings → Extras*) – changing garden sayings,
+  estimated soil temperature for beds without a probe, *dry again in N days* per bed, a
+  silent‑sensor warning, a monthly weather summary against last year, your own measured frost
+  dates in one click, CSV import from Netatmo / Ecowitt / Davis, watering that waits for solar
+  surplus, and a climate line on the dashboard card.
 
 ### Hortulus Web – the same garden on a website (optional)
 

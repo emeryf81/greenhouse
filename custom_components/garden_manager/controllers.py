@@ -20,6 +20,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
+import math
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import ATTR_ENTITY_ID
@@ -128,6 +129,7 @@ class IrrigationController:
         self._quiet_since: datetime | None = None
         self.leak: dict[str, Any] | None = None
         self._partial_s = 0.0  # seconds held by an opening that was interrupted
+        self.waiting_for_sun: dict[str, Any] | None = None  # a scheduled run waiting for solar surplus
 
     @property
     def running(self) -> bool:
@@ -505,10 +507,59 @@ class IrrigationController:
             self._reported.discard(entity_id)
         return state
 
+    def solar_ready(self, now: datetime) -> tuple[bool, float | None]:
+        """May a scheduled run start now? Waits for solar surplus (settings.solar_irrigation)
+        until ``surplus_latest``; without a surplus sensor, or with a sensor that reports nothing
+        usable, it never waits.  ``(ready, surplus in W)``."""
+        settings = self.coordinator.repo.data.settings
+        irr = settings.irrigation
+        if not settings.solar_irrigation or not irr.surplus_entity:
+            return True, None
+        state = self.hass.states.get(irr.surplus_entity)
+        try:
+            watts = float(state.state) if state is not None else None
+        except (TypeError, ValueError):
+            watts = None
+        if watts is None or not math.isfinite(watts):
+            return True, None
+        unit = str(state.attributes.get("unit_of_measurement", "")).lower() if state is not None else ""
+        if unit == "kw":  # some inverters (SolarEdge ...) report kW
+            watts *= 1000
+        hh, _, mm = irr.surplus_latest.partition(":")
+        try:
+            latest = now.replace(hour=int(hh), minute=int(mm or 0), second=0, microsecond=0)
+        except ValueError:
+            latest = now.replace(hour=11, minute=0, second=0, microsecond=0)
+        return watts >= irr.surplus_min_w or now >= latest, round(watts)
+
+    async def async_start_scheduled(self, now: datetime) -> None:
+        """The automatic run at the start time - or, waiting for the sun, as soon as there is surplus."""
+        if self.coordinator.repo.data.settings.irrigation.mode != "auto" or self.running:
+            return
+        ready, watts = self.solar_ready(now)
+        if not ready:
+            irr = self.coordinator.repo.data.settings.irrigation
+            self.waiting_for_sun = {"since": now.isoformat(), "watts": watts, "needed": irr.surplus_min_w,
+                                    "latest": irr.surplus_latest}  # fmt: skip
+            _LOGGER.debug("Automatic irrigation waits for solar surplus: %s W", watts)
+            return
+        self.waiting_for_sun = None
+        await self.coordinator.async_recompute()
+        plan = self.build_plan()
+        if plan.runs:
+            self.async_start(plan, source="auto")
+        else:
+            _LOGGER.debug("Automatic irrigation: nothing to do (%s)", plan.skipped)
+
     @callback
     def async_watch(self, now: datetime | None = None) -> None:
         """Every minute: a valve or pump open long after any run could last is reported."""
         now = now or dt_util.now()
+        if self.waiting_for_sun is not None and not self.running:
+            if self.solar_ready(now)[0]:
+                self.hass.async_create_task(self.async_start_scheduled(now))
+            else:
+                self.waiting_for_sun["watts"] = self.solar_ready(now)[1]
         limit = timedelta(minutes=self.coordinator.repo.data.settings.irrigation.max_runtime_min + STUCK_MARGIN_MIN)
         changed = False
         any_open = False

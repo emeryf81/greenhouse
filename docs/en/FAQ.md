@@ -265,7 +265,21 @@ and the first in autumn (July–December; the other way round on the southern he
 half‑year counts once it is over and at least 80 % of its days were logged. The Climate history
 shows each year and the average against the regional preset (*x days earlier / later*). The
 sowing calendar keeps using the frost dates under **Settings → Region**; change them there if
-your measured dates say your garden is earlier or later.
+your measured dates say your garden is earlier or later. Once ≥ 2 complete years put a date ≥ 7
+days off the preset, the Climate history offers **Use my frost dates** (admin) to do it in one click.
+
+**How do I switch off the sayings, or any other extra?**
+**Settings → Extras**: one switch per extra (garden sayings, estimated soil temperature, water
+forecast, silent‑sensor warning, weather summary, own frost dates, station import, solar‑aware
+watering, climate line on the card). All are on by default. On a single dashboard card you can
+also hide just the saying or the climate line with `slogan: false` or `climate: false`.
+
+**How do I import my Netatmo / Ecowitt history?**
+Export the data as CSV from the station's app or website (Davis or a spreadsheet works too), then
+**Weather → Climate history → Import weather station data** (admin). Separator, header, time
+(also unix seconds) and the temperature, humidity, rain, wind and gust columns are recognised in
+English, Dutch and French; °F, inches, mph, m/s and knots are converted. Days Hortulus measured
+itself are kept; the imported days count as *history*.
 
 **When should I put insect mesh on?**
 Hortulus follows a **pest calendar**: for carrot fly, cabbage root fly, cabbage white, onion fly,
@@ -488,7 +502,8 @@ tonight?”. Sentences exist in English, Dutch and French. See the
 **Is there a dashboard card?**
 Yes: `type: custom:hortulus-tasks-card` is loaded automatically. It shows today's and overdue
 tasks with a tick box, watering today, a run in progress, a valve left open (with *Close*) and
-leaks; `days`, `assignee`, `max` and `garden` are optional. See the
+leaks, plus a garden saying and a climate line; `days`, `assignee`, `max`, `garden`, `climate` and
+`slogan` are optional. See the
 [entity reference](ENTITY_REFERENCE.md#lovelace-card).
 
 **Can I automate Hortulus?**
@@ -600,6 +615,13 @@ Look at `binary_sensor.hortulus_irrigation_frost_lockout` and run
 skipped bed with its reason (frost lockout, rain expected, no valve, no flow rate, not
 needed, mode not *auto*). The frost lockout looks at the next 12 hours, so a colder night later
 in the forecast does not hide tonight's frost.
+
+**Why does automatic watering start later than the start time?**
+Because a solar surplus sensor is set under **Settings → Irrigation hardware** (extra *Energy‑aware
+watering*): the run waits until the surplus reaches *start from surplus* (default 500 W), but never
+past *wait at most until* (default 11:00) – then it waters anyway. Meanwhile **Today** shows
+*Waiting for solar surplus*. No sensor, or no usable reading, means no waiting; clear the sensor or
+switch the extra off to start on time again.
 
 ## Troubleshooting
 

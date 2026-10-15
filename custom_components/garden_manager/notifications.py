@@ -24,8 +24,11 @@ from .const import (
     EVENT_TASK_DUE,
 )
 from .engine.analysis import Alert, GardenAnalysis
+from .engine.climate import compare_with_last_year, last_month, summary_lines
 from .engine.i18n import t
 from .engine.models import IrrigationAction, Task
+from .engine.seasonbook import MONTHS
+from .engine.slogans import enabled as slogans_enabled, slogan
 from .engine.tasks import MergeResult, overdue_report, tasks_due, week_ahead
 from .storage import GardenRepository
 
@@ -144,13 +147,14 @@ class GardenNotifier:
             self._fire_task_due(task)
         if not due:
             message = t("digest.none", lang)
+            message += self._saying(analysis, ("rest", "outdoors"), "digest")
         else:
             minutes = sum(task.estimated_minutes for task in due)
             lines = [t("digest.count", lang, count=len(due), minutes=minutes)]
             lines += [f"- {task.title}" for task in due[:12]]
             if len(due) > 12:
                 lines.append(f"- … +{len(due) - 12}")
-            message = "\n".join(lines)
+            message = "\n".join(lines) + self._saying(analysis, ("garden", "veg", "outdoors", "harvest"), "digest")
         await self.async_send(
             t("digest.title", lang),
             message,
@@ -159,6 +163,40 @@ class GardenNotifier:
             data={"tag": f"{DOMAIN}_digest", "url": "/hortulus", **self._buttons(due, lang)},
         )
         await self._send_personal(due, lambda tasks: t("digest.title", lang), f"{DOMAIN}_digest", lang)
+        if analysis.today.day == 1:
+            await self.async_send_month_summary(analysis)
+
+    def _saying(self, analysis: GardenAnalysis, topics: tuple[str, ...], salt: str) -> str:
+        """A changing garden saying under a message (settings.slogans), or nothing."""
+        data = self.repo.data
+        if not slogans_enabled(data.settings):
+            return ""
+        south = data.settings.region.hemisphere.value == "south"
+        line = slogan(analysis.lang, day=analysis.today, topics=topics, salt=salt, south=south)
+        return f"\n\n🌱 {line}" if line else ""
+
+    async def async_send_month_summary(self, analysis: GardenAnalysis) -> None:
+        """On the 1st: last month's weather against the same month last year (settings.season_summary)."""
+        data = self.repo.data
+        if not data.settings.season_summary:
+            return
+        key = f"month:{analysis.today.isoformat()}"
+        if self._seen(key):
+            return
+        self._mark(key, analysis.today)
+        start, end = last_month(analysis.today)
+        latitude = data.settings.region.latitude or self.hass.config.latitude
+        cmp = compare_with_last_year(data, start, end, latitude=latitude, elevation_m=data.settings.elevation_m or 0.0)
+        lines = summary_lines(cmp, analysis.lang)
+        if not lines:
+            return
+        month = MONTHS.get(analysis.lang, MONTHS["en"])[start.month - 1]
+        await self.async_send(
+            t("notify.month_title", analysis.lang, month=month),
+            "\n".join(lines) + self._saying(analysis, ("weather", "garden"), "month"),
+            notification_id=f"{DOMAIN}_month",
+            data={"tag": f"{DOMAIN}_month", "url": "/hortulus"},
+        )
 
     async def async_send_overdue(self, analysis: GardenAnalysis) -> None:
         """Evening reminder for tasks left undone, with a verdict per task."""
@@ -213,7 +251,8 @@ class GardenNotifier:
         ]  # fmt: skip
         await self.async_send(
             t("weekly.title", lang),
-            "\n".join(lines) or t("weekly.empty", lang),
+            ("\n".join(lines) or t("weekly.empty", lang))
+            + self._saying(analysis, ("garden", "outdoors", "veg"), "weekly"),
             notification_id=f"{DOMAIN}_weekly",
             data={"tag": f"{DOMAIN}_weekly", "url": "/hortulus"},
         )

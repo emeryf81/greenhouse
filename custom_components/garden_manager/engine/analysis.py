@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
-from .climate import last_night, recent_mean, recent_wetness, zone_log
+from .climate import estimate_soil_temp, last_night, local_frost_suggestion, recent_mean, recent_wetness, zone_log
 from .compatibility import (
     CompatibilityReport,
     RotationFinding,
@@ -41,8 +41,9 @@ from .plantdb import PlantDatabase
 from .region import SeasonAnchors, resolve_profile, season_anchors, season_bounds, season_for_date
 from .schedule import PlantingTimeline, TimingAdvice, planting_timeline, season_timeline, timing_advice
 from .serde import to_dict
+from .slogans import enabled as slogans_enabled, slogan
 from .tasks import TaskContext, is_active
-from .waterbalance import bed_irrigation_mm
+from .waterbalance import bed_irrigation_mm, days_until_dry
 from .watering import IrrigationRecommendation, recommend_irrigation, total_available_water
 from .weather import (
     DailyOutlook,
@@ -58,6 +59,9 @@ from .weather import (
 )
 
 DEFAULT_LATITUDE = 52.0
+
+
+SILENT_DAYS = 2  # a mapped sensor quiet this long gets a warning (settings.sensor_health)
 
 
 @dataclass(slots=True)
@@ -84,6 +88,9 @@ class BedAnalysis:
     taw_mm: float | None = None
     depletion_mm: float | None = None
     et_factor: float = 1.0  # learned from the moisture sensor: >1 dries faster than modelled
+    dry_in_days: int | None = None  # the forecast (settings.water_forecast): dry in N days, None = stays moist
+    dry_on: date | None = None
+    soil_temp_estimate: float | None = None  # from the logged air when no soil sensor (settings.soil_estimate)
 
     @property
     def moisture_status(self) -> MoistureStatus:
@@ -130,6 +137,8 @@ class GardenAnalysis:
     et0_method: str | None = None
     gdd_today: float | None = None
     pests: list[PestWarning] = field(default_factory=list)
+    slogan: str = ""  # a changing garden saying for the panel (settings.slogans)
+    local_frost: dict[str, Any] | None = None  # measured frost dates worth adopting (settings.local_frost_suggest)
 
     def task_context(self, data: GardenData, db: PlantDatabase) -> TaskContext:
         return TaskContext(
@@ -174,6 +183,9 @@ class GardenAnalysis:
                     "taw_mm": b.taw_mm,
                     "depletion_mm": b.depletion_mm,
                     "et_factor": b.et_factor,
+                    "dry_in_days": b.dry_in_days,
+                    "dry_on": b.dry_on.isoformat() if b.dry_on else None,
+                    "soil_temp_estimate": b.soil_temp_estimate,
                 }
                 for k, b in self.beds.items()
             },
@@ -199,6 +211,8 @@ class GardenAnalysis:
             "et0_method": self.et0_method,
             "gdd_today": self.gdd_today,
             "pests": [w.to_dict() for w in self.pests],
+            "slogan": self.slogan,
+            "local_frost": self.local_frost,
         }
 
 
@@ -303,6 +317,7 @@ def analyze(
         )
         zones[zone.id] = ZoneAnalysis(zone.id, frost, gh, air, disease, humidity)
 
+    zone_logs = {zone.id: zone_log(data, zone.id) for zone in data.zones}
     # -- beds ---------------------------------------------------------------- #
     history = list(rotation_history(data.rotation_history, data.plantings, db))
     hemisphere = resolve_profile(region).hemisphere
@@ -405,6 +420,13 @@ def analyze(
             depletion_mm=depletion[0] if depletion else None,
             et_factor=bucket.et_factor if bucket is not None else 1.0,
         )
+        if data.settings.water_forecast and depletion is not None and kc:
+            dry = days_until_dry(
+                depletion[0], depletion[1], kc=kc, outlook=outlook, latitude=latitude,
+                enclosed=bool(zone and zone.is_enclosed), et_factor=beds[bed.id].et_factor,
+            )  # fmt: skip
+            if dry is not None:
+                beds[bed.id].dry_in_days, beds[bed.id].dry_on = dry
 
         zone_frost = zones[bed.zone_id].frost if bed.zone_id in zones else outdoor_frost
         soil_t = SensorSnapshot.value(snap.soil_temperature)
@@ -412,6 +434,11 @@ def analyze(
         if soil_t is not None and logged_soil is not None:
             # one warm afternoon is not warm soil: sow on the lower of now and the last days' mean
             soil_t = min(soil_t, logged_soil)
+        if soil_t is None and data.settings.soil_estimate:
+            # no soil sensor: the soil follows the air of the last days (greenhouses buffered)
+            est = estimate_soil_temp(zone_logs[bed.zone_id][0] if bed.zone_id in zone_logs else data.climate_log, today)
+            if est is not None:
+                soil_t = beds[bed.id].soil_temp_estimate = est[0]
         for p in in_bed:
             if p.id in timelines:
                 advice[p.id] = timing_advice(
@@ -433,7 +460,6 @@ def analyze(
     gdd_today = None
     if today_out and today_out.tmin is not None and today_out.tmax is not None:
         gdd_today = round(gdd_for_day(today_out.tmin, today_out.tmax, base), 1)
-    zone_logs = {zone.id: zone_log(data, zone.id) for zone in data.zones}
     for zone in data.zones:
         # Greenhouses count their own air (sensor, else the outdoor day buffered).
         if zone.is_enclosed:
@@ -569,7 +595,30 @@ def analyze(
                     bed_id=bed.id,
                 )
             )
-    alerts.extend(stale_alerts)
+    silent: set[str] = set()
+    if data.settings.sensor_health:
+        # a mapped sensor that has said nothing for days: a flat battery, a lost connection, a sensor gone
+        for reading in readings.values():
+            if reading.last_updated is not None and now - reading.last_updated >= timedelta(days=SILENT_DAYS):
+                silent.add(reading.entity_id)
+                alerts.append(
+                    Alert(
+                        f"silent:{reading.entity_id}", "sensor_silent", "warning", "alert.sensor_silent",
+                        {"entity": reading.entity_id, "days": (now - reading.last_updated).days},
+                    )
+                )  # fmt: skip
+    alerts.extend(a for a in stale_alerts if a.params.get("entity") not in silent)
+    local = None
+    if data.settings.local_frost_suggest:
+        preset = anchors(season)
+        local = local_frost_suggestion(data, today, preset.last_frost, preset.first_frost)
+        if local is not None:
+            alerts.append(
+                Alert(
+                    f"local_frost:{local['last_frost']}:{local['first_frost']}", "local_frost", "info",
+                    "alert.local_frost_ready", dict(local),
+                )
+            )  # fmt: skip
     order = {"critical": 0, "warning": 1, "info": 2}
     alerts.sort(key=lambda a: order.get(a.severity, 3))
 
@@ -593,7 +642,13 @@ def analyze(
         et0_method=today_out.et0_method if today_out else None,
         gdd_today=gdd_today,
         pests=pest_warnings(data, db, timelines, today, outlook, south=hemisphere is Hemisphere.SOUTH, lang=lang),
-    )
+        slogan=(
+            slogan(lang, day=today, topics=("garden", "veg", "outdoors", "harvest"), salt="panel",
+                   south=hemisphere is Hemisphere.SOUTH)
+            if slogans_enabled(data.settings) else ""
+        ),
+        local_frost=local,
+    )  # fmt: skip
 
 
 class _NoZone:

@@ -1602,3 +1602,30 @@ async def test_text_the_cook_rewrote_survives_recalculation(hass: HomeAssistant,
     await hass.async_block_till_done()
     same = runtime.repo.data.task(task.id)
     assert same is not None and same.title == "Mijn titel" and same.description == "Mijn tekst"
+
+
+async def test_digest_carries_a_changing_saying_unless_switched_off(hass: HomeAssistant, garden) -> None:
+    from homeassistant.util import dt as dt_util
+
+    from custom_components.garden_manager.engine.models import Task, TaskType
+
+    entry, _calls = garden
+    runtime = entry.runtime_data
+    repo = runtime.repo
+    sent: list[dict[str, Any]] = []
+
+    async def phone(call: ServiceCall) -> None:
+        sent.append(dict(call.data))
+
+    hass.services.async_register("notify", "mobile_app_phone", phone)
+    repo.data.settings.notifications.notify_services = ["notify.mobile_app_phone"]
+    repo.data.tasks = [Task("only", TaskType.WEED, "Wieden", dt_util.now().date())]
+    await runtime.notifier.async_send_digest(runtime.coordinator.data)
+    await hass.async_block_till_done()
+    assert "🌱" in sent[-1]["message"]
+
+    repo.data.notified.clear()
+    repo.data.settings.slogans = False
+    await runtime.notifier.async_send_digest(runtime.coordinator.data)
+    await hass.async_block_till_done()
+    assert "🌱" not in sent[-1]["message"]

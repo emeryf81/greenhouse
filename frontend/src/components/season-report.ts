@@ -22,6 +22,10 @@ export interface SeasonReport {
   problems: { at: string; text: string; plant_id: string | null; bed_id: string | null }[];
   milestones: { at: string; text: string }[];
   totals: { crops: number; plantings: number; kg: number; expected_kg: number; failed: number; water_l: number; water_runs: number; journal: number };
+  /** The season's weather against the year before, in sentences (settings.season_summary). */
+  weather?: string[];
+  /** A changing garden saying (settings.slogans). */
+  slogan?: string;
 }
 
 @customElement("hl-season-report")
@@ -106,6 +110,8 @@ export class SeasonReportView extends LitElement {
     if (r.failed.length) lines.push("", `## ${t("report.failed")}`, "", ...r.failed.map((f) => `- ${this.name(f.plant_id)} (${this.bed(f.bed_id)})${f.notes ? `: ${f.notes}` : ""}`));
     if (r.problems.length) lines.push("", `## ${t("report.problems")}`, "", ...r.problems.map((p) => `- ${p.at.slice(0, 10)}: ${p.text}`));
     if (r.milestones.length) lines.push("", `## ${t("report.milestones")}`, "", ...r.milestones.map((p) => `- ${p.at.slice(0, 10)}: ${p.text}`));
+    if (r.weather?.length) lines.push("", `## ${t("report.weather")}`, "", ...r.weather.map((l) => `- ${l}`));
+    if (r.slogan) lines.push("", `> ${r.slogan}`);
     return lines.join("\n") + "\n";
   }
 
@@ -144,6 +150,8 @@ export class SeasonReportView extends LitElement {
         ${r.failed.length ? html`<h3>${this.t("report.failed")}</h3><ul>${r.failed.map((f) => html`<li>${this.name(f.plant_id)} (${this.bed(f.bed_id)})${f.notes ? ` – ${f.notes}` : ""}</li>`)}</ul>` : nothing}
         ${r.problems.length ? html`<h3>${this.t("report.problems")}</h3><ul>${r.problems.map((p) => html`<li>${formatDate(p.at.slice(0, 10), this.lang)}: ${p.text}</li>`)}</ul>` : nothing}
         ${r.milestones.length ? html`<h3>${this.t("report.milestones")}</h3><ul>${r.milestones.map((p) => html`<li>${formatDate(p.at.slice(0, 10), this.lang)}: ${p.text}</li>`)}</ul>` : nothing}
+        ${r.weather?.length ? html`<h3>${this.t("report.weather")}</h3>${r.weather.map((l) => html`<p class="small">${l}</p>`)}` : nothing}
+        ${r.slogan ? html`<p class="small" style="font-style:italic">🌱 ${r.slogan}</p>` : nothing}
         <p class="xs muted">${this.t("report.hint")}</p>`}
     </div>`;
   }

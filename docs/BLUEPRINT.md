@@ -6,7 +6,7 @@
 > **Hortulus** (`garden_manager`) is a Home Assistant custom integration plus a sidebar
 > panel for planning and running a vegetable garden. This blueprint is the single
 > technical reference: architecture, data model, algorithms, APIs, UI and tests. It describes
-> **integration version 1.8.1** (storage schema 1.8). All code excerpts are copied verbatim
+> **integration version 1.9.0** (storage schema 1.8). All code excerpts are copied verbatim
 > from the repository; follow the file links for the full implementation.
 > Nederlandstalige gebruikersdocumentatie staat in [`docs/nl`](nl/).
 
@@ -82,11 +82,12 @@
 greenhouse/                                  ← repository (brand: Hortulus)
 ├── README.md · README.nl.md · README.fr.md · CHANGELOG.md · CONTRIBUTING.md · LICENSE · hacs.json · pyproject.toml · requirements_test.txt
 ├── .github/workflows/ci.yml                 ← 5 jobs: ruff + pytest, tsc + node:test + bundle check, Playwright click‑through, hassfest, HACS
+├── .github/workflows/release.yml            ← new version in manifest.json on main → tag vX.Y.Z + GitHub release (CHANGELOG section, garden_manager.zip)
 ├── assets/brand/                            ← icon, logo, dark logo, banner (SVG sources + PNG renders)
 ├── blueprints/automation/hortulus/          ← HA automation blueprints: frost_flash_light, button_log_harvest, water_when_dry, urgent_task_announce
 ├── custom_components/garden_manager/
 │   ├── __init__.py          setup/unload per config entry (= per garden), GardenRuntime, daily rollover, digest / reminder / irrigation schedules
-│   ├── manifest.json        domain, version 1.8.1, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
+│   ├── manifest.json        domain, version 1.9.0, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
 │   ├── const.py             constants, events, service names
 │   ├── config_flow.py       guided setup (region → weather → areas+sensors → notifications → summary) + options; a second entry = a second garden
 │   ├── options.py           options ⇄ stored settings
@@ -97,7 +98,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   ├── storage.py           versioned Store + repository (debounced saves, revision, system log, season archive)
 │   ├── operations.py        write operations shared by services, websocket, calendar & todo (validation, undo, cookbook, plans)
 │   ├── services.py · services.yaml          21 services; admin‑only set; optional `garden:` on every call
-│   ├── websocket_api.py     panel API (67 commands under `garden_manager/`: subscribe, plan/*, plants/*, records/*, cooking/*, climate/stats, …)
+│   ├── websocket_api.py     panel API (69 commands under `garden_manager/`: subscribe, plan/*, plants/*, records/*, cooking/*, climate/*, …)
 │   ├── notifications.py     persistent / push / TTS / bus events, de‑duplicated, with phone action buttons
 │   ├── actions.py           handler for `mobile_app_notification_action` (Done / Tomorrow / Water now / Close valve)
 │   ├── voice.py             six Assist intents + `install_voice_sentences`
@@ -124,7 +125,8 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │       ├── seasons.py archive.py syslog.py migrations.py planio.py                  per‑season plans, archive, undo, versions, import/export
 │       ├── cooking.py cooking_dishes.py cooking_extras.py                           seasonal cookbook
 │       ├── pdf.py printout.py seasonbook.py handbook.py                             documents
-│       └── i18n.py texts_garden.py                                                  backend message catalogue (EN/NL/FR)
+│       ├── i18n.py texts_garden.py                                                  backend message catalogue (EN/NL/FR)
+│       └── slogans.py                                                               garden sayings (EN/NL/FR, by theme and season), picked per day and place
 ├── frontend/                ← Lit + TypeScript sources (esbuild), dev harness, tests
 │   ├── build.mjs · package.json · tsconfig.json
 │   ├── src/hortulus-panel.ts            root element, menu (places + tabs), routing, subscription, garden switcher, theme, toasts
@@ -849,7 +851,7 @@ All in `GardenData` next to the plan (see `engine/models.py`):
 
 | Dataclass | Holds |
 |---|---|
-| `GardenSettings` | `region` (`RegionProfile`: hemisphere, preset/custom/USDA mode, frost dates, `frost_free`, latitude, time zone), `weather_entity`, `outdoor_sensors`, `language`, `notifications` (persistent, notify services, TTS, digest/overdue/weekly times), `irrigation` (mode, pump, start time, max runtime, frost lockout, rain skip, pump lead), `resources` (household, hours, water, compost, goals, wanted/excluded, autofill preferences), `water` (meter, butt level + capacity, leak alerts), `economy` (currency, water price, own prices per crop), `assignment`, `person_notify`, `open_meteo`, `elevation_m`, `maintenance_tasks`, `eco_tips`, `weather_aware_scheduling`, `sensor_stale_minutes`, `companion_radius_cm`, `root_zone_depth_mm`, `max_irrigation_mm`, `gdd_base_c`, `snap_cm` |
+| `GardenSettings` | `region` (`RegionProfile`: hemisphere, preset/custom/USDA mode, frost dates, `frost_free`, latitude, time zone), `weather_entity`, `outdoor_sensors`, `language`, `notifications` (persistent, notify services, TTS, digest/overdue/weekly times), `irrigation` (mode, pump, start time, max runtime, frost lockout, rain skip, pump lead, `surplus_entity`, `surplus_min_w` (500), `surplus_latest` ("11:00")), `resources` (household, hours, water, compost, goals, wanted/excluded, autofill preferences), `water` (meter, butt level + capacity, leak alerts), `economy` (currency, water price, own prices per crop), `assignment`, `person_notify`, `open_meteo`, `elevation_m`, `maintenance_tasks`, `eco_tips`, `weather_aware_scheduling`, the extras (1.9, all `True` by default: `slogans`, `soil_estimate`, `water_forecast`, `sensor_health`, `season_summary`, `local_frost_suggest`, `station_import`, `solar_irrigation`, `climate_card`), `sensor_stale_minutes`, `companion_radius_cm`, `root_zone_depth_mm`, `max_irrigation_mm`, `gdd_base_c`, `snap_cm` |
 | Task data | `Task`, `TaskNote`, `Recurrence`; `RotationRecord` (manual + implied (bed, season, family) records) |
 | Climate & water | `ClimateDay` (one outdoor day: temperature, humidity, wind, gusts, radiation, sunshine, rain, sources), `SensorDay` (daily min / max / mean per temperature sensor), `ClimateMonth` (a month kept for good per series), `FrostYear` (measured frost dates per year), `WaterBalance` per bed (depletion, `et_factor` learned from the moisture sensor, calibration), `IrrigationEvent` (run log), `WaterReading` (meter m³, butt %) |
 | Records | `HarvestEntry`, `JournalEntry` (text, photos, links to bed/crop/plant), `SeedPacket`, `SoilTest` (per bed), `Expense` |
@@ -1712,7 +1714,7 @@ All commands live under `garden_manager/` and take an optional `garden_id` (conf
 first garden without it). Reads are open to every authenticated user; writes that change the plan,
 the plant database, settings or hardware require an administrator (`@require_admin`); task
 actions and the personal records are open, because family members tick off chores and log
-harvests too. The 67 commands, by area:
+harvests too. The 69 commands, by area:
 
 | Area | Commands | Who |
 |---|---|---|
@@ -1726,6 +1728,7 @@ harvests too. The 67 commands, by area:
 | Cooking | `cooking/suggest` (ideas + menus), `cooking/render`, `cooking/book/save\|update\|delete`, `cooking/prefs`, `cooking/pdf`, `cooking/send`, `cooking/to_todo` | any user (`to_todo` needs control of the to‑do entity) |
 | To‑do export | `seeds/to_todo` | any user, but only on a to‑do entity the user may control |
 | Hardware | `irrigation/run`, `irrigation/stop`, `irrigation/test`, `irrigation/close` | admin |
+| Climate writes | `climate/import_csv` (`text` ≤ 20 MB → `{days, first, last, rows, columns, changed}`; `invalid_csv`, `disabled`), `climate/apply_local_frost` (→ `{settings}`; `no_suggestion`) | admin |
 | System log | `syslog/entry` (full diff), `syslog/undo` | admin |
 
 A revision conflict (`plan/save`, `plan/autofill/apply`) answers `revision_conflict` and the
@@ -1863,6 +1866,7 @@ All in `custom_components/garden_manager/engine/` – pure Python, standard libr
 | | `seasons`, `archive`, `syslog`, `planio` | per‑season plans and year‑end transition, season archive, undo log, import/export |
 | Cooking | `cooking`, `cooking_dishes`, `cooking_extras` | see 4.15 |
 | Documents | `pdf`, `printout`, `seasonbook`, `handbook` | drawing surfaces, printable documents, the season book, handbook and glossary |
+| | `slogans` | garden sayings (EN/NL/FR; themes garden, veg, outdoors, harvest, rest, weather and one per season, southern hemisphere shifted), picked per day and place (extra `slogans`) |
 | Text | `i18n`, `texts_garden` | backend message catalogue (EN/NL/FR); maintenance and weather texts registered on import |
 
 ### 4.15 Cooking engine
@@ -2180,6 +2184,9 @@ What the rest of the engine reads from it:
 | `stormy` | `weather_tasks.logged_weather_specs` | `w:after_storm` (gusts ≥ 60 km/h or wind ≥ 45 km/h yesterday); the same function adds `w:rain` for ≥ 15 mm logged yesterday (same key as the forecast task) and `w:dry_logged` after a dry week (≥ 6 days known, < 3 mm, ≥ 4 days ≥ 20 °C; not next to a forecast `w:dry`) |
 | `summarize`, `period`, `season_so_far` | `sensor.py` (`ClimateSensor`) | the four climate sensors and their last‑year attribute |
 | `climate_stats`, `sensor_stats` | `climate/stats` | periods (7 / 30 days, season, 365 days and last year's), records, the daily series, months, frost dates, per‑sensor statistics, coverage |
+| `summary_lines`, `local_frost_suggestion` | `climate/stats` (`summary`, `local_frost_suggestion`, `station_import`), season report and book, monthly notification | extras `season_summary` and `local_frost_suggest`: sentences against the same dates last year; measured frost dates ≥ 7 days off the preset after ≥ 2 complete years |
+| `estimate_soil_temp` | `analysis` | extra `soil_estimate`: soil temperature from the logged daily mean air (smoothed over 10 days, ≥ 3 days) for beds without a soil sensor |
+| `parse_station_csv` | `climate/import_csv` | extra `station_import`: Netatmo / Ecowitt / Davis / spreadsheet CSV → days (EN/NL/FR headers, unit conversion); measured days are kept |
 
 The panel shows it in **Weather → Climate history** (`components/climate-history.ts`). The website
 fills the same log from Open‑Meteo for every garden and from a linked Home Assistant's recorder
@@ -2757,7 +2764,7 @@ announce urgent garden jobs. `tests/test_blueprints.py` validates each and insta
 problems), any `notify.*` service with a deep link to `/hortulus` and action buttons, optional `tts.speak` for
 frost. De‑duplication keys live in `GardenData.notified` (pruned after 14 days).
 
-**Websocket:** 67 commands under `garden_manager/`, grouped and with their permissions in 4.8.
+**Websocket:** 69 commands under `garden_manager/`, grouped and with their permissions in 4.8.
 
 **Assist:** six intents (tasks today, overdue, harvest, greenhouse, water, frost) in English, Dutch and French.
 
@@ -3349,7 +3356,7 @@ sections:
 
 ```
 pip install -r requirements_test.txt
-pytest -q                          # 358 tests: pure engine + config flow + full HA setup + blueprints
+pytest -q                          # 379 tests: pure engine + config flow + full HA setup + blueprints
 ruff check custom_components tests scripts frontend/dev && ruff format --check custom_components tests
 
 cd frontend
@@ -3365,7 +3372,7 @@ Assistant at all; every rule that changes gets a test. Four layers sit on top:
 
 | Layer | Where | What it proves |
 |---|---|---|
-| Engine units | `tests/engine/test_*.py` (26 suites) | tasks and merge, frost/DST, compatibility and rotation, agronomy (ET₀ against FAO example 18, GDD), watering and water balance, climate history (`test_climate.py`: sampling, recorder and Open‑Meteo merges, roll‑up, frost dates, zone series, logged stress, disease and tasks), regions and hemispheres, migrations and plan import/export, perennials, seasons and year‑end transition, archive, system log, diagnosis, planning, records, kitchen, pests, eco, coverage, cooking, season book, printing and handbook, Q&A and advice, French parity, and `test_review_findings.py` (regressions from whole‑repository reviews) |
+| Engine units | `tests/engine/test_*.py` (27 suites) | tasks and merge, frost/DST, compatibility and rotation, agronomy (ET₀ against FAO example 18, GDD), watering and water balance, climate history (`test_climate.py`: sampling, recorder and Open‑Meteo merges, roll‑up, frost dates, zone series, logged stress, disease and tasks), regions and hemispheres, migrations and plan import/export, perennials, seasons and year‑end transition, archive, system log, diagnosis, planning, records, kitchen, pests, eco, coverage, cooking, season book, printing and handbook, Q&A and advice, French parity, `test_extras.py` (the 1.9 extras: sayings, soil estimate, water forecast, silent sensors, summary, local frost, station CSV, solar waiting, card), and `test_review_findings.py` (regressions from whole‑repository reviews) |
 | Home Assistant integration | `tests/test_init.py`, `test_config_flow.py`, `test_phase2.py` (with `pytest-homeassistant-custom-component`, pinned to the HA release used in CI) | setup, entities, services and their responses and permissions, websocket API, options flow, unload; irrigation with pump interlock, lockout, valve timers, lost/stuck valves, leaks and the valve test; phone notification buttons; voice; PDF view and signed exports; two gardens side by side; archive write failures; to‑do exports under the user's own rights |
 | Boundary guards | `tests/test_init.py` | the website guard (2.2): `websocket_api.py`, `operations.py` and `storage.py` may import only the stubbed `homeassistant.*` modules; admin‑only services refuse a non‑admin user |
 | Blueprints | `tests/test_blueprints.py` | every shipped automation blueprint is valid and produces a valid automation (two instances on different lamps keep separate state) |
@@ -3379,7 +3386,9 @@ them in the `ui` job). Query parameters select the tab, language, dark mode and 
 
 **CI** (`.github/workflows/ci.yml`, on push to `main` and every pull request, read‑only token): `lint-and-test`
 (Python 3.13: ruff check + format check + pytest), `frontend` (Node 22: typecheck, unit tests, build, committed
-bundles up to date), `ui` (demo data from the engine, Playwright), `hassfest` and HACS validation.
+bundles up to date), `ui` (demo data from the engine, Playwright), `hassfest` and HACS validation. **Release** (`.github/workflows/release.yml`, on push to `main`): when the version in
+`manifest.json` has no tag yet, it tags `vX.Y.Z` and creates a GitHub release with that version's `CHANGELOG.md` section and
+`garden_manager.zip`.
 
 Fixtures (`tests/fixtures/`): an hourly forecast with a clear, calm frost night **across
 the 29 March 2026 DST switch**, a rainy late‑spring hourly forecast, a 7‑day daily
@@ -4163,7 +4172,7 @@ See [ENTITY_REFERENCE](en/ENTITY_REFERENCE.md). Storage schema 1.5 added `featur
 `water_balance`, `irrigation_log`, `settings.irrigation` and `settings.resources`
 (migration `_v1_4_to_1_5`); later minors are listed in 3.6 (current: 1.8).
 
-### 11.9 Release map 1.0 → 1.8.1
+### 11.9 Release map 1.0 → 1.9.0
 
 Where each release put its code (details per release in [`CHANGELOG.md`](../CHANGELOG.md)).
 
@@ -4181,3 +4190,4 @@ Where each release put its code (details per release in [`CHANGELOG.md`](../CHAN
 | 1.7.1 | per‑item fridge ideas, 36 more dishes in four courses plus menus and a preserving chapter, light/dark appearance, own version of a recipe, review findings (food safety, imports, permissions) | `cooking_extras.py` (`USES` / `PREP` / `DEPENDS`), `cooking_dishes.py`, `util/theme.ts` |
 | 1.8.0 | climate history and statistics (every temperature sensor, recorder and Open‑Meteo gap filling, months kept for good, measured frost dates), weather station sensors, four climate sensors; growth, water balance, disease and tasks follow the logged weather | `engine/climate.py`, `climate_history.py`, `components/climate-history.ts`, storage schema 1.8 |
 | 1.8.1 | review round: measured days stay measured, one task per weather episode, rain gauge and water meter units, reload and options fixes, greenhouse entities follow the zone type | `engine/climate.py`, `engine/weather_tasks.py`, `coordinator.py`, `entity.py`, `websocket_api.py` |
+| 1.9.0 | extras, all on and switchable in Settings → Extras: garden sayings, estimated soil temperature, water forecast per bed, silent‑sensor alert, season and month summary against last year, own frost dates in one click, weather station CSV import, solar‑aware watering, climate line on the card; release workflow | `engine/slogans.py`, `engine/climate.py`, `engine/waterbalance.py`, `controllers.py`, `card/hortulus-tasks-card.ts`, `.github/workflows/release.yml` |

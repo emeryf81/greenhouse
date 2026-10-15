@@ -666,3 +666,56 @@ def pest_advice(pest: str, action: str, lang: str | None = "en") -> str:
 
 # Phase 3 texts (maintenance rules, weather episodes) - registered on import.
 from . import texts_garden  # noqa: E402,F401
+
+# Extras (1.9): silent sensors, measured frost dates, weather summaries, solar-aware watering.
+MESSAGES["en"].update(
+    {
+        "alert.sensor_silent": "{entity} has said nothing for {days} days: check the battery or the connection, or unlink it in Settings",
+        "alert.local_frost_ready": "Your garden measured its own frost dates over {years} years (last frost {last_frost}, first frost {first_frost}): use them instead of the region's in Weather → Climate history",
+        "summary.same_temp": "As warm as last year (on average {temp} °C).",
+        "summary.warmer": "{diff} °C warmer than last year (on average {temp} °C).",
+        "summary.colder": "{diff} °C colder than last year (on average {temp} °C).",
+        "summary.same_rain": "About as much rain as last year ({mm} mm).",
+        "summary.wetter": "{pct} % wetter than last year ({mm} mm).",
+        "summary.drier": "{pct} % drier than last year ({mm} mm).",
+        "summary.sunnier": "{pct} % more sunshine than last year.",
+        "summary.duller": "{pct} % less sunshine than last year.",
+        "summary.frost": "{n} frost nights (last year {then}).",
+        "notify.month_title": "Hortulus – {month} in your garden",
+        "notify.solar_wait": "Watering waits for solar surplus ({watts} W now, {needed} W needed) until {latest} at the latest.",
+    }
+)
+MESSAGES["nl"].update(
+    {
+        "alert.sensor_silent": "{entity} meldt al {days} dagen niets: kijk de batterij of de verbinding na, of koppel hem los in Instellingen",
+        "alert.local_frost_ready": "Je tuin mat over {years} jaar zijn eigen vorstdata (laatste vorst {last_frost}, eerste vorst {first_frost}): gebruik ze in plaats van die van de regio in Weer → Klimaatgeschiedenis",
+        "summary.same_temp": "Even warm als vorig jaar (gemiddeld {temp} °C).",
+        "summary.warmer": "{diff} °C warmer dan vorig jaar (gemiddeld {temp} °C).",
+        "summary.colder": "{diff} °C kouder dan vorig jaar (gemiddeld {temp} °C).",
+        "summary.same_rain": "Ongeveer evenveel regen als vorig jaar ({mm} mm).",
+        "summary.wetter": "{pct} % natter dan vorig jaar ({mm} mm).",
+        "summary.drier": "{pct} % droger dan vorig jaar ({mm} mm).",
+        "summary.sunnier": "{pct} % meer zon dan vorig jaar.",
+        "summary.duller": "{pct} % minder zon dan vorig jaar.",
+        "summary.frost": "{n} vorstnachten (vorig jaar {then}).",
+        "notify.month_title": "Hortulus – {month} in je tuin",
+        "notify.solar_wait": "Beregening wacht op zonne-overschot (nu {watts} W, {needed} W nodig), uiterlijk tot {latest}.",
+    }
+)
+MESSAGES["fr"].update(
+    {
+        "alert.sensor_silent": "{entity} ne donne plus signe de vie depuis {days} jours : vérifiez la pile ou la connexion, ou dissociez-le dans Paramètres",
+        "alert.local_frost_ready": "Votre jardin a mesuré ses propres dates de gel sur {years} ans (dernier gel {last_frost}, premier gel {first_frost}) : utilisez-les à la place de celles de la région dans Météo → Historique du climat",
+        "summary.same_temp": "Aussi chaud que l'an dernier ({temp} °C en moyenne).",
+        "summary.warmer": "{diff} °C plus chaud que l'an dernier ({temp} °C en moyenne).",
+        "summary.colder": "{diff} °C plus froid que l'an dernier ({temp} °C en moyenne).",
+        "summary.same_rain": "À peu près autant de pluie que l'an dernier ({mm} mm).",
+        "summary.wetter": "{pct} % plus humide que l'an dernier ({mm} mm).",
+        "summary.drier": "{pct} % plus sec que l'an dernier ({mm} mm).",
+        "summary.sunnier": "{pct} % de soleil en plus que l'an dernier.",
+        "summary.duller": "{pct} % de soleil en moins que l'an dernier.",
+        "summary.frost": "{n} nuits de gel (l'an dernier {then}).",
+        "notify.month_title": "Hortulus – {month} dans votre jardin",
+        "notify.solar_wait": "L'arrosage attend le surplus solaire ({watts} W maintenant, {needed} W nécessaires), au plus tard jusqu'à {latest}.",
+    }
+)

@@ -26,6 +26,10 @@ export class ClimateHistory extends LitElement {
   @property() lang = "en";
   /** Bumped by the parent when the garden changed (new day, new sensors). */
   @property({ type: Number }) revision = 0;
+  /** May change settings (apply the measured frost dates, import a station CSV). */
+  @property({ type: Boolean }) admin = false;
+  @state() private importMsg = "";
+  @state() private busy = false;
   @state() private stats: ClimateStats | null = null;
   @state() private range: Range = 30;
   @state() private failed = false;
@@ -57,6 +61,9 @@ export class ClimateHistory extends LitElement {
       .note { font-size: var(--hl-fs-xs); color: var(--hl-text-muted); }
       .kind { font-size: 11px; color: var(--hl-text-muted); display: block; }
       .uses li { margin: 2px 0; }
+      .summary p { margin: 2px 0; }
+      .suggest { border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--hl-info) 10%, var(--hl-surface)); margin-top: 8px; }
+      input[type="file"] { max-width: 100%; }
     `,
   ];
 
@@ -224,6 +231,58 @@ export class ClimateHistory extends LitElement {
       <p class="note">${Object.entries(s.coverage.sources).map(([k, v]) => `${this.t(`climate.src.${k}`)}: ${v}`).join(" · ")}</p>`;
   }
 
+  /** The season and last month in words, against last year (settings.season_summary). */
+  private renderSummary(s: ClimateStats): TemplateResult | typeof nothing {
+    const sum = s.summary;
+    if (!sum || (!sum.season.length && !sum.month.length)) return nothing;
+    const month = new Date(`${sum.month_start}T12:00:00`).toLocaleDateString(localeOf(this.lang), { month: "long", year: "numeric" });
+    return html`<section class="card s12 summary"><header><h2>${this.t("climate.summary_title")}</h2></header>
+      <div class="grid">
+        ${sum.season.length ? html`<div class="s6"><h3>${this.t("climate.summary_season")}</h3>${sum.season.map((l) => html`<p class="small">${l}</p>`)}</div>` : nothing}
+        ${sum.month.length ? html`<div class="s6"><h3>${month}</h3>${sum.month.map((l) => html`<p class="small">${l}</p>`)}</div>` : nothing}
+      </div></section>`;
+  }
+
+  private async applyFrost(): Promise<void> {
+    if (!this.api || this.busy) return;
+    this.busy = true;
+    try {
+      await this.api.applyLocalFrost();
+      await this.load();
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /** A weather station's export (Netatmo, Ecowitt, Davis ...) into the history (settings.station_import). */
+  private async importCsv(e: Event): Promise<void> {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.api) return;
+    this.busy = true;
+    this.importMsg = "";
+    try {
+      const r = await this.api.importStationCsv(await file.text());
+      this.importMsg = r.days
+        ? this.t("climate.import_done", { days: r.days, first: this.date(r.first), last: this.date(r.last), columns: Object.keys(r.columns).join(", ") })
+        : this.t("climate.import_empty");
+      await this.load();
+    } catch (err) {
+      this.importMsg = `${this.t("climate.import_failed")} ${(err as { message?: string }).message ?? ""}`;
+    } finally {
+      this.busy = false;
+      input.value = "";
+    }
+  }
+
+  private renderImport(s: ClimateStats): TemplateResult | typeof nothing {
+    if (!this.admin || s.station_import === false) return nothing;
+    return html`<h3 style="margin-top:14px">${this.t("climate.import_title")}</h3>
+      <p class="note">${this.t("climate.import_hint")}</p>
+      <input type="file" accept=".csv,text/csv,text/plain" ?disabled=${this.busy} aria-label=${this.t("climate.import_title")} @change=${(e: Event) => void this.importCsv(e)} />
+      ${this.importMsg ? html`<p class="small" role="status">${this.importMsg}</p>` : nothing}`;
+  }
+
   private renderFrost(s: ClimateStats): TemplateResult {
     const years = Object.entries(s.frost.years).reverse();
     const local = s.frost.local;
@@ -235,7 +294,11 @@ export class ClimateHistory extends LitElement {
         <p class="note">${this.t("climate.frost_hint")}</p></div>` : html`<p class="small muted">${this.t("climate.frost_none", { preset: this.date(`2000-${s.frost.preset_last ?? "04-15"}`) })}</p>`}
       ${years.length ? html`<table style="margin-top:8px"><thead><tr><th>${this.t("climate.year")}</th><th>${this.t("climate.last_spring")}</th><th>${this.t("climate.first_autumn")}</th></tr></thead>
         <tbody>${years.map(([y, f]) => html`<tr><td>${y}</td><td>${this.date(f.last_spring)}${f.spring_complete ? "" : " *"}</td><td>${this.date(f.first_autumn)}${f.autumn_complete ? "" : " *"}</td></tr>`)}</tbody></table>
-        <p class="note">* ${this.t("climate.incomplete")}</p>` : nothing}`;
+        <p class="note">* ${this.t("climate.incomplete")}</p>` : nothing}
+      ${s.local_frost_suggestion ? html`<div class="suggest">
+        <p class="small">${this.t("climate.frost_suggest", { last: this.date(`2000-${s.local_frost_suggestion.last_frost}`), first: this.date(`2000-${s.local_frost_suggestion.first_frost}`), years: s.local_frost_suggestion.years })}</p>
+        ${this.admin ? html`<button class="btn small" ?disabled=${this.busy} @click=${() => void this.applyFrost()}>${this.t("climate.frost_apply")}</button>` : nothing}
+      </div>` : nothing}`;
   }
 
   render(): TemplateResult {
@@ -253,10 +316,12 @@ export class ClimateHistory extends LitElement {
         ${this.renderChart(rows)}
         <p class="note">${this.t("climate.legend")}</p>
       </section>
+      ${this.renderSummary(s)}
       <section class="card s8"><header><h2>${this.t("climate.periods")}</h2></header>${this.renderPeriods(s)}</section>
       <section class="card s4"><header><h2>${this.t("climate.records")}</h2></header>${this.renderRecords(s)}
         <h3 style="margin-top:14px">${this.t("climate.uses_title")}</h3>
-        <ul class="small uses">${["gdd", "water", "disease", "tasks", "frost"].map((k) => html`<li>${this.t(`climate.uses.${k}`)}</li>`)}</ul></section>
+        <ul class="small uses">${["gdd", "water", "disease", "tasks", "frost"].map((k) => html`<li>${this.t(`climate.uses.${k}`)}</li>`)}</ul>
+        ${this.renderImport(s)}</section>
       <section class="card s12"><header><h2>${this.t("climate.sensors")}</h2></header>${this.renderSensors(s)}</section>
       <section class="card s8"><header><h2>${this.t("climate.months")}</h2></header>${this.renderMonths(s)}</section>
       <section class="card s4"><header><h2>${this.t("climate.frost_title")}</h2></header>${this.renderFrost(s)}</section>

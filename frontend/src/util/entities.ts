@@ -7,7 +7,7 @@
 export type EntityKind =
   | "soil_moisture" | "soil_temperature" | "air_temperature" | "air_humidity" | "light" | "rain" | "par" | "ec"
   | "npk_n" | "npk_p" | "npk_k" | "leaf_wetness" | "wind_speed" | "wind_gust" | "radiation"
-  | "weather" | "irrigation" | "pump" | "tts" | "media_player" | "vent" | "shade" | "meter" | "butt";
+  | "weather" | "irrigation" | "pump" | "tts" | "media_player" | "vent" | "shade" | "meter" | "butt" | "power";
 
 export interface EntityLike {
   entity_id: string;
@@ -63,6 +63,8 @@ export function entityFits(kind: EntityKind, s: EntityLike): boolean {
     case "butt":
       return (sensor && (["volume_storage", "water", "volume", "distance"].includes(dc) || ["%", "l", "m³", "cm", "mm", "m"].includes(u)))
         || domain === "input_number";
+    case "power": // solar surplus / grid export, in W or kW
+      return (sensor && (dc === "power" || ["w", "kw"].includes(u))) || domain === "input_number";
     case "soil_moisture":
       return sensor && (dc === "moisture" || (dc === "humidity" && named(s, ["soil", "bodem", "sol", "plant"])));
     case "soil_temperature": // a soil probe says so in its name

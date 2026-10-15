@@ -519,7 +519,7 @@ bodemanalyses) en het kookboek zijn open voor iedereen.
 | Registraties | `records/overview` (oogst per gewas en jaar, geleerde opbrengsten, zaaddoos, water, jaarmatrix, keukenrapport, kosten en uitgaven), `records/harvest/add`, `records/journal/save`, `records/seeds/save`, `records/expense/save`, `records/soil/save`, `records/soil/delete`, `records/delete` (`kind`: `harvest`, `journal`, `seed`, `expense`), `seeds/to_todo` (ontbrekend zaad naar een takenlijst), `report/season` |
 | Advies en handboek | `qa/options`, `qa/ask`, `handbook/index`, `handbook/chapter`, `handbook/search` |
 | Afdrukken | `print/render` (SVG‑voorbeeldpagina's) |
-| Klimaat | `climate/stats` (`days`: 7–800, standaard 400): de klimaatgeschiedenis – [zie hieronder](#garden_managerclimatestats) |
+| Klimaat | `climate/stats` (`days`: 7–800, standaard 400): de klimaatgeschiedenis – [zie hieronder](#garden_managerclimatestats); `climate/import_csv` **admin** (`text`: de CSV‑export van een weerstation, tot 20 MB; resultaat `{days, first, last, rows, columns, changed}`; fouten `invalid_csv`, `disabled`); `climate/apply_local_frost` **admin** (zonder argumenten: zet de regio op aangepast met de gemeten vorstdata; resultaat `{settings}`; fout `no_suggestion`) |
 | Analyse | `analysis` (tuincontrole), `analysis/explain` (“waarom niet hier?”), `analysis/fix` **admin** (herstel met één klik), `analysis/still_possible` (wat dit seizoen nog kan) |
 | Systeemlogboek | `syslog/list` (nieuwste eerst, gepagineerd met `before`), `syslog/entry` **admin** (één regel met voor/na per onderdeel), `syslog/undo` **admin** (`entry_id`, optioneel `force`) |
 | Koken | `cooking/suggest` (oogstklare producten, gerechten, menu's, kookboek, keuzes), `cooking/render` (een recept opnieuw na een andere basis, vlees of aantal personen), `cooking/prefs`, `cooking/book/save`, `cooking/book/update`, `cooking/book/delete`, `cooking/pdf` (`kind`: `recipe`, `book`, `shopping`), `cooking/send` (een recept of de boodschappenlijst naar een `notify.*`‑dienst), `cooking/to_todo` (boodschappenlijst naar een takenlijst; je eigen rechten op die lijst gelden) |
@@ -541,6 +541,9 @@ Geeft alles wat *Weer → Klimaatgeschiedenis* toont (lezen mag elke gebruiker):
 | `frost` | `years` (per jaar `last_spring`, `first_autumn`, `spring_complete`, `autumn_complete`), `local` (gemiddelde gemeten data en het verschil in dagen met de regio, `null` zonder volledig jaar), `preset_last`, `preset_first` |
 | `sensors` | per temperatuursensor: `entity_id`, `label`, `kind` (`outdoor`, `zone_air`, `bed_air`, `soil`), `now`, `today`, `d7`, `d30`, `record_low`, `record_high`, `days`, `series` (laatste 120 dagen), `months` (13) |
 | `coverage` | `days`, `first_day`, `sources` (dagen per bron), `months_kept` |
+| `summary` | *(extra `season_summary`)* `season`, `month` (lijsten met zinnen), `month_start` – het seizoen en de vorige maand tegenover dezelfde data vorig jaar |
+| `local_frost_suggestion` | *(extra `local_frost_suggest`)* `last_frost`, `first_frost` (`MM-DD`), `spring_diff_days`, `autumn_diff_days`, `years`; `null` zolang de gemeten data minder dan 7 dagen van de regio afwijken |
+| `station_import` | `true` als de CSV‑import (extra `station_import`) aanstaat |
 
 ## Lovelace-kaart
 
@@ -555,6 +558,8 @@ assignee: me          # optioneel: me | person.xyz | unassigned
 max: 8                # optioneel, standaard 8
 water: true           # optioneel, standaard true; false verbergt: water vandaag, een lopende beurt, een kraan die openstaat (Sluiten), lekken
 garden: Volkstuin     # optioneel: welke tuin (titel of entry-id), als je er meer dan één hebt
+climate: true         # optioneel, standaard true; false verbergt de klimaatregel (gemiddelde 7 dagen t.o.v. vorig jaar, regen, zon, band van 14 dagen)
+slogan: true          # optioneel, standaard true; false verbergt de tuinspreuk
 ```
 
 Vink een taak af op de kaart en ze wordt in Hortulus afgerond (met het volgende zaai‑ of
@@ -562,7 +567,9 @@ verzorgingsmoment gepland zoals gewoonlijk). `assignee: me` toont je eigen en ni
 taken; `person.xyz` toont de taken van die persoon en niet‑toegewezen taken; `unassigned` toont
 alleen taken zonder eigenaar. Achterstallige taken zijn gemarkeerd; een link “+N meer” en het
 scheutje‑icoon openen het paneel. De knop *Sluiten* bij een kraan die openstaat wordt alleen aan
-beheerders getoond. De kaart is beschikbaar in het Engels, Nederlands en Frans.
+beheerders getoond. De klimaatregel en de spreuk vragen de extra's `climate_card` en
+`slogans` (Instellingen → Extra's); zonder taken vervangt de spreuk “niets te doen”. De kaart is beschikbaar in het
+Engels, Nederlands en Frans.
 
 ## Spraak (Assist)
 

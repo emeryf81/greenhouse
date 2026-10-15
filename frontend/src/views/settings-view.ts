@@ -22,6 +22,8 @@ const ZONES_USDA = Array.from({ length: 13 }, (_, i) => [`${i + 1}a`, `${i + 1}b
 type SensorKey = keyof SensorMapping;
 const GOALS = ["fresh", "storage", "herbs", "pollinators", "winter", "perennials", "easy"];
 
+const EXTRAS = ["slogans", "soil_estimate", "water_forecast", "sensor_health", "season_summary", "local_frost_suggest", "station_import", "solar_irrigation", "climate_card"] as const;
+
 @customElement("hl-settings-view")
 export class SettingsView extends LitElement {
   @property({ attribute: false }) snapshot!: Snapshot;
@@ -316,7 +318,26 @@ export class SettingsView extends LitElement {
         ${num("rain_skip_mm", this.t("settings.rain_skip"), 0.5, 0, 30)}
         ${num("pump_lead_s", this.t("settings.pump_lead"), 0.5, 0, 30)}
       </div>
+      ${this.snapshot.settings.solar_irrigation !== false && cfg.mode === "auto" ? html`<div class="form-grid">
+        ${this.entityInput("surplus", "power", cfg.surplus_entity ?? null, (v) => set({ surplus_entity: v }), this.t("settings.surplus_entity"))}
+        <label class="field">${this.t("settings.surplus_min_w")}<input type="number" min="0" step="50" .value=${String(cfg.surplus_min_w ?? 500)}
+          @change=${(e: Event) => set({ surplus_min_w: Number((e.target as HTMLInputElement).value) })} /></label>
+        <label class="field">${this.t("settings.surplus_latest")}<input type="time" .value=${cfg.surplus_latest ?? "11:00"}
+          @change=${(e: Event) => set({ surplus_latest: (e.target as HTMLInputElement).value })} /></label>
+      </div>
+      <p class="xs muted">${this.t("settings.surplus_hint")}</p>` : nothing}
       <p class="xs muted">${this.t("settings.irrigation_hint", { n: valves })}</p>
+    </section>`;
+  }
+
+  /** Optional extras, every one on by default. */
+  private renderExtras(): TemplateResult {
+    const s = this.snapshot.settings as unknown as Record<string, boolean | undefined>;
+    return html`<section class="card stack" aria-labelledby="s-extras">
+      <h2 id="s-extras">${this.t("settings.extras")}</h2>
+      <p class="xs muted">${this.t("settings.extras_hint")}</p>
+      ${EXTRAS.map((k) => html`<label class="field check"><input type="checkbox" .checked=${s[k] ?? true}
+        @change=${(e: Event) => this.saveSettings({ [k]: (e.target as HTMLInputElement).checked })} />${this.t(`settings.extra.${k}`)}</label>`)}
     </section>`;
   }
 
@@ -505,7 +526,7 @@ export class SettingsView extends LitElement {
       <fieldset ?disabled=${!this.admin || this.busy} style="border:0;padding:0;margin:0">
         <div class="sections">
           ${this.renderRegion()} ${this.renderWeather()} ${this.renderZones()} ${this.renderBeds()} ${this.renderIrrigation()}
-          ${this.renderResources()} ${this.renderNotifications()} ${this.renderWater()} ${this.renderCosts()} ${this.renderHousehold()} ${this.renderGeneral()}
+          ${this.renderResources()} ${this.renderExtras()} ${this.renderNotifications()} ${this.renderWater()} ${this.renderCosts()} ${this.renderHousehold()} ${this.renderGeneral()}
         </div>
       </fieldset>
       <section class="card stack" style="margin-top:var(--hl-s4)" aria-labelledby="s-display">

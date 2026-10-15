@@ -381,6 +381,17 @@ zichtbaar in een alleen‑lezen gedeelde weergave).
   vorstnachten, hete dagen, zon en hardste wind, en de verandering tegenover vorig jaar.
 * **Vorstdata** – de gemeten laatste voorjaarsvorst en eerste herfstvorst per jaar, en hun
   gemiddelde tegenover de regionale voorinstelling (zie hieronder).
+* **In het kort** (extra *season_summary*) – bovenaan: het seizoen en de vorige maand in
+  een paar zinnen tegenover vorig jaar.
+* **Mijn vorstdata gebruiken** (beheerder, extra *local_frost_suggest*) – zodra ≥ 2 volledige
+  jaren een gemeten vorstdatum ≥ 7 dagen naast de regio leggen; de knop zet de regio op *eigen*
+  met de gemeten data. Er verandert niets tot je erop drukt.
+* **Weerstationdata importeren** (beheerder, extra *station_import*) – de export van een weerstation
+  (Netatmo, Ecowitt, Davis, een rekenblad). Kopregel en scheidingsteken (`;`, `,`, tab) worden
+  herkend; kolommen voor tijd (ook unix‑seconden), temperatuur, vochtigheid, regen (een
+  oplopend dagtotaal → het maximum, regen per meting → opgeteld), wind en windstoten worden in
+  het Nederlands, Engels en Frans herkend; °F, inch, mph, m/s en knopen worden omgerekend.
+  Dagen die Hortulus zelf mat, blijven staan; geïmporteerde dagen tellen als *geschiedenis*.
 
 **Hoe de geschiedenis wordt opgenomen.** Bij elke update (sensorwijzigingen, 10 s
 gedebounced) legt Hortulus de buitenwaarden vast in de dag van vandaag: minimum en maximum
@@ -543,8 +554,9 @@ keuzelijsten die alleen passende entiteiten tonen):
 | **Weer & buitensensoren** | weerentiteit, buitentemperatuur, regen, buitenluchtvochtigheid, bladnat, **windsnelheid**, **windstoten**, **zonnestraling (W/m²)**, **licht buiten (lux)**, **Open‑Meteo** (opt‑in: verdamping en het waargenomen weer voor de [klimaatgeschiedenis](#klimaatgeschiedenis)), hoogte |
 | **Zones & microklimaat** | per zone: luchttemperatuur, vochtigheid, licht, bladnat, **PAR**; voor kassen en koude bakken ook **raamopener / ventilatie**‑ en **schaduwscherm**‑entiteiten met sturing *uit / advies / automatisch*, *thermische massa*; *tegen een warme muur*, *verwarmd* (+ minimumtemperatuur) |
 | **Bedden & sensoren** | per bed: bodemvocht, bodemtemperatuur, **EC, N, P, K**‑sondes, klep, knop **Test (5 s)**, debiet (L/min; het gemeten debiet wordt getoond als de watermeter het leerde), **kraantimer** |
-| **Bewateringshardware** | modus (*uit / advies / automatisch*), pomp, starttijd, maximale looptijd, vorstvergrendeling, regen overslaan, pomp stopt vóór klep |
+| **Bewateringshardware** | modus (*uit / advies / automatisch*), pomp, starttijd, maximale looptijd, vorstvergrendeling, regen overslaan, pomp stopt vóór klep; sensor **zonne‑overschot** (W of kW), *starten vanaf overschot* (W, standaard 500) en *ten laatste wachten tot* (standaard 11:00) |
 | **Middelen (automatisch invullen)** | gezinsgrootte, uren, water en compost voor Automatisch invullen, doelen; schakelaars voor *seizoenswerk in de kalender* en **Ecologische tips** (biologische antwoorden op plagen en ziekten, ecokalender, voedselbosadvies) |
+| **Extra's** | optionele hulpjes, standaard allemaal aan – zie [Extra's](#extras) |
 | **Meldingen** | blijvend, pushdiensten, TTS, speakers, tijdstip overzicht, vorst‑ en hittewaarschuwingen, uitgesproken vorstbericht; herinneringen (avondherinnering voor achterstallige taken, standaard 18:30 na 1 dag; weekoverzicht vooraf, standaard zondag 19:00); *taken plannen volgens het weer* (schuift weergevoelige klussen weg van regenachtige, vrieskoude of hete dagen) |
 | **Watermeter & regenton** | de metersensor (m³ of L), het peil van de regenton in % en de totale inhoud van de tonnen; lekmeldingen |
 | **Kosten** | munt, waterprijs per m³, eigen prijzen per gewas (€/kg) voor het overzicht van oogst tegenover kosten |
@@ -569,6 +581,23 @@ Een beurt eindigt als een klep dicht blijft, of een minuut lang niets meldt terw
 draait (eerst gaat de pomp uit); een klep of pomp die veel langer open staat dan een beurt kan
 duren (maximale looptijd + 10 minuten) geeft een banner met *Kraan sluiten*; met de lekmelding aan in Instellingen en een watermeter ingesteld wordt minstens 5 L die binnen
 15 rustige minuten (geen beurt bezig, alle kranen dicht) geteld wordt als lek gemeld.
+
+#### Extra's
+Optionele hulpjes (1.9), elk een schakelaar onder *Instellingen → Extra's* en een instelling op
+het hoogste niveau van het tuinbestand. Standaard staan ze allemaal aan; zet je er een uit, dan
+verdwijnt of vervalt het gewoon.
+
+| Instelling | Wat het doet |
+|---|---|
+| `slogans` | wisselende tuinspreuken (NL/EN/FR, per thema en seizoen, eigen spreuken voor het zuidelijk halfrond), gekozen per dag en per plaats: dagoverzicht, weekplan, maandelijks weerbericht, seizoensrapport, achterflap van het seizoensboek, de kopregel van het dashboard en de kaart |
+| `soil_estimate` | bedden zonder bodemtemperatuursensor krijgen een bodemtemperatuur geschat uit de gelogde daggemiddelde luchttemperatuur (afgevlakt over de laatste 10 dagen, minstens 3 gelogde dagen nodig); gebruikt voor het zaaiadvies, op de bedkaart getoond als *≈ x °C* |
+| `water_forecast` | per bed: wanneer de waterbalans het makkelijk opneembare water (p × TAW) voorbijgaat met de ET₀ en regen uit de verwachting voor de komende 7 dagen – *over N dagen weer droog* |
+| `sensor_health` | een gekoppelde sensor die ≥ 2 dagen onbeschikbaar of onbekend is, geeft één waarschuwing (`alert.sensor_silent`, in plaats van de melding over een verouderde meting) |
+| `season_summary` | het seizoen en de vorige maand in zinnen tegenover dezelfde data vorig jaar (warmer / kouder, natter / droger, zonniger / grijzer, vorstnachten): bovenaan de klimaatgeschiedenis, in het seizoensrapport en het seizoensboek, en als melding bij het overzicht op de 1e van elke maand |
+| `local_frost_suggest` | na ≥ 2 volledige gemeten jaren waarin de laatste voorjaars‑ of eerste herfstvorst ≥ 7 dagen van de regio afwijkt: een infomelding en een knop **Mijn vorstdata gebruiken** in de klimaatgeschiedenis |
+| `station_import` | de CSV‑export van een weerstation importeren in de klimaatgeschiedenis (zie daar) |
+| `solar_irrigation` | automatisch bewateren wacht op zonne‑overschot (sensor en grenzen onder *Bewateringshardware*): de beurt start zodra het overschot het minimum haalt, ten laatste op *ten laatste wachten tot*; geen sensor of geen bruikbare waarde = niet wachten. Het dashboard toont *Wacht op zonne‑overschot* |
+| `climate_card` | een klimaatregel op de `hortulus-tasks-card`: gemiddelde van 7 dagen en het verschil met vorig jaar, regen, zon, een temperatuurband van 14 dagen (kaartopties `climate: false`, `slogan: false`, zie [Entiteiten](ENTITEITEN.md#lovelace-kaart)) |
 
 ---
 

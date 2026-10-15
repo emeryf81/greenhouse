@@ -475,7 +475,7 @@ cuisine sont ouverts à tous.
 | Paramètres | `settings/save` **admin** |
 | Potager de départ | `garden/starter` **admin** (`size` : `small`/`medium`/`large`, `greenhouse`) |
 | Irrigation | `irrigation/plan`, `irrigation/run` **admin**, `irrigation/stop` **admin**, `irrigation/test` **admin** (ouvre une vanne 5 s et vérifie qu'elle indique ouverte puis fermée), `irrigation/close` **admin** (ferme une vanne restée ouverte) |
-| Climat | `climate/stats` : historique du climat et statistiques (`days` facultatif, 7–800, 400 par défaut) – voir ci-dessous |
+| Climat | `climate/stats` : historique du climat et statistiques (`days` facultatif, 7–800, 400 par défaut) – voir ci-dessous ; `climate/import_csv` **admin** (`text` : l'export CSV d'une station météo, jusqu'à 20 Mo ; résultat `{days, first, last, rows, columns, changed}` ; erreurs `invalid_csv`, `disabled`) ; `climate/apply_local_frost` **admin** (sans argument : passe la région en personnalisé avec les dates de gel mesurées ; résultat `{settings}` ; erreur `no_suggestion`) |
 | Enregistrements | `records/overview` (récolte par culture et par année, rendements appris, boîte à graines, eau, matrice annuelle, rapport cuisine, coûts et dépenses), `records/harvest/add`, `records/journal/save`, `records/seeds/save`, `records/expense/save`, `records/soil/save`, `records/soil/delete`, `records/delete` (`kind` : `harvest`, `journal`, `seed`, `expense`), `seeds/to_todo` (graines manquantes vers une liste de tâches), `report/season` |
 | Conseils et manuel | `qa/options`, `qa/ask`, `handbook/index`, `handbook/chapter`, `handbook/search` |
 | Impression | `print/render` (pages d'aperçu SVG) |
@@ -499,6 +499,9 @@ liste de tâches cible.
 | `frost` | dates de gel mesurées par année (`years`), moyenne locale comparée au préréglage (`local`), `preset_last`, `preset_first` |
 | `sensors` | une ligne par capteur de température associé (`entity_id`, `label`, `kind` : `outdoor` / `zone_air` / `bed_air` / `soil`, valeur actuelle, jour, moyenne 7 j, plage 30 j, records, mois) |
 | `coverage` | jours dans le journal quotidien, premier jour, sources (`sensor`, `history`, `model`), mois conservés |
+| `summary` | *(extra `season_summary`)* `season`, `month` (listes de phrases), `month_start` – la saison et le mois dernier comparés aux mêmes dates l'an dernier |
+| `local_frost_suggestion` | *(extra `local_frost_suggest`)* `last_frost`, `first_frost` (`MM-DD`), `spring_diff_days`, `autumn_diff_days`, `years` ; `null` tant que les dates mesurées restent à moins de 7 jours du préréglage |
+| `station_import` | `true` quand l'import CSV (extra `station_import`) est actif |
 
 ```yaml
 type: garden_manager/climate/stats
@@ -517,6 +520,8 @@ assignee: me          # optional: me | person.xyz | unassigned
 max: 8                # optional, default 8
 water: true           # optional, default true; false hides it: watering today, a run in progress, a valve left open (Close), leaks
 garden: Allotment     # optional: which garden (title or entry id), when you have more than one
+climate: true         # optional, default true; false hides the climate line (7-day mean vs last year, rain, sun, 14-day band)
+slogan: true          # optional, default true; false hides the garden saying
 ```
 
 Cochez une tâche sur la carte et elle est terminée dans Hortulus (avec le semis ou l'entretien
@@ -524,7 +529,9 @@ suivant planifié comme d'habitude). `assignee: me` montre vos tâches et celles
 `person.xyz` montre celles de cette personne et celles sans responsable ; `unassigned` ne montre que
 les tâches sans responsable. Les tâches en retard sont marquées, un lien « +N de plus » et l'icône de
 pousse ouvrent le panneau. Le bouton *Fermer* d'une vanne restée ouverte n'est montré qu'aux
-administrateurs. La carte est disponible en anglais, en néerlandais et en français.
+administrateurs. La ligne climat et le dicton demandent les extras `climate_card` et `slogans`
+(Paramètres → Extras) ; sans tâche, le dicton remplace « rien à faire ». La carte est disponible en anglais, en
+néerlandais et en français.
 
 ## Voix (Assist)
 

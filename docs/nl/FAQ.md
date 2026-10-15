@@ -302,6 +302,23 @@ herfsthelft. Een halfjaar telt pas als het voorbij is en minstens 80 % van zijn 
 Het gemiddelde van die volledige jaren staat in *Vorstdata* naast de data van je regio
 (“… dagen vroeger / later”). Hortulus verandert je vorstdata nooit zelf: wijkt het sterk af,
 stel je eigen data in bij **Instellingen → Klimaat & regio** en alle zaaivensters schuiven mee.
+Zodra ≥ 2 volledige jaren een datum ≥ 7 dagen naast de regio leggen, biedt de klimaatgeschiedenis
+de knop **Mijn vorstdata gebruiken** (beheerder) om dat in één klik te doen.
+
+**Hoe zet ik de tuinspreuken, of een ander extraatje, uit?**
+**Instellingen → Extra's**: één schakelaar per extra (tuinspreuken, geschatte bodemtemperatuur,
+watervooruitzicht, waarschuwing bij een stille sensor, weersamenvatting, eigen vorstdata,
+import van een weerstation, bewateren op zonne‑overschot, klimaatregel op de kaart). Standaard
+staan ze allemaal aan. Op één dashboardkaart kun je ook alleen de spreuk of de klimaatregel
+verbergen met `slogan: false` of `climate: false`.
+
+**Hoe importeer ik mijn Netatmo‑ of Ecowitt‑geschiedenis?**
+Exporteer de gegevens als CSV vanuit de app of website van het station (Davis of een rekenblad
+kan ook) en kies **Weer → Klimaatgeschiedenis → Weerstationdata importeren** (beheerder).
+Scheidingsteken, kopregel, tijd (ook unix‑seconden) en de kolommen voor temperatuur,
+vochtigheid, regen, wind en windstoten worden in het Nederlands, Engels en Frans herkend; °F,
+inch, mph, m/s en knopen worden omgerekend. Dagen die Hortulus zelf mat, blijven staan; de
+geïmporteerde dagen tellen als *geschiedenis*.
 
 **Hoe lang blijft de geschiedenis bewaard?**
 Dagen buiten blijven ruim twee seizoenen (800 dagen), dagen per temperatuursensor 400 dagen.
@@ -527,7 +544,8 @@ vriezen vannacht?”. De zinnen bestaan in het Engels, Nederlands en Frans. Zie 
 **Is er een dashboardkaart?**
 Ja: `type: custom:hortulus-tasks-card` wordt automatisch geladen. Ze toont de taken van vandaag en de
 achterstallige met een vinkje, water geven vandaag, een lopende beurt, een kraan die openstaat (met
-*Sluiten*) en lekken; `days`, `assignee`, `max` en `garden` zijn optioneel. Zie de
+*Sluiten*) en lekken, plus een tuinspreuk en een klimaatregel; `days`, `assignee`, `max`, `garden`,
+`climate` en `slogan` zijn optioneel. Zie de
 [entiteitenreferentie](ENTITEITEN.md#lovelace-kaart).
 
 **Kan ik Hortulus automatiseren?**
@@ -642,6 +660,14 @@ Bekijk `binary_sensor.hortulus_irrigation_frost_lockout` en voer
 bed met zijn reden (vorstvergrendeling, regen verwacht, geen klep, geen debiet, niet nodig, modus
 niet *auto*). De vorstvergrendeling kijkt naar de komende 12 uur, dus een koudere nacht later in de
 verwachting verbergt de vorst van vanavond niet.
+
+**Waarom start automatisch bewateren later dan de starttijd?**
+Omdat er een sensor voor zonne‑overschot ingesteld is onder **Instellingen → Bewateringshardware**
+(extra *Energiebewust bewateren*): de beurt wacht tot het overschot *starten vanaf overschot*
+haalt (standaard 500 W), maar nooit voorbij *ten laatste wachten tot* (standaard 11:00) – dan wordt
+toch bewaterd. Intussen toont **Vandaag** *Wacht op zonne‑overschot*. Geen sensor of geen
+bruikbare waarde betekent niet wachten; maak de sensor leeg of zet de extra uit om weer stipt te
+starten.
 
 ## Problemen oplossen
 
