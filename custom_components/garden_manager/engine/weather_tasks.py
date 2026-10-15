@@ -194,7 +194,12 @@ def _episode_key(data: Any, prefix: str, first_day: date) -> str:
     it already has (open or done), instead of a new task every day as its first day moves."""
     for task in data.tasks:
         key = task.key or ""
-        if key.startswith(prefix) and task.window_end is not None and task.window_end >= first_day - timedelta(days=1):
+        if (
+            key.startswith(prefix)
+            and (task.window_start is None or task.window_start <= first_day)
+            and task.window_end is not None
+            and task.window_end >= first_day - timedelta(days=1)
+        ):
             return key
     return f"{prefix}{first_day.isoformat()}"
 

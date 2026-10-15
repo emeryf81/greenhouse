@@ -382,7 +382,7 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             return None
         if m3:
             liters = volume_liters(value, state.attributes.get("unit_of_measurement"))
-            value = liters / 1000 if liters is not None else value
+            return liters / 1000 if liters is not None else None  # an unknown unit is not guessed
         return value
 
     def _compute(self) -> GardenAnalysis:
@@ -526,11 +526,11 @@ VOLUME_LITERS = {
 
 
 def volume_liters(value: float, unit: Any) -> float | None:
-    """A meter reading in litres (no unit: m³)."""
+    """A meter reading in litres (no unit: m³; a unit it does not know: None)."""
     if not math.isfinite(value):
         return None
     factor = VOLUME_LITERS.get(str(unit or "m³").strip().lower())
-    return value * (factor if factor is not None else 1000.0)
+    return value * factor if factor is not None else None
 
 
 def _to_celsius(value: Any, unit: str | None) -> float | None:

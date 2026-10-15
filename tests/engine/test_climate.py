@@ -464,3 +464,34 @@ def test_a_heatwave_keeps_one_task_and_after_care_lasts(db, garden):
     for d in (2, 3):
         tasks = _weather_tasks(db, garden, date(2026, 8, d), [])
     assert tasks["w:after_storm:2026-08-01"] == "open" and tasks["w:after_storm:2026-08-02"] == "open"
+
+
+def test_recorder_coverage_is_split_at_local_midnight():
+    t0 = datetime(2026, 6, 1, 8, tzinfo=TZ)
+    rows = climate.daily_from_samples(
+        [(t0, 10.0), (t0 + timedelta(hours=12), 20.0), (t0 + timedelta(hours=24), 12.0)], TZ
+    )
+    first, second = rows[0], rows[1]
+    assert first["hours"] == 16.0  # 08:00 → midnight, not the 12 hours of the evening value into the next day
+    assert second["hours"] == 8.2  # midnight → 08:00 from the evening value, plus the last state's 10 minutes
+    assert second["tmin"] == 12.0 and second["tmax"] == 20.0  # the evening value held into the night
+    assert first["tmean"] == 12.5  # 10 °C for 12 hours, 20 °C for the last 4
+
+
+def test_unknown_meter_unit_is_not_guessed():
+    from custom_components.garden_manager.coordinator import volume_liters
+
+    assert volume_liters(2.0, None) == 2000.0  # no unit: m³
+    assert volume_liters(1.0, "ml") is None
+
+
+def test_an_earlier_episode_does_not_take_a_later_task(garden):
+    from custom_components.garden_manager.engine.models import Task, TaskStatus, TaskType
+    from custom_components.garden_manager.engine.weather_tasks import _episode_key
+
+    garden.tasks = [
+        Task("t1", TaskType.SHADE, "later heat", date(2026, 7, 20), key="w:heat:2026-07-20",
+             window_start=date(2026, 7, 19), window_end=date(2026, 7, 22), status=TaskStatus.DONE)
+    ]  # fmt: skip
+    assert _episode_key(garden, "w:heat:", date(2026, 7, 10)) == "w:heat:2026-07-10"
+    assert _episode_key(garden, "w:heat:", date(2026, 7, 21)) == "w:heat:2026-07-20"

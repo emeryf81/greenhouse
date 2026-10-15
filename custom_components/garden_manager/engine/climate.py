@@ -330,16 +330,25 @@ def daily_from_samples(samples: Iterable[tuple[datetime, float]], tz: Any) -> li
     ``hours`` is how much of the day the states cover)."""
     points = sorted((t.astimezone(tz), v) for t, v in samples if v is not None and math.isfinite(v))
     days: dict[date, dict[str, Any]] = {}
+
+    def day_of(d: date, value: float) -> dict[str, Any]:
+        entry = days.setdefault(d, {"day": d.isoformat(), "tmin": value, "tmax": value, "w": 0.0, "s": 0.0, "n": 0})
+        entry["tmin"], entry["tmax"] = min(entry["tmin"], value), max(entry["tmax"], value)
+        return entry
+
     for i, (at, value) in enumerate(points):
-        d = days.setdefault(
-            at.date(), {"day": at.date().isoformat(), "tmin": value, "tmax": value, "w": 0.0, "s": 0.0, "n": 0}
-        )
-        d["tmin"], d["tmax"] = min(d["tmin"], value), max(d["tmax"], value)
+        day_of(at.date(), value)["n"] += 1
         nxt = points[i + 1][0] if i + 1 < len(points) else at + timedelta(minutes=10)
-        weight = min(max((nxt - at).total_seconds(), 1.0), 12 * 3600.0)
-        d["w"] += weight
-        d["s"] += value * weight
-        d["n"] += 1
+        end = at + timedelta(seconds=min(max((nxt - at).total_seconds(), 1.0), 12 * 3600.0))
+        start = at
+        while start < end:  # a state that holds past midnight counts for each day it covers
+            midnight = datetime.combine(start.date() + timedelta(days=1), datetime.min.time(), tzinfo=tz)
+            part_end = min(end, midnight)
+            entry = day_of(start.date(), value)
+            weight = (part_end - start).total_seconds()
+            entry["w"] += weight
+            entry["s"] += value * weight
+            start = part_end
     out = []
     for d in days.values():
         out.append({"day": d["day"], "tmin": round(d["tmin"], 2), "tmax": round(d["tmax"], 2),
