@@ -1,6 +1,7 @@
 # Veelgestelde vragen & problemen oplossen
 
-De vragen zijn gegroepeerd: [Algemeen](#algemeen) · [Planning](#planning) · [Koken](#koken) ·
+De vragen zijn gegroepeerd: [Algemeen](#algemeen) · [Planning](#planning) ·
+[Weer en klimaatgeschiedenis](#weer-en-klimaatgeschiedenis) · [Koken](#koken) ·
 [Logboek en gegevens](#logboek-en-gegevens) · [Entiteiten, spraak en dashboards](#entiteiten-spraak-en-dashboards) ·
 [Afdrukken, handboek, automatisch invullen](#afdrukken-handboek-automatisch-invullen) · [Veiligheid van de bewatering](#veiligheid-van-de-bewatering) ·
 [Problemen oplossen](#problemen-oplossen)
@@ -24,8 +25,9 @@ de integratie is `garden_manager`; het product heet Hortulus.
 
 **Gaat er iets naar internet?**
 Home Assistant zelf maakt alleen verbinding naar buiten als je **Open‑Meteo** aanzet
-(Instellingen → Weer): dan haalt het een verwachting op bij api.open‑meteo.com, met de
-coördinaten van de tuin afgerond op twee decimalen (~1 km). De plantendatabase, het handboek,
+(Instellingen → Weer): dan haalt het een verwachting en, één keer per dag, het waargenomen weer
+van de laatste 31 dagen (voor de [klimaatgeschiedenis](#weer-en-klimaatgeschiedenis)) op bij
+api.open‑meteo.com, met de coördinaten van de tuin afgerond op twee decimalen (~1 km). De plantendatabase, het handboek,
 alle tekeningen en het kookboek zitten in de integratie; foto's die je toevoegt gaan via de
 eigen `image_upload` van Home Assistant en blijven in je configuratiemap. Twee dingen worden door
 *je browser* geladen, niet door Home Assistant: plantfoto's van Wikipedia (standaard aan, uit te
@@ -84,7 +86,9 @@ met een beperkte lijst tabbladen (`panel.config.tabs`), zodat bezoekers een alle
 **Tuin** krijgen van een plan dat de eigenaar deelt – klik een zone, bed, gewas of element voor de
 details, kies het jaar – en gedeelde recepten; het kookboek kan *een recept naar de kok mailen* in
 plaats van het naar een gsm te sturen; en een plan dat daar geëxporteerd is, kan in Home Assistant
-geïmporteerd worden (zones, bedden, elementen, seizoensplannen en gewassen komen allemaal mee). In
+geïmporteerd worden (zones, bedden, elementen, seizoensplannen en gewassen komen allemaal mee). Ook
+de website houdt een klimaatgeschiedenis bij (zie
+[Houdt de website geschiedenis bij?](#weer-en-klimaatgeschiedenis)). In
 Home Assistant verandert hier niets aan. Hosting, accounts en beschikbaarheid van de website
 maken geen deel uit van deze repository en worden hier niet beschreven.
 
@@ -107,7 +111,8 @@ Ja. Met **Taken plannen volgens het weer** (standaard aan) schuiven zaaien, uitp
 snoeien, bodem klaarmaken en dergelijke klussen binnen hun venster naar de dichtstbijzijnde
 geschikte dag (geen regen, vorst, hitte of storm). Bestaat zo'n dag niet, dan krijgt de taak een
 weerwaarschuwing. Hortulus maakt ook taken voor hitte, droogte, storm en zware regen, met
-ecologische tips.
+ecologische tips – en achteraf, uit het gelogde weer, nazorgtaken na een storm, een stortbui of
+een droge week (zie [Weer en klimaatgeschiedenis](#weer-en-klimaatgeschiedenis)).
 
 **Waarom krijg ik geen oogsttaken voor afrikaantjes?**
 Begeleidende bloemen zijn gemarkeerd met `harvestable: false`. Zet dat op true in een eigen
@@ -215,7 +220,8 @@ Assistant als die er is (een `camera.*`‑entiteit waarvan het id *buienradar*, 
 *rain* bevat, bv. van de Buienradar‑integratie). Zonder zo'n camera toont Hortulus de publieke
 kaart van Buienradar als het land van Home Assistant Nederland of België is, elke 5 minuten
 ververst; elders is er geen radar. De verwachting komt van de weerentiteit die je bij Instellingen
-koos.
+koos. Onder de verwachting staat de **Klimaatgeschiedenis**: wat het weer hier echt deed (zie
+[hieronder](#weer-en-klimaatgeschiedenis)).
 
 **Wanneer moet ik insectengaas leggen?**
 Hortulus volgt een **plagenkalender**: voor wortelvlieg, koolvlieg, koolwitje, uienvlieg, preimot,
@@ -236,6 +242,78 @@ Ja. Selecteer een bed in de planner en voeg een **bodemanalyse** toe (pH, organi
 Mg en kalk uit een labrapport of thuistest). Het bemestingsplan, het kalkadvies en de
 boodschappenlijst van het bed volgen de laatste analyse: minder fosfaat bij een hoge P, kalk
 alleen als de pH te laag is voor de gewassen, meer compost bij weinig organische stof.
+
+## Weer en klimaatgeschiedenis
+
+**Houdt Hortulus rekening met het weer voor de groei?**
+Ja, met het weer dat er echt was, niet alleen met de verwachting. Hortulus houdt een
+**klimaatgeschiedenis** bij (minimum, maximum en gemiddelde temperatuur, vochtigheid, wind,
+regen, straling en zonuren per dag) en de motor rekent ermee:
+
+* **Groei** – graaddagen sinds het planten verschuiven de oogstdatum. Kasgewassen tellen de
+  graaddagen van hun eigen luchtsensor (of de buitendag met kasbuffering). Gelogde hittedagen
+  (laatste maand) en een reeks sombere dagen vertragen vruchtgewassen; gewassen zonder
+  graaddagenmodel worden opgehouden door gelogde koude dagen onder hun minimum. De gewaspopup
+  toont de vertraging en waarom.
+* **Water** – de waterbalans boekt elke voorbije dag met Penman‑Monteith op de gelogde
+  vochtigheid, wind en zon of straling: winderige, zonnige dagen drogen bedden sneller uit.
+* **Ziekte** – twee vochtige, warme dagen die **al gebeurd** zijn (Hutton‑criteria) geven een
+  hoge druk van aardappelziekte; meerdere natte dagen achter de rug verhogen het niveau.
+* **Zaaien** – direct zaaien wacht op warme grond: de bodemtemperatuur is de laagste van de
+  meting nu en het gemiddelde van de laatste dagen, dus één warme middag telt niet.
+* **Taken** – een controle na een storm (windstoten ≥ 60 km/u), de slakkenronde na een stortbui
+  (dezelfde taak die de verwachting zou maken, nooit twee keer) en flink water na een droge
+  week; en een waarschuwing als het gevroren heeft terwijl tere gewassen buiten stonden.
+
+**Waar vind ik de klimaatgeschiedenis / temperatuurstatistiek?**
+In het tabblad **Weer**, onder de verwachting: **Klimaatgeschiedenis**. Je ziet een dagelijkse
+grafiek van temperatuur en regen (30 dagen, 90 dagen of 1 jaar), *Recent, vergeleken met vorig
+jaar* (laatste 7 dagen, laatste 30 dagen en dit seizoen: gemiddeld, laagste, hoogste, regen,
+vorstnachten, dagen ≥ 25 °C, zonneschijn, hardste wind, graaddagen, verdamping), **Records**,
+**Alle temperatuursensoren** (nu, vandaag, gem. 7 d, min–max 30 d, laagste en hoogste ooit),
+**Maand per maand** en de **Vorstdata**. In Home Assistant zelf zijn er vier sensoren (regen,
+gemiddelde temperatuur en zonneschijn over 7 dagen, vorstnachten dit seizoen) met de waarde van
+vorig jaar als attribuut – zie [Entiteiten → Klimaatgeschiedenis](ENTITEITEN.md#klimaatgeschiedenis).
+Een nieuwe tuin begint leeg; de geschiedenis groeit dag na dag.
+
+**Wat als Home Assistant uit stond?**
+Dan vult Hortulus het gat achteraf, één keer per dag en bij het opstarten: eerst uit de
+**recorder** van Home Assistant (de toestanden van dezelfde temperatuur‑, vochtigheids‑ en
+windsensoren, voor de laatste 30 dagen – zolang de recorder ze nog bewaart, standaard 10 dagen)
+en, als **Open‑Meteo** aan staat, uit het **waargenomen** dagweer van Open‑Meteo voor de laatste
+31 dagen. Eigen metingen winnen altijd; de recorder combineert de uitersten; Open‑Meteo vult
+alleen aan wat niet goed gemeten is. In de grafiek zie je per dag waar de gegevens vandaan komen.
+Meer details: [Configuratie → Klimaatgeschiedenis](CONFIGURATIE.md#klimaatgeschiedenis).
+
+**Welke weerstationsensoren helpen?**
+Bij **Instellingen → Weer & buitensensoren** kun je naast buitentemperatuur, luchtvochtigheid,
+regen en bladnat ook **Windsnelheid**, **Windstoten**, **Zonnestraling (W/m²)** en **Licht
+buiten (lux)** koppelen. Ze maken de geschiedenis exact: wind en zon of straling voeden de
+Penman‑Monteith‑verdamping (dus de waterbalans), windstoten de taak na een storm, straling de
+zonuren en de sombere dagen, en vochtigheid het ziekterisico. Een lux‑sensor wordt omgerekend
+als er geen stralingssensor is; windeenheden (m/s, mph, kn) worden naar km/u omgezet. Een
+regenmeter (dagtotaal in mm) is beter dan de verwachting, die Hortulus anders voor vandaag boekt.
+Zonder weerstation vullen de weerentiteit en Open‑Meteo aan.
+
+**Hoe worden vorstdata gemeten?**
+Per jaar onthoudt Hortulus de **laatste dag met een buitenminimum onder 0 °C** in de
+voorjaarshelft (januari–juni; zuidelijk halfrond juli–december) en de **eerste** in de
+herfsthelft. Een halfjaar telt pas als het voorbij is en minstens 80 % van zijn dagen gelogd is.
+Het gemiddelde van die volledige jaren staat in *Vorstdata* naast de data van je regio
+(“… dagen vroeger / later”). Hortulus verandert je vorstdata nooit zelf: wijkt het sterk af,
+stel je eigen data in bij **Instellingen → Klimaat & regio** en alle zaaivensters schuiven mee.
+
+**Hoe lang blijft de geschiedenis bewaard?**
+Dagen buiten blijven ruim twee seizoenen (800 dagen), dagen per temperatuursensor 400 dagen.
+Daarna worden ze samengevoegd tot maandcijfers (minimum, maximum, gemiddelde, regen, vorst‑ en
+hete dagen, zonuren, hardste wind) die voor altijd blijven, zodat je jaren kunt vergelijken.
+
+**Houdt de website geschiedenis bij?**
+Ja. Hortulus Web (de optionele website, geen onderdeel van deze repository) rekent alleen terwijl
+iemand de tuin open heeft, dus het vult de geschiedenis zelf aan: voor **elke tuin** uit het
+waargenomen weer van **Open‑Meteo**, en voor een tuin die aan een Home Assistant gekoppeld is ook
+uit de **recorder** van die Home Assistant, via het token van de tuin. Dezelfde regels gelden:
+eigen metingen eerst, dan de recorder, dan Open‑Meteo.
 
 ## Koken
 
@@ -509,7 +587,10 @@ het budget, selecteer meer bedden of vink *vervangen* aan.
 **Waarom verschoof de verwachte oogstdatum?**
 Met een temperatuursensor (of de weerentiteit) logt Hortulus dagelijkse minimum‑ en
 maximumtemperaturen en telt het graaddagen op sinds het planten; een warme periode vervroegt de
-oogst, een koude stelt haar uit (hoogstens drie weken naar beide kanten).
+oogst, een koude stelt haar uit (hoogstens drie weken naar beide kanten). Kasgewassen tellen hun
+eigen luchtsensor. Hittedagen en een reeks sombere dagen vertragen vruchtgewassen, gelogde koude
+dagen gewassen zonder graaddagenmodel; de gewaspopup toont hoeveel dagen en waarom. Zie
+[Houdt Hortulus rekening met het weer voor de groei?](#weer-en-klimaatgeschiedenis)
 
 ## Veiligheid van de bewatering
 

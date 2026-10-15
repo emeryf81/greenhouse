@@ -69,12 +69,14 @@ als vorstvrij. Onmogelijke data (zoals `13-01`) worden geweigerd.
   elke 30 minuten `weather.get_forecasts` aan, en ook telkens wanneer de weerentiteit
   verandert (maximaal eens per 10 minuten). Eenheden worden automatisch omgerekend naar °C,
   mm en km/u.
-* **Buitentemperatuur** (optioneel): gebruikt voor het graaddagenlogboek; valt terug op de
+* **Buitentemperatuur** (optioneel): gebruikt voor de
+  [klimaatgeschiedenis](#klimaatgeschiedenis) en dus voor de graaddagen; valt terug op de
   huidige temperatuur van de weerentiteit. °F‑sensoren worden omgerekend.
 * **Regensensor** (optioneel): een dagtotaal in mm (of een binaire regendetector).
 
-Meer weerinvoer (buitenluchtvochtigheid, bladnat, de optionele Open‑Meteo‑verwachting, hoogte)
-stel je later in het paneel in onder *Instellingen → Weer & buitensensoren*.
+Meer weerinvoer (buitenluchtvochtigheid, bladnat, de weerstationsensoren windsnelheid,
+windstoten, zonnestraling en licht buiten, de optionele Open‑Meteo‑gegevens, hoogte) stel je
+later in het paneel in onder *Instellingen → Weer & buitensensoren*.
 
 ### Stap 3 – Bedden, kassen en bakken
 Voeg zoveel tuindelen toe als je wilt (menu *Nog een toevoegen…*). Elk tuindeel vraagt naar
@@ -134,7 +136,22 @@ dus een sensor die steeds dezelfde waarde meldt maar wel leeft, geldt niet als v
 
 Sensorsoorten die je in het paneel (Instellingen) kunt koppelen: bodemvocht, bodemtemperatuur,
 EC en N / P / K‑sondes per bed; luchttemperatuur, luchtvochtigheid, licht, PAR en bladnat per
-zone; buitentemperatuur, ‑vochtigheid, regen en bladnat voor de hele tuin. Eén keer per dag
+zone; voor de hele tuin buitentemperatuur, ‑vochtigheid, regen en bladnat, en als
+**weerstation** ook windsnelheid, windstoten, zonnestraling (W/m²) en licht buiten (lux).
+
+| Buitensensor | Eenheid | Waarvoor |
+|---|---|---|
+| Buitentemperatuur | °C of °F | dagminimum, ‑maximum en ‑gemiddelde, graaddagen, vorstnachten, vorstdata |
+| Luchtvochtigheid | % | Penman‑Monteith‑verdamping, ziekterisico (Hutton uit de gelogde dagen) |
+| Regensensor | mm per dag (of binair) | regen in de waterbalans en de geschiedenis; zonder meter boekt Hortulus de verwachting van vandaag |
+| Windsnelheid | km/u, m/s, mph of kn (omgerekend) | verdamping, stormdagen |
+| Windstoten | idem | hardste windstoot, nazorgtaak na een storm (≥ 60 km/u) |
+| Zonnestraling | W/m² | stralingssom en zonuren (tijd boven 120 W/m², de WMO‑drempel), verdamping, sombere dagen |
+| Licht buiten | lux | als er geen stralingssensor is: omgerekend naar straling (ongeveer 127 lux per W/m²) |
+| Bladnat | % of binair | ziekterisico nu |
+
+Zonder weerstation nemen de weerentiteit (temperatuur, vochtigheid, wind en windstoten) en,
+als het aan staat, Open‑Meteo het over. Eén keer per dag
 bepaalt een vochtsensor ook de waterbalans van het bed, en elk bed leert hoe snel het echt
 uitdroogt.
 
@@ -145,7 +162,7 @@ uitdroogt.
 | Menu | Velden |
 |---|---|
 | Klimaat en vorstdata | profiel, halfrond, voorinstelling / zone / eigen data |
-| Weer en buitensensoren | weerentiteit, buitentemperatuur, regen |
+| Weer en buitensensoren | weerentiteit, buitentemperatuur, regen (de andere buitensensoren stel je in het paneel in) |
 | Meldingen | blijvend, pushdiensten, TTS, speakers, tijdstip overzicht, vorstwaarschuwingen, hittewaarschuwingen, TTS‑vorstbericht |
 | Geavanceerd | taal van gegenereerde teksten (auto/en/nl/fr), bereik buurplanten (10–300 cm), sensor verouderd na (15–2880 min), diepte wortelzone (50–600 mm), maximale beregening per keer (2–60 mm) |
 
@@ -340,6 +357,71 @@ Buienradar), anders de publieke kaart van Buienradar voor Nederland of België (
 geladen, elke 5 minuten ververst). Vereist een weerentiteit onder *Instellingen → Weer &
 buitensensoren*.
 
+#### Klimaatgeschiedenis
+Onder de verwachting staat de **Klimaatgeschiedenis**: wat het weer hier echt deed (niet
+zichtbaar in een alleen‑lezen gedeelde weergave).
+
+* **Dagelijkse temperatuur en regen** – een band van de laagste tot de hoogste temperatuur
+  van de dag, een lijn voor het daggemiddelde en balkjes voor de regen, voor **30 dagen**,
+  **90 dagen** of **1 jaar**. Wijs een dag aan voor zon, wind en de herkomst van de gegevens
+  (*eigen sensoren*, *recorder‑geschiedenis* of *Open‑Meteo (waargenomen)*).
+* **Recent, vergeleken met vorig jaar** – de *Laatste 7 dagen*, de *Laatste 30 dagen* en
+  *Dit seizoen* (sinds 1 januari; op het zuidelijk halfrond sinds 1 juli), de laatste twee met
+  dezelfde periode vorig jaar ernaast: gemiddeld, laagste, hoogste, regen en dagen met regen
+  (≥ 1 mm), vorstnachten (minimum onder 0 °C), dagen ≥ 25 °C (waarvan ≥ 30 °C),
+  zonneschijn, hardste wind, graaddagen (met de basistemperatuur uit de instellingen) en
+  verdamping (ET₀) met de waterbalans *regen − verdamping*.
+* **Records** – koudst, warmst, natste dag en hardste windstoot sinds het begin van de
+  geschiedenis (ook uit de bewaarde maandcijfers), met hoeveel dagen er in het daglogboek
+  staan en waar ze vandaan komen; plus een korte lijst *Wat Hortulus ermee doet*.
+* **Alle temperatuursensoren** – elke gekoppelde temperatuursensor (buitenlucht, lucht serre /
+  zone, lucht bij het bed, bodem): *Nu*, *Vandaag*, *Gem. 7 d*, *Min–max 30 d*, *Laagste
+  ooit*, *Hoogste ooit*, het aantal dagen en een sparkline.
+* **Maand per maand** – de laatste 24 maanden met gemiddelde, laagste, hoogste, regen,
+  vorstnachten, hete dagen, zon en hardste wind, en de verandering tegenover vorig jaar.
+* **Vorstdata** – de gemeten laatste voorjaarsvorst en eerste herfstvorst per jaar, en hun
+  gemiddelde tegenover de regionale voorinstelling (zie hieronder).
+
+**Hoe de geschiedenis wordt opgenomen.** Bij elke update (sensorwijzigingen, 10 s
+gedebounced) legt Hortulus de buitenwaarden vast in de dag van vandaag: minimum en maximum
+altijd, het gemiddelde met hoogstens één meting per 4 minuten. Zonder buitensensor gebruikt
+het de weerentiteit. Zonnestraling telt op tot een dagsom en zonuren; een lux‑sensor wordt
+omgerekend. Regen komt van de regenmeter; zonder meter wordt de verwachting voor vandaag
+geboekt (die nooit een gemeten of uit de recorder gehaalde dag overschrijft). Elke gekoppelde
+temperatuursensor krijgt zijn eigen dagminimum, ‑maximum en ‑gemiddelde.
+
+**Aanvullen uit de recorder en Open‑Meteo.** Eén keer per dag (en bij het opstarten) vult
+Hortulus de dagen aan die niemand goed volgde, bv. omdat Home Assistant uit stond of herstartte:
+
+1. **Recorder** van Home Assistant: voor de laatste 30 dagen, als er gaten zijn, worden de
+   bewaarde toestanden van de temperatuursensoren, de buitenvochtigheid, de windsnelheid en de
+   windstoten omgezet in dagminimum, ‑maximum en tijdgewogen gemiddelde (°F en
+   windeenheden omgerekend). De uitersten worden gecombineerd met wat Hortulus zelf mat; het
+   gemiddelde vervangt alleen een onvolledige dag. Hoe lang de recorder terug gaat, hangt van
+   zijn eigen bewaartermijn af (standaard 10 dagen).
+2. **Open‑Meteo**, alleen met *Open‑Meteo gebruiken voor vocht, wind en zon* aan: het
+   **waargenomen** dagweer van de laatste 31 dagen voor de (afgeronde) coördinaten van de
+   tuin – temperatuur, regen, wind en windstoten, straling, zonneschijn, luchtvochtigheid en
+   FAO‑ET₀. Dat vult alleen wat niet goed gemeten is (een dag met minder dan 12 uur eigen
+   metingen of een ontbrekende waarde).
+
+Eigen metingen winnen altijd. Voor regen geldt de volgorde regenmeter → recorder → Open‑Meteo
+→ verwachting.
+
+**Bewaartermijn.** Dagen blijven in het daglogboek: buiten **ruim twee seizoenen** (800
+dagen), per temperatuursensor **400 dagen**. Daarna worden ze samengevoegd tot
+**maandcijfers** (minimum, maximum, gemiddelde, regen, vorst‑ en hete dagen, zonuren, hardste
+wind) die **voor altijd** blijven, zodat statistieken van jaar tot jaar overeind blijven. Alles
+staat in het gewone tuinbestand.
+
+**Gemeten vorstdata.** Per jaar onthoudt Hortulus de laatste dag met een buitenminimum onder
+0 °C in de voorjaarshelft (januari–juni; zuidelijk halfrond juli–december) en de eerste in de
+herfsthelft. Een halfjaar telt pas mee als het voorbij is en minstens 80 % van zijn dagen
+gelogd is; onvolledige seizoenen krijgen een sterretje. Het gemiddelde van de volledige jaren
+wordt naast de vorstdata van je regio gezet (*… dagen vroeger / later*). Wijkt het sterk af,
+stel dan je eigen vorstdata in bij *Instellingen → Klimaat & regio*: alle zaaivensters schuiven
+mee. Hortulus past ze nooit zelf aan.
+
 ### Logboek
 Onderdelen:
 
@@ -458,7 +540,7 @@ keuzelijsten die alleen passende entiteiten tonen):
 | Onderdeel | Inhoud |
 |---|---|
 | **Klimaat & regio** | halfrond, profiel (voorinstelling / USDA / eigen), vorstdata |
-| **Weer & buitensensoren** | weerentiteit, buitentemperatuur, regen, buitenluchtvochtigheid, bladnat, **Open‑Meteo** (opt‑in), hoogte |
+| **Weer & buitensensoren** | weerentiteit, buitentemperatuur, regen, buitenluchtvochtigheid, bladnat, **windsnelheid**, **windstoten**, **zonnestraling (W/m²)**, **licht buiten (lux)**, **Open‑Meteo** (opt‑in: verdamping en het waargenomen weer voor de [klimaatgeschiedenis](#klimaatgeschiedenis)), hoogte |
 | **Zones & microklimaat** | per zone: luchttemperatuur, vochtigheid, licht, bladnat, **PAR**; voor kassen en koude bakken ook **raamopener / ventilatie**‑ en **schaduwscherm**‑entiteiten met sturing *uit / advies / automatisch*, *thermische massa*; *tegen een warme muur*, *verwarmd* (+ minimumtemperatuur) |
 | **Bedden & sensoren** | per bed: bodemvocht, bodemtemperatuur, **EC, N, P, K**‑sondes, klep, knop **Test (5 s)**, debiet (L/min; het gemeten debiet wordt getoond als de watermeter het leerde), **kraantimer** |
 | **Bewateringshardware** | modus (*uit / advies / automatisch*), pomp, starttijd, maximale looptijd, vorstvergrendeling, regen overslaan, pomp stopt vóór klep |
@@ -581,7 +663,9 @@ planbestand; ze staan in de tuinopslag.
 ## 7. Prestaties
 
 * Geen sensorpolling – luisteraars voor statuswijzigingen op precies de gekoppelde entiteiten,
-  10 s gedebounced; de verwachting is het enige tijdgestuurde ophaalmoment (30 min).
+  10 s gedebounced; de verwachting is het enige tijdgestuurde ophaalmoment (30 min). De
+  klimaatgeschiedenis wordt één keer per dag aangevuld (recorder, Open‑Meteo) en alleen als er
+  gaten zijn; een fout daarbij houdt de tuin nooit tegen.
 * Alle berekeningen zijn pure Python op gegevens in het geheugen (milliseconden voor een
   gewone tuin), schrijfacties naar de opslag zijn gedebounced (5 s, systeemlogboek 10 s) en
   blokkeren de event loop nooit.
@@ -651,3 +735,9 @@ Assistant hangt ervan af. Wat de repository zelf toont:
 * De website draait de websocket‑handlers, bewerkingen en opslag van de integratie op haar eigen
   vervangers voor de modules van Home Assistant, zodat de planbestanden uit
   [sectie 5](#5-importeren-en-exporteren) tussen beide uitgewisseld kunnen worden.
+* **Klimaatgeschiedenis op de website.** De website rekent alleen terwijl iemand de tuin open
+  heeft, dus ze vult de geschiedenis zelf aan: voor **elke tuin** uit het waargenomen weer van
+  **Open‑Meteo**, en voor een tuin die aan een Home Assistant gekoppeld is ook uit de
+  **recorder** van die Home Assistant, via het token van de tuin. Dezelfde regels gelden als
+  hierboven ([Klimaatgeschiedenis](#klimaatgeschiedenis)): eigen metingen eerst, de recorder
+  daarna, Open‑Meteo als aanvulling.
