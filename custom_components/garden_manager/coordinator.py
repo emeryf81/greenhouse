@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 import logging
+import math
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.weather import WeatherEntityFeature
@@ -193,11 +194,8 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
         if data.settings.open_meteo:
             from .api import async_fetch_open_meteo_history
 
-            settings = data.settings
             try:
-                payload = await async_fetch_open_meteo_history(
-                    self.hass, settings.region.latitude or self.hass.config.latitude, self.hass.config.longitude
-                )
+                payload = await async_fetch_open_meteo_history(self.hass, *self._location())
             except Exception as err:  # history is a bonus, never a reason to stop
                 _LOGGER.debug("Open-Meteo history unavailable: %s", err)
             else:
@@ -273,11 +271,14 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
         if self.repo.data.settings.open_meteo:
             await self._async_enrich_open_meteo()
 
+    def _location(self) -> tuple[float, float]:
+        """Where to ask Open-Meteo: Home Assistant's home, latitude and longitude together
+        (the region's latitude is copied once and may be older than a corrected home)."""
+        return self.hass.config.latitude, self.hass.config.longitude
+
     async def _async_enrich_open_meteo(self) -> None:
         """Opt-in: fill humidity/wind/radiation gaps (or the whole forecast)."""
-        settings = self.repo.data.settings
-        lat = settings.region.latitude or self.hass.config.latitude
-        lon = self.hass.config.longitude
+        lat, lon = self._location()
         try:
             raw = await async_fetch_open_meteo(self.hass, lat, lon)
         except OpenMeteoError as err:
@@ -364,6 +365,8 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
             if value is not None and unit in TEMPERATURE_UNITS:
                 value = _to_celsius(value, unit)
+            elif value is not None and unit in RAIN_MM:  # a rain gauge in inches books millimetres
+                value = round(value * RAIN_MM[unit], 2)
             reported = getattr(state, "last_reported", None) or state.last_updated
             readings[entity_id] = SensorReading(entity_id, value, reported, stale=(now - reported) > stale_after)
         return readings
@@ -376,8 +379,9 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             value = float(state.state)
         except (TypeError, ValueError):
             return None
-        if m3 and str(state.attributes.get("unit_of_measurement", "")).lower() in ("l", "liter", "litre", "liters"):
-            value /= 1000
+        if m3:
+            liters = volume_liters(value, state.attributes.get("unit_of_measurement"))
+            value = liters / 1000 if liters is not None else value
         return value
 
     def _compute(self) -> GardenAnalysis:
@@ -510,6 +514,22 @@ def _speed_kmh(value: Any, unit: str | None) -> float | None:
         return round(SpeedConverter.convert(number, unit, UnitOfSpeed.KILOMETERS_PER_HOUR), 1)
     except (ValueError, KeyError):
         return number
+
+
+RAIN_MM = {"mm": 1.0, "cm": 10.0, "in": 25.4}
+# water meters report in m³ (the default), litres, US gallons or cubic feet
+VOLUME_LITERS = {
+    "l": 1.0, "liter": 1.0, "litre": 1.0, "liters": 1.0, "litres": 1.0, "m³": 1000.0, "m3": 1000.0,
+    "gal": 3.785411784, "ft³": 28.316846592, "ft3": 28.316846592, "ccf": 2831.6846592,
+}  # fmt: skip
+
+
+def volume_liters(value: float, unit: Any) -> float | None:
+    """A meter reading in litres (no unit: m³)."""
+    if not math.isfinite(value):
+        return None
+    factor = VOLUME_LITERS.get(str(unit or "m³").strip().lower())
+    return value * (factor if factor is not None else 1000.0)
 
 
 def _to_celsius(value: Any, unit: str | None) -> float | None:

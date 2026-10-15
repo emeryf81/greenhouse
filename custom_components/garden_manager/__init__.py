@@ -29,7 +29,7 @@ from .seed import build_initial_data
 from .services import async_setup_services
 from .storage import GardenRepository
 from .voice import async_setup_intents
-from .websocket_api import async_setup_websocket, clear_diagnosis_cache
+from .websocket_api import async_notify_reloaded, async_setup_websocket, clear_diagnosis_cache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -100,6 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
     _schedule_reminders(hass, entry)
     _schedule_irrigation(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    async_notify_reloaded(hass, entry.entry_id, entry.runtime_data)
     return True
 
 
@@ -223,6 +224,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> b
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         clear_diagnosis_cache(entry.runtime_data)
+        # stop a watering run first: its clean-up writes the tasks, and must not land after the flush
+        await entry.runtime_data.irrigation.async_stop()
         await entry.runtime_data.repo.async_flush()
         if not [e for e in loaded(hass) if e.entry_id != entry.entry_id]:
             async_unregister_panel(hass)  # the panel stays while another garden is loaded

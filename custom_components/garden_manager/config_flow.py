@@ -153,6 +153,12 @@ def notification_schema(defaults: dict[str, Any], notify_services: list[str]) ->
     )
 
 
+def _nonce() -> dict[str, str]:
+    """A value that changes with every save: Home Assistant only applies options that differ
+    from the previous ones, and the panel may have changed the store in between."""
+    return {"save_id": uuid.uuid4().hex}
+
+
 class GardenConfigFlow(ConfigFlow, domain=DOMAIN):
     """Guided setup."""
 
@@ -351,7 +357,7 @@ class GardenOptionsFlow(OptionsFlow):
     def _save(self, key: str, value: Any) -> ConfigFlowResult:
         # Only the section just edited: the store (also edited from the panel) is the source
         # of truth, so stale sections from earlier option edits must not be re-applied.
-        return self.async_create_entry(data={key: value})
+        return self.async_create_entry(data={key: value, **_nonce()})
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(
@@ -390,7 +396,7 @@ class GardenOptionsFlow(OptionsFlow):
             data: dict[str, Any] = {}
             for key in (CONF_WEATHER_ENTITY, CONF_OUTDOOR_TEMP, CONF_RAIN_SENSOR):
                 data[key] = user_input.get(key)
-            return self.async_create_entry(data=data)
+            return self.async_create_entry(data={**data, **_nonce()})
         current = self._current()
         return self.async_show_form(
             step_id="weather",

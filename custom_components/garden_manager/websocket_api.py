@@ -280,15 +280,48 @@ def ws_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection
     runtime = _require_runtime(hass, connection, msg)
     if runtime is None:
         return
+    current: dict[str, Any] = {"runtime": runtime, "unsub": None}
 
     @callback
     def push() -> None:
-        connection.send_message(websocket_api.event_message(msg["id"], build_snapshot(runtime)))
+        connection.send_message(websocket_api.event_message(msg["id"], build_snapshot(current["runtime"])))
 
-    unsub = runtime.coordinator.async_add_listener(push)
-    connection.subscriptions[msg["id"]] = unsub
+    @callback
+    def attach(new: GardenRuntime) -> None:
+        if current["unsub"] is not None:
+            current["unsub"]()
+        current["runtime"] = new
+        current["unsub"] = new.coordinator.async_add_listener(push)
+
+    @callback
+    def reloaded(new: GardenRuntime) -> None:
+        """The garden was set up again (options saved, reload): follow it, not the old runtime."""
+        attach(new)
+        push()
+
+    attach(runtime)
+    subscribers = hass.data.setdefault(SUBSCRIBERS, {}).setdefault(runtime.coordinator.config_entry.entry_id, set())
+    subscribers.add(reloaded)
+
+    @callback
+    def unsubscribe() -> None:
+        subscribers.discard(reloaded)
+        if current["unsub"] is not None:
+            current["unsub"]()
+
+    connection.subscriptions[msg["id"]] = unsubscribe
     connection.send_result(msg["id"])
     push()
+
+
+SUBSCRIBERS = f"{DOMAIN}_subscribers"
+
+
+@callback
+def async_notify_reloaded(hass: HomeAssistant, entry_id: str, runtime: GardenRuntime) -> None:
+    """Open panel and card subscriptions move to the garden's new runtime."""
+    for reloaded in list(hass.data.get(SUBSCRIBERS, {}).get(entry_id, ())):
+        reloaded(runtime)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/plants", vol.Optional("garden_id"): str})

@@ -123,7 +123,7 @@ def async_setup_dynamic(
     """
     coordinator = entry.runtime_data.coordinator
     known_beds: set[str] = set()
-    known_zones: set[str] = set()
+    known_zones: dict[str, tuple[bool, set[str]]] = {}  # zone id -> (enclosed, unique ids of its entities)
 
     @callback
     def _sync() -> None:
@@ -136,13 +136,34 @@ def async_setup_dynamic(
                     new.extend(bed_factory(coordinator, bed))
         if zone_factory:
             for zone in data.zones:
-                if zone.id not in known_zones:
-                    known_zones.add(zone.id)
-                    new.extend(zone_factory(coordinator, zone))
+                known = known_zones.get(zone.id)
+                if known is not None and known[0] == zone.is_enclosed:
+                    continue
+                # new zone, or one that became (or stopped being) a greenhouse: its entities follow
+                entities = list(zone_factory(coordinator, zone))
+                ids = {e.unique_id for e in entities if e.unique_id}
+                before = known[1] if known else set()
+                new.extend(e for e in entities if e.unique_id not in before)
+                _remove_entities(coordinator, before - ids)
+                known_zones[zone.id] = (zone.is_enclosed, ids)
         known_beds.intersection_update({b.id for b in data.beds})
-        known_zones.intersection_update({z.id for z in data.zones})
+        for zone_id in set(known_zones) - {z.id for z in data.zones}:
+            del known_zones[zone_id]
         if new:
             async_add_entities(new)
 
     _sync()
     entry.async_on_unload(async_dispatcher_connect(coordinator.hass, SIGNAL_LAYOUT_CHANGED, _sync))
+
+
+@callback
+def _remove_entities(coordinator: GardenCoordinator, unique_ids: set[str]) -> None:
+    """Drop entities a zone no longer has (a greenhouse turned into an open zone)."""
+    if not unique_ids:
+        return
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(coordinator.hass)
+    for entity in list(registry.entities.values()):
+        if entity.platform == DOMAIN and entity.unique_id in unique_ids:
+            registry.async_remove(entity.entity_id)
