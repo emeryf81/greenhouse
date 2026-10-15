@@ -54,7 +54,7 @@ entities, services, a dashboard card and voice commands for the rest of Home Ass
 | **Today** | Today · Wall screen | The day at a glance: tasks, warnings, weather, quick harvest, beds. |
 | **Garden** | Planner · Garden plan · Crops | Draw the site, arrange the zones, plant the beds; every crop in one list, timeline, sowing plan, seeds, succession and harvest forecast. |
 | **Calendar** | Calendar | Month, week, list, season timeline and year view of every task and crop. |
-| **Weather** | Weather | Forecast, what it means for your garden, rain radar. |
+| **Weather** | Weather | Forecast, what it means for your garden, rain radar, climate history. |
 | **Journal** | Diary · Harvest · Kitchen · Seed box · Water · Season report · System log | Everything you record, and what it adds up to. |
 | **Cooking** | Ideas · My cookbook · Shopping list | A seasonal cookbook from what is ready to pick. |
 | **Knowledge** | Plants · Advice · Handbook | 232 crops, questions and answers, a 23‑chapter handbook. |
@@ -116,8 +116,10 @@ A **task engine** schedules the whole life of every crop – sowing, pricking ou
 off, planting out, feeding, pruning, harvest – and the **garden year**: soil preparation
 (with kilos of compost), cleaning the greenhouse windows, shading on and off, biological
 control, nettle and comfrey feed, gutters and water butts, nest boxes, seed saving, winter
-rest, orchard care. Tasks adapt to the weather (heat, dry spell, storm, heavy rain), wait
-for warm soil and a frost‑free forecast, come with the tools each job needs, and nag
+rest, orchard care. Tasks adapt to the weather (heat, dry spell, storm, heavy rain) – the
+forecast and the weather that already happened (a check after a storm, the slug patrol
+after a downpour, deep watering after a dry week) – wait for warm soil and a frost‑free
+forecast, come with the tools each job needs, and nag
 politely when overdue. You can assign them to people, tick them off from any dashboard,
 and see a weekly look‑ahead.
 
@@ -135,9 +137,21 @@ and see a weekly look‑ahead.
 * **Calendar** – month, week, list, season timeline and year view, also as a Home
   Assistant calendar and to‑do list.
 * **Weather** – hourly and daily forecast, what the coming days mean for *your* garden
-  (frost, a hot day, rain you can count on, a bed that needs water) and a rain radar.
+  (frost, a hot day, rain you can count on, a bed that needs water), a rain radar and the
+  climate history.
 * **Wall screen** – a calm kiosk view of time, weather and tasks for a tablet in the
   kitchen; dims at night.
+
+**Climate history – what the weather really did here.** Every update folds your outdoor
+sensors (or the weather entity) into the day: lowest, highest and mean temperature, humidity,
+wind and gusts, rain, solar radiation and sunshine hours – and every temperature sensor you
+linked (greenhouse air, soil, air at a bed) gets its own daily minimum, maximum and mean.
+Days Hortulus did not see are filled from Home Assistant's recorder and, with Open‑Meteo on,
+from Open‑Meteo's observed weather. **Weather → Climate history** shows a daily chart (30
+days, 90 days, a year), the last week, month and season next to last year, records, a table of
+every temperature sensor, month by month, and your **measured frost dates** against the
+regional preset. Months are kept for good, so year‑on‑year comparisons survive. The engine
+uses this log too: for degree days, the water balance, disease risk and after‑care tasks.
 
 ## Records, kitchen and knowledge
 
@@ -222,9 +236,11 @@ Safe by design: salad crops stay raw, beans and elderberries are never offered r
 ## Water, feeding and health
 
 * FAO‑56 **Penman‑Monteith ET₀** (Hargreaves fallback), Kc per growth stage, a root‑zone
-  **water balance** per bed, an NPK/EC **nutrient balance index**, **disease risk**
-  (Hutton criteria, leaf wetness, greenhouse humidity) and degree‑day phenology with
-  dynamic harvest dates.
+  **water balance** per bed that books each past day with its logged humidity, wind and
+  sunshine, an NPK/EC **nutrient balance index**, **disease risk** (Hutton criteria –
+  forecast and the days behind us – leaf wetness, greenhouse humidity) and degree‑day
+  phenology with dynamic harvest dates that follow the weather that actually happened
+  (greenhouses count their own air sensor; heat, cold and dull days delay crops).
 * **Safe hardware control** – valves and a pump with **pump interlock, maximum runtime,
   frost lockout and rain skip**; a valve that stops reporting ends the run and stops the
   pump; leak and flow monitoring from the water meter; greenhouse vents and shade screens
@@ -274,7 +290,9 @@ The panel follows your phone, tablet or desktop, in light or dark, with four col
 ## Part of Home Assistant
 
 * **Entities** – sensors, binary sensors, numbers, selects, switches, buttons, a calendar
-  and a to‑do list, with diagnostics and translations in English, Dutch and French.
+  and a to‑do list, with diagnostics and translations in English, Dutch and French –
+  including climate sensors (rain, mean temperature and sunshine of the last 7 days, frost
+  nights this season, each with last year's value).
 * **Services** with responses and **bus events** for your automations; push, TTS and
   persistent **notifications**, with action buttons on your phone (done, postpone).
 * **Household** – assign tasks to people with automatic rules and personal reminders, and
@@ -293,7 +311,9 @@ accounts, several gardens per account, and a public front page. You can **show y
 to others – with a link or publicly – and choose per part what visitors see (plan, calendar,
 weather, journal, harvest, recipes); visitors never see Home Assistant details. It is
 delivered separately from this integration, and the plan files can be exchanged between the
-two. See [Configuration → Hortulus Web](docs/en/CONFIGURATION.md#10-hortulus-web-optional-website).
+two. The website keeps a climate history too: it fills it from Open‑Meteo for every garden
+and, for a garden linked to Home Assistant, from that Home Assistant's recorder through the
+garden's token. See [Configuration → Hortulus Web](docs/en/CONFIGURATION.md#10-hortulus-web-optional-website).
 
 <table>
   <tr>
@@ -348,6 +368,7 @@ Then open **Hortulus** in the sidebar. Details: [CONFIGURATION](docs/en/CONFIGUR
 | disease & frost per zone | `sensor.<zone>_disease_risk`, `binary_sensor.<zone>_frost_risk_48h` |
 | irrigation control | `switch.hortulus_automatic_irrigation`, `select.hortulus_irrigation_mode`, `number.hortulus_irrigation_max_runtime` (+ frost lockout, rain skip), `button.hortulus_water_now`, `binary_sensor.hortulus_irrigation_frost_lockout`, `binary_sensor.hortulus_irrigation_running` |
 | tasks | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week`, `sensor.hortulus_tasks_due_today`, `sensor.hortulus_next_task` |
+| climate history | `sensor.hortulus_rain_7_days`, `sensor.hortulus_mean_temperature_7_days`, `sensor.hortulus_sunshine_7_days`, `sensor.hortulus_frost_nights_this_season` (last year's value as attribute) |
 | records | `sensor.hortulus_harvest_this_season`, `sensor.hortulus_garden_water_7_days`, `sensor.hortulus_rain_water_available`, `garden_manager.log_harvest`, `.add_journal_entry`, `.save_soil_test`, `.assign_task` |
 | dashboard & voice | `type: custom:hortulus-tasks-card` (loaded automatically), Assist intents via `garden_manager.install_voice_sentences` |
 | `garden.add_task` … | `garden_manager.add_task`, `.complete_task`, `.postpone_task`, `.delete_task`, `.generate_tasks`, `.recalculate_plan`, `.export_plan`, `.import_plan` |
@@ -373,7 +394,8 @@ Ready-made automations - click to import them into Home Assistant:
 * **Windows** are stored as weeks relative to the *average last spring frost* /
   *first autumn frost*, so one database serves both hemispheres and every climate.
   Greenhouses shift spring windows earlier by a per‑crop number of weeks.
-* **Live refinements:** direct sowing waits for warm enough soil (soil sensor),
+* **Live refinements:** direct sowing waits for warm enough soil (soil sensor: the lower of
+  the reading now and the mean of the last days, so one warm afternoon does not count),
   planting out of tender crops waits for a frost‑free forecast.
 * **Companions:** interaction strength decays with distance; enemies weigh double;
   plantings that never share time in the ground (succession!) never conflict.
@@ -383,15 +405,25 @@ Ready-made automations - click to import them into Home Assistant:
   Penman‑Monteith from temperature, humidity, wind and cloud cover (Hargreaves when those
   are missing), Kc follows the growth stage. Beds without a moisture sensor keep a daily
   **root‑zone bucket** (available water by soil type × rooting depth) and are watered when
-  half of it is used.
+  half of it is used; each past day is booked with the rain and the Penman‑Monteith ET₀ of
+  the *logged* day (humidity, wind, sunshine or radiation), so windy, sunny days dry beds
+  faster.
 * **Feeding:** compost per m² by the hungriest following crop (5 / 3 / 1.5 kg, legumes
   0.5), liquid‑feed doses in feed tasks, and a 0–100 nutrient balance index from NPK or EC
   probes against the crops' N‑P‑K demand.
-* **Disease:** two humid warm days in a row (Hutton criteria) means high late‑blight risk;
-  long leaf‑wet spells, a wet‑leaf sensor or humid greenhouse air raise the level and
+* **Disease:** two humid warm days in a row (Hutton criteria) – forecast, or already logged
+  in the climate history – means high late‑blight risk; several wet days behind us, long
+  leaf‑wet spells, a wet‑leaf sensor or humid greenhouse air raise the level and
   create inspection tasks for susceptible crops.
 * **Phenology:** degree days since planting move the expected harvest (± 3 weeks around
-  the calendar date); heat stress delays fruiting crops.
+  the calendar date); greenhouse crops count their own air sensor (or the outdoor day with
+  greenhouse buffering). Heat days (logged last month and forecast) and a run of dull days
+  delay fruiting crops; crops without a degree‑day model are held back by logged cold days
+  below their minimum. The crop popup shows the delay and why.
+* **Climate history:** own samples first, then the recorder (same sensors, while Hortulus
+  was not running), then Open‑Meteo's observed weather for what was not measured well. Days
+  stay in the daily log for two seasons (outdoor) or 400 days (sensors); their months are
+  kept for good. Measured last and first frost per year are compared with the preset.
 * **Irrigation safety:** one valve at a time, pump only while a valve is open, max runtime,
   no outdoor watering with frost forecast within 12 h or with enough rain coming; valves
   and pump are always switched off at the end, also after errors.

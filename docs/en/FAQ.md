@@ -24,8 +24,9 @@ folder and domain is `garden_manager`; the product is called Hortulus.
 
 **Is anything sent to the internet?**
 Home Assistant itself only connects out if you switch on **Open‑Meteo** (Settings → Weather):
-then it fetches a forecast from api.open‑meteo.com, sending the garden's coordinates
-rounded to two decimals (~1 km). The plant database, the handbook, all illustrations and
+then it fetches a forecast from api.open‑meteo.com – and once a day the observed weather of the
+last month for the climate history – sending the garden's coordinates rounded to two decimals
+(~1 km). The plant database, the handbook, all illustrations and
 the cookbook ship with the integration; photos you add go through Home Assistant's own
 `image_upload` and stay in your config directory. Two things are loaded by *your browser*,
 not by Home Assistant: plant photos from Wikipedia (on by default, switch off under
@@ -85,6 +86,13 @@ and a plan exported there imports into Home Assistant (zones, beds, elements, se
 and crops all come along). In Home Assistant none of this changes. Hosting, accounts and
 availability of the website are not part of this repository and not described here.
 
+**Does the website keep a climate history?**
+Yes. The website only computes while someone has the garden open, so it fills the climate
+history afterwards: from Open‑Meteo's observed weather for every garden, and – for a garden
+linked to Home Assistant – from that Home Assistant's recorder through the garden's token. The
+same engine merges both, so growth, water and disease follow the logged weather there too.
+Visitors of a shared garden do not see the climate history.
+
 ## Planning
 
 **Why is my sowing task “overdue”?**
@@ -104,7 +112,11 @@ description.
 Yes. With **Weather‑aware scheduling** (on by default) sowing, planting out, hardening off,
 pruning, soil preparation and similar jobs move inside their window to the nearest suitable
 day (no rain, frost, heat or storm). If none exists the task gets a weather warning. Hortulus
-also creates tasks for heat, dry spells, storms and heavy rain, with ecological tips.
+also creates tasks for heat, dry spells, storms and heavy rain, with ecological tips – and
+after‑care for weather that already happened: a check after a storm (gusts of 60 km/h or more),
+the slug patrol after a downpour (≥ 15 mm logged; the same task the forecast would have made,
+never twice) and deep watering after a dry week. When it froze and tender crops were outside
+you get an alert to check them.
 
 **Why don't I get harvest tasks for marigolds?**
 Companion flowers are marked `harvestable: false`. Set it to true in a custom/override
@@ -207,6 +219,53 @@ entity whose id contains *buienradar*, *radar*, *regen* or *rain*, e.g. from the
 integration). Without one, Hortulus shows Buienradar's public map when Home Assistant's country
 is the Netherlands or Belgium, refreshed every 5 minutes; elsewhere there is no radar. The
 forecast comes from the weather entity chosen in Settings.
+
+**Does Hortulus take the weather into account for growth?**
+Yes – the weather that actually happened, not only the forecast. Degree days since planting
+move the expected harvest; greenhouse crops count the degree days of their own air sensor (or
+the outdoor day with greenhouse buffering). Hot days (logged last month and forecast) and a run
+of dull days hold back fruiting crops; crops without a degree‑day model are held back by logged
+cold days below their minimum. The crop popup shows the delay and why. The water balance books
+every past day with the Penman‑Monteith evaporation of that day (humidity, wind, sunshine or
+radiation), so windy, sunny days dry beds faster; humid, warm days behind us raise the disease
+risk; and sowing waits until the soil has been warm for a few days, not just this afternoon.
+
+**Where is the climate history, and the temperature statistics?**
+**Weather → Climate history**, below the forecast: a daily chart (30 days, 90 days or a year),
+the last 7 days, the last 30 days and the season so far with the same period last year next to
+it (mean, lowest, highest, rain, frost nights, hot days, sunshine, wind, degree days,
+evaporation, water balance), records, a table with **every temperature sensor** you linked
+(outdoor, greenhouse, soil, air at a bed: now, today, 7‑day mean, 30‑day range, record low and
+high), month by month against last year, and the measured frost dates. In Home Assistant the
+sensors `sensor.hortulus_rain_7_days`, `sensor.hortulus_mean_temperature_7_days`,
+`sensor.hortulus_sunshine_7_days` and `sensor.hortulus_frost_nights_this_season` carry last
+year's value as an attribute.
+
+**What if Home Assistant (or Hortulus) was off for a while?**
+At start‑up and once a day Hortulus fills the days of the last month it did not see. First from
+Home Assistant's **recorder** – the same sensors, as the recorder kept them – and then, with
+**Open‑Meteo** on (Settings → Weather), from Open‑Meteo's observed daily weather for your
+location. Own measurements always win; the recorder's extremes are combined with them, and
+Open‑Meteo only fills what was not measured well. Without a recorder and without Open‑Meteo the
+missing days simply stay empty. Daily figures are kept for two seasons (temperature sensors 400
+days); older days live on as monthly figures, kept for good.
+
+**Which weather station sensors help?**
+All optional, under **Settings → Weather**: outdoor **temperature** (minimum, maximum, mean,
+frost dates), **humidity** (evaporation and the measured blight criteria), a **rain** gauge
+(otherwise the forecast rain is booked and corrected later from the recorder or Open‑Meteo),
+**wind speed** and **wind gusts** (evaporation, the *check after a storm* task), **solar
+radiation** in W/m² (sunshine hours, evaporation, dull days) or, failing that, an **outdoor
+light** sensor in lux. Without them Hortulus uses what the weather entity offers. Every linked
+temperature sensor – greenhouse, soil, air at a bed – also gets its own daily statistics.
+
+**How are frost dates measured?**
+From the outdoor minimum temperature: per year the last night below 0 °C in spring (January–June)
+and the first in autumn (July–December; the other way round on the southern hemisphere). A
+half‑year counts once it is over and at least 80 % of its days were logged. The Climate history
+shows each year and the average against the regional preset (*x days earlier / later*). The
+sowing calendar keeps using the frost dates under **Settings → Region**; change them there if
+your measured dates say your garden is earlier or later.
 
 **When should I put insect mesh on?**
 Hortulus follows a **pest calendar**: for carrot fly, cabbage root fly, cabbage white, onion fly,
@@ -487,8 +546,11 @@ up. Raise the budget, select more beds or tick *replace*.
 
 **Why did the expected harvest date move?**
 With a temperature sensor (or the weather entity) Hortulus logs daily minimum and
-maximum temperatures and sums degree days since planting; a warm spell brings the
-harvest forward, a cold one delays it (at most three weeks either way).
+maximum temperatures and sums degree days since planting (greenhouse crops: the greenhouse
+air sensor); a warm spell brings the harvest forward, a cold one delays it (at most three
+weeks either way). Heat days and dull days delay fruiting crops, and cold days below the
+crop's minimum hold back crops without a degree‑day model. The crop popup says how many days
+the weather added and why.
 
 ## Irrigation safety
 

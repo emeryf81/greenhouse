@@ -3,7 +3,7 @@ import { customElement, property, query, state } from "lit/decorators.js";
 import type { GardenApi } from "../api";
 import type { Translate } from "../i18n";
 import { shared } from "../styles/tokens";
-import type { SoilTest } from "../types";
+import type { Phenology, SoilTest } from "../types";
 import type {
   AutofillResult, Bed, BedKind, CompatibilityReport, ExplainResult, FamilyInfo, PairFinding, Feature, FeatureType, LayoutMode, PlanDoc, Plant, Planting,
   PlantingStatus, Resources, Snapshot, SoilType, SowMethod, Timeline, Wind, Zone, ZoneType,
@@ -1726,7 +1726,18 @@ export class PlannerView extends LitElement {
       ${ph.gdd != null && ph.gdd_target ? html`<span class="chip">${Math.round(ph.gdd)} / ${ph.gdd_target} GDD <hl-info term="gdd" .t=${this.t}></hl-info></span>` : nothing}
       ${ph.harvest_estimate ? html`<span class="chip warn"><ha-icon icon="mdi:basket-outline"></ha-icon>${this.t("cal.harvest_estimate", { date: formatDate(ph.harvest_estimate, this.lang) })}</span>` : nothing}
       ${ph.heat_stress_days ? html`<span class="chip bad">${this.t("planner.heat_stress", { n: ph.heat_stress_days })}</span>` : nothing}
+      ${ph.weather_delay_days ? html`<span class="chip warn" title=${this.weatherDelayWhy(ph)}>${this.t("planner.weather_delay", { n: ph.weather_delay_days })}</span>` : nothing}
+      ${ph.gdd_source === "zone_sensor" ? html`<span class="chip">${this.t("planner.gdd_zone_sensor")}</span>` : nothing}
     </div>`;
+  }
+
+  /** Why the weather moved the harvest: logged heat, cold and dull days. */
+  private weatherDelayWhy(ph: Phenology): string {
+    const parts: string[] = [];
+    if (ph.heat_stress_logged) parts.push(this.t("planner.why_heat", { n: ph.heat_stress_logged }));
+    if (ph.cold_stress_logged) parts.push(this.t("planner.why_cold", { n: ph.cold_stress_logged }));
+    if (ph.dull_days) parts.push(this.t("planner.why_dull", { n: ph.dull_days }));
+    return parts.join(" · ");
   }
 
   /** Crops autofill left out, each with the plain reason (and a shortcut when the season is too late). */

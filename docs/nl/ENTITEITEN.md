@@ -41,6 +41,10 @@ installatie):
 | `sensor.greenhouse_zone_a_disease_risk` | `sensor.greenhouse_zone_a_ziekterisico` |
 | `switch.hortulus_automatic_irrigation` | `switch.hortulus_automatisch_bewateren` |
 | `select.greenhouse_zone_a_shading` | `select.greenhouse_zone_a_schaduw` |
+| `sensor.hortulus_rain_7_days` | `sensor.hortulus_regen_7_dagen` |
+| `sensor.hortulus_mean_temperature_7_days` | `sensor.hortulus_gemiddelde_temperatuur_7_dagen` |
+| `sensor.hortulus_sunshine_7_days` | `sensor.hortulus_zonneschijn_7_dagen` |
+| `sensor.hortulus_frost_nights_this_season` | `sensor.hortulus_vorstnachten_dit_seizoen` |
 
 ## Sensoren
 
@@ -62,7 +66,8 @@ bij heldere, windstille nachten): ≤ 0 °C *high*, ≤ 2 °C *moderate*, ≤ 4 
 De status is `unknown` als er geen verwachting en geen buitentemperatuur is.
 
 ### `sensor.hortulus_growing_degree_days`
-Seizoenstotaal (°C·d, state class `total`) sinds 30 dagen vóór de laatste vorst, basis 10 °C,
+Seizoenstotaal (°C·d, state class `total`) uit de buitendagen van de
+[klimaatgeschiedenis](#klimaatgeschiedenis), sinds 30 dagen vóór de laatste vorst, basis 10 °C,
 gewijzigde gemiddeldemethode met een bovengrens van 30 °C. Attributen: `base_temperature`,
 `since`, `days_counted`.
 
@@ -138,8 +143,10 @@ Enum `none` · `low` · `moderate` · `high` · `unknown`. Attributen: `wet_hour
 `hutton_period` (aardappelziekteweer), `humidity`, `leaf_wet`, `reasons`.
 
 ### `sensor.<zone>_degree_days_this_season` *(standaard uitgeschakeld)*
-Graaddagen van het seizoen voor de zone; omsloten zones tellen 3 °C·d extra voor elke
-gelogde dag (de dagwarmte van de kas).
+Graaddagen van het seizoen voor de zone. Kassen en koude bakken tellen hun eigen
+luchtsensor voor elke dag dat die gelogd werd; andere dagen (en omsloten zones zonder
+sensor) nemen de buitendag met kasbuffering (+2 °C 's nachts, +4 °C overdag). Buitenzones
+volgen het tuinbrede totaal.
 
 ### `sensor.hortulus_harvest_this_season`
 Geoogste kg dit seizoen (uit het oogstlogboek; device class weight, state class `total`).
@@ -154,6 +161,62 @@ Instellingen → Watermeter & regenton (één meting per dag wordt bewaard). Att
 Liters in de regentonnen nu (peil van de ton % × totale inhoud, beide ingesteld in
 Instellingen → Watermeter & regenton). De omschrijvingen van watertaken zeggen hoeveel
 daarvan je eerst kunt gebruiken.
+
+### Klimaatgeschiedenis
+
+Vier sensoren vatten samen wat het weer de laatste tijd echt deed, uit de
+klimaatgeschiedenis (zie [Configuratie → Klimaatgeschiedenis](CONFIGURATIE.md#klimaatgeschiedenis)).
+Elk heeft de waarde van **dezelfde periode vorig jaar** als attribuut.
+
+| Entiteit | Nederlandse naam | Waarde | Eenheid |
+|---|---|---|---|
+| `sensor.hortulus_rain_7_days` | Regen (7 dagen) | regen van de laatste 7 dagen (vandaag inbegrepen) | mm |
+| `sensor.hortulus_mean_temperature_7_days` | Gemiddelde temperatuur (7 dagen) | gemiddelde van de daggemiddelden (device class temperature) | °C |
+| `sensor.hortulus_sunshine_7_days` | Zonneschijn (7 dagen) | zonuren (tijd met straling ≥ 120 W/m²) | h |
+| `sensor.hortulus_frost_nights_this_season` | Vorstnachten dit seizoen | dagen met een buitenminimum onder 0 °C sinds 1 januari (zuidelijk halfrond: 1 juli); state class `total` | – |
+
+De status is `unknown` zolang er in de periode nog geen dag gelogd is. Attributen (voor de
+periode van de sensor):
+
+| Attribuut | Betekenis |
+|---|---|
+| `days_logged` | aantal gelogde dagen in de periode |
+| `last_year` | dezelfde waarde voor dezelfde periode een jaar geleden (`null` zonder gegevens) |
+| `lowest` / `highest` | laagste en hoogste buitentemperatuur (°C) |
+| `rain_mm` | regen (mm) |
+| `sunshine_h` | zonuren |
+| `gust_max_kmh` | hardste windstoot (of hardste wind zonder stotensensor), km/u |
+| `et0_mm` | referentieverdamping (Penman‑Monteith op het gelogde weer, anders Hargreaves), mm |
+| `water_balance_mm` | regen − verdamping (mm) |
+
+```yaml
+# Voorbeeld: een melding als de laatste week droger was dan vorig jaar
+condition: template
+value_template: >
+  {{ states('sensor.hortulus_rain_7_days') | float(0)
+     < state_attr('sensor.hortulus_rain_7_days', 'last_year') | float(0) }}
+```
+
+De volledige statistiek (grafiekreeks, periodes, records, maanden, vorstdata, per sensor) geeft
+het websocket‑commando [`garden_manager/climate/stats`](#garden_managerclimatestats).
+
+## Sensorkoppelingen
+
+Een sensorkoppeling (per bed, per zone of `outdoor_sensors` voor de hele tuin, in de
+instellingen en in plan‑exports) kent deze sleutels: `soil_moisture`, `soil_temperature`,
+`air_temperature`, `air_humidity`, `light`, `rain`, `par`, `ec`, `npk_n`, `npk_p`, `npk_k`,
+`leaf_wetness` en, nieuw voor een **weerstation** buiten:
+
+| Sleutel | Eenheid | Gebruik |
+|---|---|---|
+| `wind_speed` | km/u, m/s, mph of kn (wordt naar km/u omgerekend) | gemiddelde en hardste wind van de dag, Penman‑Monteith, stormdagen |
+| `wind_gust` | idem | hardste windstoot, taak *Na de storm* |
+| `radiation` | W/m² | stralingssom (MJ/m²) en zonuren van de dag, verdamping, sombere dagen |
+
+Zonder `radiation` wordt `light` van de buitensensoren (lux) omgerekend; zonder wind‑ of
+stotensensor gebruikt Hortulus `wind_speed` en `wind_gust_speed` van de weerentiteit. Elke
+gekoppelde temperatuursensor (buiten, zone, bed, bodem) krijgt zijn eigen dagreeks in de
+klimaatgeschiedenis.
 
 ## Binaire sensoren
 
@@ -211,6 +274,16 @@ slangen leegmaken vóór de vorst, winterrust, om het derde seizoen een bodemana
 gereedschapsonderhoud, en per kas: voorjaarspoets, schaduw aan/af, winterisolatie en de
 najaarspoets (kuisen en ontsmetten). Meerjarigen krijgen terugsnoeien, scheuren (om de 3 jaar)
 en winterbescherming volgens hun tags. Zet het uit in Instellingen → Middelen.
+
+**Weertaken** (sleutels `w:…`, bron `weather`) komen uit de verwachting (hitte, droogte,
+storm, zware regen) en uit het weer dat **al gevallen** is, volgens de klimaatgeschiedenis
+(alleen als er gewassen in de grond staan):
+
+| Sleutel | Taak | Wanneer |
+|---|---|---|
+| `w:after_storm:<dag>` | *Na de storm (dag): loop de tuin na* – controle, hoge prioriteit, 2 dagen | gisteren windstoten ≥ 60 km/u of wind ≥ 45 km/u |
+| `w:rain:<dag>` | *Zware regen (… mm op dag): nazorg* – slakkenronde | ≥ 15 mm in een dag, verwacht **of gelogd** (regenmeter, recorder of Open‑Meteo; nooit alleen uit de verwachting van gisteren). Dezelfde sleutel als de verwachting, dus de taak verschijnt maar één keer |
+| `w:dry_logged:<maandag>` | *Droge periode: … mm regen in … dagen* – één keer flink water geven | in de laatste 7 dagen minstens 6 dagen met bekende regen, samen < 3 mm, en minstens 4 dagen ≥ 20 °C; niet als de verwachting al een droogtetaak (`w:dry:…`) maakte |
 
 ---
 
@@ -400,7 +473,7 @@ blijven behouden). Antwoord: `{written: [paden]}`. Zie *Spraak* hieronder.
 |---|---|---|
 | `garden_manager_task_due` | ochtendoverzicht (elke verschuldigde taak) en wanneer overdag een sensor‑/weertaak verschijnt | `task_id, type, title, priority, due, bed_id, zone_id, planting_id` |
 | `garden_manager_task_completed` | een taak is afgerond/overgeslagen | `task_id, type, title, skipped, planting_id, bed_id, next_task_id` |
-| `garden_manager_frost_warning` | nieuwe vorstwaarschuwing (één keer per zone en nacht) | `key, severity, zone_id, level, temp, when, plants` |
+| `garden_manager_frost_warning` | nieuwe vorstwaarschuwing (één keer per zone en nacht), en ook als het gevroren **heeft** terwijl tere gewassen buiten stonden (`key` `froze:<dag>`) | `key, severity, zone_id, level, temp, when, plants` |
 | `garden_manager_heat_warning` | nieuwe hittewaarschuwing voor de kas (één keer per zone en dag) | `key, severity, zone_id, zone, temp, action` |
 | `garden_manager_irrigation_recommended` | een bed heeft water nodig (één keer per bed en dag) | `bed_id` + elk attribuut van het beregeningsadvies |
 | `garden_manager_plan_updated` | plan, planten, instellingen of import gewijzigd | `reason` (`plan`, `plants`, `settings`, `import`), `revision` |
@@ -408,6 +481,14 @@ blijven behouden). Antwoord: `{written: [paden]}`. Zie *Spraak* hieronder.
 
 `severity` is `info`, `warning` of `critical`; `zone_id` is leeg voor de tuinbrede
 (buiten)vorstwaarschuwing.
+
+**Gemelde vorst (`alert.frost_logged`).** Gaf de klimaatgeschiedenis vannacht (of gisteren) een
+buitenminimum onder 0 °C en stonden er actieve gewassen buiten (niet in een kas of koude bak)
+waarvan de minimumtemperatuur hoger ligt, dan verschijnt de waarschuwing *“Het heeft gevroren
+(… °C): kijk deze gewassen na op vorstschade”* (`warning`, sleutel `froze:<dag>`, met `temp`
+en `plants`). Ze vuurt eenmalig `garden_manager_frost_warning`, gaat als melding uit als
+vorstwaarschuwingen aan staan en zet die gewassen in `plants_at_risk` van
+`binary_sensor.hortulus_frost_warning`.
 
 **Meldingsknoppen.** Het dagoverzicht, de herinneringen en de meldingen “bedden hebben water
 nodig” en “kraan staat open” op gsm's met de companion‑app hebben actieknoppen: *Gedaan* (één
@@ -438,12 +519,28 @@ bodemanalyses) en het kookboek zijn open voor iedereen.
 | Registraties | `records/overview` (oogst per gewas en jaar, geleerde opbrengsten, zaaddoos, water, jaarmatrix, keukenrapport, kosten en uitgaven), `records/harvest/add`, `records/journal/save`, `records/seeds/save`, `records/expense/save`, `records/soil/save`, `records/soil/delete`, `records/delete` (`kind`: `harvest`, `journal`, `seed`, `expense`), `seeds/to_todo` (ontbrekend zaad naar een takenlijst), `report/season` |
 | Advies en handboek | `qa/options`, `qa/ask`, `handbook/index`, `handbook/chapter`, `handbook/search` |
 | Afdrukken | `print/render` (SVG‑voorbeeldpagina's) |
+| Klimaat | `climate/stats` (`days`: 7–800, standaard 400): de klimaatgeschiedenis – [zie hieronder](#garden_managerclimatestats) |
 | Analyse | `analysis` (tuincontrole), `analysis/explain` (“waarom niet hier?”), `analysis/fix` **admin** (herstel met één klik), `analysis/still_possible` (wat dit seizoen nog kan) |
 | Systeemlogboek | `syslog/list` (nieuwste eerst, gepagineerd met `before`), `syslog/entry` **admin** (één regel met voor/na per onderdeel), `syslog/undo` **admin** (`entry_id`, optioneel `force`) |
 | Koken | `cooking/suggest` (oogstklare producten, gerechten, menu's, kookboek, keuzes), `cooking/render` (een recept opnieuw na een andere basis, vlees of aantal personen), `cooking/prefs`, `cooking/book/save`, `cooking/book/update`, `cooking/book/delete`, `cooking/pdf` (`kind`: `recipe`, `book`, `shopping`), `cooking/send` (een recept of de boodschappenlijst naar een `notify.*`‑dienst), `cooking/to_todo` (boodschappenlijst naar een takenlijst; je eigen rechten op die lijst gelden) |
 
 `seeds/to_todo` en `cooking/to_todo` controleren de eigen rechten van de aanroepende gebruiker
 op de doeltakenlijst.
+
+### `garden_manager/climate/stats`
+
+Geeft alles wat *Weer → Klimaatgeschiedenis* toont (lezen mag elke gebruiker):
+
+| Sleutel | Inhoud |
+|---|---|
+| `today`, `season_start` | datum van vandaag en begin van het seizoen (1 januari, zuidelijk halfrond 1 juli) |
+| `series` | één rij per buitendag binnen `days`: `d` (datum), `lo`/`hi`/`m` (min/max/gemiddelde °C), `r` (regen mm), `s` (zonuren), `w` (hardste stoot of wind km/u), `rh` (vochtigheid %), `et0` (mm), `src` (`sensor`, `history`, `model` of een combinatie met `+`) |
+| `periods` | `d7`, `d30`, `season`, `d365`, `d7_last_year`, `d30_last_year`, `season_last_year`, elk met `days`, `tmean`, `tmin`/`tmin_day`, `tmax`/`tmax_day`, `frost_nights`, `hot_days` (≥ 25 °C), `very_hot_days` (≥ 30 °C), `gdd`, `rain_mm`, `rain_days` (≥ 1 mm), `wettest`, `sun_h`, `rs_mj`, `gust_max`/`gust_day`, `et0_mm`, `balance_mm`, `rh_mean` |
+| `records` | `tmin`, `tmax`, `wettest`, `gust_max`, elk `{value, when}` (een dag of, uit de maandcijfers, een maand) |
+| `months` | buiten, nieuwste eerst (tot 24): `month`, `days`, `tmin`, `tmax`, `tmean`, `rain_mm`, `frost_days`, `hot_days`, `sun_h`, `wind_max` |
+| `frost` | `years` (per jaar `last_spring`, `first_autumn`, `spring_complete`, `autumn_complete`), `local` (gemiddelde gemeten data en het verschil in dagen met de regio, `null` zonder volledig jaar), `preset_last`, `preset_first` |
+| `sensors` | per temperatuursensor: `entity_id`, `label`, `kind` (`outdoor`, `zone_air`, `bed_air`, `soil`), `now`, `today`, `d7`, `d30`, `record_low`, `record_high`, `days`, `series` (laatste 120 dagen), `months` (13) |
+| `coverage` | `days`, `first_day`, `sources` (dagen per bron), `months_kept` |
 
 ## Lovelace-kaart
 

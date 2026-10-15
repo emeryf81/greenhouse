@@ -87,3 +87,34 @@ def parse_open_meteo(payload: dict[str, Any], time_zone: str) -> list[dict[str, 
             }
         )
     return out
+
+
+async def async_fetch_open_meteo_history(
+    hass: HomeAssistant, latitude: float, longitude: float, *, days: int = 31
+) -> dict[str, Any]:
+    """Observed daily weather of the last ``days`` days (raw Open-Meteo answer).
+
+    Temperature, rain, wind and gusts, radiation, sunshine, humidity and FAO ET0 per
+    day - parsed by :func:`.engine.climate.open_meteo_daily`.
+    """
+    from .engine.climate import OPEN_METEO_DAILY
+
+    params = {
+        "latitude": round(latitude, 2),
+        "longitude": round(longitude, 2),
+        "daily": OPEN_METEO_DAILY,
+        "past_days": min(max(days, 1), 92),
+        "forecast_days": 1,
+        "wind_speed_unit": "kmh",
+        "timezone": hass.config.time_zone or "UTC",
+    }
+    session = async_get_clientsession(hass)
+    try:
+        async with session.get(URL, params=params, timeout=TIMEOUT) as resp:
+            resp.raise_for_status()
+            payload = await resp.json()
+    except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+        raise OpenMeteoError(str(err)) from err
+    if not isinstance(payload, dict) or "daily" not in payload:
+        raise OpenMeteoError("unexpected response")
+    return payload

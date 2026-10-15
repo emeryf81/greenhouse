@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from custom_components.garden_manager.engine import diagnose, handbook, planning, seasons  # noqa: E402
+from custom_components.garden_manager.engine import climate, diagnose, handbook, planning, seasons  # noqa: E402
 from custom_components.garden_manager.engine.advisor import advise, harvest_coverage  # noqa: E402
 from custom_components.garden_manager.engine.analysis import analyze  # noqa: E402
 from custom_components.garden_manager.engine.autoplan import AutoplanOptions, autoplan  # noqa: E402
@@ -271,6 +271,7 @@ def build(lang: str) -> dict:
     )
     data.settings.water.butt_capacity_l = 500
     bed1.soil_tests = [SoilTest(date(2026, 2, 20), ph=6.1, organic_matter_pct=2.4, p_mg=38, k_mg=12, lime_status="ok")]
+    _climate_history(data)
 
     raw = json.loads((ROOT / "tests/fixtures/forecast_hourly_rain.json").read_text())["weather.home"]["forecast"]
     hourly = parse_forecast(raw)
@@ -458,12 +459,76 @@ def build(lang: str) -> dict:
         },
         "supplies": {**catalog(lang), "shopping": [i.to_dict() for i in shopping_list(data, db, analysis, lang)]},
         "cooking": _cooking(data, db, analysis, lang),
+        "climate": _climate_stats(data, readings),
     }
     return {
         "snapshot": snapshot,
         "plants": {"plants": db.as_dicts(), "families": FAMILIES, "overrides": {}},
         "extras": extras,
     }
+
+
+def _climate_history(data) -> None:
+    """Two years of believable weather (deterministic), a greenhouse and a soil sensor."""
+    import math
+
+    from custom_components.garden_manager.engine.models import ClimateDay, Hemisphere, SensorDay
+
+    data.settings.outdoor_sensors.air_temperature = "sensor.outdoor_temp"
+    log, sensors = [], []
+    start = NOW.date() - timedelta(days=760)
+    for i in range(760):
+        day = start + timedelta(days=i)
+        season = math.cos((day.timetuple().tm_yday - 200) / 365 * 2 * math.pi)  # 1 in July, -1 in January
+        wobble = math.sin(i * 1.7) * 2.5 + math.sin(i * 0.31) * 3.0
+        tmin = round(5.5 + 6.5 * season + wobble - 1.5, 1)
+        tmax = round(14.0 + 9.0 * season + wobble + math.sin(i * 2.3) * 2, 1)
+        rain = round(max(0.0, math.sin(i * 0.9) * 9 + math.sin(i * 0.23) * 4 - 3), 1)
+        sun = round(max(0.0, 4.5 + 3.5 * season - rain / 3 + math.sin(i * 1.1)), 1)
+        source = "sensor" if i > 700 else ("history" if i % 5 else "model")
+        log.append(ClimateDay(day, tmin, tmax, rain, tmean=round((tmin + tmax) / 2, 1), rh_mean=round(78 - 10 * season + rain), sun_h=sun,
+                              gust_max=round(25 + abs(math.sin(i * 0.7)) * 45), hours=24.0 if source == "sensor" else 0.0, source=source,
+                              rain_src="gauge" if source == "sensor" else source))  # fmt: skip
+        if i > 760 - 120:
+            sensors.append(
+                SensorDay(
+                    "sensor.greenhouse_temp",
+                    day,
+                    round(tmin + 3, 1),
+                    round(tmax + 9, 1),
+                    round((tmin + tmax) / 2 + 5, 1),
+                    140,
+                )
+            )
+            sensors.append(
+                SensorDay(
+                    "sensor.soil_temp_bed_1",
+                    day,
+                    round((tmin + tmax) / 2 - 1.5, 1),
+                    round((tmin + tmax) / 2 + 1.5, 1),
+                    round((tmin + tmax) / 2, 1),
+                    140,
+                )
+            )
+            sensors.append(SensorDay("sensor.outdoor_temp", day, tmin, tmax, round((tmin + tmax) / 2, 1), 140))
+    data.climate_log, data.sensor_log = log, sensors
+    climate.update_frost_years(data, Hemisphere.NORTH, NOW.date())
+
+
+def _climate_stats(data, readings) -> dict:
+    anchors = season_anchors(data.settings.region, NOW.year)
+    sensors = {
+        e: {**meta, "now": readings[e].value if e in readings else 12.5}
+        for e, meta in climate.temperature_sensors(data).items()
+    }
+    return climate.climate_stats(
+        data,
+        NOW.date(),
+        latitude=52.1,
+        preset_last=anchors.last_frost,
+        preset_first=anchors.first_frost,
+        sensors=sensors,
+    )
 
 
 def _cooking(data, db, analysis, lang: str) -> dict:

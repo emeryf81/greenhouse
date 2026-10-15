@@ -7,6 +7,7 @@
     "fan",
     "notify",
     "person",
+    "recorder",
     "switch",
     "tts",
     "valve",
@@ -29,5 +30,5 @@
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/emeryf81/hortulus/issues",
   "requirements": [],
-  "version": "1.7.1"
+  "version": "1.8.0"
 }

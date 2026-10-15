@@ -1,8 +1,9 @@
 """Daily root-zone water balance per bed (FAO-56 bucket).
 
 Run once a day (and on start-up): every *completed* day since the last
-update is booked - crop evaporation out (ET0 from the logged min/max
-temperature x the growth-stage Kc), effective rain and logged irrigation in.
+update is booked - crop evaporation out (ET0 of the logged day: Penman-Monteith
+with its humidity, wind and sunshine, Hargreaves when only min/max are known,
+x the growth-stage Kc), effective rain and logged irrigation in.
 Beds with a moisture sensor are tracked too, so switching a sensor off
 does not leave the planner blind: once a day the bucket is set from the
 reading, and the bed learns how fast it really dries out (``et_factor``).
@@ -13,12 +14,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timedelta, tzinfo
 
+from .climate import daily_et0
 from .models import GardenBed, GardenData, Level, Planting, PlantingStatus, WaterBalance
 from .phenology import stage_kc
 from .plantdb import PlantDatabase
 from .schedule import PlantingTimeline
 from .watering import ENCLOSED_ET_FACTOR, band_for, dominant_need, total_available_water, update_water_balance
-from .weather import et0_hargreaves
 
 BARE_SOIL_KC = 0.3
 _MEDIUM = Level.MEDIUM
@@ -107,7 +108,8 @@ def advance_water_balance(
             given = bed_irrigation_mm(data, bed.id, day, tz)
             if climate and climate.tmin is not None and climate.tmax is not None:
                 kc, taw = _bed_state(bed, plantings, timelines, db, day, data.settings.root_zone_depth_mm)
-                et0 = et0_hargreaves(climate.tmin, climate.tmax, latitude, day)
+                # Penman-Monteith from the logged humidity, wind and sun when the day has them
+                et0 = daily_et0(climate, latitude, data.settings.elevation_m or 0.0)[0] or 0.0
                 depletion = update_water_balance(
                     min(depletion, taw),
                     et0_mm=et0,

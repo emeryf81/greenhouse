@@ -375,6 +375,18 @@
       },
       "rain_water": {
         "name": "Eau de pluie disponible"
+      },
+      "rain_7_days": {
+        "name": "Pluie (7 jours)"
+      },
+      "mean_temperature_7_days": {
+        "name": "Température moyenne (7 jours)"
+      },
+      "sunshine_7_days": {
+        "name": "Ensoleillement (7 jours)"
+      },
+      "frost_nights_season": {
+        "name": "Nuits de gel cette saison"
       }
     },
     "binary_sensor": {

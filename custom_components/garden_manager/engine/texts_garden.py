@@ -149,6 +149,10 @@ MESSAGES["en"].update(
         "(stones, sandbags, tent pegs), move pots and seed trays to a sheltered spot and clear loose items.",
         "weather.storm.tall": "Check stakes and ties of tall crops: {plants}.",
         "weather.rain": "Heavy rain ({mm} mm on {day}): after-care",
+        "weather.after_storm": "After the storm ({day}): look the garden over",
+        "weather.after_storm.desc": "Gusts reached {wind} km/h. Re-tie and straighten tall crops, check stakes, netting, fleece and the greenhouse (doors, panes), and pick up broken stems before they rot.",
+        "weather.dry_logged": "Dry spell: {mm} mm of rain in {days} days",
+        "weather.dry_logged.desc": "Hardly any rain has fallen lately while the plants kept drinking. Give thirsty beds one deep soak (10-20 l/m²) early in the day rather than daily sips, mulch bare soil and check the water butts.",
         "weather.rain.desc": "After the rain: slug patrol at dusk (beer traps, collect them), stay off wet beds (use a "
         "plank), empty saucers and pots, check that water drains away. Wait a few days before sowing; "
         "remove rotting fruit (botrytis).",
@@ -293,6 +297,10 @@ MESSAGES["nl"].update(
         "(stenen, zandzakjes, tentharingen), zet potten en zaaibakken beschut en ruim losse spullen op.",
         "weather.storm.tall": "Controleer stokken en banden van hoge gewassen: {plants}.",
         "weather.rain": "Zware regen ({mm} mm op {day}): nazorg",
+        "weather.after_storm": "Na de storm ({day}): loop de tuin na",
+        "weather.after_storm.desc": "Er waren windstoten tot {wind} km/u. Bind hoge gewassen opnieuw op en zet ze recht, controleer steunen, netten, vliesdoek en de serre (deuren, ruiten) en ruim gebroken stengels op voor ze gaan rotten.",
+        "weather.dry_logged": "Droge periode: {mm} mm regen in {days} dagen",
+        "weather.dry_logged.desc": "Er viel de laatste tijd nauwelijks regen terwijl de planten bleven drinken. Geef dorstige bedden één keer flink water (10-20 l/m²) vroeg op de dag in plaats van dagelijks een beetje, mulch kale grond en kijk de regentonnen na.",
         "weather.rain.desc": "Na de regen: slakkenronde bij schemering (biervallen, rapen), blijf van natte bedden (gebruik "
         "een plank), maak schotels en potten leeg, controleer of het water wegloopt. Wacht enkele dagen met zaaien; "
         "verwijder rottend fruit (grauwe schimmel).",
@@ -706,6 +714,10 @@ MESSAGES["fr"].update(
         "filets (pierres, sacs de sable, sardines), mettez pots et caissettes à l'abri et rangez tout ce qui traîne.",
         "weather.storm.tall": "Vérifiez tuteurs et liens des cultures hautes : {plants}.",
         "weather.rain": "Fortes pluies ({mm} mm le {day}) : après la pluie",
+        "weather.after_storm": "Après la tempête ({day}) : faites le tour du jardin",
+        "weather.after_storm.desc": "Les rafales ont atteint {wind} km/h. Rattachez et redressez les grandes cultures, vérifiez tuteurs, filets, voiles et la serre (portes, vitres) et ramassez les tiges cassées avant qu'elles ne pourrissent.",
+        "weather.dry_logged": "Période sèche : {mm} mm de pluie en {days} jours",
+        "weather.dry_logged.desc": "Il n'a presque pas plu ces derniers temps alors que les plantes continuaient à boire. Donnez aux planches assoiffées un bon arrosage (10-20 l/m²) tôt le matin plutôt que de petites doses chaque jour, paillez le sol nu et vérifiez les récupérateurs.",
         "weather.rain.desc": "Après la pluie : ronde des limaces au crépuscule (pièges à bière, ramassage), ne marchez "
         "pas sur les planches mouillées (utilisez une planche), videz soucoupes et pots, vérifiez que l'eau "
         "s'écoule. Attendez quelques jours avant de semer ; retirez les fruits pourris (botrytis).",

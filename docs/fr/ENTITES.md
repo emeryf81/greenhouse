@@ -113,11 +113,18 @@ est conseillé quand la moitié de la réserve utile est consommée.
 
 ### `sensor.<zone>_disease_risk`
 Énumération `none` · `low` · `moderate` · `high` · `unknown`. Attributs : `wet_hours_48h`,
-`hutton_period` (temps à mildiou), `humidity`, `leaf_wet`, `reasons`.
+`hutton_period` (temps à mildiou prévu), `humidity`, `leaf_wet`, `reasons`. Le risque regarde aussi
+en arrière, dans l'[historique du climat](CONFIGURATION.md#historique-du-climat) (zones extérieures) :
+une période de Hutton déjà passée d'après les jours enregistrés donne `high` (raison
+`hutton_logged`), et au moins deux jours humides enregistrés sur les trois derniers (≥ 5 mm de pluie
+ou humidité moyenne ≥ 90 %) relèvent le niveau (raison `wet_days_logged`). Autres raisons :
+`hutton_period`, `long_wet_period`, `wet_hours`, `humid_greenhouse_air`, `leaf_wet_now`.
 
 ### `sensor.<zone>_degree_days_this_season` *(désactivé par défaut)*
-Degrés-jours de la saison pour la zone ; les zones fermées ajoutent 3 °C·j pour chaque jour
-enregistré (la chaleur de journée de la serre).
+Degrés-jours de la saison pour la zone. Les zones fermées comptent les jours enregistrés de leur
+propre capteur de température de l'air ; les jours sans ce capteur (ou une serre sans capteur)
+prennent la journée extérieure avec l'effet tampon de la serre (+2 °C la nuit, +4 °C le jour). Les
+zones extérieures reprennent le total du jardin.
 
 ### `sensor.hortulus_harvest_this_season`
 kg récoltés cette saison (d'après le journal des récoltes ; device class poids, state class
@@ -132,6 +139,40 @@ Paramètres → Compteur d'eau et tonneau de pluie (un relevé par jour est stoc
 Litres dans les tonneaux de pluie maintenant (niveau du tonneau en % × capacité totale, tous deux
 réglés dans Paramètres → Compteur d'eau et tonneau de pluie). Les descriptions des tâches d'arrosage
 indiquent combien en utiliser d'abord.
+
+### Capteurs de climat (historique du climat)
+Quatre capteurs du jardin résument ce que la météo a vraiment fait, d'après l'[historique du
+climat](CONFIGURATION.md#historique-du-climat), chacun avec la valeur de la même période l'an
+dernier :
+
+| Entité (nom français) | État | Période |
+|---|---|---|
+| `sensor.hortulus_rain_7_days` (*Pluie (7 jours)*) | pluie tombée, mm | les 7 derniers jours, aujourd'hui compris |
+| `sensor.hortulus_mean_temperature_7_days` (*Température moyenne (7 jours)*) | moyenne des températures, °C (device class température) | les 7 derniers jours |
+| `sensor.hortulus_sunshine_7_days` (*Ensoleillement (7 jours)*) | heures d'ensoleillement, h | les 7 derniers jours |
+| `sensor.hortulus_frost_nights_this_season` (*Nuits de gel cette saison*) | nombre de nuits sous 0 °C (state class `total`) | depuis le début de la saison (1er janvier ; 1er juillet dans l'hémisphère sud) |
+
+L'état est `unknown` tant qu'aucun jour n'est enregistré pour la période. Attributs (tous sur la
+même période) :
+
+| Attribut | Signification |
+|---|---|
+| `days_logged` | jours enregistrés dans la période |
+| `last_year` | la valeur du capteur pour la même période il y a un an (`null` si elle n'a pas été enregistrée) |
+| `lowest` / `highest` | température la plus basse / la plus haute (°C) |
+| `rain_mm` | pluie (mm) |
+| `sunshine_h` | heures d'ensoleillement |
+| `gust_max_kmh` | rafale (ou vent) la plus forte (km/h) |
+| `et0_mm` | évaporation de référence ET₀ (mm) |
+| `water_balance_mm` | pluie moins évaporation (mm) |
+
+```yaml
+# Une semaine bien plus sèche que l'an dernier ?
+condition: template
+value_template: >
+  {{ states('sensor.hortulus_rain_7_days') | float(0) <
+     (state_attr('sensor.hortulus_rain_7_days', 'last_year') or 0) / 2 }}
+```
 
 ## Capteurs binaires
 
@@ -389,6 +430,24 @@ modifiés sont conservés). Réponse : `{written: [paths]}`. Voir *Voix (Assist)
 `severity` vaut `info`, `warning` ou `critical` ; `zone_id` est vide pour l'alerte de gel globale au
 jardin (extérieur).
 
+**Gel constaté (`alert.frost_logged`).** Quand l'historique du climat montre que la nuit dernière
+est descendue sous 0 °C et que des cultures frileuses (minimum de la culture au-dessus de la
+température mesurée) étaient en place hors serre, Hortulus lève l'alerte *« Il a gelé (… °C) :
+vérifiez ces cultures pour les dégâts de gel »*. Elle suit le même chemin que les autres alertes de
+gel : notification si les alertes de gel sont activées, et événement `garden_manager_frost_warning`
+avec `key` = `froze:<date>`, `severity` = `warning`, `temp` et `plants`.
+
+**Tâches météo.** Les tâches issues de la météo ont des clés stables (`w:<type>:<date>`), si bien
+qu'une même situation ne crée jamais deux tâches. Outre celles des prévisions (`w:storm`, `w:dry`,
+`w:rain` …), Hortulus crée des tâches de suivi pour le temps **déjà passé**, d'après l'historique du
+climat, dès qu'il y a des cultures en place :
+
+| Clé | Quand | Tâche |
+|---|---|---|
+| `w:after_storm:<date>` | hier, rafales ≥ 60 km/h (ou vent ≥ 45 km/h) | *Après la tempête (…) : faites le tour du jardin* – type `check`, priorité haute, à faire dans les 2 jours |
+| `w:rain:<date>` | hier, une forte averse **enregistrée** (pas une simple prévision) | la ronde contre les limaces après l'averse – type `pest_check` ; même clé que la tâche créée à partir de la prévision, donc jamais deux fois |
+| `w:dry_logged:<lundi>` | sur les 7 derniers jours : pluie connue pour au moins 6 jours, moins de 3 mm au total, et au moins 4 jours ≥ 20 °C | *Période sèche : … mm de pluie en … jours* – type `water`, un arrosage en profondeur ; pas créée si une tâche de sécheresse issue des prévisions (`w:dry:…`) existe déjà |
+
 **Boutons de notification.** Le récapitulatif, les rappels, « des planches ont besoin d'eau » et
 « vanne restée ouverte » envoyés aux téléphones avec l'application compagnon portent des boutons
 d'action : *Fait* (une tâche) et *Demain* sur les listes de tâches, *Arroser maintenant* quand des
@@ -416,6 +475,7 @@ cuisine sont ouverts à tous.
 | Paramètres | `settings/save` **admin** |
 | Potager de départ | `garden/starter` **admin** (`size` : `small`/`medium`/`large`, `greenhouse`) |
 | Irrigation | `irrigation/plan`, `irrigation/run` **admin**, `irrigation/stop` **admin**, `irrigation/test` **admin** (ouvre une vanne 5 s et vérifie qu'elle indique ouverte puis fermée), `irrigation/close` **admin** (ferme une vanne restée ouverte) |
+| Climat | `climate/stats` : historique du climat et statistiques (`days` facultatif, 7–800, 400 par défaut) – voir ci-dessous |
 | Enregistrements | `records/overview` (récolte par culture et par année, rendements appris, boîte à graines, eau, matrice annuelle, rapport cuisine, coûts et dépenses), `records/harvest/add`, `records/journal/save`, `records/seeds/save`, `records/expense/save`, `records/soil/save`, `records/soil/delete`, `records/delete` (`kind` : `harvest`, `journal`, `seed`, `expense`), `seeds/to_todo` (graines manquantes vers une liste de tâches), `report/season` |
 | Conseils et manuel | `qa/options`, `qa/ask`, `handbook/index`, `handbook/chapter`, `handbook/search` |
 | Impression | `print/render` (pages d'aperçu SVG) |
@@ -425,6 +485,25 @@ cuisine sont ouverts à tous.
 
 `seeds/to_todo` et `cooking/to_todo` vérifient les droits propres de l'utilisateur appelant sur la
 liste de tâches cible.
+
+**`garden_manager/climate/stats`** (lecture, ouverte à tout utilisateur) renvoie ce qu'affiche
+*Météo → Historique du climat* :
+
+| Clé | Contenu |
+|---|---|
+| `today`, `season_start` | dates de référence |
+| `periods` | résumés `d7`, `d30`, `season` et `d365`, plus `d7_last_year`, `d30_last_year` et `season_last_year` : moyenne, minimum, maximum, pluie et jours de pluie, nuits de gel, jours ≥ 25 / ≥ 30 °C, ensoleillement, rafale max., degrés-jours, ET₀ et bilan hydrique |
+| `records` | records absolus (le plus froid, le plus chaud, le jour le plus pluvieux, la rafale la plus forte) avec leur date, chiffres mensuels compris |
+| `series` | un élément par jour (`d`, `lo`, `hi`, `m`, `r` pluie, `s` soleil, `w` vent, `rh`, `et0`, `src` source) sur les `days` derniers jours |
+| `months` | chiffres mensuels extérieurs, avec l'écart par rapport à l'an dernier |
+| `frost` | dates de gel mesurées par année (`years`), moyenne locale comparée au préréglage (`local`), `preset_last`, `preset_first` |
+| `sensors` | une ligne par capteur de température associé (`entity_id`, `label`, `kind` : `outdoor` / `zone_air` / `bed_air` / `soil`, valeur actuelle, jour, moyenne 7 j, plage 30 j, records, mois) |
+| `coverage` | jours dans le journal quotidien, premier jour, sources (`sensor`, `history`, `model`), mois conservés |
+
+```yaml
+type: garden_manager/climate/stats
+days: 90
+```
 
 ## Carte Lovelace
 

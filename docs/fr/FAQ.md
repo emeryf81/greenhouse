@@ -1,6 +1,7 @@
 # FAQ et dépannage
 
 Les questions sont regroupées : [Général](#général) · [Planification](#planification) ·
+[Météo et historique du climat](#météo-et-historique-du-climat) ·
 [Cuisine](#cuisine) · [Enregistrements](#enregistrements) ·
 [Entités, voix et tableaux de bord](#entités-voix-et-tableaux-de-bord) ·
 [Impression, manuel, remplissage auto](#impression-manuel-remplissage-auto) ·
@@ -26,7 +27,8 @@ de l'intégration sont `garden_manager` ; le produit s'appelle Hortulus.
 
 **Quelque chose est-il envoyé sur Internet ?**
 Home Assistant lui-même ne se connecte à l'extérieur que si vous activez **Open‑Meteo** (Paramètres →
-Météo et capteurs extérieurs) : il récupère alors une prévision sur api.open‑meteo.com, en envoyant les
+Météo et capteurs extérieurs) : il récupère alors une prévision sur api.open‑meteo.com et, une fois par
+jour, la météo observée des derniers jours pour compléter l'historique du climat, en envoyant les
 coordonnées du jardin arrondies à deux décimales (~1 km). La base de plantes, le manuel, toutes les
 illustrations et le livre de cuisine sont fournis avec l'intégration ; les photos que vous ajoutez
 passent par l'`image_upload` de Home Assistant et restent dans votre répertoire de configuration.
@@ -102,8 +104,9 @@ prérequis en retard (l'éclaircissage après le semis) reculent automatiquement
 prérequis soit fait.
 
 **La tâche de semis dit « attendre ».**
-Pour un semis en pleine terre, le capteur de sol indique moins que la température minimale de
-germination de la plante (p. ex. les haricots ont besoin de 12 °C), ou – pour une plantation – du gel
+Pour un semis en pleine terre, le sol est plus froid que la température minimale de germination de la
+plante (p. ex. les haricots ont besoin de 12 °C). Hortulus prend la plus basse entre la mesure actuelle
+du capteur de sol et la moyenne enregistrée des derniers jours : un après-midi chaud ne suffit pas, ou – pour une plantation – du gel
 est prévu sous la température minimale de la plante. La tâche passe à demain et la raison figure dans
 la description.
 
@@ -112,7 +115,8 @@ Oui. Avec la **Planification selon la météo** (activée par défaut), les semi
 endurcissement, tailles, préparation du sol et travaux semblables se déplacent dans leur période vers
 le jour adapté le plus proche (ni pluie, ni gel, ni chaleur, ni orage). S'il n'y en a aucun, la tâche
 reçoit un avertissement météo. Hortulus crée aussi des tâches pour la chaleur, les périodes sèches,
-les orages et les fortes pluies, avec des conseils écologiques.
+les orages et les fortes pluies, avec des conseils écologiques – et des tâches de suivi pour le temps
+déjà passé, voir [Hortulus tient-il compte de la météo pour la croissance ?](#météo-et-historique-du-climat).
 
 **Pourquoi n'ai-je pas de tâches de récolte pour les soucis (œillets d'Inde) ?**
 Les fleurs compagnes sont marquées `harvestable: false`. Mettez-le à true dans une plante
@@ -221,7 +225,8 @@ une caméra radar de Home Assistant s'il y en a une (une entité `camera.*` dont
 *buienradar*, *radar*, *regen* ou *rain*, p. ex. via l'intégration Buienradar). Sans elle, Hortulus
 montre la carte publique de Buienradar quand le pays de Home Assistant est les Pays-Bas ou la
 Belgique, actualisée toutes les 5 minutes ; ailleurs, il n'y a pas de radar. La prévision vient de
-l'entité météo choisie dans les Paramètres.
+l'entité météo choisie dans les Paramètres. Plus bas sur la même page se trouve l'**Historique du
+climat** (voir [Météo et historique du climat](#météo-et-historique-du-climat)).
 
 **Quand dois-je poser un filet anti-insectes ?**
 Hortulus suit un **calendrier des ravageurs** : pour la mouche de la carotte, la mouche du chou, la
@@ -243,6 +248,84 @@ organique, P, K, Mg et calcaire d'un rapport de laboratoire ou d'un kit maison).
 fertilisation de la planche, le conseil de chaulage et la liste de courses suivent la dernière analyse :
 moins de phosphate quand le P est élevé, du calcaire seulement quand le pH est trop bas pour les
 cultures, plus de compost quand la matière organique est faible.
+
+## Météo et historique du climat
+
+**Hortulus tient-il compte de la météo pour la croissance ?**
+Oui, et pas seulement des prévisions : de la météo **qui a vraiment eu lieu** chez vous, enregistrée
+jour après jour dans l'historique du climat.
+* **Croissance** – les degrés-jours enregistrés depuis la plantation déplacent la date de récolte (± 3
+  semaines). Les cultures sous serre comptent les degrés-jours de leur propre capteur d'air (sinon la
+  journée extérieure avec l'effet tampon de la serre). Les jours de chaleur du dernier mois et une série
+  de jours sombres retardent les cultures fruitières ; les cultures sans modèle de degrés-jours sont
+  retardées par les jours froids sous leur minimum. La fiche de la culture montre le retard et sa raison.
+* **Eau** – le bilan hydrique calcule l'évaporation des jours passés avec Penman-Monteith sur la journée
+  enregistrée (humidité, vent, ensoleillement ou rayonnement) et la pluie tombée : un jour venteux et
+  ensoleillé assèche plus vite.
+* **Maladies** – deux jours chauds et humides déjà passés (critères de Hutton) donnent un risque de
+  mildiou élevé ; plusieurs jours humides relèvent le niveau.
+* **Semis** – le sol doit être chaud durablement : la plus basse entre la mesure actuelle et la moyenne
+  des derniers jours.
+* **Tâches** – après une tempête (rafales ≥ 60 km/h), une tâche *Après la tempête* ; après une forte
+  averse enregistrée, la ronde contre les limaces (la même que celle de la prévision, jamais deux fois) ;
+  après une semaine sèche et chaude, un arrosage en profondeur. S'il a gelé alors que des cultures
+  frileuses étaient dehors, une alerte *« Il a gelé »* vous le dit.
+
+**Où trouver l'historique du climat et les statistiques de température ?**
+Dans l'onglet **Météo**, sous les prévisions : **Historique du climat**. Vous y trouvez un graphique
+quotidien des températures et de la pluie (30 jours, 90 jours ou 1 an), les 7 derniers jours, les 30
+derniers jours et la saison en cours (chacun comparé à l'an dernier : moyenne, minimum,
+maximum, pluie, nuits de gel, jours ≥ 25 °C, ensoleillement, vent le plus fort, degrés-jours,
+évaporation), les records, un tableau de **tous les capteurs de température** (maintenant, aujourd'hui,
+moyenne 7 jours, min–max 30 jours, records bas et haut), le mois par mois et les dates de gel. Pour vos
+tableaux de bord : `sensor.hortulus_rain_7_days`, `sensor.hortulus_mean_temperature_7_days`,
+`sensor.hortulus_sunshine_7_days` et `sensor.hortulus_frost_nights_this_season`, chacun avec la valeur
+de l'an dernier dans l'attribut `last_year` ; tout le reste via la commande websocket
+`garden_manager/climate/stats` (voir [Entités](ENTITES.md#capteurs-de-climat-historique-du-climat)).
+Les premiers jours, l'historique est encore court : il se remplit jour après jour.
+
+**Et si Home Assistant (ou Hortulus) était arrêté ?**
+Les jours manqués sont complétés. Une fois par jour et au démarrage, Hortulus regarde les 30 derniers
+jours et remplit ce qui n'a pas été bien couvert depuis l'**enregistreur** (recorder) de Home Assistant :
+les mêmes capteurs, convertis en minimum, maximum et moyenne par jour. Il faut donc que le recorder
+garde ces capteurs (par défaut 10 jours d'historique). Si l'option **Utiliser Open-Meteo** est activée,
+les jours sans aucune mesure reçoivent en plus la météo **observée** d'Open-Meteo pour votre
+emplacement. Vos propres mesures priment toujours ; la météo observée ne fait que combler les trous. Si
+Home Assistant était complètement arrêté (pas d'enregistreur non plus) et qu'Open-Meteo est désactivé,
+ces jours restent vides et les calculs se contentent des jours enregistrés.
+
+**Quels capteurs de station météo aident ?**
+Sous **Paramètres → Météo et capteurs extérieurs** : température extérieure, capteur de pluie, humidité
+de l'air et, pour une station météo, **vitesse du vent**, **rafales**, **rayonnement solaire (W/m²)** et
+**lumière extérieure (lux)**. Le vent, l'humidité et le soleil (rayonnement ou lux) rendent exacts le
+bilan hydrique (Penman-Monteith au lieu d'une estimation à partir des seules températures), le risque de
+maladie et les statistiques ; les rafales déclenchent la tâche après une tempête. Les unités sont
+converties (m/s, mph, nœuds → km/h ; °F → °C). Sans station, l'entité météo complète, et Open-Meteo s'il
+est activé. Chaque capteur de température associé ailleurs (serre, sol, air près d'une planche) est
+suivi aussi.
+
+**Comment les dates de gel sont-elles mesurées ?**
+D'après le minimum extérieur enregistré : chaque nuit sous 0 °C compte comme gelée. Par année, Hortulus
+retient la **dernière gelée de printemps** (dernière nuit de gel du premier semestre ; de juillet à
+décembre dans l'hémisphère sud) et la **première gelée d'automne** (première nuit de gel du second
+semestre). Un semestre ne compte comme complet qu'une fois terminé et enregistré à au moins 80 %.
+*Météo → Historique du climat → Dates de gel* montre la moyenne de vos années mesurées face au préréglage
+régional (*n jours plus tôt / plus tard*). Hortulus ne change pas vos dates de gel tout seul : si l'écart
+est grand, saisissez vos propres dates sous **Paramètres → Climat et région** et toutes les fenêtres de
+semis suivent.
+
+**Combien de temps l'historique est-il conservé ?**
+Les jours extérieurs restent pendant deux saisons, les jours par capteur 400 jours. Ensuite, ils sont
+regroupés en chiffres mensuels, conservés pour toujours, pour que les comparaisons d'une année sur
+l'autre restent possibles. L'historique vit dans le stockage du jardin, pas dans le fichier de plan
+exporté.
+
+**Le site web (Hortulus Web) garde-t-il l'historique ?**
+Oui. Le site web tient le même historique du climat pour chaque jardin. Il le remplit avec la météo
+observée d'**Open-Meteo** pour l'emplacement du jardin et, si le jardin est relié à un Home Assistant,
+avec l'**enregistreur** de ce Home Assistant via le jeton du jardin. Les mêmes règles valent : vos
+mesures d'abord, deux saisons de jours (400 jours par capteur), puis des chiffres mensuels. Voir
+[Configuration → Hortulus Web](CONFIGURATION.md#10-hortulus-web-site-web-facultatif).
 
 ## Cuisine
 
@@ -526,7 +609,11 @@ est épuisé. Augmentez le budget, sélectionnez plus de planches ou cochez *rem
 **Pourquoi la date de récolte attendue a-t-elle bougé ?**
 Avec un capteur de température (ou l'entité météo), Hortulus enregistre les températures minimales et
 maximales quotidiennes et additionne les degrés-jours depuis la plantation ; une période chaude avance la
-récolte, une période froide la retarde (trois semaines au plus dans chaque sens).
+récolte, une période froide la retarde (trois semaines au plus dans chaque sens). Sous serre, ce sont les
+degrés-jours du capteur d'air de la serre qui comptent. Des jours de chaleur ou une série de jours sombres
+retardent les cultures fruitières, des jours froids sous le minimum de la culture retardent les autres ;
+la fiche de la culture indique le retard et pourquoi. Voir aussi
+[Hortulus tient-il compte de la météo pour la croissance ?](#météo-et-historique-du-climat).
 
 ## Sécurité de l'irrigation
 

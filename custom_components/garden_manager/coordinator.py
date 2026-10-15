@@ -16,7 +16,7 @@ generated tasks, so entities, calendar and panel always agree.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -50,13 +50,15 @@ from .const import (
     FORECAST_REFRESH,
     SENSOR_DEBOUNCE_SECONDS,
 )
+from .engine import climate
 from .engine.analysis import GardenAnalysis, analyze
 from .engine.i18n import normalize_lang
 from .engine.models import SensorReading, WeatherSnapshot
 from .engine.records import record_water, water_stats
+from .engine.region import resolve_profile
 from .engine.tasks import MergeResult, auto_assign, generate_specs, merge_tasks
 from .engine.waterbalance import advance_water_balance
-from .engine.weather import merge_forecasts, parse_forecast, record_climate
+from .engine.weather import merge_forecasts, parse_forecast
 from .storage import GardenRepository
 
 if TYPE_CHECKING:
@@ -88,6 +90,8 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
         self._unsub_tracking: CALLBACK_TYPE | None = None
         self._tracked: set[str] = set()
         self._post_compute_hooks: list[Any] = []
+        self._climate = climate.ClimateRecorder()
+        self._backfilled_on: date | None = None  # last day the climate history was filled in
         self._recompute_debouncer = Debouncer(
             hass,
             _LOGGER,
@@ -166,7 +170,76 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
         if self._forecast_due():
             await self.async_fetch_forecast()
         await self._async_archive_old_seasons()
+        await self._async_backfill_climate()
         return self._compute()
+
+    async def _async_backfill_climate(self) -> None:
+        """Once a day (and at start-up): fill the days nobody watched.
+
+        The recorder holds what the garden's own sensors measured while Hortulus was
+        not running; Open-Meteo (when switched on) gives the observed weather for days
+        without any sensor.  Both only fill gaps - own samples stay.
+        """
+        today = dt_util.now().date()
+        if self._backfilled_on == today:
+            return
+        self._backfilled_on = today
+        data = self.repo.data
+        changed = False
+        try:
+            changed |= await self._async_backfill_recorder(today)
+        except Exception:  # history is a bonus: never stop the garden from updating
+            _LOGGER.debug("Filling climate history from the recorder failed", exc_info=True)
+        if data.settings.open_meteo:
+            from .api import async_fetch_open_meteo_history
+
+            settings = data.settings
+            try:
+                payload = await async_fetch_open_meteo_history(
+                    self.hass, settings.region.latitude or self.hass.config.latitude, self.hass.config.longitude
+                )
+            except Exception as err:  # history is a bonus, never a reason to stop
+                _LOGGER.debug("Open-Meteo history unavailable: %s", err)
+            else:
+                changed |= climate.merge_history(data, climate.open_meteo_daily(payload), "model", today)
+        if changed:
+            self.repo.async_schedule_save()
+
+    async def _async_backfill_recorder(self, today: date) -> bool:
+        if "recorder" not in getattr(self.hass.config, "components", set()):
+            return False
+        try:
+            from .climate_history import async_daily_history
+        except ImportError:  # not available on this host (the website)
+            return False
+        data = self.repo.data
+        temps, extra = climate.history_entities(data)
+        missing = climate.history_days_needed(data, today)
+        logged = {(s.entity_id, s.day) for s in data.sensor_log}
+        sensor_gaps = any((e, today - timedelta(days=i)) not in logged for e in temps for i in range(1, 31))
+        if not (temps or extra) or not (missing or sensor_gaps):
+            return False
+        start = dt_util.start_of_local_day(today - timedelta(days=30))
+        end = dt_util.start_of_local_day(today)
+        series = await async_daily_history(self.hass, [*temps, *extra], start, end)
+        changed = climate.merge_sensor_history(data, {e: series.get(e, []) for e in temps}, today)
+        records = climate.outdoor_records(data, series)
+        if records:
+            changed |= climate.merge_history(data, records, "history", today)
+        return changed
+
+    def merge_climate_history(self, records: Any, source: str) -> bool:
+        """Outdoor days from elsewhere (the website: Open-Meteo, a linked Home Assistant)."""
+        changed = climate.merge_history(self.repo.data, records, source, dt_util.now().date())
+        if changed:
+            self.repo.async_schedule_save()
+        return changed
+
+    def merge_sensor_history(self, series: Any) -> bool:
+        changed = climate.merge_sensor_history(self.repo.data, series, dt_util.now().date())
+        if changed:
+            self.repo.async_schedule_save()
+        return changed
 
     async def _async_archive_old_seasons(self) -> None:
         """Once per season (and at start-up): move old seasons to the archive document."""
@@ -323,19 +396,7 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             lang=self.lang,
         )
         changed = False
-        # Climate log (GDD): outdoor sensor, otherwise current weather temp.
-        outdoor = data.settings.outdoor_sensors
-        temp = readings.get(outdoor.air_temperature).usable if outdoor.air_temperature in readings else None  # type: ignore[union-attr]
-        if temp is None:
-            temp = self.weather.temperature
-        rain = readings.get(outdoor.rain).usable if outdoor.rain in readings else None  # type: ignore[union-attr]
-        if not (outdoor.rain and rain is not None and not outdoor.rain.startswith("binary_sensor.")):
-            # No rain gauge: book the forecast for today (never lowering it as
-            # the day passes and fewer hours remain in the forecast).
-            logged = next((d.rain_mm for d in data.climate_log if d.day == analysis.today), None)
-            forecast = analysis.outlook[0].rain_mm if analysis.outlook else None
-            rain = max(v for v in (logged, forecast, 0.0) if v is not None) if forecast is not None else None
-        changed |= record_climate(data.climate_log, analysis.today, temp, rain)
+        changed |= self._record_climate(data, readings, analysis, now)
         changed |= advance_water_balance(
             data,
             repo.db,
@@ -369,6 +430,60 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
             hook(analysis, merge)
         return analysis
 
+    def _record_climate(
+        self, data: Any, readings: dict[str, SensorReading], analysis: GardenAnalysis, now: datetime
+    ) -> bool:
+        """Fold this round of readings into the climate history (outdoor day + every temperature sensor)."""
+        outdoor = data.settings.outdoor_sensors
+
+        def usable(entity_id: str | None) -> float | None:
+            reading = readings.get(entity_id) if entity_id else None
+            return reading.usable if reading else None
+
+        attrs = {}
+        if data.settings.weather_entity and (state := self.hass.states.get(data.settings.weather_entity)) is not None:
+            attrs = dict(state.attributes)
+        temp = usable(outdoor.air_temperature)
+        if temp is None:
+            temp = self.weather.temperature
+        humidity = usable(outdoor.air_humidity)
+        if humidity is None:
+            humidity = self.weather.humidity
+        wind = self._speed(outdoor.wind_speed, usable(outdoor.wind_speed))
+        if wind is None:
+            wind = _speed_kmh(attrs.get("wind_speed"), attrs.get("wind_speed_unit"))
+        gust = self._speed(outdoor.wind_gust, usable(outdoor.wind_gust))
+        if gust is None:
+            gust = _speed_kmh(attrs.get("wind_gust_speed"), attrs.get("wind_speed_unit"))
+        radiation = usable(outdoor.radiation)
+        if radiation is None and (lux := usable(outdoor.light)) is not None:
+            radiation = lux * climate.LUX_TO_WM2
+        rain = usable(outdoor.rain)
+        rain_src = "gauge"
+        if not (outdoor.rain and rain is not None and not outdoor.rain.startswith("binary_sensor.")):
+            # No rain gauge: book the forecast for today (never lowering it as
+            # the day passes and fewer hours remain in the forecast).
+            logged = next((d.rain_mm for d in data.climate_log if d.day == analysis.today), None)
+            forecast = analysis.outlook[0].rain_mm if analysis.outlook else None
+            rain = max(v for v in (logged, forecast, 0.0) if v is not None) if forecast is not None else None
+            rain_src = "forecast"
+        temperatures = {e: usable(e) for e in climate.temperature_sensors(data)}
+        return self._climate.sample(
+            data,
+            now,
+            analysis.today,
+            climate.ClimateSample(temp=temp, humidity=humidity, wind_kmh=wind, gust_kmh=gust, radiation_wm2=radiation),
+            temperatures,
+            rain_mm=rain,
+            rain_src=rain_src,
+            hemisphere=resolve_profile(data.settings.region).hemisphere,
+        )
+
+    def _speed(self, entity_id: str | None, value: float | None) -> float | None:
+        if entity_id is None or value is None or (state := self.hass.states.get(entity_id)) is None:
+            return value
+        return _speed_kmh(value, state.attributes.get(ATTR_UNIT_OF_MEASUREMENT))
+
     @callback
     def async_add_post_compute_hook(self, hook: Any) -> CALLBACK_TYPE:
         self._post_compute_hooks.append(hook)
@@ -385,6 +500,16 @@ def _float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _speed_kmh(value: Any, unit: str | None) -> float | None:
+    number = _float(value)
+    if number is None or not unit or unit == UnitOfSpeed.KILOMETERS_PER_HOUR:
+        return number
+    try:
+        return round(SpeedConverter.convert(number, unit, UnitOfSpeed.KILOMETERS_PER_HOUR), 1)
+    except (ValueError, KeyError):
+        return number
 
 
 def _to_celsius(value: Any, unit: str | None) -> float | None:

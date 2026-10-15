@@ -591,6 +591,7 @@ def assess_disease(
     leaf_wetness_now: float | None = None,
     enclosed: bool = False,
     horizon_hours: int = 48,
+    recent: dict[str, Any] | None = None,
 ) -> DiseaseAssessment:
     """Fungal disease pressure from humidity, temperature and leaf wetness.
 
@@ -600,6 +601,9 @@ def assess_disease(
       botrytis and blight germinate.
     * A wet leaf right now (sensor) or stagnant greenhouse air (RH >= 85 %)
       raises the level.
+    * ``recent`` - the logged last days (:func:`.climate.recent_wetness`): spores
+      that landed in a wet spell are already at work, so a Hutton period that just
+      happened counts as high pressure and wet days raise the level.
     """
     out = DiseaseAssessment(humidity_now=humidity_now)
     if leaf_wetness_now is not None:
@@ -624,8 +628,13 @@ def assess_disease(
             if min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
                 out.hutton_period = True
         out.wet_hours = round(out.wet_hours, 1)
-    elif not has_forecast and humidity_now is None and out.leaf_wet_now is None:
-        return out  # unknown
+    elif (
+        not has_forecast
+        and humidity_now is None
+        and out.leaf_wet_now is None
+        and (enclosed or not (recent and recent.get("days")))
+    ):
+        return out  # unknown (the outdoor log says nothing about an enclosed zone)
 
     order = ["none", "low", "moderate", "high"]
     level = 0
@@ -638,6 +647,13 @@ def assess_disease(
     elif out.wet_hours >= 4:
         level = 1
         out.reasons.append("wet_hours")
+    if recent and not enclosed:
+        if recent.get("hutton") and level < 3:
+            level = 3
+            out.reasons.append("hutton_logged")
+        elif recent.get("wet_days", 0) >= 2:
+            level = max(level, 1) + (1 if level >= 1 else 0)
+            out.reasons.append("wet_days_logged")
     if enclosed and humidity_now is not None and humidity_now >= 85:
         level = max(level, 1) + (1 if humidity_now >= 92 else 0)
         out.reasons.append("humid_greenhouse_air")

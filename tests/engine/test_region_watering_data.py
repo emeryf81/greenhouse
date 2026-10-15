@@ -148,7 +148,8 @@ def test_migrates_legacy_document():
     assert doc["layout_season"] is None and doc["layouts"] == {}
     assert doc["plantings"][0]["last_season"] is None
     assert doc["archived_plans"] == []
-    assert STORAGE_MINOR_VERSION == 7
+    assert doc["sensor_log"] == [] and doc["climate_months"] == [] and doc["frost_years"] == {}
+    assert STORAGE_MINOR_VERSION == 8
 
 
 def test_future_major_version_is_rejected():

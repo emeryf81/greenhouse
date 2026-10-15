@@ -21,7 +21,7 @@ from homeassistant.util import dt as dt_util, yaml as yaml_util
 import voluptuous as vol
 
 from .const import DOMAIN
-from .engine import cooking, diagnose, handbook, planning, seasons, syslog
+from .engine import climate, cooking, diagnose, handbook, planning, seasons, syslog
 from .engine.advisor import advise, harvest_coverage
 from .engine.autoplan import AutoplanOptions, autoplan
 from .engine.compatibility import check_bed, check_rotation, rotation_history, suggest_companions
@@ -145,6 +145,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_planning,
         ws_seeds_to_todo,
         ws_season_report,
+        ws_climate_stats,
         ws_cooking_suggest,
         ws_cooking_render,
         ws_cookbook_save,
@@ -1771,6 +1772,45 @@ def ws_season_report(hass: HomeAssistant, connection: websocket_api.ActiveConnec
                 runtime.repo.data_for_season(msg["season"]), runtime.repo.db, msg["season"], today=dt_util.now().date()
             ),
         )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/climate/stats",
+        vol.Optional("garden_id"): str,
+        vol.Optional("days", default=400): vol.All(int, vol.Range(min=7, max=climate.KEEP_DAYS)),
+    }
+)
+@callback
+def ws_climate_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Climate history and statistics: what the weather did, per period, month and sensor."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    coordinator = runtime.coordinator
+    today = dt_util.now().date()
+    region = data.settings.region
+    anchors = season_anchors(region, season_for_date(region, today))
+    readings = coordinator.read_sensors()
+    sensors = {
+        entity_id: {**meta, "now": readings[entity_id].usable if entity_id in readings else None}
+        for entity_id, meta in climate.temperature_sensors(data).items()
+    }
+    connection.send_result(
+        msg["id"],
+        climate.climate_stats(
+            data,
+            today,
+            latitude=region.latitude or hass.config.latitude,
+            elevation_m=data.settings.elevation_m or 0.0,
+            hemisphere=resolve_profile(region).hemisphere,
+            preset_last=anchors.last_frost,
+            preset_first=anchors.first_frost,
+            sensors=sensors,
+            days=msg["days"],
+        ),
+    )
 
 
 # --------------------------------------------------------------------------- #

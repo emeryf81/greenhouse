@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -16,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from . import GardenConfigEntry
 from .coordinator import GardenCoordinator
+from .engine import climate
 from .engine.models import (
     GardenBed,
     GreenhouseAction,
@@ -24,6 +26,7 @@ from .engine.models import (
     Zone,
 )
 from .engine.records import harvest_summary, water_stats
+from .engine.region import resolve_profile
 from .engine.serde import to_dict
 from .engine.tasks import tasks_due
 from .entity import BedEntity, GardenEntity, ZoneEntity, async_setup_dynamic
@@ -46,6 +49,10 @@ async def async_setup_entry(
             HarvestSeasonSensor(coordinator),
             WaterWeekSensor(coordinator),
             RainWaterSensor(coordinator),
+            ClimateSensor(coordinator, "rain_7_days"),
+            ClimateSensor(coordinator, "mean_temperature_7_days"),
+            ClimateSensor(coordinator, "sunshine_7_days"),
+            ClimateSensor(coordinator, "frost_nights_season"),
         ]
     )
     async_setup_dynamic(
@@ -393,6 +400,65 @@ class RainWaterSensor(GardenEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         return water_stats(self.coordinator.repo.data, dt_util.now().date()).rain_available_l
+
+
+class ClimateSensor(GardenEntity, SensorEntity):
+    """What the weather did lately (from the climate history), compared with a year ago."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+    SPECS: dict[str, tuple[str | None, str, str]] = {
+        # key: (unit, icon, value in climate.summarize)
+        "rain_7_days": (UnitOfLength.MILLIMETERS, "mdi:weather-rainy", "rain_mm"),
+        "mean_temperature_7_days": (UnitOfTemperature.CELSIUS, "mdi:thermometer", "tmean"),
+        "sunshine_7_days": ("h", "mdi:weather-sunny", "sun_h"),
+        "frost_nights_season": (None, "mdi:snowflake-thermometer", "frost_nights"),
+    }
+
+    def __init__(self, coordinator: GardenCoordinator, key: str) -> None:
+        super().__init__(coordinator, key)
+        self._key = key
+        unit, self._attr_icon, self._field = self.SPECS[key]
+        self._attr_native_unit_of_measurement = unit
+        if key == "mean_temperature_7_days":
+            self._attr_device_class = SensorDeviceClass.TEMPERATURE
+        if key == "frost_nights_season":
+            self._attr_state_class = SensorStateClass.TOTAL
+            self._attr_suggested_display_precision = 0
+
+    def _summaries(self) -> tuple[dict[str, Any], dict[str, Any]]:
+        data = self.coordinator.repo.data
+        region = data.settings.region
+        latitude = region.latitude or self.hass.config.latitude
+        today = dt_util.now().date()
+        year_ago = today - timedelta(days=365)
+        if self._key == "frost_nights_season":
+            hemisphere = resolve_profile(region).hemisphere
+            now = climate.season_so_far(data, today, hemisphere)
+            before = climate.season_so_far(data, year_ago, hemisphere)
+        else:
+            now, before = climate.period(data, today, 7), climate.period(data, year_ago, 7)
+        return climate.summarize(now, latitude), climate.summarize(before, latitude)
+
+    @property
+    def native_value(self) -> float | None:
+        now, _before = self._summaries()
+        return now.get(self._field) if now.get("days") else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        now, before = self._summaries()
+        return {
+            "days_logged": now.get("days", 0),
+            "last_year": before.get(self._field),
+            "lowest": now.get("tmin"),
+            "highest": now.get("tmax"),
+            "rain_mm": now.get("rain_mm"),
+            "sunshine_h": now.get("sun_h"),
+            "gust_max_kmh": now.get("gust_max"),
+            "et0_mm": now.get("et0_mm"),
+            "water_balance_mm": now.get("balance_mm"),
+        }
 
 
 class GddTodaySensor(GardenEntity, SensorEntity):

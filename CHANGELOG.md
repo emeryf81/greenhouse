@@ -1,8 +1,48 @@
 # Changelog
 
-## Unreleased
+## 1.8.0 – 2026-10
+
+### Added
+- **Climate history: what the weather really did here.** Every update folds the outdoor
+  sensors - or the weather entity - into the day: minimum, maximum and mean temperature,
+  humidity, wind and gusts, rain, global radiation and sunshine hours. **Every mapped
+  temperature sensor** (greenhouse air, soil, air at a bed) gets its own daily minimum, maximum
+  and mean. Days leave the daily logs after two seasons (outdoor) or 400 days (sensors), but
+  their months stay for good, so year-on-year statistics survive.
+- **Filling the days nobody watched.** Once a day Hortulus fills gaps from Home Assistant's
+  **recorder** (the same sensors, while Hortulus was not running) and, with *Use Open-Meteo*
+  on, from Open-Meteo's **observed daily weather** (temperature, rain, wind and gusts,
+  radiation, sunshine, humidity, FAO ET₀). Own samples always win; recorder history combines
+  extremes; observed weather only fills what was not measured well.
+- **Weather tab → Climate history.** A daily chart (temperature range, mean, rain) for 30 days,
+  90 days or a year; the last 7 days, the last 30 days and the season so far with the same
+  period last year next to it (mean, lowest, highest, rain and rain days, frost nights, hot days,
+  sunshine, strongest wind, degree days, evaporation and the water balance); all-time records;
+  a table of every temperature sensor (now, today, 7-day mean, 30-day range, record low and high,
+  a sparkline); month by month with the change against last year; and the **measured frost
+  dates** per year against the regional preset.
+- **A weather station in the settings:** wind speed, wind gusts and solar radiation (W/m²) as
+  outdoor sensors next to temperature, humidity, rain and light.
+- **New sensors:** `sensor.hortulus_rain_7_days`, `sensor.hortulus_mean_temperature_7_days`,
+  `sensor.hortulus_sunshine_7_days` and `sensor.hortulus_frost_nights_this_season`, each with
+  last year's value as an attribute. Websocket command `garden_manager/climate/stats`.
 
 ### Changed
+- **Growth follows the weather that happened, not only the forecast.** Greenhouse crops count
+  the degree days of their own air sensor (or the outdoor day with greenhouse buffering), not a
+  flat +3; logged heat days (last month) and a run of dull days hold back fruiting crops; crops
+  without a degree-day model are held back by logged cold days below their minimum. The crop
+  popup shows the delay and why.
+- **The water balance uses Penman-Monteith on the logged day** - humidity, wind and sunshine or
+  radiation - instead of only the minimum and maximum temperature; windy, sunny days dry beds
+  faster, as they do.
+- **Disease risk looks back too:** two humid, warm days that already happened (Hutton
+  criteria from the logged days) mean high blight pressure; several wet days raise the level.
+- **Sowing waits for warm soil, not a warm afternoon:** the soil temperature is the lower of the
+  reading now and the mean of the last days' log.
+- **After-care tasks for weather that happened:** a check after a storm (gusts ≥ 60 km/h), the
+  slug patrol after a downpour (the same task the forecast would have made, never twice) and
+  deep watering after a dry week; an alert when it froze and tender crops were outside.
 - **Documentation rewritten for the whole application.** The README (English, Dutch and the new
   French edition) now describes every module of the panel with screenshots in all three
   languages; Configuration, Entities & services and the FAQ are brought up to date with the code

@@ -93,6 +93,7 @@
         if (type === "qa/ask") return x.qa_answers[`${msg.subject}/${msg.problem}/${msg.target ?? ""}`] ?? Object.values(x.qa_answers)[0];
         if (type === "supplies") return x.supplies;
         if (type === "records/overview") return x.records;
+        if (type === "climate/stats") return x.climate;
         if (type.startsWith("cooking/")) {
           const c = x.cooking;
           const find = (spec) => c.recipes.find((r) => r.technique === spec.technique) ?? c.recipes[0];

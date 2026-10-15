@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
+from .climate import last_night, recent_mean, recent_wetness, zone_log
 from .compatibility import (
     CompatibilityReport,
     RotationFinding,
@@ -218,6 +219,9 @@ def resolve_readings(mapping: SensorMapping, readings: Mapping[str, SensorReadin
         npk_p=get(mapping.npk_p),
         npk_k=get(mapping.npk_k),
         leaf_wetness=get(mapping.leaf_wetness),
+        wind_speed=get(mapping.wind_speed),
+        wind_gust=get(mapping.wind_gust),
+        radiation=get(mapping.radiation),
     )
 
 
@@ -251,6 +255,7 @@ def analyze(
     if outdoor_temp is None and weather.available:
         outdoor_temp = weather.temperature
     outdoor_frost = frost_for_zone(weather, None, now, tz, outdoor_temp)
+    wet_recent = recent_wetness(data.climate_log, today)
 
     # -- timelines ----------------------------------------------------------- #
     timelines: dict[str, PlantingTimeline] = {}
@@ -294,6 +299,7 @@ def analyze(
             humidity_now=humidity,
             leaf_wetness_now=SensorSnapshot.value(snap.leaf_wetness),
             enclosed=zone.is_enclosed,
+            recent=wet_recent,
         )
         zones[zone.id] = ZoneAnalysis(zone.id, frost, gh, air, disease, humidity)
 
@@ -402,6 +408,10 @@ def analyze(
 
         zone_frost = zones[bed.zone_id].frost if bed.zone_id in zones else outdoor_frost
         soil_t = SensorSnapshot.value(snap.soil_temperature)
+        logged_soil = recent_mean(data.sensor_log, mapping.soil_temperature, today)
+        if soil_t is not None and logged_soil is not None:
+            # one warm afternoon is not warm soil: sow on the lower of now and the last days' mean
+            soil_t = min(soil_t, logged_soil)
         for p in in_bed:
             if p.id in timelines:
                 advice[p.id] = timing_advice(
@@ -423,15 +433,22 @@ def analyze(
     gdd_today = None
     if today_out and today_out.tmin is not None and today_out.tmax is not None:
         gdd_today = round(gdd_for_day(today_out.tmin, today_out.tmax, base), 1)
+    zone_logs = {zone.id: zone_log(data, zone.id) for zone in data.zones}
     for zone in data.zones:
-        # Enclosed zones run warmer: add the greenhouse day offset per logged day.
-        zones[zone.id].gdd_season = (
-            round(gdd_total + (gdd_days * 3.0 if zone.is_enclosed else 0.0), 1) if gdd_days else None
-        )
+        # Greenhouses count their own air (sensor, else the outdoor day buffered).
+        if zone.is_enclosed:
+            z_total, z_days = accumulate_gdd(zone_logs[zone.id][0], since, today, base)
+            zones[zone.id].gdd_season = round(z_total, 1) if z_days else None
+        else:
+            zones[zone.id].gdd_season = round(gdd_total, 1) if gdd_days else None
     pheno: dict[str, PhenologyInfo] = {}
     for p in data.plantings:
         if p.id in timelines and (plants[p.id].perennial or abs(p.season - season) <= 1):
-            pheno[p.id] = phenology(p.id, plants[p.id], timelines[p.id], today, data.climate_log, outlook)
+            bed = data.bed(p.bed_id)
+            series, source = zone_logs.get(bed.zone_id if bed else "", (data.climate_log, "outdoor"))
+            pheno[p.id] = phenology(
+                p.id, plants[p.id], timelines[p.id], today, series, outlook, latitude=latitude, gdd_source=source
+            )
 
     # -- alerts -------------------------------------------------------------- #
     alerts: list[Alert] = []
@@ -478,6 +495,24 @@ def analyze(
                     zone_id=None if zone_id == "outdoor" else zone_id,
                 )
             )
+    night = last_night(data.climate_log, today)
+    if night is not None and night.tmin is not None and night.tmin < 0:
+        # It froze: outdoor crops that cannot take it may need a look (and a cover next time).
+        hit = sorted({
+            plants[p.id].name(lang)
+            for p in data.plantings
+            if p.id in plants and (tl := timelines.get(p.id)) is not None and tl.in_ground <= night.day
+            and is_active(p, tl, night.day)
+            and (bed := data.bed(p.bed_id)) is not None and not (data.zone(bed.zone_id) or _NoZone).is_enclosed
+            and night.tmin < plants[p.id].min_temp_c
+        })  # fmt: skip
+        if hit:
+            alerts.append(
+                Alert(
+                    f"froze:{night.day.isoformat()}", "frost", "warning", "alert.frost_logged",
+                    {"temp": round(night.tmin, 1), "plants": hit},
+                )
+            )  # fmt: skip
     for zone in data.zones:
         za = zones[zone.id]
         if za.greenhouse and za.greenhouse.action in (GreenhouseAction.SHADE, GreenhouseAction.VENTILATE):

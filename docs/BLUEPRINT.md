@@ -6,7 +6,7 @@
 > **Hortulus** (`garden_manager`) is a Home Assistant custom integration plus a sidebar
 > panel for planning and running a vegetable garden. This blueprint is the single
 > technical reference: architecture, data model, algorithms, APIs, UI and tests. It describes
-> **integration version 1.7.1** (storage schema 1.7). All code excerpts are copied verbatim
+> **integration version 1.8.0** (storage schema 1.8). All code excerpts are copied verbatim
 > from the repository; follow the file links for the full implementation.
 > Nederlandstalige gebruikersdocumentatie staat in [`docs/nl`](nl/).
 
@@ -36,6 +36,7 @@
 | Companion scoring, rotation, greenhouse suitability, coverage (what covers what on the site plan) | `engine/compatibility.py`, `engine/schedule.py`, `engine/weather.py`, `engine/coverage.py` |
 | Task engine (generation, recurrence, completion, postpone cascade, priorities, durations, notes, photos, seasonal work, weather episodes, pest calendar, eco tips) | `engine/tasks.py`, `engine/maintenance.py`, `engine/weather_tasks.py`, `engine/pests.py`, `engine/eco.py`, `operations.py` |
 | Sensors + forecast (frost, heat, irrigation, GDD, water balance learning from moisture sensors) | `engine/weather.py`, `engine/watering.py`, `engine/waterbalance.py`, `coordinator.py` |
+| Climate history and statistics (daily log of outdoor weather and every temperature sensor, gap filling from the recorder and Open‑Meteo, months kept for good, measured frost dates; used by growth, water, disease and tasks) | `engine/climate.py`, `climate_history.py`, `coordinator.py`, `frontend/src/components/climate-history.ts` |
 | Hardware: irrigation (pump interlock, valve timers, lost‑valve and leak detection, valve test), greenhouse vent/shade | `controllers.py`, `engine/irrigation.py` |
 | HA entities, services, events, notifications (digest, reminders, phone buttons), Assist | `sensor.py`, `binary_sensor.py`, `calendar.py`, `todo.py`, `button.py`, `number.py`, `select.py`, `switch.py`, `services.py`, `notifications.py`, `actions.py`, `voice.py` |
 | Config flow + options flow, more than one garden | `config_flow.py`, `options.py`, `seed.py`, `gardens.py` |
@@ -63,7 +64,8 @@
   so both the backend (notifications, calendar) and the panel can explain *why*.
 * **Idempotent tasks.** Generated tasks have stable keys; regeneration never duplicates
   work or loses user decisions.
-* **Local only.** No external services by default (Open‑Meteo enrichment is opt‑in; the
+* **Local only.** No external services by default (Open‑Meteo enrichment – forecast and observed
+  daily history – is opt‑in; the
   browser may fetch Wikipedia photos, on by default, switchable per browser); data in
   `.storage/garden_manager.garden` (+ `.syslog`, `.archive`), one set per garden.
 * **Everything is undoable and explainable.** Every change to the garden document is
@@ -78,23 +80,24 @@
 
 ```
 greenhouse/                                  ← repository (brand: Hortulus)
-├── README.md · README.nl.md · CHANGELOG.md · CONTRIBUTING.md · LICENSE · hacs.json · pyproject.toml · requirements_test.txt
+├── README.md · README.nl.md · README.fr.md · CHANGELOG.md · CONTRIBUTING.md · LICENSE · hacs.json · pyproject.toml · requirements_test.txt
 ├── .github/workflows/ci.yml                 ← 5 jobs: ruff + pytest, tsc + node:test + bundle check, Playwright click‑through, hassfest, HACS
 ├── assets/brand/                            ← icon, logo, dark logo, banner (SVG sources + PNG renders)
 ├── blueprints/automation/hortulus/          ← HA automation blueprints: frost_flash_light, button_log_harvest, water_when_dry, urgent_task_announce
 ├── custom_components/garden_manager/
 │   ├── __init__.py          setup/unload per config entry (= per garden), GardenRuntime, daily rollover, digest / reminder / irrigation schedules
-│   ├── manifest.json        domain, version 1.7.1, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
+│   ├── manifest.json        domain, version 1.8.0, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
 │   ├── const.py             constants, events, service names
 │   ├── config_flow.py       guided setup (region → weather → areas+sensors → notifications → summary) + options; a second entry = a second garden
 │   ├── options.py           options ⇄ stored settings
 │   ├── seed.py              build the first garden (+ example plan) from the wizard answers
 │   ├── gardens.py           more than one garden: storage key per entry, `pick()` by entry id / title, switcher listing
-│   ├── coordinator.py       DataUpdateCoordinator: forecast fetch, state tracking, analysis, task merge, climate log, archive trigger
+│   ├── coordinator.py       DataUpdateCoordinator: forecast fetch, state tracking, analysis, task merge, climate history (sampling + daily gap filling), archive trigger
+│   ├── climate_history.py   recorder states → daily min / max / time‑weighted mean per entity (°C, km/h) for the climate history
 │   ├── storage.py           versioned Store + repository (debounced saves, revision, system log, season archive)
 │   ├── operations.py        write operations shared by services, websocket, calendar & todo (validation, undo, cookbook, plans)
 │   ├── services.py · services.yaml          21 services; admin‑only set; optional `garden:` on every call
-│   ├── websocket_api.py     panel API (66 commands under `garden_manager/`: subscribe, plan/*, plants/*, records/*, cooking/*, …)
+│   ├── websocket_api.py     panel API (67 commands under `garden_manager/`: subscribe, plan/*, plants/*, records/*, cooking/*, climate/stats, …)
 │   ├── notifications.py     persistent / push / TTS / bus events, de‑duplicated, with phone action buttons
 │   ├── actions.py           handler for `mobile_app_notification_action` (Done / Tomorrow / Water now / Close valve)
 │   ├── voice.py             six Assist intents + `install_voice_sentences`
@@ -104,7 +107,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   ├── sensor.py · binary_sensor.py · calendar.py · todo.py · button.py · diagnostics.py
 │   ├── number.py · select.py · switch.py   irrigation limits/mode, shading mode, auto irrigation
 │   ├── controllers.py       IrrigationController (pump interlock, valve timers, lost‑valve + leak watch, valve test) and ClimateController (vent/shade)
-│   ├── api.py               optional Open‑Meteo client (opt‑in)
+│   ├── api.py               optional Open‑Meteo client (opt‑in): forecast and observed daily history
 │   ├── strings.json · translations/{en,nl,fr}.json · icons.json
 │   ├── data/plants.json     plant database (232 crops, names/tips EN/NL/FR; built by scripts/build_plantdb.py + plantdb_extra.py)
 │   ├── data/handbook/{en,nl,fr}/NN-<id>.md · glossary.json   23 handbook chapters per language + tooltip glossary
@@ -114,6 +117,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │       ├── models.py serde.py region.py plantdb.py geometry.py coverage.py        data model and geometry
 │       ├── schedule.py compatibility.py succession.py phenology.py                 timing, companions, rotation
 │       ├── weather.py watering.py waterbalance.py irrigation.py                    forecast, ET₀, moisture, plans
+│       ├── climate.py                                                              climate history, statistics, frost dates
 │       ├── tasks.py maintenance.py weather_tasks.py pests.py eco.py fertilizer.py   tasks and seasonal work
 │       ├── analysis.py diagnose.py advisor.py qa.py qa_kb.py supplies.py           orchestration, explanation, advice
 │       ├── records.py kitchen.py planning.py                                        journal, harvest, costs, seeds, forecasts
@@ -129,7 +133,8 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   │                                    journal, cooking, advice, analysis, handbook, print, settings, wall, garden‑viewer (read‑only)
 │   ├── src/components/                  hl-modal, task-ui, plant-detail, plant-image, year-transition, plan-compare, season-report,
 │   │                                    crop-gantt, harvest-years, quick-harvest, quick-note, photo-timeline, water-chart,
-│   │                                    kitchen-economy, dish-picture, chapter-art, garden-icons, date-input, info, markdown
+│   │                                    kitchen-economy, dish-picture, chapter-art, garden-icons, date-input, info, markdown,
+│   │                                    climate-history
 │   ├── src/planner/{garden-canvas,geometry,history,coverage,plant-glyphs}.ts
 │   ├── src/card/                        Lovelace card `custom:hortulus-tasks-card`
 │   ├── src/styles/{tokens,palettes}.ts  design tokens (light/dark) + colour themes + shared component styles
@@ -140,7 +145,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   └── dev/                             browser harness with a mock `hass` fed by the real engine (make_snapshot.py, data‑{en,nl}.json)
 ├── tests/                   ← pytest (+ pytest-homeassistant-custom-component)
 │   ├── conftest.py · fixtures/{forecast_hourly_dst_frost,forecast_hourly_rain,forecast_daily,sensors}.json
-│   ├── engine/test_*.py     25 engine suites (tasks, frost, compatibility, agronomy, planning, cooking, seasons, archive, syslog, …)
+│   ├── engine/test_*.py     26 engine suites (tasks, frost, compatibility, agronomy, climate, planning, cooking, seasons, archive, syslog, …)
 │   └── test_config_flow.py · test_init.py · test_phase2.py · test_blueprints.py
 ├── scripts/                 build_plantdb.py · plantdb_extra.py (plant database), render_blueprint.py (this document)
 ├── examples/{automations,dashboard}.yaml
@@ -161,6 +166,8 @@ flowchart TB
     R[("GardenRepository<br/>garden, syslog and archive<br/>in .storage")]
     W["weather entity"]
     S["soil and air sensors"]
+    RC[("recorder")]
+    OM["Open-Meteo (opt-in)"]
     C["GardenCoordinator"]
     A[["engine: analyze"]]
     T[["engine: generate and merge tasks"]]
@@ -175,6 +182,8 @@ flowchart TB
   R <--> C
   W -->|"forecast every 30 min or on change"| C
   S -->|"state changes, debounced"| C
+  RC -->|"daily: days not sampled"| C
+  OM -->|"daily: observed weather"| C
   VO --> C
   C --> A
   A --> T
@@ -258,6 +267,10 @@ class SensorMapping:
     npk_p: str | None = None
     npk_k: str | None = None
     leaf_wetness: str | None = None  # binary or %
+    # Outdoor weather station (optional): wind, gusts and global radiation
+    wind_speed: str | None = None  # km/h, m/s, mph or kn
+    wind_gust: str | None = None
+    radiation: str | None = None  # W/m² (solar / global radiation)
 
     def merged_with(self, fallback: SensorMapping) -> SensorMapping:
         """Bed sensors fall back to the sensors of their zone."""
@@ -685,6 +698,9 @@ class SensorSnapshot:
     npk_p: SensorReading | None = None
     npk_k: SensorReading | None = None
     leaf_wetness: SensorReading | None = None
+    wind_speed: SensorReading | None = None
+    wind_gust: SensorReading | None = None
+    radiation: SensorReading | None = None
 
     @staticmethod
     def value(reading: SensorReading | None) -> float | None:
@@ -708,6 +724,10 @@ class GardenData:
     plant_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     rotation_history: list[RotationRecord] = field(default_factory=list)
     climate_log: list[ClimateDay] = field(default_factory=list)
+    # Daily min/max/mean of every measured temperature, months kept for good, frost dates.
+    sensor_log: list[SensorDay] = field(default_factory=list)
+    climate_months: list[ClimateMonth] = field(default_factory=list)
+    frost_years: dict[str, FrostYear] = field(default_factory=dict)
     # Dedupe keys of notifications already sent -> ISO date sent.
     notified: dict[str, str] = field(default_factory=dict)
     features: list[Feature] = field(default_factory=list)
@@ -756,7 +776,7 @@ class GardenData:
 ```
 
 The document is persisted with `homeassistant.helpers.storage.Store` at
-`(version=1, minor_version=7)`. Minor versions are additive; HA calls our migration on load,
+`(version=1, minor_version=8)`. Minor versions are additive; HA calls our migration on load,
 and the plan importer reuses the same chain for files exported by older releases. Each step is
 a pure `dict → dict` function in `engine/migrations.py`:
 
@@ -768,6 +788,7 @@ a pure `dict → dict` function in `engine/migrations.py`:
 | 1.5 | 1.1 | `features`, `water_balance`, `irrigation_log`, `settings.irrigation/resources` |
 | 1.6 | 1.4 | plans per season (`layout_season`, `layouts`) and explicit carry‑over (`plantings[].last_season`); the date‑dependent part (which year the plan is, which perennials stay) runs in `seasons.adopt` after loading |
 | 1.7 | 1.4 | `archived_plans` (plans set aside) |
+| 1.8 | 1.8 | `sensor_log`, `climate_months`, `frost_years` (climate history and statistics); the new optional `ClimateDay` fields are defaulted by `serde` |
 
 Records added later (harvest log, journal, seed stock, water log, expenses, cookbook,
 `cooking_prefs`, economy settings, soil tests …) are new optional keys: `serde` defaults missing
@@ -830,13 +851,94 @@ All in `GardenData` next to the plan (see `engine/models.py`):
 |---|---|
 | `GardenSettings` | `region` (`RegionProfile`: hemisphere, preset/custom/USDA mode, frost dates, `frost_free`, latitude, time zone), `weather_entity`, `outdoor_sensors`, `language`, `notifications` (persistent, notify services, TTS, digest/overdue/weekly times), `irrigation` (mode, pump, start time, max runtime, frost lockout, rain skip, pump lead), `resources` (household, hours, water, compost, goals, wanted/excluded, autofill preferences), `water` (meter, butt level + capacity, leak alerts), `economy` (currency, water price, own prices per crop), `assignment`, `person_notify`, `open_meteo`, `elevation_m`, `maintenance_tasks`, `eco_tips`, `weather_aware_scheduling`, `sensor_stale_minutes`, `companion_radius_cm`, `root_zone_depth_mm`, `max_irrigation_mm`, `gdd_base_c`, `snap_cm` |
 | Task data | `Task`, `TaskNote`, `Recurrence`; `RotationRecord` (manual + implied (bed, season, family) records) |
-| Climate & water | `ClimateDay` (tmin, tmax, rain), `WaterBalance` per bed (depletion, `et_factor` learned from the moisture sensor, calibration), `IrrigationEvent` (run log), `WaterReading` (meter m³, butt %) |
+| Climate & water | `ClimateDay` (one outdoor day: temperature, humidity, wind, gusts, radiation, sunshine, rain, sources), `SensorDay` (daily min / max / mean per temperature sensor), `ClimateMonth` (a month kept for good per series), `FrostYear` (measured frost dates per year), `WaterBalance` per bed (depletion, `et_factor` learned from the moisture sensor, calibration), `IrrigationEvent` (run log), `WaterReading` (meter m³, butt %) |
 | Records | `HarvestEntry`, `JournalEntry` (text, photos, links to bed/crop/plant), `SeedPacket`, `SoilTest` (per bed), `Expense` |
 | Cooking | `CookbookRecipe` (a small *spec* + title, favourite, `shared`, note, dates cooked, optional own `ingredients` / `steps`), `cooking_prefs` (what the cook has at home, uses up, likes, side, servings) |
 | Plans | `GardenLayout`, `ArchivedPlan`, `layout_season` |
 
 Photos are stored as references to Home Assistant's `image_upload` store (the dependency in
 the manifest), never as bytes in the garden document.
+
+The climate history (4.22) lives in four collections of `GardenData`: `climate_log`
+(`ClimateDay`, outdoor, 800 days), `sensor_log` (`SensorDay`, 400 days), `climate_months`
+(`ClimateMonth`, kept for good; `series` is `"outdoor"` or an entity id) and `frost_years`
+(`FrostYear` by year):
+
+```python
+@dataclass(slots=True)
+class ClimateDay:
+    """One local day of outdoor weather, as measured here or filled in afterwards.
+
+    Own samples (a sensor, otherwise the weather entity) are folded in through the day;
+    ``hours`` is how much of the day they cover.  Days the garden was not watched are
+    filled from the recorder history of the same sensors (``source`` "history") or from
+    Open-Meteo's observed weather ("model"); see :mod:`.climate`.
+    """
+
+    day: date
+    tmin: float | None = None
+    tmax: float | None = None
+    rain_mm: float | None = None
+    tmean: float | None = None
+    t_n: int = 0  # samples behind tmean
+    rh_min: float | None = None  # relative humidity %
+    rh_max: float | None = None
+    rh_mean: float | None = None
+    rh_n: int = 0
+    wind_mean: float | None = None  # km/h at 10 m
+    wind_max: float | None = None
+    gust_max: float | None = None
+    w_n: int = 0
+    rs_mj: float | None = None  # global (shortwave) radiation, MJ/m²
+    sun_h: float | None = None  # sunshine hours (>= 120 W/m²)
+    et0_mm: float | None = None  # reference evaporation given by the source (Open-Meteo)
+    hours: float = 0.0  # hours of the day covered by own samples
+    source: str = ""  # sensor | history | model, "+"-joined when mixed
+    rain_src: str = ""  # gauge | forecast | history | model
+
+
+@dataclass(slots=True)
+class SensorDay:
+    """Daily statistics of one measured temperature (outdoor, greenhouse air, soil ...)."""
+
+    entity_id: str
+    day: date
+    tmin: float | None = None
+    tmax: float | None = None
+    tmean: float | None = None
+    n: int = 0
+    source: str = "sensor"  # sensor | history
+
+
+@dataclass(slots=True)
+class ClimateMonth:
+    """A month of a series kept for good once its days leave the daily logs.
+
+    ``series`` is ``"outdoor"`` or a sensor's entity id.
+    """
+
+    series: str
+    month: str  # YYYY-MM
+    days: int = 0
+    tmin: float | None = None  # lowest
+    tmax: float | None = None  # highest
+    tmean: float | None = None  # mean of the daily means
+    rain_mm: float = 0.0
+    frost_days: int = 0  # minimum below 0 °C
+    hot_days: int = 0  # maximum >= 25 °C
+    sun_h: float = 0.0
+    wind_max: float | None = None
+
+
+@dataclass(slots=True)
+class FrostYear:
+    """Measured frost dates of one year (outdoor): the local truth behind the regional preset."""
+
+    last_spring: date | None = None
+    first_autumn: date | None = None
+    spring_complete: bool = False  # the whole frost season was logged
+    autumn_complete: bool = False
+```
 
 ### 3.8 Stored documents per garden
 
@@ -845,7 +947,7 @@ keys, later ones get `garden_manager.garden_<8 hex>` (kept in the entry's data a
 
 | Key | Content | Notes |
 |---|---|---|
-| `garden_manager.garden` | the `GardenData` document | schema 1.7, debounced save (5 s), done tasks pruned after 400 days |
+| `garden_manager.garden` | the `GardenData` document | schema 1.8, debounced save (5 s), done tasks pruned after 400 days |
 | `garden_manager.garden.syslog` | the system log (last 500 entries, diffs with `before`/`after`) | version 1 store of its own, so the garden document needs no migration for it |
 | `garden_manager.garden.archive` | plantings and plans of seasons older than the last three | see 4.16 |
 | `garden_manager.garden.corrupt` / `.backup` | a document that failed to load (kept, a fresh garden starts) / a copy kept when the entry is removed | recovery only |
@@ -935,6 +1037,7 @@ async def _async_update_data(self) -> GardenAnalysis:
     if self._forecast_due():
         await self.async_fetch_forecast()
     await self._async_archive_old_seasons()
+    await self._async_backfill_climate()
     return self._compute()
 
 
@@ -960,19 +1063,7 @@ def _compute(self) -> GardenAnalysis:
         lang=self.lang,
     )
     changed = False
-    # Climate log (GDD): outdoor sensor, otherwise current weather temp.
-    outdoor = data.settings.outdoor_sensors
-    temp = readings.get(outdoor.air_temperature).usable if outdoor.air_temperature in readings else None  # type: ignore[union-attr]
-    if temp is None:
-        temp = self.weather.temperature
-    rain = readings.get(outdoor.rain).usable if outdoor.rain in readings else None  # type: ignore[union-attr]
-    if not (outdoor.rain and rain is not None and not outdoor.rain.startswith("binary_sensor.")):
-        # No rain gauge: book the forecast for today (never lowering it as
-        # the day passes and fewer hours remain in the forecast).
-        logged = next((d.rain_mm for d in data.climate_log if d.day == analysis.today), None)
-        forecast = analysis.outlook[0].rain_mm if analysis.outlook else None
-        rain = max(v for v in (logged, forecast, 0.0) if v is not None) if forecast is not None else None
-    changed |= record_climate(data.climate_log, analysis.today, temp, rain)
+    changed |= self._record_climate(data, readings, analysis, now)
     changed |= advance_water_balance(
         data,
         repo.db,
@@ -1007,13 +1098,58 @@ def _compute(self) -> GardenAnalysis:
     return analysis
 ```
 
-On top of the excerpt, every recompute books the day's climate (min/max temperature, rain; the
-forecast's rain is used when there is no gauge and never lowered during the day), advances the
+On top of the excerpt, every recompute books the day's climate through `_record_climate`
+(outdoor temperature, humidity, wind, gusts and radiation from the outdoor sensors, else the
+weather entity; lux × 0.0079 as radiation without a radiation sensor; every mapped temperature
+sensor into `sensor_log`; rain from the gauge, or the forecast's rain when there is no gauge,
+never lowered during the day), advances the
 water balance (4.4), records the water meter / butt reading, merges the generated tasks
 (auto‑assigning new ones to household members), calls the post‑compute hooks (notifications,
 climate controller, entity updates) and triggers the season archive (4.16). A sensor state
 change schedules a debounced recompute; a change of the weather entity itself refetches the
 forecast, at most once per 10 minutes; plan edits recompute through the repository listener.
+
+Once a day (and at start‑up) `_async_update_data` also runs `_async_backfill_climate`: the
+recorder (`climate_history.async_daily_history`, only when the `recorder` component is loaded
+and `climate.history_days_needed` or missing sensor days show gaps in the last 30 days) and,
+with *Use Open‑Meteo* on, `api.async_fetch_open_meteo_history` (observed daily weather of the
+last 31 days) fill the climate history; failures are logged at debug level and never stop an
+update. `merge_climate_history` / `merge_sensor_history` are the same entry points for a host
+that brings its own history (the website).
+
+```python
+async def _async_backfill_climate(self) -> None:
+    """Once a day (and at start-up): fill the days nobody watched.
+
+    The recorder holds what the garden's own sensors measured while Hortulus was
+    not running; Open-Meteo (when switched on) gives the observed weather for days
+    without any sensor.  Both only fill gaps - own samples stay.
+    """
+    today = dt_util.now().date()
+    if self._backfilled_on == today:
+        return
+    self._backfilled_on = today
+    data = self.repo.data
+    changed = False
+    try:
+        changed |= await self._async_backfill_recorder(today)
+    except Exception:  # history is a bonus: never stop the garden from updating
+        _LOGGER.debug("Filling climate history from the recorder failed", exc_info=True)
+    if data.settings.open_meteo:
+        from .api import async_fetch_open_meteo_history
+
+        settings = data.settings
+        try:
+            payload = await async_fetch_open_meteo_history(
+                self.hass, settings.region.latitude or self.hass.config.latitude, self.hass.config.longitude
+            )
+        except Exception as err:  # history is a bonus, never a reason to stop
+            _LOGGER.debug("Open-Meteo history unavailable: %s", err)
+        else:
+            changed |= climate.merge_history(data, climate.open_meteo_daily(payload), "model", today)
+    if changed:
+        self.repo.async_schedule_save()
+```
 
 ### 4.3 Storage repository
 
@@ -1042,7 +1178,7 @@ log works by diffing the serialised document against the previous state
 (`engine/syslog.py`): item‑level `before`/`after` pairs per collection, an undo writes the
 `before` values back only for items that still look as the entry left them (otherwise the
 caller must confirm with `force`), and an undo is itself logged, so it can be undone (redo).
-Sensor bookkeeping (climate log, water balance, meter readings, notification keys) and the
+Sensor bookkeeping (climate history, water balance, meter readings, notification keys) and the
 revision are not actions and are not tracked. `record_error` writes refused actions (a
 refused plan, a conflict, a hardware problem) to the same log as `error` entries. The log is capped
 at 500 entries and ≈ 4 MB.
@@ -1164,11 +1300,18 @@ Besides the excerpt, `engine/schedule.py` turns the relative windows into absolu
 dates per season and zone (greenhouse and cold frame extend the season by
 `season_extension_weeks`), then refines them with live data (soil too cold or hot for sowing,
 a frost forecast delaying frost‑tender transplants, dependants lagging behind an overdue
-prerequisite); `engine/phenology.py` adds growth stage, stage Kc and a degree‑day harvest
-projection (blended with the forecast; heat stress delays fruiting); `engine/succession.py`
+prerequisite; the soil temperature for sowing is the lower of the reading now and the mean of
+the last three days in `sensor_log`); `engine/phenology.py` adds growth stage, stage Kc and a
+degree‑day harvest projection over the crop's **zone series** (`climate.zone_log`: a greenhouse's
+own air sensor, else the outdoor day + 2 °C at night / + 4 °C by day), blended with the forecast;
+heat days (logged in the last 30 days plus forecast, at most 10 days) and dull days (a day per
+three, at most 5, `climate.dull_days`) delay fruiting crops, and crops without a degree‑day model
+are held back by logged cold days below `min_temp_c` (a day per two, at most 10);
+`weather_delay_days` and the logged counts go to the crop popup; `engine/succession.py`
 expands one drag into several dated sowings; `engine/waterbalance.py` keeps a FAO‑56 root‑zone
-bucket per bed, booked once per completed day (ET₀ from the logged min/max × stage Kc, effective
-rain and logged irrigation in). When a bed has a moisture sensor the bucket is set from the reading once a
+bucket per bed, booked once per completed day (ET₀ of the logged day – `climate.daily_et0`:
+Penman‑Monteith with its humidity, wind and sunshine or radiation, Hargreaves with only min/max,
+Open‑Meteo's FAO ET₀ for a day it filled – × stage Kc, effective rain and logged irrigation in). When a bed has a moisture sensor the bucket is set from the reading once a
 day and the bed learns how fast it really dries out (`et_factor`), so the advice stays right on
 days the sensor is offline.
 
@@ -1570,11 +1713,11 @@ All commands live under `garden_manager/` and take an optional `garden_id` (conf
 first garden without it). Reads are open to every authenticated user; writes that change the plan,
 the plant database, settings or hardware require an administrator (`@require_admin`); task
 actions and the personal records are open, because family members tick off chores and log
-harvests too. The 66 commands, by area:
+harvests too. The 67 commands, by area:
 
 | Area | Commands | Who |
 |---|---|---|
-| State | `subscribe` (live snapshot: analysis, weather, tasks, settings, layouts, set‑aside plans, diagnosis summary, irrigation status incl. stuck valves and leak, recent logs, gardens list …), `plants`, `plants/windows`, `analysis`, `analysis/explain` ("why not here?"), `analysis/still_possible`, `plantings/season`, `planning`, `plan/compare`, `report/season`, `advice`, `supplies`, `qa/options`, `qa/ask`, `handbook/index\|chapter\|search`, `records/overview`, `irrigation/plan`, `syslog/list`, `print/render` (SVG preview), `year/preview` | any user |
+| State | `subscribe` (live snapshot: analysis, weather, tasks, settings, layouts, set‑aside plans, diagnosis summary, irrigation status incl. stuck valves and leak, recent logs, gardens list …), `plants`, `plants/windows`, `analysis`, `analysis/explain` ("why not here?"), `analysis/still_possible`, `plantings/season`, `planning`, `plan/compare`, `report/season`, `advice`, `supplies`, `qa/options`, `qa/ask`, `handbook/index\|chapter\|search`, `records/overview`, `irrigation/plan`, `syslog/list`, `print/render` (SVG preview), `year/preview`, `climate/stats` (climate history and statistics; optional `days` 7–800, default 400) | any user |
 | Plan | `plan/check` (draft check while dragging), `plan/succession`, `plan/export`, `plan/autofill` (proposal) | any user |
 | Plan writes | `plan/save` (revision guarded), `plan/import`, `plan/autofill/apply`, `plan/new`, `plan/activate`, `plan/delete`, `layout/delete`, `year/apply`, `planting/update`, `plantings/update_many`, `garden/starter`, `analysis/fix` (one‑click repairs) | admin |
 | Plant database | `plants/save`, `plants/delete` | admin |
@@ -1708,10 +1851,11 @@ All in `custom_components/garden_manager/engine/` – pure Python, standard libr
 | | `plantdb` | built‑in database + custom plants + overrides, symmetric relations, search |
 | Timing | `schedule`, `succession`, `phenology` | windows and live advice, succession sowings, growth stage / Kc / degree‑day harvest |
 | | `compatibility` | companion scoring, overlaps, rotation (7.3, 7.4) |
-| Weather & water | `weather` | forecast parsing, frost, heat, greenhouse climate, ET₀, GDD |
+| Weather & water | `weather` | forecast parsing, frost, heat, greenhouse climate, ET₀, GDD, disease risk (forecast + `recent=` logged days) |
+| | `climate` | climate history: sampling, gap filling, months, frost dates, statistics, and the logged series that growth, water, disease and tasks use (4.22) |
 | | `watering`, `waterbalance`, `irrigation` | moisture bands and recommendation, FAO‑56 bucket with sensor learning, the safe plan |
 | Tasks | `tasks` | generation, merge, recurrence, postpone cascade, digest and overdue reports |
-| | `maintenance`, `weather_tasks`, `pests`, `eco`, `fertilizer` | seasonal work, weather episodes, pest calendar, ecological gardening and food forest, compost / feed / lime |
+| | `maintenance`, `weather_tasks`, `pests`, `eco`, `fertilizer` | seasonal work, weather episodes (forecast and logged), pest calendar, ecological gardening and food forest, compost / feed / lime |
 | Insight | `analysis` | `analyze()` orchestrates everything into `GardenAnalysis` |
 | | `diagnose` | consistency check, "why not here?", one‑click repairs, plan compare, what can still go in |
 | | `advisor`, `qa`, `qa_kb`, `supplies` | garden suggestions, Q&A assistant and its knowledge base, tools and shopping list |
@@ -1931,6 +2075,106 @@ same placeholders, and so must the tables of the season book, pests, families an
   disease check gets an organic answer, the calendar gets work for a living garden, and the advice an eco tip of
   the month and food‑forest layers (canopy, sub‑canopy, shrub, herb, ground cover, root, climber – the missing ones are
   suggested).
+
+### 4.22 Climate history (`engine/climate.py`)
+
+The forecast says what is coming; `engine/climate.py` keeps what came, as pure functions that the
+coordinator (Home Assistant) and the website feed. Three sources, in order of trust:
+
+| Source | `source` | How it is merged |
+|---|---|---|
+| own samples | `sensor` | `ClimateRecorder.sample` folds every update into today's `ClimateDay` (min / max on every reading; means, radiation sum and sunshine hours at most every 4 minutes per series, a silence counts as at most half an hour) and into a `SensorDay` per mapped temperature sensor (`temperature_sensors`: outdoor air and soil, zone air, bed soil and air); `hours` records the coverage |
+| recorder history | `history` | `merge_sensor_history` and `merge_history(…, "history")` with `outdoor_records` (temperature, humidity, wind, gusts): extremes are combined; a recorded mean replaces its own only when the day has < 20 h of own samples |
+| observed weather | `model` | `open_meteo_daily` → `merge_history(…, "model")`: replaces temperature and the station fields only when own samples covered < 12 h, otherwise fills what is missing |
+
+Rain ranks gauge > history > model > forecast; today is always left to the own samples. A new
+day triggers `roll_up` (days older than 800 / 400 days fold into `ClimateMonth`: lowest,
+highest, mean of the daily means, rain, frost days < 0 °C, hot days ≥ 25 °C, sunshine, strongest
+wind) and `update_frost_years` (last spring and first autumn frost per year, per hemisphere; a
+half‑year is *complete* once over and ≥ 80 % logged). `local_frost` averages the complete years
+against the regional preset; the measured dates are shown, the calendar keeps the configured ones.
+
+```python
+def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source: str, today: date) -> bool:
+    """Fill outdoor days from recorded or observed daily weather.
+
+    ``source``: "history" (the same sensors, from the recorder: extremes are combined)
+    or "model" (Open-Meteo: only fills what own samples did not measure well).
+    Today is left to the own samples.
+    """
+    changed = False
+    for rec in records:
+        try:
+            day = rec["day"] if isinstance(rec["day"], date) else date.fromisoformat(str(rec["day"])[:10])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if day >= today or day < today - timedelta(days=KEEP_DAYS):
+            continue
+        tmin, tmax, tmean = _f(rec.get("tmin")), _f(rec.get("tmax")), _f(rec.get("tmean"))
+        if tmin is not None and tmax is not None and tmin > tmax:
+            tmin, tmax = tmax, tmin
+        entry, new = _day(data.climate_log, day)
+        before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
+        complete = entry.hours >= FULL_DAY_H
+        # measured days (own samples or recorder history) keep their values: the model only fills gaps
+        measured = entry.hours >= MODEL_BEATS_H or "history" in entry.source
+        # values that came from the model only: a measurement replaces them instead of mixing in
+        modelled = "model" in entry.source and not measured
+        if source == "history" and modelled:
+            entry.tmin = tmin if tmin is not None else entry.tmin
+            entry.tmax = tmax if tmax is not None else entry.tmax
+            entry.tmean = tmean if tmean is not None else entry.tmean
+        elif source == "history":
+            if tmin is not None:
+                entry.tmin = tmin if entry.tmin is None else min(entry.tmin, tmin)
+            if tmax is not None:
+                entry.tmax = tmax if entry.tmax is None else max(entry.tmax, tmax)
+            if tmean is not None and not complete:
+                entry.tmean = tmean
+        elif not measured:
+            entry.tmin = tmin if tmin is not None else entry.tmin
+            entry.tmax = tmax if tmax is not None else entry.tmax
+            entry.tmean = tmean if tmean is not None else entry.tmean
+        else:
+            entry.tmin = entry.tmin if entry.tmin is not None else tmin
+            entry.tmax = entry.tmax if entry.tmax is not None else tmax
+            entry.tmean = entry.tmean if entry.tmean is not None else tmean
+        rain = _f(rec.get("rain_mm"))
+        rank = {"": 0, "forecast": 1, "model": 2, "history": 3, "gauge": 4}
+        if rain is not None and rank.get(source, 0) >= rank.get(entry.rain_src, 0):
+            entry.rain_mm, entry.rain_src = round(rain, 1), source
+        for key in _FIELDS:
+            value = _f(rec.get(key))
+            if value is not None and (
+                getattr(entry, key) is None
+                or (source == "model" and not measured)
+                or (source == "history" and modelled)
+            ):
+                setattr(entry, key, round(value, 2))
+        after = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
+        if new or after != before:
+            entry.source = _src(entry.source, source)
+            changed = True
+    return changed
+```
+
+What the rest of the engine reads from it:
+
+| Function | Used by | Purpose |
+|---|---|---|
+| `daily_et0` | `waterbalance`, statistics | ET₀ of a past day: Penman‑Monteith from the logged humidity, wind (mean, or 0.6 × max) and radiation or sunshine fraction; Open‑Meteo's ET₀ for a day it filled; Hargreaves with only min / max |
+| `zone_log` | `analysis` → `phenology`, zone GDD | the temperature series a zone's crops grow in (`zone_sensor` / `outdoor_buffered` / `outdoor`) |
+| `stress_days`, `dull_days` | `phenology` | hot days above `max_temp_c`, cold days below `min_temp_c`; days below 40 % of clear‑sky radiation (or with sun < 15 % of the day length) |
+| `recent_wetness` | `analysis` → `weather.assess_disease(recent=…)` | the last three days: rain, wet days (≥ 5 mm or mean RH ≥ 90 %), the Hutton criteria from daily data (two days in a row with min ≥ 10 °C and mean RH ≥ 90 %) → `hutton_logged` (high), `wet_days_logged` (one step up); outdoor zones only |
+| `recent_mean` | `analysis` | soil temperature for sowing: the lower of now and the 3‑day mean |
+| `last_night` | `analysis` | `alert.frost_logged` (kind `frost`) when the last logged minimum went below 0 °C and active outdoor crops cannot take it |
+| `stormy` | `weather_tasks.logged_weather_specs` | `w:after_storm` (gusts ≥ 60 km/h or wind ≥ 45 km/h yesterday); the same function adds `w:rain` for ≥ 15 mm logged yesterday (same key as the forecast task) and `w:dry_logged` after a dry week (≥ 6 days known, < 3 mm, ≥ 4 days ≥ 20 °C; not next to a forecast `w:dry`) |
+| `summarize`, `period`, `season_so_far` | `sensor.py` (`ClimateSensor`) | the four climate sensors and their last‑year attribute |
+| `climate_stats`, `sensor_stats` | `climate/stats` | periods (7 / 30 days, season, 365 days and last year's), records, the daily series, months, frost dates, per‑sensor statistics, coverage |
+
+The panel shows it in **Weather → Climate history** (`components/climate-history.ts`). The website
+fills the same log from Open‑Meteo for every garden and from a linked Home Assistant's recorder
+through the garden's token, through the same `merge_*` functions.
 
 ---
 
@@ -2393,7 +2637,7 @@ used; URLs of the tabs never changed):
 | Today | `dashboard-view` (plus the wall screen `wall-view`, `/hortulus/wall`: a calm kiosk view with big tick‑boxes) |
 | Garden | `planner-view` in two modes – *Garden plan* (`layout`: site, growing zones, beds) and *Planner* (`plant`: perennials, annuals) – and `crops-view` (+ `crops-planning`: sowing plan, seeds, succession, harvest forecast, timeline) |
 | Calendar | `calendar-view` (month, year view, task dialog) |
-| Weather | `weather-view` (now, 24 h chart, ten days, what it means for the garden, rain radar) |
+| Weather | `weather-view` (now, 24 h chart, ten days, what it means for the garden, rain radar) with `climate-history` (daily chart for 30 / 90 / 365 days, periods against last year, records, every temperature sensor, months, measured frost dates) |
 | Journal | `journal-view` sections: diary (photos per bed or crop), harvest (incl. harvest over the years), kitchen (ready to pick, surplus, cost and harvest), seeds, water, season report, system log (every change, with undo) |
 | Kitchen | `cooking-view` (ideas, menus, own cookbook, shopping list, PDFs) |
 | Knowledge | `library-view`, `advice-view`, `handbook-view` |
@@ -2456,6 +2700,7 @@ Screens (English and Dutch, light and dark):
 | – | `sensor.hortulus_tasks_due_today`, `sensor.hortulus_next_task`, `sensor.<bed>_companion_score` (disabled by default) | count / text / % |
 | – | `sensor.hortulus_reference_evapotranspiration_today`, `sensor.hortulus_degree_days_today`, `sensor.<zone>_degree_days_this_season` (disabled by default), `sensor.<bed>_nutrient_balance`, `sensor.<bed>_soil_water_deficit` (disabled by default), `sensor.<zone>_disease_risk` | mm / °C·d / °C·d / index / mm / `none`…`high` |
 | – | `sensor.hortulus_harvest_this_season`, `sensor.hortulus_garden_water_7_days`, `sensor.hortulus_rain_water_available` | kg / L / L |
+| – | `sensor.hortulus_rain_7_days`, `sensor.hortulus_mean_temperature_7_days`, `sensor.hortulus_sunshine_7_days`, `sensor.hortulus_frost_nights_this_season` (climate history; `last_year` and period totals as attributes) | mm / °C / h / count |
 | – | `binary_sensor.hortulus_frost_warning`, `binary_sensor.<bed>_needs_water`, `binary_sensor.<zone>_heat_stress`, `binary_sensor.<zone>_frost_risk_48h`, `binary_sensor.hortulus_irrigation_frost_lockout`, `binary_sensor.hortulus_irrigation_running` | on/off |
 | – | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week` | editable |
 | – | `button.hortulus_generate_tasks`, `button.hortulus_refresh_forecast`, `button.hortulus_water_now`, `button.hortulus_stop_watering` | |
@@ -2503,7 +2748,7 @@ announce urgent garden jobs. `tests/test_blueprints.py` validates each and insta
 problems), any `notify.*` service with a deep link to `/hortulus` and action buttons, optional `tts.speak` for
 frost. De‑duplication keys live in `GardenData.notified` (pruned after 14 days).
 
-**Websocket:** 66 commands under `garden_manager/`, grouped and with their permissions in 4.8.
+**Websocket:** 67 commands under `garden_manager/`, grouped and with their permissions in 4.8.
 
 **Assist:** six intents (tasks today, overdue, harvest, greenhouse, water, frost) in English, Dutch and French.
 
@@ -2768,6 +3013,31 @@ def et0_hargreaves(tmin: float, tmax: float, latitude_deg: float, day: date) -> 
     return max(round(et0, 2), 0.0)
 ```
 
+For a past day the water balance prefers FAO‑56 Penman‑Monteith from what was logged
+(`climate.daily_et0`: humidity, wind, radiation or sunshine fraction), so windy, sunny days dry beds
+faster; Hargreaves is the fallback when only min / max are known:
+
+```python
+def daily_et0(day: ClimateDay, latitude: float, elevation_m: float = 0.0) -> tuple[float | None, str | None]:
+    """Reference evaporation of a past day: Penman-Monteith from what was logged, else Hargreaves."""
+    if day.tmin is None or day.tmax is None:
+        return day.et0_mm, ("model" if day.et0_mm is not None else None)
+    if day.et0_mm is not None and day.hours < MODEL_BEATS_H and "model" in day.source:
+        return day.et0_mm, "model"
+    sunshine = None
+    if day.rs_mj is None and day.sun_h is not None:
+        sunshine = day.sun_h / max(daylight_hours(latitude, day.day), 1.0)
+    pm = et0_penman_monteith(
+        day.tmin, day.tmax, latitude, day.day,
+        rh_min=day.rh_min, rh_max=day.rh_max, rh_mean=day.rh_mean,
+        wind_kmh_10m=day.wind_mean if day.wind_mean is not None else (day.wind_max * 0.6 if day.wind_max else None),
+        rs=day.rs_mj, sunshine_fraction=sunshine, elevation_m=elevation_m,
+    )  # fmt: skip
+    if pm is not None:
+        return pm, "penman_monteith"
+    return et0_hargreaves(day.tmin, day.tmax, latitude, day.day), "hargreaves"
+```
+
 ```python
 def recommend_irrigation(
     bed: GardenBed,
@@ -2892,7 +3162,9 @@ def recommend_irrigation(
 ### 7.8 Growing degree days
 
 `GDD = max(0, (min(max(Tmax, base), 30) + min(max(Tmin, base), 30))/2 − base)`, accumulated
-from the daily min/max log the coordinator keeps (outdoor sensor or weather temperature).
+from the daily min/max log the coordinator keeps (outdoor sensor or weather temperature, gaps filled
+from the recorder or Open‑Meteo). Greenhouses and cold frames use `climate.zone_log`: their own air
+sensor where it logged the day, otherwise the outdoor day + 2 °C (min) / + 4 °C (max).
 
 ---
 
@@ -3068,7 +3340,7 @@ sections:
 
 ```
 pip install -r requirements_test.txt
-pytest -q                          # 323 tests: pure engine + config flow + full HA setup + blueprints
+pytest -q                          # 348 tests: pure engine + config flow + full HA setup + blueprints
 ruff check custom_components tests scripts frontend/dev && ruff format --check custom_components tests
 
 cd frontend
@@ -3084,7 +3356,7 @@ Assistant at all; every rule that changes gets a test. Four layers sit on top:
 
 | Layer | Where | What it proves |
 |---|---|---|
-| Engine units | `tests/engine/test_*.py` (25 suites) | tasks and merge, frost/DST, compatibility and rotation, agronomy (ET₀ against FAO example 18, GDD), watering and water balance, regions and hemispheres, migrations and plan import/export, perennials, seasons and year‑end transition, archive, system log, diagnosis, planning, records, kitchen, pests, eco, coverage, cooking, season book, printing and handbook, Q&A and advice, French parity, and `test_review_findings.py` (regressions from whole‑repository reviews) |
+| Engine units | `tests/engine/test_*.py` (26 suites) | tasks and merge, frost/DST, compatibility and rotation, agronomy (ET₀ against FAO example 18, GDD), watering and water balance, climate history (`test_climate.py`: sampling, recorder and Open‑Meteo merges, roll‑up, frost dates, zone series, logged stress, disease and tasks), regions and hemispheres, migrations and plan import/export, perennials, seasons and year‑end transition, archive, system log, diagnosis, planning, records, kitchen, pests, eco, coverage, cooking, season book, printing and handbook, Q&A and advice, French parity, and `test_review_findings.py` (regressions from whole‑repository reviews) |
 | Home Assistant integration | `tests/test_init.py`, `test_config_flow.py`, `test_phase2.py` (with `pytest-homeassistant-custom-component`, pinned to the HA release used in CI) | setup, entities, services and their responses and permissions, websocket API, options flow, unload; irrigation with pump interlock, lockout, valve timers, lost/stuck valves, leaks and the valve test; phone notification buttons; voice; PDF view and signed exports; two gardens side by side; archive write failures; to‑do exports under the user's own rights |
 | Boundary guards | `tests/test_init.py` | the website guard (2.2): `websocket_api.py`, `operations.py` and `storage.py` may import only the stubbed `homeassistant.*` modules; admin‑only services refuse a non‑admin user |
 | Blueprints | `tests/test_blueprints.py` | every shipped automation blueprint is valid and produces a valid automation (two instances on different lamps keep separate state) |
@@ -3431,6 +3703,7 @@ def assess_disease(
     leaf_wetness_now: float | None = None,
     enclosed: bool = False,
     horizon_hours: int = 48,
+    recent: dict[str, Any] | None = None,
 ) -> DiseaseAssessment:
     """Fungal disease pressure from humidity, temperature and leaf wetness.
 
@@ -3440,6 +3713,9 @@ def assess_disease(
       botrytis and blight germinate.
     * A wet leaf right now (sensor) or stagnant greenhouse air (RH >= 85 %)
       raises the level.
+    * ``recent`` - the logged last days (:func:`.climate.recent_wetness`): spores
+      that landed in a wet spell are already at work, so a Hutton period that just
+      happened counts as high pressure and wet days raise the level.
     """
     out = DiseaseAssessment(humidity_now=humidity_now)
     if leaf_wetness_now is not None:
@@ -3464,8 +3740,13 @@ def assess_disease(
             if min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
                 out.hutton_period = True
         out.wet_hours = round(out.wet_hours, 1)
-    elif not has_forecast and humidity_now is None and out.leaf_wet_now is None:
-        return out  # unknown
+    elif (
+        not has_forecast
+        and humidity_now is None
+        and out.leaf_wet_now is None
+        and (enclosed or not (recent and recent.get("days")))
+    ):
+        return out  # unknown (the outdoor log says nothing about an enclosed zone)
 
     order = ["none", "low", "moderate", "high"]
     level = 0
@@ -3478,6 +3759,13 @@ def assess_disease(
     elif out.wet_hours >= 4:
         level = 1
         out.reasons.append("wet_hours")
+    if recent and not enclosed:
+        if recent.get("hutton") and level < 3:
+            level = 3
+            out.reasons.append("hutton_logged")
+        elif recent.get("wet_days", 0) >= 2:
+            level = max(level, 1) + (1 if level >= 1 else 0)
+            out.reasons.append("wet_days_logged")
     if enclosed and humidity_now is not None and humidity_now >= 85:
         level = max(level, 1) + (1 if humidity_now >= 92 else 0)
         out.reasons.append("humid_greenhouse_air")
@@ -3864,9 +4152,9 @@ async def test_irrigation_dry_run_and_run_with_pump_interlock(
 
 See [ENTITY_REFERENCE](en/ENTITY_REFERENCE.md). Storage schema 1.5 added `features`,
 `water_balance`, `irrigation_log`, `settings.irrigation` and `settings.resources`
-(migration `_v1_4_to_1_5`); later minors are listed in 3.6 (current: 1.7).
+(migration `_v1_4_to_1_5`); later minors are listed in 3.6 (current: 1.8).
 
-### 11.9 Release map 1.0 → 1.7.1
+### 11.9 Release map 1.0 → 1.8.0
 
 Where each release put its code (details per release in [`CHANGELOG.md`](../CHANGELOG.md)).
 
@@ -3882,3 +4170,4 @@ Where each release put its code (details per release in [`CHANGELOG.md`](../CHAN
 | 1.6.1 | `panel.config.tabs` for a read‑only subset of the panel | `hortulus-panel.ts`, `garden-viewer.ts` |
 | 1.7 | Cooking (cookbook, own recipes, shopping list, PDFs), "look at a garden", whole‑code review fixes (admin‑only services, valve safety, input checks) | `engine/{cooking,cooking_dishes,cooking_extras}`, `cooking-view.ts` |
 | 1.7.1 | per‑item fridge ideas, 36 more dishes in four courses plus menus and a preserving chapter, light/dark appearance, own version of a recipe, review findings (food safety, imports, permissions) | `cooking_extras.py` (`USES` / `PREP` / `DEPENDS`), `cooking_dishes.py`, `util/theme.ts` |
+| 1.8.0 | climate history and statistics (every temperature sensor, recorder and Open‑Meteo gap filling, months kept for good, measured frost dates), weather station sensors, four climate sensors; growth, water balance, disease and tasks follow the logged weather | `engine/climate.py`, `climate_history.py`, `components/climate-history.ts`, storage schema 1.8 |

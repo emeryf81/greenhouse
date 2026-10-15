@@ -223,6 +223,11 @@ export class SettingsView extends LitElement {
       ${this.entityInput("rn", "rain", s.outdoor_sensors.rain, (v) => this.saveSettings({ outdoor_sensors: { rain: v } }), this.t("settings.rain"))}
       ${this.entityInput("oh", "air_humidity", s.outdoor_sensors.air_humidity, (v) => this.saveSettings({ outdoor_sensors: { air_humidity: v } }), this.t("settings.sensor.air_humidity"))}
       ${this.entityInput("lw", "leaf_wetness", s.outdoor_sensors.leaf_wetness, (v) => this.saveSettings({ outdoor_sensors: { leaf_wetness: v } }), this.t("settings.sensor.leaf_wetness"))}
+      ${this.entityInput("ws", "wind_speed", s.outdoor_sensors.wind_speed ?? null, (v) => this.saveSettings({ outdoor_sensors: { wind_speed: v } }), this.t("settings.sensor.wind_speed"))}
+      ${this.entityInput("wg", "wind_gust", s.outdoor_sensors.wind_gust ?? null, (v) => this.saveSettings({ outdoor_sensors: { wind_gust: v } }), this.t("settings.sensor.wind_gust"))}
+      ${this.entityInput("rd", "radiation", s.outdoor_sensors.radiation ?? null, (v) => this.saveSettings({ outdoor_sensors: { radiation: v } }), this.t("settings.sensor.radiation"))}
+      ${this.entityInput("ol", "light", s.outdoor_sensors.light, (v) => this.saveSettings({ outdoor_sensors: { light: v } }), this.t("settings.sensor.light_outdoor"))}
+      <p class="xs muted">${this.t("settings.station_hint")}</p>
       <label class="field check"><input type="checkbox" .checked=${Boolean(s.open_meteo)} ?disabled=${!this.admin}
         @change=${(e: Event) => this.saveSettings({ open_meteo: (e.target as HTMLInputElement).checked })} />${this.t("settings.open_meteo")}</label>
       <p class="xs muted">${this.t("settings.open_meteo_hint")}</p>

@@ -25,13 +25,14 @@
 *Hortulus* (Latijn voor "tuintje", naar het 9e‑eeuwse gedicht van Walahfrid Strabo over
 zijn kloostermoestuin) maakt van Home Assistant een moestuinmaatje. Teken je bedden en
 kas, sleep gewassen erop en Hortulus rekent uit **wanneer je zaait, uitplant, bemest,
-snoeit en oogst** – en houdt die planning eerlijk met je **bodemsensoren en de
-weersverwachting**. Het vertelt wat je vandaag moet doen, houdt je tuindagboek en
+snoeit en oogst** – en houdt die planning eerlijk met je **bodemsensoren, de
+weersverwachting en het weer dat echt gevallen is**. Het vertelt wat je vandaag moet doen, houdt je tuindagboek en
 oogstlogboek bij en maakt van wat **klaar is om te plukken** **recepten, menu's en een
 boodschappenlijst**.
 
 Alles draait lokaal. Geen accounts en geen cloud. De enige externe oproepen zijn
-optioneel: Open‑Meteo voor een betere verdampingsberekening (staat uit tot je ze aanzet),
+optioneel: Open‑Meteo voor een betere verdampingsberekening en het waargenomen weer van
+dagen waarop niemand mat (staat uit tot je het aanzet),
 plantenfoto's van Wikipedia in je browser (uit te zetten bij Instellingen) en, zonder radarcamera in
 Home Assistant, de openbare Buienradar‑kaart op het tabblad Weer in Nederland en België.
 Het hele paneel, de plantendatabase, het handboek en de recepten zijn er in het
@@ -55,7 +56,7 @@ van Home Assistant.
 | **Vandaag** | Vandaag · Wandscherm | De dag in één oogopslag: taken, waarschuwingen, weer, snelle oogst, bedden. |
 | **Tuin** | Planner · Tuinplan · Teelten | Teken het terrein, rangschik de zones, plant de bedden; elke teelt in één lijst, tijdlijn, zaaiplan, zaden, opvolging en oogstverwachting. |
 | **Kalender** | Kalender | Maand, week, lijst, seizoenstijdlijn en jaaroverzicht van alle taken en teelten. |
-| **Weer** | Weer | Verwachting, wat het voor je tuin betekent, buienradar. |
+| **Weer** | Weer | Verwachting, wat het voor je tuin betekent, buienradar en de klimaatgeschiedenis. |
 | **Logboek** | Dagboek · Oogst · Keuken · Zaaddoos · Water · Seizoensrapport · Systeemlogboek | Alles wat je bijhoudt en wat het oplevert. |
 | **Koken** | Ideeën · Mijn kookboek · Boodschappenlijst | Een seizoenskookboek van wat klaar is om te plukken. |
 | **Kennis** | Planten · Advies · Handboek | 232 gewassen, vraag en antwoord, een handboek met 23 hoofdstukken. |
@@ -122,7 +123,8 @@ uitplanten, bemesten, snoeien, oogsten – en het **tuinjaar**: grond voorbereid
 kilo's compost), de kasramen wassen, schaduw aan en uit, biologische bestrijding,
 brandnetel‑ en smeerwortelmest, goten en regentonnen, nestkasten, zaad winnen, winterrust,
 boomgaardonderhoud. Taken passen zich aan het weer aan (hitte, droogte, storm, zware
-regen), wachten op warme grond en een vorstvrije verwachting, komen met het gereedschap
+regen), ook achteraf (nazorg na een storm of stortbui, flink water na een droge week),
+wachten op warme grond en een vorstvrije verwachting, komen met het gereedschap
 dat elke klus nodig heeft en herinneren je vriendelijk als ze te laat zijn. Je kunt ze aan
 mensen toewijzen, afvinken vanaf elk dashboard en er is een weekoverzicht vooruit.
 
@@ -140,10 +142,22 @@ mensen toewijzen, afvinken vanaf elk dashboard en er is een weekoverzicht voorui
 * **Kalender** – maand, week, lijst, seizoenstijdlijn en jaaroverzicht, ook als Home
   Assistant‑agenda en takenlijst.
 * **Weer** – uur‑ en dagverwachting, wat de komende dagen voor *jouw* tuin betekenen
-  (vorst, een hete dag, regen waarop je kunt rekenen, een bed dat water nodig heeft) en een
-  buienradar.
+  (vorst, een hete dag, regen waarop je kunt rekenen, een bed dat water nodig heeft), een
+  buienradar en de **klimaatgeschiedenis** (zie hieronder).
 * **Wandscherm** – een rustig kioskbeeld met tijd, weer en taken voor een tablet in de
   keuken; dimt 's nachts.
+
+**Klimaatgeschiedenis – wat het weer hier echt deed.** Bij elke update legt Hortulus het weer
+van de dag vast uit je buitensensoren (of de weerentiteit): laagste, hoogste en gemiddelde
+temperatuur, luchtvochtigheid, wind en windstoten, regen, zonnestraling en zonuren. Elke
+gekoppelde temperatuursensor (kaslucht, bodem, lucht bij een bed) krijgt zijn eigen
+dagminimum, ‑maximum en ‑gemiddelde. Dagen waarop Hortulus niet draaide vult het aan uit de
+**recorder** van Home Assistant en, als je Open‑Meteo aanzet, uit het **waargenomen weer**.
+Onderaan het tabblad Weer zie je een dagelijkse grafiek (30 dagen, 90 dagen of een jaar), de
+laatste 7 en 30 dagen en het seizoen tot nu naast dezelfde periode vorig jaar, records, alle
+temperatuursensoren, maand per maand en de **gemeten vorstdata** tegenover die van je regio.
+De motor rekent er zelf mee: graaddagen en hitte voor de groei, verdamping voor de
+waterbalans, natte dagen voor het ziekterisico en nazorgtaken.
 
 ## Registraties, keuken en kennis
 
@@ -232,10 +246,11 @@ vlierbessen worden nooit rauw voorgesteld.
 
 ## Water, voeding en gezondheid
 
-* FAO‑56 **Penman‑Monteith ET₀** (Hargreaves als terugval), Kc per groeistadium, een
-  **waterbalans** in de wortelzone per bed, een NPK/EC‑**voedingsbalansindex**,
-  **ziekterisico** (Hutton‑criteria, bladnat, luchtvochtigheid in de kas) en
-  graaddagen‑fenologie met dynamische oogstdata.
+* FAO‑56 **Penman‑Monteith ET₀** (Hargreaves als terugval), berekend op het weer dat
+  werkelijk gelogd werd, Kc per groeistadium, een **waterbalans** in de wortelzone per bed,
+  een NPK/EC‑**voedingsbalansindex**, **ziekterisico** (Hutton‑criteria uit de verwachting én
+  uit de afgelopen dagen, bladnat, luchtvochtigheid in de kas) en graaddagen‑fenologie met
+  dynamische oogstdata die de gelogde graaddagen, hitte, kou en sombere dagen volgt.
 * **Veilige hardwaresturing** – kranen en een pomp met **pompvergrendeling, maximale
   looptijd, vorstblokkade en regenoverslag**; een kraan die niet meer meldt beëindigt de
   beurt en stopt de pomp; lek‑ en debietbewaking via de watermeter; kasramen en
@@ -290,6 +305,9 @@ Het paneel volgt je telefoon, tablet of computer, in licht of donker, met vier k
   Frans.
 * **Diensten** met antwoorden en **bus‑events** voor je automatiseringen; push‑, TTS‑ en
   persistente **meldingen**, met actieknoppen op je telefoon (klaar, uitstellen).
+* **Klimaatgeschiedenis** – vier sensoren (regen, gemiddelde temperatuur en zonneschijn
+  over 7 dagen, vorstnachten dit seizoen), elk met de waarde van vorig jaar als attribuut,
+  en het websocket‑commando `garden_manager/climate/stats` voor de volledige statistiek.
 * **Huishouden** – wijs taken toe aan mensen met automatische regels en persoonlijke
   herinneringen, en vink taken af vanaf elk dashboard met de **`hortulus-tasks-card`**.
 * **Spraak** – vraag Assist *"wat moet ik vandaag in de tuin doen?"* (zinnen in het
@@ -307,7 +325,9 @@ accounts, meerdere tuinen per account en een openbare voorpagina. Je kunt je tui
 zien** aan anderen – met een link of openbaar – en per onderdeel kiezen wat bezoekers zien
 (plan, kalender, weer, dagboek, oogst, recepten); bezoekers zien nooit Home Assistant‑gegevens.
 Ze wordt apart van deze integratie geleverd en de planbestanden kunnen tussen beide
-uitgewisseld worden. Zie [Configuratie → Hortulus Web](docs/nl/CONFIGURATIE.md#10-hortulus-web-optionele-website).
+uitgewisseld worden. Ook de website houdt een klimaatgeschiedenis bij: voor elke tuin uit
+Open‑Meteo en, met een gekoppelde Home Assistant, uit diens recorder via het token van de
+tuin. Zie [Configuratie → Hortulus Web](docs/nl/CONFIGURATIE.md#10-hortulus-web-optionele-website).
 
 <table>
   <tr>
@@ -362,6 +382,7 @@ Open daarna **Hortulus** in de zijbalk. Details: [CONFIGURATIE](docs/nl/CONFIGUR
 | kasadvies | `sensor.<zone>_greenhouse_advice`, `binary_sensor.<zone>_heat_stress`, `select.<zone>_shading` |
 | verdamping & graaddagen | `sensor.hortulus_reference_evapotranspiration_today`, `sensor.hortulus_degree_days_today`, `sensor.<zone>_degree_days_this_season` |
 | bodemwater & voeding | `sensor.<bed>_soil_water_deficit`, `sensor.<bed>_nutrient_balance` |
+| klimaatgeschiedenis | `sensor.hortulus_rain_7_days`, `sensor.hortulus_mean_temperature_7_days`, `sensor.hortulus_sunshine_7_days`, `sensor.hortulus_frost_nights_this_season`, websocket `garden_manager/climate/stats` |
 | ziekte & vorst per zone | `sensor.<zone>_disease_risk`, `binary_sensor.<zone>_frost_risk_48h` |
 | bewateringssturing | `switch.hortulus_automatic_irrigation`, `select.hortulus_irrigation_mode`, `number.hortulus_irrigation_max_runtime` (+ vorstblokkade, regenoverslag), `button.hortulus_water_now`, `binary_sensor.hortulus_irrigation_frost_lockout`, `binary_sensor.hortulus_irrigation_running` |
 | taken | `calendar.hortulus_garden_tasks`, `todo.hortulus_this_week`, `sensor.hortulus_tasks_due_today`, `sensor.hortulus_next_task` |
@@ -390,8 +411,9 @@ Kant‑en‑klare automatiseringen – klik om ze in Home Assistant te importere
 * **Vensters** worden opgeslagen als weken ten opzichte van de *gemiddelde laatste
   voorjaarsvorst* / *eerste herfstvorst*, zodat één database beide halfronden en elk klimaat
   bedient. Kassen verschuiven voorjaarsvensters met een aantal weken per gewas vroeger.
-* **Live verfijningen:** direct zaaien wacht op warm genoeg grond (bodemsensor), uitplanten
-  van tere gewassen wacht op een vorstvrije verwachting.
+* **Live verfijningen:** direct zaaien wacht op warm genoeg grond (de laagste van de
+  bodemtemperatuur nu en het gemiddelde van de laatste dagen, zodat één warme middag niet
+  telt), uitplanten van tere gewassen wacht op een vorstvrije verwachting.
 * **Buren:** de sterkte van de wisselwerking neemt af met de afstand; vijanden wegen dubbel;
   plantingen die nooit tegelijk in de grond staan (opvolging!) botsen nooit.
 * **Vruchtwisseling:** geschiedenis per bed en familie; dezelfde familie te snel terug wordt
@@ -401,15 +423,33 @@ Kant‑en‑klare automatiseringen – klik om ze in Home Assistant te importere
   FAO‑56 Penman‑Monteith uit temperatuur, luchtvochtigheid, wind en bewolking (Hargreaves
   als die ontbreken), Kc volgt het groeistadium. Bedden zonder vochtsensor houden een
   dagelijkse **wortelzone‑emmer** bij (beschikbaar water naar grondsoort × worteldiepte) en
-  krijgen water als de helft is opgebruikt.
+  krijgen water als de helft is opgebruikt. Die emmer boekt elke voorbije dag met
+  Penman‑Monteith op het **gelogde** weer (vochtigheid, wind en zonuren of straling) in
+  plaats van alleen de minimum‑ en maximumtemperatuur: winderige, zonnige dagen drogen
+  bedden sneller uit, zoals in het echt. Na een droge week komt er een taak om flink water
+  te geven.
 * **Bemesten:** compost per m² naar het hongerigste volggewas (5 / 3 / 1,5 kg, vlinderbloemigen
   0,5), doses vloeibare voeding in voedertaken en een voedingsbalansindex van 0–100 uit
   NPK‑ of EC‑metingen tegen de N‑P‑K‑behoefte van de gewassen.
 * **Ziekte:** twee vochtige warme dagen achter elkaar (Hutton‑criteria) betekent een hoog
-  risico op aardappelziekte; lange natte bladperiodes, een bladnatsensor of vochtige kaslucht
-  verhogen het niveau en maken inspectietaken voor gevoelige gewassen.
+  risico op aardappelziekte – in de verwachting, maar ook als ze **al gebeurd** zijn (uit de
+  gelogde dagen); meerdere natte dagen achter de rug, lange natte bladperiodes, een
+  bladnatsensor of vochtige kaslucht verhogen het niveau en maken inspectietaken voor
+  gevoelige gewassen.
 * **Fenologie:** graaddagen sinds het planten verschuiven de verwachte oogst (± 3 weken
-  rond de kalenderdatum); hittestress vertraagt vruchtgewassen.
+  rond de kalenderdatum). Kasgewassen tellen de graaddagen van hun eigen luchtsensor (of de
+  buitendag met kasbuffering), niet een vaste toeslag. Gelogde hittedagen (laatste maand) en
+  een reeks sombere dagen vertragen vruchtgewassen; gewassen zonder graaddagenmodel worden
+  opgehouden door gelogde koude dagen onder hun minimum. De gewaspopup toont de vertraging
+  en waarom.
+* **Klimaatgeschiedenis:** een dagboek van het buitenweer en van elke temperatuursensor,
+  gevuld uit eigen metingen (die altijd winnen), de recorder van Home Assistant (combineert
+  de uitersten) en het waargenomen weer van Open‑Meteo (vult alleen aan wat niet goed
+  gemeten is). Dagen blijven ruim twee seizoenen (buiten) of 400 dagen (per sensor) bewaard,
+  daarna voor altijd als maandcijfers; per jaar worden de laatste voorjaars‑ en eerste
+  herfstvorst gemeten. Na een storm (windstoten ≥ 60 km/u), een stortbui of een droge week
+  volgen nazorgtaken, en een vorst die viel terwijl tere gewassen buiten stonden wordt
+  gemeld.
 * **Bewateringsveiligheid:** één kraan tegelijk, pomp alleen als een kraan open is, maximale
   looptijd, geen buitenbewatering bij vorstverwachting binnen 12 u of bij genoeg regen op
   komst; kranen en pomp gaan op het einde altijd uit, ook na fouten.

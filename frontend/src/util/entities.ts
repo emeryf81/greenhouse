@@ -6,7 +6,7 @@
 
 export type EntityKind =
   | "soil_moisture" | "soil_temperature" | "air_temperature" | "air_humidity" | "light" | "rain" | "par" | "ec"
-  | "npk_n" | "npk_p" | "npk_k" | "leaf_wetness"
+  | "npk_n" | "npk_p" | "npk_k" | "leaf_wetness" | "wind_speed" | "wind_gust" | "radiation"
   | "weather" | "irrigation" | "pump" | "tts" | "media_player" | "vent" | "shade" | "meter" | "butt";
 
 export interface EntityLike {
@@ -84,6 +84,12 @@ export function entityFits(kind: EntityKind, s: EntityLike): boolean {
     case "npk_p":
     case "npk_k": // the unit alone cannot tell nitrogen from phosphorus: the name must
       return sensor && NPK_UNITS.includes(u) && named(s, NPK_WORDS[kind]);
+    case "wind_speed":
+    case "wind_gust": // gusts say so in their name
+      return sensor && (dc === "wind_speed" || ["km/h", "m/s", "mph", "kn", "ft/s"].includes(u))
+        && (kind === "wind_gust" ? named(s, ["gust", "stoot", "rafale"]) : !named(s, ["gust", "stoot", "rafale"]));
+    case "radiation":
+      return sensor && (dc === "irradiance" || u === "w/m²" || u === "w/m2");
     case "leaf_wetness":
       return (domain === "binary_sensor" && dc === "moisture") || (sensor && named(s, ["leaf", "blad", "feuille", "wetness"]));
   }

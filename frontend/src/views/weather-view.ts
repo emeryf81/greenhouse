@@ -11,6 +11,8 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Translate } from "../i18n";
 import { localeOf } from "../util/garden";
 import { shared } from "../styles/tokens";
+import type { GardenApi } from "../api";
+import "../components/climate-history";
 import type { HomeAssistant, Snapshot } from "../types";
 
 interface Fc {
@@ -61,6 +63,9 @@ export function weatherGlyph(condition: string | undefined, size = 40, night = f
 export class WeatherView extends LitElement {
   @property({ attribute: false }) snapshot!: Snapshot;
   @property({ attribute: false }) hass!: HomeAssistant;
+  @property({ attribute: false }) api?: GardenApi;
+  /** A visitor of a shared garden (website): the forecast, not the garden's own history. */
+  @property({ type: Boolean }) viewer = false;
   @property({ attribute: false }) t!: Translate;
   @property() lang = "en";
   @state() private daily: Fc[] = [];
@@ -283,7 +288,8 @@ export class WeatherView extends LitElement {
   render(): TemplateResult {
     const id = this.entityId;
     if (!id || !this.hass.states[id]) {
-      return html`<section class="card"><h2>${this.t("weather.title")}</h2><p class="small muted" style="margin-top:8px">${this.t("weather.no_entity")}</p></section>`;
+      return html`<section class="card"><h2>${this.t("weather.title")}</h2><p class="small muted" style="margin-top:8px">${this.t("weather.no_entity")}</p></section>
+        ${this.renderClimate()}`;
     }
     const st = this.hass.states[id];
     const a = st.attributes as Record<string, number | string | undefined>;
@@ -312,7 +318,13 @@ export class WeatherView extends LitElement {
             : html`<p class="small muted">${this.t("weather.hint.none")}</p>`}</div></section>
         <section class="card s7"><header><h2>${this.t("weather.days")}</h2></header>${this.renderDays()}</section>
         <section class="card s5"><header><h2>${this.t("weather.radar")}</h2></header>${this.renderRadar()}</section>
-      </div>`;
+      </div>
+      ${this.renderClimate()}`;
+  }
+
+  private renderClimate(): TemplateResult | typeof nothing {
+    if (!this.api || this.viewer) return nothing;
+    return html`<hl-climate-history .api=${this.api} .t=${this.t} .lang=${this.lang} .revision=${this.snapshot.revision}></hl-climate-history>`;
   }
 }
 
