@@ -258,7 +258,7 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
                 for e, since in runtime.irrigation.stuck.items()
             ],
             "leak": runtime.irrigation.leak,
-            "waiting_for_sun": runtime.irrigation.waiting_for_sun,
+            "waiting_for_sun": getattr(runtime.irrigation, "waiting_for_sun", None),
         },
         "entry_id": coordinator.config_entry.entry_id,
         "gardens": listing(coordinator.hass),
