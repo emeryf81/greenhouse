@@ -375,6 +375,18 @@
       },
       "rain_water": {
         "name": "Beschikbaar regenwater"
+      },
+      "rain_7_days": {
+        "name": "Regen (7 dagen)"
+      },
+      "mean_temperature_7_days": {
+        "name": "Gemiddelde temperatuur (7 dagen)"
+      },
+      "sunshine_7_days": {
+        "name": "Zonneschijn (7 dagen)"
+      },
+      "frost_nights_season": {
+        "name": "Vorstnachten dit seizoen"
       }
     },
     "binary_sensor": {

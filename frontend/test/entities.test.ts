@@ -43,3 +43,17 @@ test("speech, speakers and covers", () => {
   assert.ok(!entityFits("vent", STATES["cover.garage"]));
   assert.ok(!entityFits("shade", STATES["cover.gh_window"]));
 });
+
+test("a weather station: wind, gusts and solar radiation", () => {
+  const station = Object.fromEntries([
+    e("sensor.wind_speed", { device_class: "wind_speed", unit_of_measurement: "km/h" }),
+    e("sensor.wind_gust", { device_class: "wind_speed", unit_of_measurement: "m/s" }),
+    e("sensor.solar_radiation", { device_class: "irradiance", unit_of_measurement: "W/m²" }),
+    e("sensor.outside_temp", { device_class: "temperature", unit_of_measurement: "°C" }),
+  ].map((s) => [s.entity_id, s]));
+  const pick = (kind: Parameters<typeof fittingEntities>[0]) => fittingEntities(kind, station).map((s) => s.entity_id);
+  assert.deepEqual(pick("wind_speed"), ["sensor.wind_speed"]);
+  assert.deepEqual(pick("wind_gust"), ["sensor.wind_gust"]);
+  assert.deepEqual(pick("radiation"), ["sensor.solar_radiation"]);
+  assert.equal(entityFits("radiation", station["sensor.outside_temp"]), false);
+});

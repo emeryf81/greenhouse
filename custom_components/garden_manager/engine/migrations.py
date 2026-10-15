@@ -21,6 +21,7 @@ History
      (which year the plan is, which perennials stay this year) needs today's
      date and is done by :func:`.seasons.adopt` after loading
 1.7  ``archived_plans`` (plans set aside with "start a new plan")
+1.8  ``sensor_log``, ``climate_months``, ``frost_years`` (climate history and statistics)
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ import copy
 from typing import Any
 
 STORAGE_VERSION = 1
-STORAGE_MINOR_VERSION = 7
+STORAGE_MINOR_VERSION = 8
 
 Doc = dict[str, Any]
 
@@ -94,6 +95,13 @@ def _v1_6_to_1_7(doc: Doc) -> Doc:
     return doc
 
 
+def _v1_7_to_1_8(doc: Doc) -> Doc:
+    doc.setdefault("sensor_log", [])
+    doc.setdefault("climate_months", [])
+    doc.setdefault("frost_years", {})
+    return doc
+
+
 MIGRATIONS: dict[int, Callable[[Doc], Doc]] = {
     1: _v1_1_to_1_2,
     2: _v1_2_to_1_3,
@@ -101,6 +109,7 @@ MIGRATIONS: dict[int, Callable[[Doc], Doc]] = {
     4: _v1_4_to_1_5,
     5: _v1_5_to_1_6,
     6: _v1_6_to_1_7,
+    7: _v1_7_to_1_8,
 }
 
 

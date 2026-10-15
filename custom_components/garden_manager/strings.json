@@ -375,6 +375,18 @@
       },
       "rain_water": {
         "name": "Rain water available"
+      },
+      "rain_7_days": {
+        "name": "Rain (7 days)"
+      },
+      "mean_temperature_7_days": {
+        "name": "Mean temperature (7 days)"
+      },
+      "sunshine_7_days": {
+        "name": "Sunshine (7 days)"
+      },
+      "frost_nights_season": {
+        "name": "Frost nights this season"
       }
     },
     "binary_sensor": {

@@ -441,6 +441,10 @@ class SensorMapping:
     npk_p: str | None = None
     npk_k: str | None = None
     leaf_wetness: str | None = None  # binary or %
+    # Outdoor weather station (optional): wind, gusts and global radiation
+    wind_speed: str | None = None  # km/h, m/s, mph or kn
+    wind_gust: str | None = None
+    radiation: str | None = None  # W/m² (solar / global radiation)
 
     def merged_with(self, fallback: SensorMapping) -> SensorMapping:
         """Bed sensors fall back to the sensors of their zone."""
@@ -463,6 +467,9 @@ SENSOR_KEYS = (
     "npk_p",
     "npk_k",
     "leaf_wetness",
+    "wind_speed",
+    "wind_gust",
+    "radiation",
 )
 
 
@@ -871,10 +878,77 @@ class RotationRecord:
 
 @dataclass(slots=True)
 class ClimateDay:
+    """One local day of outdoor weather, as measured here or filled in afterwards.
+
+    Own samples (a sensor, otherwise the weather entity) are folded in through the day;
+    ``hours`` is how much of the day they cover.  Days the garden was not watched are
+    filled from the recorder history of the same sensors (``source`` "history") or from
+    Open-Meteo's observed weather ("model"); see :mod:`.climate`.
+    """
+
     day: date
     tmin: float | None = None
     tmax: float | None = None
     rain_mm: float | None = None
+    tmean: float | None = None
+    t_n: int = 0  # samples behind tmean
+    rh_min: float | None = None  # relative humidity %
+    rh_max: float | None = None
+    rh_mean: float | None = None
+    rh_n: int = 0
+    wind_mean: float | None = None  # km/h at 10 m
+    wind_max: float | None = None
+    gust_max: float | None = None
+    w_n: int = 0
+    rs_mj: float | None = None  # global (shortwave) radiation, MJ/m²
+    sun_h: float | None = None  # sunshine hours (>= 120 W/m²)
+    et0_mm: float | None = None  # reference evaporation given by the source (Open-Meteo)
+    hours: float = 0.0  # hours of the day covered by own samples
+    source: str = ""  # sensor | history | model, "+"-joined when mixed
+    rain_src: str = ""  # gauge | forecast | history | model
+
+
+@dataclass(slots=True)
+class SensorDay:
+    """Daily statistics of one measured temperature (outdoor, greenhouse air, soil ...)."""
+
+    entity_id: str
+    day: date
+    tmin: float | None = None
+    tmax: float | None = None
+    tmean: float | None = None
+    n: int = 0
+    source: str = "sensor"  # sensor | history
+
+
+@dataclass(slots=True)
+class ClimateMonth:
+    """A month of a series kept for good once its days leave the daily logs.
+
+    ``series`` is ``"outdoor"`` or a sensor's entity id.
+    """
+
+    series: str
+    month: str  # YYYY-MM
+    days: int = 0
+    tmin: float | None = None  # lowest
+    tmax: float | None = None  # highest
+    tmean: float | None = None  # mean of the daily means
+    rain_mm: float = 0.0
+    frost_days: int = 0  # minimum below 0 °C
+    hot_days: int = 0  # maximum >= 25 °C
+    sun_h: float = 0.0
+    wind_max: float | None = None
+
+
+@dataclass(slots=True)
+class FrostYear:
+    """Measured frost dates of one year (outdoor): the local truth behind the regional preset."""
+
+    last_spring: date | None = None
+    first_autumn: date | None = None
+    spring_complete: bool = False  # the whole frost season was logged
+    autumn_complete: bool = False
 
 
 @dataclass(slots=True)
@@ -974,6 +1048,10 @@ class GardenData:
     plant_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
     rotation_history: list[RotationRecord] = field(default_factory=list)
     climate_log: list[ClimateDay] = field(default_factory=list)
+    # Daily min/max/mean of every measured temperature, months kept for good, frost dates.
+    sensor_log: list[SensorDay] = field(default_factory=list)
+    climate_months: list[ClimateMonth] = field(default_factory=list)
+    frost_years: dict[str, FrostYear] = field(default_factory=dict)
     # Dedupe keys of notifications already sent -> ISO date sent.
     notified: dict[str, str] = field(default_factory=dict)
     features: list[Feature] = field(default_factory=list)
@@ -1080,6 +1158,9 @@ class SensorSnapshot:
     npk_p: SensorReading | None = None
     npk_k: SensorReading | None = None
     leaf_wetness: SensorReading | None = None
+    wind_speed: SensorReading | None = None
+    wind_gust: SensorReading | None = None
+    radiation: SensorReading | None = None
 
     @staticmethod
     def value(reading: SensorReading | None) -> float | None:

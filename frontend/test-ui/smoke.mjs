@@ -289,6 +289,18 @@ await step("cooking: the cook's own version (ingredients and steps by hand)", as
   await page.keyboard.press("Escape");
 });
 
+await step("weather: climate history, periods against last year, every temperature sensor", async () => {
+  await open("weather");
+  const history = page.locator("hl-climate-history");
+  await history.locator(".tiles").first().waitFor();
+  assert.ok((await history.locator(".tile").count()) >= 20, "period tiles missing");
+  assert.equal(await history.locator("table tbody tr", { hasText: "sensor.greenhouse_temp" }).count(), 1);
+  await history.locator("button[role=tab]", { hasText: "1 jaar" }).click();
+  await page.waitForFunction(() => document.querySelector("hortulus-panel")?.shadowRoot?.querySelector("hl-weather-view")
+    ?.shadowRoot?.querySelector("hl-climate-history")?.shadowRoot?.querySelector("button[aria-pressed=true]")?.textContent?.includes("1 jaar"));
+  assert.ok(await page.evaluate(() => window.__calls.some((c) => c.type.endsWith("/climate/stats"))));
+});
+
 await step("colour theme and light/dark go on as inline colours (also Safari / iPhone)", async () => {
   await open("settings");
   const view = page.locator("hl-settings-view");

@@ -37,6 +37,9 @@ export interface SensorMapping {
   npk_p?: string | null;
   npk_k?: string | null;
   leaf_wetness?: string | null;
+  wind_speed?: string | null;
+  wind_gust?: string | null;
+  radiation?: string | null;
 }
 
 export interface Microclimate {
@@ -438,6 +441,96 @@ export interface Phenology {
   harvest_estimate: ISODate | null;
   heat_stress_days: number;
   cold_stress_days: number;
+  heat_stress_logged?: number;
+  cold_stress_logged?: number;
+  dull_days?: number | null;
+  weather_delay_days?: number;
+  gdd_source?: "outdoor" | "zone_sensor" | "outdoor_buffered";
+}
+
+/** A summary of a run of days (``climate.summarize``). */
+export interface ClimatePeriod {
+  days: number;
+  days_with_temp?: number;
+  tmean?: number;
+  tmin?: number;
+  tmin_day?: ISODate;
+  tmax?: number;
+  tmax_day?: ISODate;
+  frost_nights?: number;
+  hot_days?: number;
+  very_hot_days?: number;
+  gdd?: number;
+  rain_mm: number | null;
+  rain_days: number;
+  wettest?: number;
+  wettest_day?: ISODate;
+  sun_h: number | null;
+  rs_mj: number | null;
+  gust_max?: number;
+  gust_day?: ISODate;
+  et0_mm: number | null;
+  balance_mm?: number;
+  rh_mean: number | null;
+}
+
+export interface ClimateDayRow {
+  d: ISODate;
+  lo: number | null;
+  hi: number | null;
+  m: number | null;
+  r: number | null;
+  s: number | null;
+  w: number | null;
+  rh: number | null;
+  et0: number | null;
+  src: string;
+}
+
+export interface ClimateMonthRow {
+  month: string;
+  days: number;
+  tmin: number | null;
+  tmax: number | null;
+  tmean: number | null;
+  rain_mm: number | null;
+  frost_days: number;
+  hot_days: number;
+  sun_h: number | null;
+  wind_max: number | null;
+}
+
+export interface ClimateSensorStats {
+  entity_id: string;
+  label: string;
+  kind: "outdoor" | "zone_air" | "bed_air" | "soil";
+  now: number | null;
+  days: number;
+  first_day?: ISODate;
+  today?: { tmin: number | null; tmax: number | null; tmean: number | null };
+  d7?: { tmin: number | null; tmax: number | null; tmean: number | null };
+  d30?: { tmin: number | null; tmax: number | null; tmean: number | null };
+  record_low?: { t: number | null; when: string } | null;
+  record_high?: { t: number | null; when: string } | null;
+  series?: { d: ISODate; lo: number | null; hi: number | null; m: number | null }[];
+  months?: ClimateMonthRow[];
+}
+
+export interface ClimateStats {
+  today: ISODate;
+  season_start: ISODate;
+  periods: Record<"d7" | "d30" | "season" | "season_last_year" | "d30_last_year" | "d365", ClimatePeriod>;
+  records: Partial<Record<"tmin" | "tmax" | "wettest" | "gust_max", { value: number; when: string }>>;
+  series: ClimateDayRow[];
+  months: ClimateMonthRow[];
+  frost: {
+    years: Record<string, { last_spring: ISODate | null; first_autumn: ISODate | null; spring_complete: boolean; autumn_complete: boolean }>;
+    local: { years_spring: number; years_autumn: number; last_spring?: string; first_autumn?: string; spring_diff_days?: number; autumn_diff_days?: number } | null;
+    preset_last: string | null;
+    preset_first: string | null;
+  };
+  sensors: ClimateSensorStats[];
+  coverage: { days: number; first_day: ISODate | null; sources: Record<string, number>; months_kept: number };
 }
 
 export interface IrrigationSettings {

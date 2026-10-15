@@ -1,5 +1,6 @@
 // Thin, typed wrapper around the garden_manager websocket commands.
 import type {
+  ClimateStats,
   CookingOverview,
   CookingPrefs,
   Recipe,
@@ -204,6 +205,11 @@ export class GardenApi {
 
   comparePlans(a: PlanRef, b: PlanRef): Promise<PlanComparison> {
     return this.call("plan/compare", { a, b });
+  }
+
+  /** What the weather did: series, periods compared with last year, months, frost dates, every temperature sensor. */
+  climateStats(days = 400): Promise<ClimateStats> {
+    return this.call("climate/stats", { days });
   }
 
   seasonReport(season: number): Promise<unknown> {
