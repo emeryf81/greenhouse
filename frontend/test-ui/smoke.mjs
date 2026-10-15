@@ -94,11 +94,19 @@ await step("plants: popup, arrow keys, neighbour, close", async () => {
 await step("planner: crop popup and why-here", async () => {
   await open("planner");
   const label = page.locator("hl-garden-canvas text", { hasText: /Stamboon|Wortel|Sla/ }).first();
-  const box = await label.boundingBox();
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // one click picks the crop
-  await page.locator("hl-planner-view .step-tip button", { hasText: "Details" }).waitFor();
+  await label.waitFor();
+  const details = page.locator("hl-planner-view .step-tip button", { hasText: "Details" });
+  const clickLabel = async () => {
+    const box = await label.boundingBox(); // measured right before clicking: the plan may still be fitting itself
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  };
+  for (let i = 0; i < 5 && !(await details.isVisible()); i++) {
+    await clickLabel(); // one click picks the crop
+    await details.waitFor({ timeout: 3000 }).catch(() => {});
+  }
+  await details.waitFor();
   await page.waitForTimeout(600); // well past a double click: clicking the selected crop again still opens it
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); // a second click opens it
+  await clickLabel(); // a second click opens it
   await modalOpen();
   await page.locator("hl-modal button", { hasText: "Waarom (niet) hier?" }).click();
   await page.locator("hl-planner-view .why").waitFor();
