@@ -99,6 +99,15 @@ def _v1_7_to_1_8(doc: Doc) -> Doc:
     doc.setdefault("sensor_log", [])
     doc.setdefault("climate_months", [])
     doc.setdefault("frost_years", {})
+    for day in doc.get("climate_log") or []:
+        # the days logged so far were the garden's own measurements: Open-Meteo must not overwrite them
+        if (
+            isinstance(day, dict)
+            and not day.get("source")
+            and (day.get("tmin") is not None or day.get("tmax") is not None)
+        ):
+            day["source"] = "sensor"
+            day["hours"] = 24.0
     return doc
 
 

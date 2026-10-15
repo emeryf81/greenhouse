@@ -44,6 +44,7 @@ HOT_C = 25.0
 VERY_HOT_C = 30.0
 FULL_DAY_H = 20.0  # own samples covering this much make a complete day
 MODEL_BEATS_H = 12.0  # Open-Meteo replaces own extremes when they cover less
+RECORDER_FULL_DAY_N = 24  # a recorder day with at least hourly states covers the whole day
 GREENHOUSE_NIGHT_C = 2.0  # fallback when a greenhouse has no air sensor
 GREENHOUSE_DAY_C = 4.0
 STORM_GUST_KMH = 60.0
@@ -240,7 +241,12 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
         before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         complete = entry.hours >= FULL_DAY_H
         # measured days (own samples or recorder history) keep their values: the model only fills gaps
-        measured = entry.hours >= MODEL_BEATS_H or "history" in entry.source
+        # (a day from before 1.8 has no source yet: it was measured by the garden's own sensors)
+        measured = (
+            entry.hours >= MODEL_BEATS_H
+            or "history" in entry.source
+            or (entry.source == "" and not new and entry.tmin is not None)
+        )
         # values that came from the model only: a measurement replaces them instead of mixing in
         modelled = "model" in entry.source and not measured
         if source == "history" and modelled:
@@ -302,7 +308,8 @@ def merge_sensor_history(data: GardenData, series: Mapping[str, Iterable[Mapping
             if tmax is not None:
                 entry.tmax = tmax if entry.tmax is None else max(entry.tmax, tmax)
             n = int(_f(rec.get("n")) or 0)
-            if tmean is not None and n >= entry.n:
+            # the recorder's time-weighted mean of the whole day beats a day of own samples cut short
+            if tmean is not None and (n >= entry.n or n >= RECORDER_FULL_DAY_N):
                 entry.tmean, entry.n = round(tmean, 2), n
             if new or before != (entry.tmin, entry.tmax, entry.tmean):
                 if new:
@@ -382,8 +389,10 @@ def _fold_month(m: ClimateMonth, tmin: float | None, tmax: float | None, tmean: 
     if tmean is None and tmin is not None and tmax is not None:
         tmean = (tmin + tmax) / 2
     if tmean is not None:
-        mean, _ = _mean(m.tmean, m.days, tmean)
+        weight = m.t_days or (m.days if m.tmean is not None else 0)  # months folded before t_days existed
+        mean, _ = _mean(m.tmean, weight, tmean)
         m.tmean = round(mean, 2)
+        m.t_days = weight + 1
     m.days += 1
     if tmin is not None:
         m.tmin = tmin if m.tmin is None else min(m.tmin, tmin)

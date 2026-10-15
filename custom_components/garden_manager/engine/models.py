@@ -939,6 +939,7 @@ class ClimateMonth:
     hot_days: int = 0  # maximum >= 25 °C
     sun_h: float = 0.0
     wind_max: float | None = None
+    t_days: int = 0  # days with a temperature (the mean's weight; days of only rain do not count)
 
 
 @dataclass(slots=True)

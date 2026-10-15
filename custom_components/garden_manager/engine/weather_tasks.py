@@ -26,8 +26,8 @@ disappears when the forecast changes.
 
 from __future__ import annotations
 
-from datetime import timedelta
-from typing import TYPE_CHECKING
+from datetime import date, timedelta
+from typing import TYPE_CHECKING, Any
 
 from .climate import stormy
 from .i18n import t
@@ -87,7 +87,7 @@ def weather_specs(ctx: TaskContext) -> list[TaskSpec]:
             desc += " " + t("weather.heat.very", lang)
         specs.append(
             TaskSpec(
-                key=f"w:heat:{first.day.isoformat()}",
+                key=_episode_key(data, "w:heat:", first.day),
                 type=TaskType.SHADE,
                 due=max(today, first.day - timedelta(days=1)),
                 title_key="weather.heat",
@@ -105,7 +105,7 @@ def weather_specs(ctx: TaskContext) -> list[TaskSpec]:
                 continue
             specs.append(
                 TaskSpec(
-                    key=f"w:heat_gh:{zone.id}:{first.day.isoformat()}",
+                    key=_episode_key(data, f"w:heat_gh:{zone.id}:", first.day),
                     type=TaskType.VENTILATE,
                     due=max(today, first.day - timedelta(days=1)),
                     title_key="weather.heat_gh",
@@ -125,7 +125,7 @@ def weather_specs(ctx: TaskContext) -> list[TaskSpec]:
     if len(dry) >= 3 and not hot:
         specs.append(
             TaskSpec(
-                key=f"w:dry:{dry[0].day.isoformat()}",
+                key=_episode_key(data, "w:dry:", dry[0].day),
                 type=TaskType.WATER,
                 due=today,
                 title_key="weather.dry",
@@ -189,6 +189,19 @@ def weather_specs(ctx: TaskContext) -> list[TaskSpec]:
     return specs
 
 
+def _episode_key(data: Any, prefix: str, first_day: date) -> str:
+    """One task per episode: a heatwave or dry spell that goes on keeps the key of the task
+    it already has (open or done), instead of a new task every day as its first day moves."""
+    for task in data.tasks:
+        key = task.key or ""
+        if key.startswith(prefix) and task.window_end is not None and task.window_end >= first_day - timedelta(days=1):
+            return key
+    return f"{prefix}{first_day.isoformat()}"
+
+
+AFTER_DAYS = 3  # after-care stays on the list this many days after the event
+
+
 DRY_WEEK_MM = 3.0
 DRY_WEEK_WARM_DAYS = 4
 
@@ -205,36 +218,47 @@ def logged_weather_specs(ctx: TaskContext) -> list[TaskSpec]:
     if not log or not has_crops:
         return []
     specs: list[TaskSpec] = []
-    yesterday = log.get(today - timedelta(days=1))
-    if stormy(yesterday):
-        assert yesterday is not None
-        wind = round(max(yesterday.gust_max or 0, yesterday.wind_max or 0))
+    recent = [log[day] for i in range(1, AFTER_DAYS + 1) if (day := today - timedelta(days=i)) in log]  # newest first
+    open_keys = {t_.key for t_ in data.tasks if t_.key and t_.is_open}
+    storm = next((d for d in recent if stormy(d)), None)
+    if storm is not None:
+        wind = round(max(storm.gust_max or 0, storm.wind_max or 0))
         specs.append(
             TaskSpec(
-                key=f"w:after_storm:{yesterday.day.isoformat()}",
+                key=f"w:after_storm:{storm.day.isoformat()}",
                 type=TaskType.CHECK,
-                due=today,
+                due=storm.day + timedelta(days=1),
                 title_key="weather.after_storm",
-                title_params={"day": yesterday.day.strftime("%d/%m")},
+                title_params={"day": storm.day.strftime("%d/%m")},
                 description=t("weather.after_storm.desc", lang, wind=wind),
-                window_start=today,
-                window_end=today + timedelta(days=2),
+                window_start=storm.day + timedelta(days=1),
+                window_end=storm.day + timedelta(days=AFTER_DAYS),
                 priority=TaskPriority.HIGH,
                 minutes=20,
                 source=TaskSource.WEATHER,
             )
         )
-    if yesterday is not None and (yesterday.rain_mm or 0) >= HEAVY_RAIN_MM and yesterday.rain_src != "forecast":
+    # a downpour that was measured, or one the forecast already put on the list (its task stays until checked)
+    wet = next(
+        (
+            d
+            for d in recent
+            if (d.rain_mm or 0) >= HEAVY_RAIN_MM
+            and (d.rain_src != "forecast" or f"w:rain:{d.day.isoformat()}" in open_keys)
+        ),
+        None,
+    )
+    if wet is not None:
         specs.append(
             TaskSpec(
-                key=f"w:rain:{yesterday.day.isoformat()}",  # the same task the forecast would have made
+                key=f"w:rain:{wet.day.isoformat()}",  # the same task the forecast would have made
                 type=TaskType.PEST_CHECK,
-                due=today,
+                due=wet.day + timedelta(days=1),
                 title_key="weather.rain",
-                title_params={"mm": round(yesterday.rain_mm or 0), "day": yesterday.day.strftime("%d/%m")},
+                title_params={"mm": round(wet.rain_mm or 0), "day": wet.day.strftime("%d/%m")},
                 description=t("weather.rain.desc", lang),
-                window_start=today,
-                window_end=today + timedelta(days=2),
+                window_start=wet.day,
+                window_end=wet.day + timedelta(days=AFTER_DAYS),
                 priority=TaskPriority.NORMAL,
                 minutes=20,
                 source=TaskSource.WEATHER,
