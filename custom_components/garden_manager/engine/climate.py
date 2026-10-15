@@ -240,7 +240,17 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
         before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         complete = entry.hours >= FULL_DAY_H
         # measured days (own samples or recorder history) keep their values: the model only fills gaps
-        measured = entry.hours >= MODEL_BEATS_H or "history" in entry.source
+        # (a day from before 1.8 was measured by the garden's own sensors, without hours of coverage)
+        measured = (
+            entry.hours >= MODEL_BEATS_H
+            or "history" in entry.source
+            or (
+                (entry.source == "" or "sensor" in entry.source)
+                and entry.hours == 0
+                and not new
+                and entry.tmin is not None
+            )
+        )
         # values that came from the model only: a measurement replaces them instead of mixing in
         modelled = "model" in entry.source and not measured
         if source == "history" and modelled:
@@ -296,15 +306,17 @@ def merge_sensor_history(data: GardenData, series: Mapping[str, Iterable[Mapping
             if tmin is None and tmax is None:
                 continue
             entry, new = _sensor_day(data.sensor_log, entity_id, day)
-            before = (entry.tmin, entry.tmax, entry.tmean)
+            before = (entry.tmin, entry.tmax, entry.tmean, entry.n)
             if tmin is not None:
                 entry.tmin = tmin if entry.tmin is None else min(entry.tmin, tmin)
             if tmax is not None:
                 entry.tmax = tmax if entry.tmax is None else max(entry.tmax, tmax)
             n = int(_f(rec.get("n")) or 0)
-            if tmean is not None and n >= entry.n:
+            # the recorder's time-weighted mean of the whole day beats a day of own samples cut short
+            covered = _f(rec.get("hours")) or 0.0
+            if tmean is not None and (n >= entry.n or covered >= FULL_DAY_H):
                 entry.tmean, entry.n = round(tmean, 2), n
-            if new or before != (entry.tmin, entry.tmax, entry.tmean):
+            if new or before != (entry.tmin, entry.tmax, entry.tmean, entry.n):
                 if new:
                     entry.source = "history"
                 changed = True
@@ -314,23 +326,34 @@ def merge_sensor_history(data: GardenData, series: Mapping[str, Iterable[Mapping
 
 
 def daily_from_samples(samples: Iterable[tuple[datetime, float]], tz: Any) -> list[dict[str, Any]]:
-    """Recorder states -> per local day ``{day, tmin, tmax, tmean, n}`` (time weighted mean)."""
+    """Recorder states -> per local day ``{day, tmin, tmax, tmean, n, hours}`` (time weighted mean;
+    ``hours`` is how much of the day the states cover)."""
     points = sorted((t.astimezone(tz), v) for t, v in samples if v is not None and math.isfinite(v))
     days: dict[date, dict[str, Any]] = {}
+
+    def day_of(d: date, value: float) -> dict[str, Any]:
+        entry = days.setdefault(d, {"day": d.isoformat(), "tmin": value, "tmax": value, "w": 0.0, "s": 0.0, "n": 0})
+        entry["tmin"], entry["tmax"] = min(entry["tmin"], value), max(entry["tmax"], value)
+        return entry
+
     for i, (at, value) in enumerate(points):
-        d = days.setdefault(
-            at.date(), {"day": at.date().isoformat(), "tmin": value, "tmax": value, "w": 0.0, "s": 0.0, "n": 0}
-        )
-        d["tmin"], d["tmax"] = min(d["tmin"], value), max(d["tmax"], value)
+        day_of(at.date(), value)["n"] += 1
         nxt = points[i + 1][0] if i + 1 < len(points) else at + timedelta(minutes=10)
-        weight = min(max((nxt - at).total_seconds(), 1.0), 12 * 3600.0)
-        d["w"] += weight
-        d["s"] += value * weight
-        d["n"] += 1
+        end = at + timedelta(seconds=min(max((nxt - at).total_seconds(), 1.0), 12 * 3600.0))
+        start = at
+        while start < end:  # a state that holds past midnight counts for each day it covers
+            midnight = datetime.combine(start.date() + timedelta(days=1), datetime.min.time(), tzinfo=tz)
+            part_end = min(end, midnight)
+            entry = day_of(start.date(), value)
+            weight = (part_end - start).total_seconds()
+            entry["w"] += weight
+            entry["s"] += value * weight
+            start = part_end
     out = []
     for d in days.values():
         out.append({"day": d["day"], "tmin": round(d["tmin"], 2), "tmax": round(d["tmax"], 2),
-                    "tmean": round(d["s"] / d["w"], 2) if d["w"] else None, "n": d["n"]})  # fmt: skip
+                    "tmean": round(d["s"] / d["w"], 2) if d["w"] else None, "n": d["n"],
+                    "hours": round(min(d["w"] / 3600, 24.0), 1)})  # fmt: skip
     return sorted(out, key=lambda r: r["day"])
 
 
@@ -382,8 +405,10 @@ def _fold_month(m: ClimateMonth, tmin: float | None, tmax: float | None, tmean: 
     if tmean is None and tmin is not None and tmax is not None:
         tmean = (tmin + tmax) / 2
     if tmean is not None:
-        mean, _ = _mean(m.tmean, m.days, tmean)
+        weight = m.t_days or (m.days if m.tmean is not None else 0)  # months folded before t_days existed
+        mean, _ = _mean(m.tmean, weight, tmean)
         m.tmean = round(mean, 2)
+        m.t_days = weight + 1
     m.days += 1
     if tmin is not None:
         m.tmin = tmin if m.tmin is None else min(m.tmin, tmin)

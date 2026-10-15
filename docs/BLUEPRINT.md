@@ -6,7 +6,7 @@
 > **Hortulus** (`garden_manager`) is a Home Assistant custom integration plus a sidebar
 > panel for planning and running a vegetable garden. This blueprint is the single
 > technical reference: architecture, data model, algorithms, APIs, UI and tests. It describes
-> **integration version 1.8.0** (storage schema 1.8). All code excerpts are copied verbatim
+> **integration version 1.8.1** (storage schema 1.8). All code excerpts are copied verbatim
 > from the repository; follow the file links for the full implementation.
 > Nederlandstalige gebruikersdocumentatie staat in [`docs/nl`](nl/).
 
@@ -86,7 +86,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 ├── blueprints/automation/hortulus/          ← HA automation blueprints: frost_flash_light, button_log_harvest, water_when_dry, urgent_task_announce
 ├── custom_components/garden_manager/
 │   ├── __init__.py          setup/unload per config entry (= per garden), GardenRuntime, daily rollover, digest / reminder / irrigation schedules
-│   ├── manifest.json        domain, version 1.8.0, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
+│   ├── manifest.json        domain, version 1.8.1, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
 │   ├── const.py             constants, events, service names
 │   ├── config_flow.py       guided setup (region → weather → areas+sensors → notifications → summary) + options; a second entry = a second garden
 │   ├── options.py           options ⇄ stored settings
@@ -928,6 +928,7 @@ class ClimateMonth:
     hot_days: int = 0  # maximum >= 25 °C
     sun_h: float = 0.0
     wind_max: float | None = None
+    t_days: int = 0  # days with a temperature (the mean's weight; days of only rain do not count)
 
 
 @dataclass(slots=True)
@@ -1007,6 +1008,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: GardenConfigEntry) -> bo
     _schedule_reminders(hass, entry)
     _schedule_irrigation(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    async_notify_reloaded(hass, entry.entry_id, entry.runtime_data)
     return True
 ```
 
@@ -1138,11 +1140,8 @@ async def _async_backfill_climate(self) -> None:
     if data.settings.open_meteo:
         from .api import async_fetch_open_meteo_history
 
-        settings = data.settings
         try:
-            payload = await async_fetch_open_meteo_history(
-                self.hass, settings.region.latitude or self.hass.config.latitude, self.hass.config.longitude
-            )
+            payload = await async_fetch_open_meteo_history(self.hass, *self._location())
         except Exception as err:  # history is a bonus, never a reason to stop
             _LOGGER.debug("Open-Meteo history unavailable: %s", err)
         else:
@@ -2117,7 +2116,17 @@ def merge_history(data: GardenData, records: Iterable[Mapping[str, Any]], source
         before = (entry.tmin, entry.tmax, entry.tmean, entry.rain_mm, *(getattr(entry, k) for k in _FIELDS))
         complete = entry.hours >= FULL_DAY_H
         # measured days (own samples or recorder history) keep their values: the model only fills gaps
-        measured = entry.hours >= MODEL_BEATS_H or "history" in entry.source
+        # (a day from before 1.8 was measured by the garden's own sensors, without hours of coverage)
+        measured = (
+            entry.hours >= MODEL_BEATS_H
+            or "history" in entry.source
+            or (
+                (entry.source == "" or "sensor" in entry.source)
+                and entry.hours == 0
+                and not new
+                and entry.tmin is not None
+            )
+        )
         # values that came from the model only: a measurement replaces them instead of mixing in
         modelled = "model" in entry.source and not measured
         if source == "history" and modelled:
@@ -3340,7 +3349,7 @@ sections:
 
 ```
 pip install -r requirements_test.txt
-pytest -q                          # 348 tests: pure engine + config flow + full HA setup + blueprints
+pytest -q                          # 358 tests: pure engine + config flow + full HA setup + blueprints
 ruff check custom_components tests scripts frontend/dev && ruff format --check custom_components tests
 
 cd frontend
@@ -4154,7 +4163,7 @@ See [ENTITY_REFERENCE](en/ENTITY_REFERENCE.md). Storage schema 1.5 added `featur
 `water_balance`, `irrigation_log`, `settings.irrigation` and `settings.resources`
 (migration `_v1_4_to_1_5`); later minors are listed in 3.6 (current: 1.8).
 
-### 11.9 Release map 1.0 → 1.8.0
+### 11.9 Release map 1.0 → 1.8.1
 
 Where each release put its code (details per release in [`CHANGELOG.md`](../CHANGELOG.md)).
 
@@ -4171,3 +4180,4 @@ Where each release put its code (details per release in [`CHANGELOG.md`](../CHAN
 | 1.7 | Cooking (cookbook, own recipes, shopping list, PDFs), "look at a garden", whole‑code review fixes (admin‑only services, valve safety, input checks) | `engine/{cooking,cooking_dishes,cooking_extras}`, `cooking-view.ts` |
 | 1.7.1 | per‑item fridge ideas, 36 more dishes in four courses plus menus and a preserving chapter, light/dark appearance, own version of a recipe, review findings (food safety, imports, permissions) | `cooking_extras.py` (`USES` / `PREP` / `DEPENDS`), `cooking_dishes.py`, `util/theme.ts` |
 | 1.8.0 | climate history and statistics (every temperature sensor, recorder and Open‑Meteo gap filling, months kept for good, measured frost dates), weather station sensors, four climate sensors; growth, water balance, disease and tasks follow the logged weather | `engine/climate.py`, `climate_history.py`, `components/climate-history.ts`, storage schema 1.8 |
+| 1.8.1 | review round: measured days stay measured, one task per weather episode, rain gauge and water meter units, reload and options fixes, greenhouse entities follow the zone type | `engine/climate.py`, `engine/weather_tasks.py`, `coordinator.py`, `entity.py`, `websocket_api.py` |

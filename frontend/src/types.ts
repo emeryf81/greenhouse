@@ -445,6 +445,7 @@ export interface Phenology {
   cold_stress_logged?: number;
   dull_days?: number | null;
   weather_delay_days?: number;
+  delay_causes?: { heat?: number; dull?: number; cold?: number };
   gdd_source?: "outdoor" | "zone_sensor" | "outdoor_buffered";
 }
 

@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.8.1 – 2026-10
+
+### Fixed
+- **Measured days stay measured.** Days logged before 1.8 count as the garden's own
+  measurements, so Open-Meteo no longer overwrites them (a measured frost night stayed a frost
+  night). A recorder day that covers the whole day now beats a day of own samples cut short.
+- **One task per heatwave or dry spell** instead of a new one every day while it lasts, and the
+  after-care after a storm or a downpour stays on the list for its three days (also the slug
+  patrol the forecast announced when there is no rain gauge).
+- **Units:** a rain gauge in inches books millimetres, a water meter in gallons or cubic feet
+  books litres (no more 25× watering or 264× water use).
+- **Reloads:** a reload during a watering run can no longer write the old garden over the saved
+  one; the panel and the dashboard card keep updating after the options are saved; saving the
+  same option again still applies it when the panel changed it in between.
+- **Greenhouses:** a zone that becomes a greenhouse gets its greenhouse entities (advice, heat,
+  shading), and loses them again when it is turned back.
+- Monthly means only weigh days with a temperature; the weather-delay tip names what really
+  caused the delay; forecast days and the climate chart no longer shift a day west of UTC or
+  around the change to summer time; the rain radar tries again after a failed load; Open-Meteo
+  is asked for Home Assistant's home (latitude and longitude together).
+
 ## 1.8.0 – 2026-10
 
 ### Added

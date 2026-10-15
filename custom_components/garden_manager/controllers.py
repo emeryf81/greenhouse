@@ -20,7 +20,6 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
-import math
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import ATTR_ENTITY_ID
@@ -331,10 +330,9 @@ class IrrigationController:
             value = float(state.state)
         except (TypeError, ValueError):
             return None
-        if not math.isfinite(value):
-            return None
-        unit = str(state.attributes.get("unit_of_measurement", "")).lower()
-        return value if unit in ("l", "liter", "litre", "liters", "litres") else value * 1000
+        from .coordinator import volume_liters
+
+        return volume_liters(value, state.attributes.get("unit_of_measurement"))
 
     def _learn_flow(self, bed: Any, minutes: float, liters: float) -> None:
         if minutes < LEARN_MIN_MINUTES or liters <= 0:

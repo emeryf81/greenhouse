@@ -128,7 +128,10 @@ export class WeatherView extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    this.timer = window.setInterval(() => (this.radarTick = Date.now()), RADAR_REFRESH_MS);
+    this.timer = window.setInterval(() => {
+      this.radarTick = Date.now();
+      this.radarFailed = false; // try the radar again after a failed load
+    }, RADAR_REFRESH_MS);
   }
 
   disconnectedCallback(): void {
@@ -166,7 +169,10 @@ export class WeatherView extends LitElement {
   }
 
   private fmtDay(iso: string, opts: Intl.DateTimeFormatOptions): string {
-    return new Date(iso).toLocaleDateString(localeOf(this.lang), opts);
+    // a daily forecast at UTC midnight means that calendar day, not the evening before west of UTC
+    const m = /^(\d{4})-(\d{2})-(\d{2})T00:00:00(?:\.0+)?(?:Z|\+00:00)$/.exec(iso);
+    const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12) : new Date(iso);
+    return d.toLocaleDateString(localeOf(this.lang), opts);
   }
 
   private sky(c: string | undefined): string {

@@ -378,3 +378,120 @@ def test_statistics_compare_with_last_year_and_cover_every_sensor(garden):
     assert stats["months"][0]["month"] == "2026-06" and stats["coverage"]["days"] == 362
     assert stats["series"][-1]["d"] == today.isoformat()
     assert stats["series"][0]["d"] > (today - timedelta(days=400)).isoformat()
+
+
+# --------------------------------------------------------------------------- #
+# Review round: what was measured stays, episodes keep one task, after-care lasts
+# --------------------------------------------------------------------------- #
+def test_days_logged_before_1_8_stay_measured(garden):
+    from custom_components.garden_manager.engine.migrations import _v1_7_to_1_8
+    from custom_components.garden_manager.engine.serde import from_dict
+
+    doc = _v1_7_to_1_8({"climate_log": [{"day": "2026-10-01", "tmin": -3.0, "tmax": 12.0, "rain_mm": 0.0}]})
+    garden.climate_log = [from_dict(ClimateDay, d) for d in doc["climate_log"]]
+    assert (garden.climate_log[0].source, garden.climate_log[0].hours) == ("sensor", 0.0)  # coverage unknown
+    for _ in range(2):  # also once the model filled a gap of that day
+        climate.merge_history(
+            garden, [{"day": "2026-10-01", "tmin": 1.0, "tmax": 10.0, "sun_h": 4.0}], "model", date(2026, 10, 15)
+        )
+    assert (garden.climate_log[0].tmin, garden.climate_log[0].tmax) == (-3.0, 12.0)  # the measured frost stays
+
+
+def test_month_mean_counts_only_days_with_a_temperature():
+    from custom_components.garden_manager.engine.models import ClimateMonth
+
+    m = ClimateMonth("outdoor", "2026-06")
+    climate._fold_month(m, None, None, None, rain=4.0)
+    climate._fold_month(m, 5.0, 15.0, 10.0)
+    climate._fold_month(m, 15.0, 25.0, 20.0)
+    assert (m.tmean, m.days, m.t_days) == (15.0, 3, 2)
+
+
+def test_recorder_mean_of_a_whole_day_beats_own_samples_cut_short(garden):
+    today = date(2026, 10, 15)
+    garden.sensor_log = [SensorDay("sensor.soil", date(2026, 10, 14), 8.0, 12.0, 10.13, n=72)]
+    climate.merge_sensor_history(
+        garden,
+        {"sensor.soil": [{"day": "2026-10-14", "tmin": 8, "tmax": 14, "tmean": 10.28, "n": 48, "hours": 24.0}]},
+        today,
+    )
+    s = garden.sensor_log[0]
+    assert (s.tmean, s.tmax) == (10.28, 14.0)
+
+
+def _weather_tasks(db, garden, today, outlook):
+    from custom_components.garden_manager.engine.tasks import merge_tasks
+
+    now = datetime(today.year, today.month, today.day, 8, tzinfo=TZ)
+    ctx = analyze(garden, db, WeatherSnapshot(), {}, now=now, tz=TZ).task_context(garden, db)
+    ctx.outlook = outlook
+    garden.tasks = merge_tasks(garden.tasks, generate_specs(ctx), today=today, now=now).tasks
+    return {t.key: t.status.value for t in garden.tasks if t.key and t.key.startswith("w:")}
+
+
+def test_a_heatwave_keeps_one_task_and_after_care_lasts(db, garden):
+    from custom_components.garden_manager.engine.weather import DailyOutlook
+
+    garden.plantings = [
+        Planting("tom", "tomato", "bed_1", 2026, status=PlantingStatus.TRANSPLANTED, transplanted_on=date(2026, 5, 20))
+    ]
+    heat = {date(2026, 7, d) for d in range(10, 15)}
+    for d in (9, 10, 11):
+        today = date(2026, 7, d)
+        days = [today + timedelta(days=i) for i in range(4)]
+        tasks = _weather_tasks(
+            db, garden, today, [DailyOutlook(x, 15, 31.0 if x in heat else 22.0, 0.0, 4.0) for x in days]
+        )
+    assert tasks["w:heat:2026-07-10"] == "open" and not any(k.startswith("w:heat:2026-07-11") for k in tasks)
+
+    # a downpour the forecast announced (no rain gauge): its slug patrol stays on its due day
+    garden.tasks = []
+    for d in (19, 20, 21):
+        today = date(2026, 7, d)
+        days = [today + timedelta(days=i) for i in range(4)]
+        if d == 20:
+            garden.climate_log.append(ClimateDay(date(2026, 7, 20), 14, 21, rain_mm=20.0, rain_src="forecast"))
+        out = [DailyOutlook(x, 15, 22, 20.0 if x == date(2026, 7, 20) else 0.0, 4.0) for x in days]
+        tasks = _weather_tasks(db, garden, today, out)
+    assert tasks["w:rain:2026-07-20"] == "open"
+
+    # after a storm the check stays a few days, also when the next day storms too
+    garden.tasks = []
+    garden.climate_log = [
+        ClimateDay(date(2026, 8, 1), 15, 22, rain_mm=0.0, gust_max=80.0, rain_src="gauge"),
+        ClimateDay(date(2026, 8, 2), 15, 22, rain_mm=0.0, gust_max=75.0, rain_src="gauge"),
+    ]
+    for d in (2, 3):
+        tasks = _weather_tasks(db, garden, date(2026, 8, d), [])
+    assert tasks["w:after_storm:2026-08-01"] == "open" and tasks["w:after_storm:2026-08-02"] == "open"
+
+
+def test_recorder_coverage_is_split_at_local_midnight():
+    t0 = datetime(2026, 6, 1, 8, tzinfo=TZ)
+    rows = climate.daily_from_samples(
+        [(t0, 10.0), (t0 + timedelta(hours=12), 20.0), (t0 + timedelta(hours=24), 12.0)], TZ
+    )
+    first, second = rows[0], rows[1]
+    assert first["hours"] == 16.0  # 08:00 → midnight, not the 12 hours of the evening value into the next day
+    assert second["hours"] == 8.2  # midnight → 08:00 from the evening value, plus the last state's 10 minutes
+    assert second["tmin"] == 12.0 and second["tmax"] == 20.0  # the evening value held into the night
+    assert first["tmean"] == 12.5  # 10 °C for 12 hours, 20 °C for the last 4
+
+
+def test_unknown_meter_unit_is_not_guessed():
+    from custom_components.garden_manager.coordinator import volume_liters
+
+    assert volume_liters(2.0, None) == 2000.0  # no unit: m³
+    assert volume_liters(1.0, "ml") is None
+
+
+def test_an_earlier_episode_does_not_take_a_later_task(garden):
+    from custom_components.garden_manager.engine.models import Task, TaskStatus, TaskType
+    from custom_components.garden_manager.engine.weather_tasks import _episode_key
+
+    garden.tasks = [
+        Task("t1", TaskType.SHADE, "later heat", date(2026, 7, 20), key="w:heat:2026-07-20",
+             window_start=date(2026, 7, 19), window_end=date(2026, 7, 22), status=TaskStatus.DONE)
+    ]  # fmt: skip
+    assert _episode_key(garden, "w:heat:", date(2026, 7, 10)) == "w:heat:2026-07-10"
+    assert _episode_key(garden, "w:heat:", date(2026, 7, 21)) == "w:heat:2026-07-20"
