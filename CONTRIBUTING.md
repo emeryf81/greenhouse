@@ -31,5 +31,5 @@ see [`frontend/dev/README.md`](frontend/dev/README.md).
   both languages, and prefer well-documented relationships (strength 2–3) over folklore.
 * **Storage changes** need a migration step in `engine/migrations.py` (bump the minor
   version) and a test.
-* **Docs**: `docs/BLUEPRINT.md` is generated – edit `docs/_blueprint.template.md` and run
+* **Docs**: `docs/BLUEPRINT.md` and `docs/blueprint/*.md` are generated – edit `docs/_blueprint.template.md` and run
   `python scripts/render_blueprint.py`.

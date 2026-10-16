@@ -290,6 +290,17 @@ def test_hutton_period_is_high_blight_risk():
     assert dry.level == "none"
 
 
+def test_two_humid_days_with_a_gap_are_no_hutton_period():
+    now = datetime(2026, 7, 10, 0, 0, tzinfo=TZ)
+    hourly = [
+        ForecastPoint(at=now + timedelta(days=d, hours=h), temperature=14, humidity=95)
+        for d in (0, 2)  # the forecast lacks the 11th
+        for h in range(24)
+    ]
+    risk = assess_disease(WeatherSnapshot(available=True, hourly=hourly), now, TZ, horizon_hours=72)
+    assert not risk.hutton_period
+
+
 def test_humid_greenhouse_raises_risk():
     now = datetime(2026, 7, 10, 0, 0, tzinfo=TZ)
     risk = assess_disease(WeatherSnapshot(), now, TZ, humidity_now=93, enclosed=True)
