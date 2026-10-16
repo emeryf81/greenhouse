@@ -212,6 +212,14 @@ export class GardenApi {
     return this.call("climate/stats", { days });
   }
 
+  importStationCsv(text: string): Promise<{ days: number; first: string | null; last: string | null; rows: number; columns: Record<string, string>; changed: boolean }> {
+    return this.call("climate/import_csv", { text });
+  }
+
+  applyLocalFrost(): Promise<{ settings: unknown }> {
+    return this.call("climate/apply_local_frost");
+  }
+
   seasonReport(season: number): Promise<unknown> {
     return this.call("report/season", { season });
   }

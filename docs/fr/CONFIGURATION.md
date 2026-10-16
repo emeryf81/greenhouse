@@ -374,6 +374,18 @@ chez vous :
   chaque année, et leur moyenne comparée au préréglage régional (*n jours plus tôt / plus tard*).
   En cas de grand écart, indiquez vos propres dates de gel dans *Paramètres → Climat et région* :
   toutes les fenêtres de semis suivent.
+* **En bref** (extra *season_summary*) – en tête : la saison et le mois dernier en quelques
+  phrases, comparés à l'an dernier.
+* **Utiliser mes dates de gel** (admin, extra *local_frost_suggest*) – dès que ≥ 2 années
+  complètes placent une date de gel mesurée à ≥ 7 jours du préréglage ; le bouton passe la région
+  en *personnalisé* avec les dates mesurées. Rien ne change tant que vous n'appuyez pas.
+* **Importer les données d'une station météo** (admin, extra *station_import*) – l'export d'une station météo (Netatmo,
+  Ecowitt, Davis, un tableur). L'en-tête et le séparateur (`;`, `,`, tabulation) sont détectés ;
+  les colonnes d'heure (aussi en secondes unix), de température, d'humidité, de pluie (un cumul
+  journalier → son maximum, une pluie par mesure → additionnée), de vent et de rafales sont
+  reconnues en français, néerlandais et anglais ; °F, pouces, mph, m/s et nœuds sont convertis.
+  Les jours déjà mesurés par Hortulus sont conservés ; les jours importés comptent comme
+  *historique*.
 
 **Comment l'historique se remplit.** À chaque mise à jour, Hortulus intègre à la journée les
 capteurs extérieurs – ou, à défaut, l'entité météo : températures minimale, maximale et moyenne,
@@ -539,8 +551,9 @@ déroulantes qui n'affichent que les entités adaptées) :
 | **Météo et capteurs extérieurs** | entité météo, température extérieure, capteur de pluie, humidité extérieure, humectation des feuilles, **station météo** (vitesse du vent, rafales, rayonnement solaire en W/m², lumière extérieure en lux), option **Open‑Meteo** (humidité, vent et ensoleillement pour l'évaporation, et météo observée pour compléter l'[historique du climat](#historique-du-climat)), altitude |
 | **Zones et microclimats** | par zone : température de l'air, humidité, lumière, humectation des feuilles, **PAR** ; pour les serres et les châssis aussi les entités d'**ouvrant** et d'**écran d'ombrage** avec commande *désactivé / conseiller / automatique*, *masse thermique* ; *contre un mur chaud*, *chauffée* (+ température minimale) |
 | **Planches et capteurs** | par planche : humidité du sol, température du sol, sondes **CE, N, P, K**, vanne, bouton **Tester**, débit (L/min ; le débit mesuré s'affiche quand le compteur d'eau l'a appris), **minuterie de la vanne** |
-| **Matériel d'irrigation** | mode (*désactivé / conseiller / automatique*), pompe, heure de début, durée max., blocage en cas de gel, arrêt en cas de pluie, arrêt de la pompe avant la vanne |
+| **Matériel d'irrigation** | mode (*désactivé / conseiller / automatique*), pompe, heure de début, durée max., blocage en cas de gel, arrêt en cas de pluie, arrêt de la pompe avant la vanne ; capteur de **surplus solaire** (W ou kW), *démarrer à partir de* (W, 500 par défaut) et *attendre au plus tard jusqu'à* (11:00 par défaut) |
 | **Ressources (remplissage auto)** | taille du ménage, heures, eau et compost pour le remplissage auto, objectifs ; interrupteurs pour les *travaux saisonniers dans le calendrier* et les **Conseils écologiques** (solutions bio contre ravageurs et maladies, calendrier écologique, conseils forêt-jardin) |
+| **Extras** | aides facultatives, toutes activées par défaut – voir [Extras](#extras) |
 | **Notifications** | notifications persistantes, services push, synthèse vocale, haut-parleurs, heure du récapitulatif, alertes de gel / de chaleur, annonce vocale du gel ; **Rappels** (rappel du soir des tâches en retard, 18 h 30 après 1 jour par défaut ; **Aperçu de la semaine**, dimanche 19 h par défaut) ; *Planification selon la météo* (déplace les travaux sensibles à la météo hors des jours de pluie, de gel ou de chaleur) |
 | **Compteur d'eau et tonneau de pluie** | le capteur du compteur (m³ ou L), le niveau du tonneau en % et la capacité totale des tonneaux ; alertes de fuite |
 | **Coûts** | devise, prix de l'eau par m³, prix propres par culture (€/kg) pour l'aperçu récolte contre coûts |
@@ -566,6 +579,23 @@ pompe tourne (la pompe est alors arrêtée en premier) ; une vanne ou une pompe 
 longtemps que n'importe quel arrosage (durée max. + 10 minutes) déclenche un bandeau avec *Fermer la
 vanne* ; avec la notification de fuite activée dans les Paramètres et un compteur d'eau défini, au moins 5 L comptés en
 15 minutes calmes (aucun arrosage en cours, toutes les vannes fermées) sont signalés comme une fuite.
+
+#### Extras
+Aides facultatives (2.0), chacune un interrupteur sous *Paramètres → Extras* et un réglage de
+premier niveau du fichier du jardin. Toutes sont activées par défaut ; en désactiver une la masque
+ou la saute, simplement.
+
+| Réglage | Effet |
+|---|---|
+| `slogans` | dictons de jardin variés (FR/NL/EN, par thème et par saison, lignes propres à l'hémisphère sud), choisis par jour et par endroit : récapitulatif, plan de la semaine, message météo mensuel, rapport de saison, 4e de couverture du livre de saison, accroche du tableau de bord et carte |
+| `soil_estimate` | les planches sans sonde de température du sol reçoivent une température estimée à partir de la moyenne journalière de l'air enregistrée (lissée sur les 10 derniers jours, au moins 3 jours enregistrés) ; utilisée pour les conseils de semis, affichée sur la fiche de la planche comme *≈ x °C* |
+| `water_forecast` | par planche : quand le bilan hydrique dépassera la réserve facilement utilisable (p × TAW) avec l'ET₀ et la pluie prévues sur 7 jours – *de nouveau sèche dans N jours* |
+| `sensor_health` | un capteur associé indisponible ou inconnu depuis ≥ 2 jours donne un seul avertissement (`alert.sensor_silent`, à la place de l'alerte de mesure périmée) |
+| `season_summary` | la saison et le mois dernier en phrases, comparés aux mêmes dates l'an dernier (plus chaud / plus froid, plus humide / plus sec, plus ou moins ensoleillé, nuits de gel) : en tête de l'historique du climat, dans le rapport et le livre de saison, et en notification avec le récapitulatif le 1er de chaque mois |
+| `local_frost_suggest` | après ≥ 2 années complètes mesurées où la dernière gelée de printemps ou la première d'automne s'écarte de ≥ 7 jours du préréglage : une alerte d'information et un bouton **Utiliser mes dates de gel** dans l'historique du climat |
+| `station_import` | importer l'export CSV d'une station météo dans l'historique du climat (voir ce chapitre) |
+| `solar_irrigation` | l'arrosage automatique attend le surplus solaire (capteur et limites sous *Matériel d'irrigation*) : il démarre dès que le surplus atteint le minimum, au plus tard à l'heure limite ; sans capteur ou sans valeur exploitable, pas d'attente. Le tableau de bord affiche *Attend un surplus solaire* |
+| `climate_card` | une ligne climat sur la `hortulus-tasks-card` : moyenne sur 7 jours et écart avec l'an dernier, pluie, soleil, bande de température sur 14 jours (options de carte `climate: false`, `slogan: false`, voir [Entités](ENTITES.md#carte-lovelace)) |
 
 ---
 

@@ -512,7 +512,8 @@ export class HortulusPanel extends LitElement {
         return html`<hl-library-view .snapshot=${snap} .plants=${this.plants} .families=${this.families} .api=${this.api!} .t=${this.t}
           .lang=${this.uiLang} .admin=${admin} @plants-changed=${() => this.loadPlants()}></hl-library-view>`;
       case "weather":
-        return html`<hl-weather-view .snapshot=${snap} .hass=${this.hass} .api=${this.api} .viewer=${!!this.panelConfig.viewer} .t=${this.t} .lang=${this.uiLang}></hl-weather-view>`;
+        return html`<hl-weather-view .snapshot=${snap} .hass=${this.hass} .api=${this.api} .viewer=${!!this.panelConfig.viewer}
+          .viewerClimate=${!!(this.panelConfig.viewer as { climate?: boolean } | undefined)?.climate} .t=${this.t} .lang=${this.uiLang}></hl-weather-view>`;
       case "calendar":
         return html`<hl-calendar-view .snapshot=${snap} .api=${this.api!} .t=${this.t} .lang=${this.uiLang} .plants=${plantMap} .families=${this.families}></hl-calendar-view>`;
       case "journal":

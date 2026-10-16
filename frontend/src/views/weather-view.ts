@@ -66,6 +66,8 @@ export class WeatherView extends LitElement {
   @property({ attribute: false }) api?: GardenApi;
   /** A visitor of a shared garden (website): the forecast, not the garden's own history. */
   @property({ type: Boolean }) viewer = false;
+  /** A visitor of a shared garden on the website may see the climate history (the owner's choice). */
+  @property({ type: Boolean }) viewerClimate = false;
   @property({ attribute: false }) t!: Translate;
   @property() lang = "en";
   @state() private daily: Fc[] = [];
@@ -329,8 +331,9 @@ export class WeatherView extends LitElement {
   }
 
   private renderClimate(): TemplateResult | typeof nothing {
-    if (!this.api || this.viewer) return nothing;
-    return html`<hl-climate-history .api=${this.api} .t=${this.t} .lang=${this.lang} .revision=${this.snapshot.revision}></hl-climate-history>`;
+    if (!this.api || (this.viewer && !this.viewerClimate)) return nothing;
+    return html`<hl-climate-history .api=${this.api} .t=${this.t} .lang=${this.lang} .revision=${this.snapshot.revision}
+      .admin=${!this.viewer && (this.hass?.user?.is_admin ?? true)}></hl-climate-history>`;
   }
 }
 

@@ -457,7 +457,7 @@ cookbook are open to everyone.
 | Records | `records/overview` (harvest per crop and year, learned yields, seed box, water, year matrix, kitchen report, costs and expenses), `records/harvest/add`, `records/journal/save`, `records/seeds/save`, `records/expense/save`, `records/soil/save`, `records/soil/delete`, `records/delete` (`kind`: `harvest`, `journal`, `seed`, `expense`), `seeds/to_todo` (missing seed to a to‑do list), `report/season` |
 | Advice & handbook | `qa/options`, `qa/ask`, `handbook/index`, `handbook/chapter`, `handbook/search` |
 | Print | `print/render` (SVG preview pages) |
-| Climate | `climate/stats` (climate history and statistics; optional `days` 7–800, default 400: how many days of the daily series to return) |
+| Climate | `climate/stats` (climate history and statistics; optional `days` 7–800, default 400: how many days of the daily series to return), `climate/import_csv` **admin** (`text`: a weather station's CSV export, up to 20 MB; result `{days, first, last, rows, columns, changed}`; errors `invalid_csv`, `disabled`), `climate/apply_local_frost` **admin** (no arguments: switch the region to custom with the measured frost dates; result `{settings}`; error `no_suggestion`) |
 | Analysis | `analysis` (garden check), `analysis/explain` (“why not here?”), `analysis/fix` **admin** (one‑click repair), `analysis/still_possible` (what can still go in this season) |
 | System log | `syslog/list` (newest first, paged with `before`), `syslog/entry` **admin** (one entry with before/after per item), `syslog/undo` **admin** (`entry_id`, optional `force`) |
 | Cooking | `cooking/suggest` (ready produce, dishes, menus, cookbook, choices), `cooking/render` (a recipe again after changing side, meat or servings), `cooking/prefs`, `cooking/book/save`, `cooking/book/update`, `cooking/book/delete`, `cooking/pdf` (`kind`: `recipe`, `book`, `shopping`), `cooking/send` (a recipe or the shopping list to a `notify.*` service), `cooking/to_todo` (shopping list to a to‑do list; your own permissions on that list apply) |
@@ -484,6 +484,9 @@ dates as ISO strings:
 | `frost` | `years` (per year `{last_spring, first_autumn, spring_complete, autumn_complete}`), `local` (average of the complete years: `last_spring`, `first_autumn` as `MM-DD`, `spring_diff_days`, `autumn_diff_days` against the preset, `years_spring`, `years_autumn`; `null` without a complete year), `preset_last`, `preset_first` |
 | `sensors` | per mapped temperature sensor: `{entity_id, label, kind (outdoor / zone_air / bed_air / soil), now, days, first_day, today {tmin, tmax, tmean}, d7, d30, record_low {t, when}, record_high {t, when}, series [{d, lo, hi, m}] (last 120 days), months}` |
 | `coverage` | `{days, first_day, sources {sensor, history, model: days}, months_kept}` |
+| `summary` | *(extra `season_summary`)* `{season: [sentences], month: [sentences], month_start}` – the season and last month against the same dates last year |
+| `local_frost_suggestion` | *(extra `local_frost_suggest`)* `{last_frost, first_frost (MM-DD), spring_diff_days, autumn_diff_days, years}`, or `null` while the measured dates stay within 7 days of the preset |
+| `station_import` | `true` when the CSV import (extra `station_import`) is on |
 
 ## Lovelace card
 
@@ -497,14 +500,17 @@ assignee: me          # optional: me | person.xyz | unassigned
 max: 8                # optional, default 8
 water: true           # optional, default true; false hides it: watering today, a run in progress, a valve left open (Close), leaks
 garden: Allotment     # optional: which garden (title or entry id), when you have more than one
+climate: true         # optional, default true; false hides the climate line (7-day mean vs last year, rain, sun, 14-day band)
+slogan: true          # optional, default true; false hides the garden saying
 ```
 
 Tick a task off on the card and it is completed in Hortulus (with the next sowing or care
 task planned as usual). `assignee: me` shows your own and unassigned tasks; `person.xyz` shows
 that person's and unassigned tasks; `unassigned` shows only tasks without an owner. Overdue
 tasks are marked, a “+N more” link and the sprout icon open the panel. The *Close* button on a
-valve left open is shown to administrators only. The card is available in English, Dutch and
-French.
+valve left open is shown to administrators only. The climate line and the saying need the
+extras `climate_card` and `slogans` (Settings → Extras); with no tasks the saying replaces “nothing to do”.
+The card is available in English, Dutch and French.
 
 ## Voice (Assist)
 

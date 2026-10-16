@@ -357,7 +357,8 @@ class GardenCoordinator(DataUpdateCoordinator[GardenAnalysis]):
                 continue
             state = self.hass.states.get(entity_id)
             if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
-                readings[entity_id] = SensorReading(entity_id, None, None, stale=False)
+                # since when it is unavailable: a sensor gone for days gets a warning (settings.sensor_health)
+                readings[entity_id] = SensorReading(entity_id, None, state.last_changed if state else None, stale=False)
                 continue
             value = _float(state.state)
             if state.domain == "binary_sensor":  # rain detectors

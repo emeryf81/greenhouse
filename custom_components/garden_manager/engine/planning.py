@@ -229,7 +229,15 @@ def harvest_forecast(
 # --------------------------------------------------------------------------- #
 # End of season report
 # --------------------------------------------------------------------------- #
-def season_report(data: GardenData, db: PlantDatabase, season: int, *, today: date | None = None) -> dict[str, Any]:
+def season_report(
+    data: GardenData,
+    db: PlantDatabase,
+    season: int,
+    *,
+    today: date | None = None,
+    lang: str = "en",
+    latitude: float | None = None,
+) -> dict[str, Any]:
     """What was grown, harvested and lost in a season, and what the journal said about it."""
     from .records import harvest_summary
     from .region import season_bounds, season_for_date
@@ -278,9 +286,29 @@ def season_report(data: GardenData, db: PlantDatabase, season: int, *, today: da
         )  # fmt: skip
     journal = [e for e in data.journal if season_for_date(region, e.at.date()) == season]
     water = [e for e in data.irrigation_log if season_for_date(region, e.at.date()) == season]
+    weather: list[str] = []
+    if data.settings.season_summary:  # the season's weather against the same dates a year before
+        from .climate import compare_with_last_year, summary_lines
+
+        start, end = season_bounds(region, season)
+        end = min(end, today) if today else end
+        if start <= end:
+            weather = summary_lines(
+                compare_with_last_year(data, start, end, latitude=latitude or region.latitude or 50.85,
+                                       elevation_m=data.settings.elevation_m or 0.0),
+                lang,
+            )  # fmt: skip
+    saying = ""
+    if data.settings.slogans:
+        from .slogans import slogan
+
+        saying = slogan(lang, day=today or date.today(), topics=("harvest", "garden", "veg"), salt=f"report{season}",
+                        south=region.hemisphere.value == "south", season=False)  # fmt: skip
     return {
         "season": season,
         "running": running,
+        "weather": weather,
+        "slogan": saying,
         "crops": sorted(crops.values(), key=lambda c: (-c.get("kg", 0.0), c["plant_id"])),
         "failed": failed,
         "problems": [

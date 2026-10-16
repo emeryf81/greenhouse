@@ -146,6 +146,8 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
         ws_seeds_to_todo,
         ws_season_report,
         ws_climate_stats,
+        ws_climate_import_csv,
+        ws_climate_apply_local_frost,
         ws_cooking_suggest,
         ws_cooking_render,
         ws_cookbook_save,
@@ -205,6 +207,11 @@ def _diagnosis_summary(runtime: GardenRuntime) -> dict[str, int] | None:
     return summary
 
 
+def _latitude(configured: float | None, hass: HomeAssistant) -> float:
+    """The region's latitude; Home Assistant's home only when none is set (0.0 is the equator)."""
+    return configured if configured is not None else hass.config.latitude
+
+
 def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
     """Everything the panel renders, in one JSON document."""
     data = runtime.repo.data
@@ -256,6 +263,7 @@ def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
                 for e, since in runtime.irrigation.stuck.items()
             ],
             "leak": runtime.irrigation.leak,
+            "waiting_for_sun": getattr(runtime.irrigation, "waiting_for_sun", None),
         },
         "entry_id": coordinator.config_entry.entry_id,
         "gardens": listing(coordinator.hass),
@@ -1802,7 +1810,12 @@ def ws_season_report(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         connection.send_result(
             msg["id"],
             planning.season_report(
-                runtime.repo.data_for_season(msg["season"]), runtime.repo.db, msg["season"], today=dt_util.now().date()
+                runtime.repo.data_for_season(msg["season"]),
+                runtime.repo.db,
+                msg["season"],
+                today=dt_util.now().date(),
+                lang=runtime.coordinator.lang,
+                latitude=_latitude(runtime.repo.data.settings.region.latitude, hass),
             ),
         )
 
@@ -1830,20 +1843,111 @@ def ws_climate_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         entity_id: {**meta, "now": readings[entity_id].usable if entity_id in readings else None}
         for entity_id, meta in climate.temperature_sensors(data).items()
     }
+    latitude = _latitude(region.latitude, hass)
+    elevation = data.settings.elevation_m or 0.0
+    hemisphere = resolve_profile(region).hemisphere
+    stats = climate.climate_stats(
+        data,
+        today,
+        latitude=latitude,
+        elevation_m=elevation,
+        hemisphere=hemisphere,
+        preset_last=anchors.last_frost,
+        preset_first=anchors.first_frost,
+        sensors=sensors,
+        days=msg["days"],
+    )
+    lang = runtime.coordinator.lang
+    settings = data.settings
+    if settings.season_summary:  # the season and last month in words, against last year
+        month_start, month_end = climate.last_month(today)
+        stats["summary"] = {
+            "season": climate.summary_lines(
+                climate.compare_with_last_year(
+                    data, climate._season_start(today, hemisphere), today, latitude=latitude, elevation_m=elevation
+                ),
+                lang,
+            ),
+            "month": climate.summary_lines(
+                climate.compare_with_last_year(data, month_start, month_end, latitude=latitude, elevation_m=elevation),
+                lang,
+            ),
+            "month_start": month_start.isoformat(),
+        }
+    if settings.local_frost_suggest:
+        stats["local_frost_suggestion"] = climate.local_frost_suggestion(
+            data, today, anchors.last_frost, anchors.first_frost
+        )
+    stats["station_import"] = settings.station_import
+    connection.send_result(msg["id"], stats)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/climate/import_csv",
+        vol.Optional("garden_id"): str,
+        vol.Required("text"): vol.All(str, vol.Length(max=20_000_000)),
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_climate_import_csv(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """A weather station's CSV export into the climate history (settings.station_import)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    if not data.settings.station_import:
+        connection.send_error(msg["id"], "disabled", "station import is switched off")
+        return
+    now = dt_util.now()
+    try:
+        # a big export takes a moment: parse it off the event loop, merge it on the loop
+        parsed = await hass.async_add_executor_job(climate.parse_station_csv, msg["text"], now.tzinfo)
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_csv", str(err))
+        return
+    records = parsed["records"]
+    changed = climate.merge_history(data, records, "history", now.date())
+    if changed:
+        climate.update_frost_years(data, resolve_profile(data.settings.region).hemisphere, now.date())
+        runtime.repo.async_changed("climate")
+    days = [r["day"] for r in records]
     connection.send_result(
         msg["id"],
-        climate.climate_stats(
-            data,
-            today,
-            latitude=region.latitude or hass.config.latitude,
-            elevation_m=data.settings.elevation_m or 0.0,
-            hemisphere=resolve_profile(region).hemisphere,
-            preset_last=anchors.last_frost,
-            preset_first=anchors.first_frost,
-            sensors=sensors,
-            days=msg["days"],
-        ),
-    )
+        {"days": len(days), "first": min(days) if days else None, "last": max(days) if days else None,
+         "rows": parsed["rows"], "columns": parsed["columns"], "changed": changed},
+    )  # fmt: skip
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/climate/apply_local_frost", vol.Optional("garden_id"): str}
+)
+@websocket_api.require_admin
+@callback
+def ws_climate_apply_local_frost(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Use the garden's measured frost dates instead of the region's (asked, never automatic)."""
+    runtime = _require_runtime(hass, connection, msg)
+    if runtime is None:
+        return
+    data = runtime.repo.data
+    today = dt_util.now().date()
+    region = data.settings.region
+    anchors = season_anchors(region, season_for_date(region, today))
+    suggestion = climate.local_frost_suggestion(data, today, anchors.last_frost, anchors.first_frost)
+    if suggestion is None:
+        connection.send_error(msg["id"], "no_suggestion", "not enough measured frost years yet")
+        return
+    resolved = resolve_profile(region)
+    region.mode = "custom"
+    region.hemisphere = resolved.hemisphere
+    region.last_frost, region.first_frost = suggestion["last_frost"], suggestion["first_frost"]
+    runtime.repo.async_changed("settings")
+    connection.send_result(msg["id"], {"settings": to_dict(data.settings)})
 
 
 # --------------------------------------------------------------------------- #

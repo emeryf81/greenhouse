@@ -176,14 +176,7 @@ def _schedule_irrigation(hass: HomeAssistant, entry: GardenConfigEntry) -> None:
     scheduled_for: str | None = None
 
     async def _run(now: datetime) -> None:
-        if runtime.repo.data.settings.irrigation.mode != "auto":
-            return
-        await runtime.coordinator.async_recompute()
-        plan = runtime.irrigation.build_plan()
-        if plan.runs:
-            runtime.irrigation.async_start(plan, source="auto")
-        else:
-            _LOGGER.debug("Automatic irrigation: nothing to do (%s)", plan.skipped)
+        await runtime.irrigation.async_start_scheduled(now)  # (waits for solar surplus when asked to)
 
     @callback
     def _reschedule(reason: str = "settings") -> None:

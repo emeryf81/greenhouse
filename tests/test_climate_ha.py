@@ -168,3 +168,129 @@ async def test_open_meteo_history_fills_unmeasured_days(hass: HomeAssistant, set
     filled = next(d for d in data.climate_log if d.day.isoformat() == day)
     assert (filled.tmin, filled.tmax, filled.rain_mm, filled.sun_h, filled.gust_max) == (3.0, 14.0, 7.5, 5.0, 61.0)
     assert filled.source == "model" and filled.rain_src == "model"
+
+
+ECOWITT = """Time,Outdoor Temperature(℉),Outdoor Humidity(%),Daily Rain(in)
+2025-06-01 00:00,50.0,90,0.00
+2025-06-01 12:00,77.0,50,0.10
+2025-06-01 23:55,59.0,80,0.20
+"""
+
+
+async def test_station_csv_import_over_websocket(hass: HomeAssistant, setup_garden, hass_ws_client) -> None:
+    entry, _ = setup_garden
+    data = entry.runtime_data.repo.data
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "garden_manager/climate/import_csv", "text": ECOWITT})
+    msg = await _result(client)
+    assert msg["success"], msg
+    assert msg["result"]["days"] == 1 and msg["result"]["changed"]
+    day = next(d for d in data.climate_log if d.day.isoformat() == "2025-06-01")
+    assert day.tmax == 25.0 and day.source == "history"
+
+    await client.send_json({"id": 2, "type": "garden_manager/climate/import_csv", "text": "nothing,here\n1,2\n"})
+    msg = await _result(client)
+    assert not msg["success"] and msg["error"]["code"] == "invalid_csv"
+
+    data.settings.station_import = False
+    await client.send_json({"id": 3, "type": "garden_manager/climate/import_csv", "text": ECOWITT})
+    msg = await _result(client)
+    assert not msg["success"] and msg["error"]["code"] == "disabled"
+
+
+async def test_measured_frost_dates_are_applied_only_on_request(
+    hass: HomeAssistant, setup_garden, hass_ws_client
+) -> None:
+    from datetime import date
+
+    from custom_components.garden_manager.engine.models import FrostYear
+
+    entry, _ = setup_garden
+    data = entry.runtime_data.repo.data
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "garden_manager/climate/apply_local_frost"})
+    msg = await _result(client)
+    assert not msg["success"] and msg["error"]["code"] == "no_suggestion"
+
+    for year in (2024, 2025):
+        data.frost_years[str(year)] = FrostYear(
+            last_spring=date(year, 5, 8), first_autumn=date(year, 10, 1), spring_complete=True, autumn_complete=True
+        )
+    await client.send_json({"id": 2, "type": "garden_manager/climate/stats", "days": 30})
+    msg = await _result(client)
+    suggestion = msg["result"]["local_frost_suggestion"]
+    assert suggestion and suggestion["last_frost"] in {
+        "05-08",
+        "05-09",
+    }  # the mean day of the year (2024 is a leap year)
+    assert data.settings.region.mode != "custom"  # nothing changes by itself
+    await client.send_json({"id": 3, "type": "garden_manager/climate/apply_local_frost"})
+    msg = await _result(client)
+    assert msg["success"], msg
+    assert data.settings.region.mode == "custom" and data.settings.region.last_frost == suggestion["last_frost"]
+
+
+async def test_scheduled_watering_waits_for_solar_surplus(hass: HomeAssistant, setup_garden) -> None:
+    entry, _ = setup_garden
+    irrigation = entry.runtime_data.irrigation
+    settings = entry.runtime_data.repo.data.settings
+    settings.irrigation.mode = "auto"
+    settings.irrigation.surplus_entity = "sensor.solar_surplus"
+    settings.irrigation.surplus_min_w = 800
+    settings.irrigation.surplus_latest = "11:00"
+    morning = dt_util.now().replace(hour=6, minute=0, second=0, microsecond=0)
+
+    hass.states.async_set("sensor.solar_surplus", "0.3", {"unit_of_measurement": "kW"})
+    assert irrigation.solar_ready(morning) == (False, 300)
+    await irrigation.async_start_scheduled(morning)
+    assert irrigation.waiting_for_sun and irrigation.waiting_for_sun["needed"] == 800
+
+    hass.states.async_set("sensor.solar_surplus", "1.2", {"unit_of_measurement": "kW"})
+    assert irrigation.solar_ready(morning) == (True, 1200)
+    hass.states.async_set("sensor.solar_surplus", "100", {"unit_of_measurement": "W"})
+    assert irrigation.solar_ready(morning.replace(hour=11))[0]  # never past the latest time
+    hass.states.async_set("sensor.solar_surplus", "unavailable", {})
+    assert irrigation.solar_ready(morning)[0]  # no reading: never waits
+    settings.solar_irrigation = False
+    hass.states.async_set("sensor.solar_surplus", "0", {"unit_of_measurement": "W"})
+    assert irrigation.solar_ready(morning) == (True, None)
+
+
+async def test_stop_ends_the_solar_wait_and_a_restart_picks_it_up(hass: HomeAssistant, setup_garden) -> None:
+    from custom_components.garden_manager.engine.models import IrrigationEvent
+
+    entry, _ = setup_garden
+    irrigation = entry.runtime_data.irrigation
+    data = entry.runtime_data.repo.data
+    settings = data.settings
+    settings.irrigation.mode = "auto"
+    settings.irrigation.start_time = "06:00"
+    settings.irrigation.surplus_entity = "sensor.solar_surplus"
+    settings.irrigation.surplus_min_w = 800
+    settings.irrigation.surplus_latest = "11:00"
+    hass.states.async_set("sensor.solar_surplus", "100", {"unit_of_measurement": "W"})
+    morning = dt_util.now().replace(hour=7, minute=0, second=0, microsecond=0)
+
+    await irrigation.async_start_scheduled(morning)
+    assert irrigation.waiting_for_sun
+    await irrigation.async_stop()
+    assert irrigation.waiting_for_sun is None  # Stop also ends the wait
+    irrigation.async_watch(morning.replace(minute=1))
+    assert irrigation.waiting_for_sun is None  # and the watcher does not start it again today
+
+    # a fresh controller (a restart) inside the window picks today's wait up again ...
+    irrigation._scheduled_on = None
+    irrigation.async_watch(morning.replace(hour=8))
+    await hass.async_block_till_done()
+    assert irrigation.waiting_for_sun and irrigation.waiting_for_sun["needed"] == 800
+    # ... but not when an automatic run already went today, nor outside the window
+    irrigation._set_waiting(None)
+    irrigation._scheduled_on = None
+    data.irrigation_log.append(IrrigationEvent("bed_1", morning, 3.0, 6.0, 4.0, "auto"))
+    irrigation.async_watch(morning.replace(hour=8, minute=5))
+    await hass.async_block_till_done()
+    assert irrigation.waiting_for_sun is None
+    data.irrigation_log.pop()
+    irrigation.async_watch(morning.replace(hour=12))
+    await hass.async_block_till_done()
+    assert irrigation.waiting_for_sun is None

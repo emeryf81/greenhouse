@@ -364,7 +364,18 @@ the weather really did here:
   low and high, and a 30‑day sparkline;
 * **month by month** with the change against the same month last year;
 * the **measured frost dates** per year against the regional preset, and *How Hortulus uses
-  it*.
+  it*;
+* **In a nutshell** (extra *season_summary*) at the top: the season and last month in a few
+  sentences against last year;
+* **Use my frost dates** (admin, extra *local_frost_suggest*): once ≥ 2 complete years put a
+  measured frost date ≥ 7 days off the preset; it switches the region to custom with the
+  measured dates – nothing changes until you press it;
+* **Import weather station data** (admin, extra *station_import*): a weather station's export (Netatmo,
+  Ecowitt, Davis, a spreadsheet). Header and separator (`;`, `,`, tab) are detected; time
+  (also unix seconds), temperature, humidity, rain (a running daily total → its maximum,
+  per‑reading rain → summed), wind and gust columns are recognised in English, Dutch and
+  French; °F, inches, mph, m/s and knots are converted. Days Hortulus measured itself are kept;
+  imported days count as *history*.
 
 **How it is recorded.** Every update folds the outdoor sensors – or, without them, the
 weather entity – into today's record: minimum, maximum and mean temperature, humidity, wind
@@ -523,8 +534,9 @@ entities that fit):
 | **Weather & outdoor sensors** | weather entity, outdoor temperature, rain, outdoor humidity, leaf wetness, **wind speed**, **wind gusts**, **solar radiation** (W/m²), **outdoor light** (lux), **Open‑Meteo** opt‑in (forecast and observed history for the climate history), elevation |
 | **Zones** | per zone: air temperature, humidity, light, leaf wetness, **PAR**; for greenhouses and cold frames also **vent** and **shade screen** entities with *off / advise / auto* control, *thermal mass*; *against a warm wall*, *heated* (+ minimum temperature) |
 | **Beds** | per bed: soil moisture, soil temperature, **EC, N, P, K** probes, valve, **Test** button, flow (L/min; the measured flow is shown when the water meter learned it), **valve timer** |
-| **Irrigation hardware** | mode (*off / advise / auto*), pump, start time, max runtime, frost lockout, rain skip, pump lead time |
+| **Irrigation hardware** | mode (*off / advise / auto*), pump, start time, max runtime, frost lockout, rain skip, pump lead time; **solar surplus** sensor (W or kW), *start from surplus* (W, default 500) and *wait at most until* (default 11:00) |
 | **Resources** | household size, hours, water and compost for autofill, goals; switches for *seasonal garden work* and **Ecological tips** (organic answers to pests and diseases, eco calendar, food‑forest advice) |
+| **Extras** | optional helpers, all on by default – see [Extras](#extras) |
 | **Notifications** | persistent, push services, TTS, speakers, digest time, frost / heat alerts, spoken frost announcement; reminders (evening reminder of overdue tasks, default 18:30 after 1 day; weekly look‑ahead, default Sunday 19:00); *weather‑aware scheduling* (moves weather‑sensitive jobs off rainy, frosty or hot days) |
 | **Water meter & rain butt** | the meter sensor (m³ or L), the butt level in % and the total butt capacity; leak alerts |
 | **Costs** | currency, water price per m³, own prices per crop (€/kg) for the harvest‑versus‑cost overview |
@@ -547,6 +559,22 @@ A run ends when a valve stays closed, or goes silent for a minute while the pump
 (the pump is stopped first); a valve or pump open far longer than any run (max runtime +
 10 minutes) raises a banner with *Close valve*; with the leak notification on in Settings and a water meter set, at least 5 L counted
 within 15 quiet minutes (no run in progress, every valve closed) is reported as a leak.
+
+#### Extras
+Optional helpers (2.0), each a switch under *Settings → Extras* and a top‑level setting in the
+garden file. All are on by default; switching one off just hides or skips it.
+
+| Setting | What it does |
+|---|---|
+| `slogans` | changing garden sayings (EN/NL/FR, by theme and season, own lines for the southern hemisphere), picked per day and place: digest, weekly plan, monthly weather message, season report, season book back cover, dashboard hero line and card |
+| `soil_estimate` | beds without a soil temperature sensor get a soil temperature estimated from the logged daily mean air temperature (smoothed over the last 10 days, needs ≥ 3 logged days); used for sowing advice, shown on the bed card as *≈ x °C* |
+| `water_forecast` | per bed: when the water balance will pass the readily available water (p × TAW) with the forecast's ET₀ and rain over the next 7 days – *dry again in N days* |
+| `sensor_health` | a mapped sensor unavailable or unknown for ≥ 2 days gives one warning (`alert.sensor_silent`, instead of the stale‑reading alert) |
+| `season_summary` | the season and last month in sentences against the same dates last year (warmer / colder, wetter / drier, sunnier / duller, frost nights): top of the climate history, season report and season book, and a notification with the digest on the 1st of each month |
+| `local_frost_suggest` | after ≥ 2 complete measured years with the last spring or first autumn frost ≥ 7 days off the preset: an info alert and a **Use my frost dates** button in the climate history |
+| `station_import` | import a weather station's CSV export in the climate history (see below) |
+| `solar_irrigation` | automatic watering waits for solar surplus (sensor and limits under *Irrigation hardware*): the run starts once the surplus reaches the minimum, at the latest at *wait at most until*; no sensor or no usable reading = no waiting. The dashboard shows *Waiting for solar surplus* |
+| `climate_card` | a climate line on the `hortulus-tasks-card`: 7‑day mean and the difference with last year, rain, sun, a 14‑day temperature band (card options `climate: false`, `slogan: false`, see [Entities](ENTITY_REFERENCE.md#lovelace-card)) |
 
 ---
 

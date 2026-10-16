@@ -1,0 +1,63 @@
+name: Release
+
+# A new version in manifest.json on main becomes a tag and a GitHub release, with the notes of
+# that version from CHANGELOG.md.  Nothing happens while the version already has its tag, so
+# ordinary merges never release twice.
+on:
+  push:
+    branches: [main]
+    paths:
+      - custom_components/garden_manager/manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag and release the manifest version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Version and notes
+        id: version
+        run: |
+          version=$(python3 -c "import json; print(json.load(open('custom_components/garden_manager/manifest.json'))['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          # the section of this version: from its heading up to the next one
+          awk -v v="$version" '
+            /^## / { if (found) exit; if (index($0, "## " v " ") == 1 || $0 == "## " v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || echo "See CHANGELOG.md." > release-notes.md
+      - name: Zip the integration
+        if: steps.version.outputs.exists == 'false'
+        run: cd custom_components && zip -qr ../garden_manager.zip garden_manager -x '*/__pycache__/*'
+      - name: Create the release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          # another run may have published it after our checkout: that counts as done
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists already"; exit 0
+          fi
+          if ! gh release create "$tag" garden_manager.zip \
+            --target "$GITHUB_SHA" \
+            --title "Hortulus ${{ steps.version.outputs.version }}" \
+            --notes-file release-notes.md; then
+            gh release view "$tag" >/dev/null 2>&1 && echo "Release $tag was created by another run" && exit 0
+            exit 1
+          fi

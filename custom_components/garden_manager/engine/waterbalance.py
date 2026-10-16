@@ -190,3 +190,41 @@ def _calibrate(
 def trim_irrigation_log(data: GardenData, now: datetime, keep_days: int = 60) -> None:
     cutoff = now - timedelta(days=keep_days)
     data.irrigation_log[:] = [ev for ev in data.irrigation_log if ev.at >= cutoff]
+
+
+FORECAST_DAYS = 7
+
+
+def days_until_dry(
+    depletion_mm: float,
+    taw_mm: float,
+    *,
+    kc: float,
+    outlook: Sequence,
+    latitude: float,
+    enclosed: bool = False,
+    et_factor: float = 1.0,
+) -> tuple[int, date] | None:
+    """When the bucket passes the readily available water (p x TAW) with the forecast's
+    evaporation and rain: ``(days from today, date)``, ``(0, today)`` when it is dry already,
+    ``None`` when the forecast keeps it wet (or there is no forecast or no crop)."""
+    from .watering import ALLOWED_DEPLETION
+    from .weather import et0_hargreaves
+
+    if not outlook or not taw_mm or kc <= 0:
+        return None
+    raw = ALLOWED_DEPLETION * taw_mm
+    if depletion_mm >= raw:
+        return 0, outlook[0].day
+    depletion = depletion_mm
+    for i, day in enumerate(outlook[:FORECAST_DAYS]):
+        et0 = day.et0_mm
+        if et0 is None and day.tmin is not None and day.tmax is not None:
+            et0 = et0_hargreaves(day.tmin, day.tmax, latitude, day.day)
+        depletion = update_water_balance(
+            depletion, et0_mm=et0 or 0.0, kc=kc * et_factor, rain_mm=day.rain_mm or 0.0,
+            irrigation_mm=0.0, taw_mm=taw_mm, enclosed=enclosed,
+        )  # fmt: skip
+        if depletion >= raw:
+            return i, day.day
+    return None

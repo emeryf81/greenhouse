@@ -204,7 +204,7 @@ export class DashboardView extends LitElement {
         ${botanical(this.seasonOf(today))}
         <div class="eyebrow">${formatDate(today, this.lang, { weekday: "long", day: "numeric", month: "long" })} · ${this.t("common.season", { year: a.season })}</div>
         <h1>${this.greeting()}</h1>
-        <p class="lede">${this.t(`dash.lede.${this.seasonOf(today)}`)}</p>
+        <p class="lede">${(this.snapshot.settings.slogans !== false && a.slogan) || this.t(`dash.lede.${this.seasonOf(today)}`)}</p>
         <button class="btn small ghost wall" @click=${() => this.emit("navigate", "wall")}><ha-icon icon="mdi:tablet-dashboard"></ha-icon>${this.t("wall.open")}</button>
         <div class="stats">
           <div class="stat"><div class="v">${due.length}</div><div class="l">${this.t("dash.stat_tasks")}</div></div>
@@ -303,6 +303,7 @@ export class DashboardView extends LitElement {
       <div class="kv"><span>${this.t("dash.irrigation_mode")}</span><span class="chip">${this.t(`settings.irrigation_mode.${cfg?.mode ?? "advise"}`)}</span></div>
       ${status?.running ? html`<div class="kv"><span class="chip ok"><ha-icon icon="mdi:sprinkler"></ha-icon>${this.t("dash.watering_now", { bed: bedName(status.bed_id) })}</span>
         <button class="btn small danger" @click=${() => this.emit("irrigation", "stop")}>${this.t("dash.stop")}</button></div>` : nothing}
+      ${status?.waiting_for_sun ? html`<div class="kv"><span class="chip warn"><ha-icon icon="mdi:solar-power-variant"></ha-icon>${this.t("dash.waiting_for_sun")}</span></div>` : nothing}
       ${status?.last_error ? html`<p class="xs" style="color:var(--hl-danger)">⚠ ${status.last_error}</p>` : nothing}
       <div class="kv"><span>${this.t("dash.beds_need_water")}</span><b>${needWater.length ? needWater.map((b) => b.name).join(", ") : "–"}</b></div>
       ${valves && this.admin && !status?.running ? html`<button class="btn small" @click=${() => this.emit("irrigation", "run")}>
@@ -336,6 +337,9 @@ export class DashboardView extends LitElement {
             <div class="value" style=${`left:${pct(irr.moisture)}%`}></div>
           </div>
           <div class="kv"><span>💧 ${Math.round(irr.moisture)}%</span>${soilT != null ? html`<span>🌡 ${soilT.toFixed(1)} °C</span>` : nothing}</div>` : html`<p class="xs muted">${this.t("dash.no_sensor")}</p>`}
+        ${soilT == null && ba?.soil_temp_estimate != null ? html`<div class="kv xs muted"><span>${this.t("dash.soil_estimate")}</span><span>≈ ${ba.soil_temp_estimate.toFixed(1)} °C</span></div>` : nothing}
+        ${ba?.dry_in_days != null ? html`<div class="kv xs"><span>${this.t("dash.dry_forecast")}</span>
+          <span class="chip ${ba.dry_in_days <= 1 ? "warn" : ""}">${ba.dry_in_days === 0 ? this.t("dash.dry_today") : this.t("dash.dry_in", { n: ba.dry_in_days })}</span></div>` : nothing}
         ${irr ? html`<p class="small"><ha-icon icon="mdi:watering-can-outline" style="--mdc-icon-size:16px"></ha-icon>
           ${this.t(`irrigation.${irr.action}`, { mm: irr.amount_mm, liters: Math.round(irr.liters) })}${irr.duration_min ? ` · ${Math.round(irr.duration_min)} min` : ""}</p>` : nothing}
         ${ba?.nutrients?.index != null ? html`<div class="kv"><span>${this.t("dash.nutrients")} <hl-info term="nutrient_index" .t=${this.t}></hl-info></span>

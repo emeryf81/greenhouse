@@ -338,7 +338,11 @@ def daily_from_samples(samples: Iterable[tuple[datetime, float]], tz: Any) -> li
 
     for i, (at, value) in enumerate(points):
         day_of(at.date(), value)["n"] += 1
-        nxt = points[i + 1][0] if i + 1 < len(points) else at + timedelta(minutes=10)
+        if i + 1 < len(points):
+            nxt = points[i + 1][0]
+        else:  # the last state counts a moment, without spilling into a day it never saw
+            midnight = datetime.combine(at.date() + timedelta(days=1), datetime.min.time(), tzinfo=tz)
+            nxt = min(at + timedelta(minutes=10), midnight)
         end = at + timedelta(seconds=min(max((nxt - at).total_seconds(), 1.0), 12 * 3600.0))
         start = at
         while start < end:  # a state that holds past midnight counts for each day it covers
@@ -925,3 +929,279 @@ def history_entities(data: GardenData) -> tuple[list[str], list[str]]:
     temps = list(temperature_sensors(data))
     extra = [e for e in (outdoor.air_humidity, outdoor.wind_speed, outdoor.wind_gust) if e and e not in temps]
     return temps, extra
+
+
+# --------------------------------------------------------------------------- #
+# Extras (2.0): soil estimate, summaries, local frost dates, station imports
+# --------------------------------------------------------------------------- #
+SOIL_ALPHA = 0.35  # how fast the soil at sowing depth follows the air (per day)
+SOIL_MIN_DAYS = 3
+
+
+def estimate_soil_temp(log: Iterable[ClimateDay], today: date) -> tuple[float, int] | None:
+    """Soil temperature at sowing depth (5-10 cm) from the logged air, for beds without a soil sensor.
+
+    The soil follows the daily mean air temperature with a lag of a few days (exponential
+    smoothing over the last ten days).  ``(estimate, days used)``, or ``None`` with too few days.
+    """
+    days = sorted(
+        (d for d in log if today - timedelta(days=10) <= d.day < today and d.tmin is not None and d.tmax is not None),
+        key=lambda d: d.day,
+    )
+    if len(days) < SOIL_MIN_DAYS:
+        return None
+    estimate: float | None = None
+    for d in days:
+        mean = d.tmean if d.tmean is not None else (d.tmin + d.tmax) / 2  # type: ignore[operator]
+        estimate = mean if estimate is None else estimate + SOIL_ALPHA * (mean - estimate)
+    return round(estimate, 1), len(days)  # type: ignore[arg-type]
+
+
+def compare_with_last_year(
+    data: GardenData, start: date, end: date, *, latitude: float, elevation_m: float = 0.0
+) -> dict[str, Any] | None:
+    """A period against the same dates last year (``None`` when either year was hardly logged)."""
+    by_day = {d.day: d for d in data.climate_log}
+
+    def span(a: date, b: date) -> list[ClimateDay]:
+        return [by_day[a + timedelta(days=i)] for i in range((b - a).days + 1) if a + timedelta(days=i) in by_day]
+
+    year = timedelta(days=365)
+    now = summarize(span(start, end), latitude, elevation_m, data.settings.gdd_base_c)
+    then = summarize(span(start - year, end - year), latitude, elevation_m, data.settings.gdd_base_c)
+    wanted = max(5, int(((end - start).days + 1) * 0.6))
+    if now["days_with_temp"] < wanted or then["days_with_temp"] < wanted:
+        return None
+    out: dict[str, Any] = {"start": start.isoformat(), "end": end.isoformat(), "now": now, "last_year": then}
+    out["tmean_diff"] = round(now["tmean"] - then["tmean"], 1)
+    if now.get("rain_mm") is not None and then.get("rain_mm"):
+        out["rain_pct"] = round((now["rain_mm"] - then["rain_mm"]) / then["rain_mm"] * 100)
+    if now.get("sun_h") is not None and then.get("sun_h"):
+        out["sun_pct"] = round((now["sun_h"] - then["sun_h"]) / then["sun_h"] * 100)
+    return out
+
+
+def last_month(today: date) -> tuple[date, date]:
+    end = today.replace(day=1) - timedelta(days=1)
+    return end.replace(day=1), end
+
+
+def summary_lines(cmp: Mapping[str, Any] | None, lang: str) -> list[str]:
+    """The comparison in a few plain sentences (empty without a comparison)."""
+    from .i18n import t
+
+    if not cmp:
+        return []
+    lines = []
+    diff = cmp["tmean_diff"]
+    if abs(diff) < 0.3:
+        lines.append(t("summary.same_temp", lang, temp=cmp["now"]["tmean"]))
+    else:
+        key = "summary.warmer" if diff > 0 else "summary.colder"
+        lines.append(t(key, lang, diff=f"{abs(diff):.1f}", temp=cmp["now"]["tmean"]))
+    rain = cmp.get("rain_pct")
+    if rain is not None:
+        if abs(rain) < 10:
+            lines.append(t("summary.same_rain", lang, mm=cmp["now"]["rain_mm"]))
+        else:
+            key = "summary.wetter" if rain > 0 else "summary.drier"
+            lines.append(t(key, lang, pct=abs(rain), mm=cmp["now"]["rain_mm"]))
+    sun = cmp.get("sun_pct")
+    if sun is not None and abs(sun) >= 10:
+        lines.append(t("summary.sunnier" if sun > 0 else "summary.duller", lang, pct=abs(sun)))
+    frost_now, frost_then = cmp["now"].get("frost_nights", 0), cmp["last_year"].get("frost_nights", 0)
+    if frost_now or frost_then:
+        lines.append(t("summary.frost", lang, n=frost_now, then=frost_then))
+    return lines
+
+
+LOCAL_FROST_MIN_YEARS = 2
+LOCAL_FROST_MIN_DIFF = 7  # days off the preset before it is worth suggesting
+
+
+def local_frost_suggestion(
+    data: GardenData, today: date, preset_last: date, preset_first: date
+) -> dict[str, Any] | None:
+    """The measured frost dates, offered once enough complete years differ enough from the region."""
+    local = local_frost(data, today, preset_last, preset_first)
+    if not local:
+        return None
+    spring = (
+        local.get("years_spring", 0) >= LOCAL_FROST_MIN_YEARS
+        and abs(local.get("spring_diff_days", 0)) >= LOCAL_FROST_MIN_DIFF
+    )
+    autumn = (
+        local.get("years_autumn", 0) >= LOCAL_FROST_MIN_YEARS
+        and abs(local.get("autumn_diff_days", 0)) >= LOCAL_FROST_MIN_DIFF
+    )
+    if not (spring or autumn):
+        return None
+    return {
+        "last_frost": local["last_spring"] if spring else preset_last.strftime("%m-%d"),
+        "first_frost": local["first_autumn"] if autumn else preset_first.strftime("%m-%d"),
+        "spring_diff_days": local.get("spring_diff_days") if spring else None,
+        "autumn_diff_days": local.get("autumn_diff_days") if autumn else None,
+        "years": max(local.get("years_spring", 0), local.get("years_autumn", 0)),
+    }
+
+
+# -- weather station exports (Netatmo, Ecowitt, Davis, a spreadsheet ...) -------------- #
+_TIME_COLS = ("timestamp", "time", "date", "datetime", "datum", "tijd", "heure", "date/time")
+_TEMP_COLS = (
+    "outdoor temperature",
+    "outdoor temp",
+    "temperature",
+    "temp",
+    "temperatuur",
+    "température",
+    "air temperature",
+)
+_RH_COLS = ("outdoor humidity", "humidity", "luchtvochtigheid", "vochtigheid", "humidité")
+_RAIN_DAILY = ("daily rain", "rain day", "rain today", "regen vandaag", "pluie du jour")
+_RAIN_COLS = ("rain", "precipitation", "regen", "neerslag", "pluie")
+_WIND_COLS = ("wind speed", "windspeed", "wind", "windsnelheid", "vent")
+_GUST_COLS = ("gust", "wind gust", "windstoot", "rafale")
+
+
+def _find(header: Sequence[str], names: Sequence[str], *, exclude: Sequence[str] = ()) -> int | None:
+    low = [h.strip().lower() for h in header]
+    for name in names:
+        for i, h in enumerate(low):
+            if h.startswith(name) and not any(x in h for x in exclude):
+                return i
+    return None
+
+
+def _unit_factor(header: str, kind: str) -> Any:
+    h = header.lower()
+    if kind == "temp" and ("°f" in h or "℉" in h or "(f)" in h):
+        return lambda v: (v - 32) * 5 / 9
+    if kind == "rain" and ("(in" in h or " in)" in h or "inch" in h):
+        return lambda v: v * 25.4
+    if kind == "wind":
+        if "mph" in h:
+            return lambda v: v * 1.609344
+        if "m/s" in h:
+            return lambda v: v * 3.6
+        if "kn" in h or "knot" in h:
+            return lambda v: v * 1.852
+    return lambda v: v
+
+
+def _parse_time(text: str, tz: Any) -> datetime | None:
+    raw = text.strip().strip('"')
+    if not raw:
+        return None
+    if raw.isdigit() and len(raw) >= 9:  # unix seconds (Netatmo) or milliseconds
+        secs = int(raw)
+        if secs > 10**11:
+            secs //= 1000
+        try:
+            return datetime.fromtimestamp(secs, tz)
+        except (ValueError, OverflowError, OSError):
+            return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M", "%d/%m/%Y %H:%M:%S",
+                "%d/%m/%Y %H:%M", "%d-%m-%Y %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d", "%d/%m/%Y"):  # fmt: skip
+        try:
+            return datetime.strptime(raw[:19], fmt).replace(tzinfo=tz)
+        except ValueError:
+            continue
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=tz)
+
+
+def parse_station_csv(text: str, tz: Any) -> dict[str, Any]:
+    """A station's CSV export -> ``{"records": [...] for merge_history, "rows": n, "columns": {...}}``.
+
+    Finds the header row (exports start with a few lines of station information), the
+    separator, the time column and the temperature, humidity, rain and wind columns in English,
+    Dutch or French, with their units (°F, inches, mph ...).  Raises ``ValueError`` without a
+    time column or without any usable measurement.
+    """
+    import csv
+    import io
+
+    lines = [line for line in text.replace("\r\n", "\n").split("\n") if line.strip()]
+
+    def is_header(line: str) -> bool:  # a time column and a measurement ("Timezone;Europe/..." is not one)
+        cells = line.split(max((";", ",", "\t"), key=line.count))
+        return (
+            len(cells) > 1
+            and _find(cells, _TIME_COLS, exclude=("zone",)) is not None
+            and any(_find(cells, names) is not None for names in (_TEMP_COLS, _RH_COLS, _RAIN_COLS, _WIND_COLS))
+        )
+
+    header_at = next((i for i, line in enumerate(lines[:30]) if is_header(line)), None)
+    if header_at is None:
+        raise ValueError("no header with a time column")
+    sample = lines[header_at]
+    sep = max((";", ",", "\t"), key=sample.count)
+    reader = csv.reader(io.StringIO("\n".join(lines[header_at:])), delimiter=sep)
+    header = next(reader)
+    t_col = _find(header, _TIME_COLS, exclude=("zone",))
+    cols = {
+        "temp": _find(header, _TEMP_COLS, exclude=("indoor", "binnen", "intérieur", "dew", "feels", "chill")),
+        "rh": _find(header, _RH_COLS, exclude=("indoor", "binnen", "intérieur")),
+        "rain_daily": _find(header, _RAIN_DAILY),
+        "rain": _find(
+            header,
+            _RAIN_COLS,
+            exclude=("rate", "hour", "uur", "week", "month", "maand", "year", "jaar", "total", "event"),
+        ),
+        "wind": _find(header, _WIND_COLS, exclude=("gust", "stoot", "rafale", "direction", "dir", "richting")),
+        "gust": _find(header, _GUST_COLS),
+    }
+    if t_col is None or not any(v is not None for v in cols.values()):
+        raise ValueError("no time column or no measurements")
+    conv = {k: _unit_factor(header[i], {"temp": "temp", "rain": "rain", "rain_daily": "rain", "wind": "wind", "gust": "wind"}.get(k, ""))
+            for k, i in cols.items() if i is not None}  # fmt: skip
+    series: dict[str, list[tuple[datetime, float]]] = {k: [] for k in cols}
+    rows = 0
+    for row in reader:
+        if t_col >= len(row):
+            continue
+        at = _parse_time(row[t_col], tz)
+        if at is None:
+            continue
+        rows += 1
+        for key, i in cols.items():
+            if i is None or i >= len(row):
+                continue
+            try:
+                value = float(row[i].strip().strip('"').replace(",", ".") if sep != "," else row[i].strip().strip('"'))
+            except ValueError:
+                continue
+            if math.isfinite(value):
+                series[key].append((at, conv[key](value)))
+    if not rows:
+        raise ValueError("no rows with a time")
+    records: dict[str, dict[str, Any]] = {}
+
+    def rec(day: str) -> dict[str, Any]:
+        return records.setdefault(day, {"day": day})
+
+    for key, fields in (("temp", ("tmin", "tmax", "tmean")), ("rh", ("rh_min", "rh_max", "rh_mean"))):
+        for d in daily_from_samples(series[key], tz):
+            rec(d["day"]).update({fields[0]: d["tmin"], fields[1]: d["tmax"], fields[2]: d["tmean"]})
+    for d in daily_from_samples(series["wind"], tz):
+        rec(d["day"]).update(wind_max=d["tmax"], wind_mean=d["tmean"])
+    for d in daily_from_samples(series["gust"], tz):
+        rec(d["day"])["gust_max"] = d["tmax"]
+    if series["rain_daily"]:  # a running total for the day: its highest value
+        for d in daily_from_samples(series["rain_daily"], tz):
+            rec(d["day"])["rain_mm"] = round(d["tmax"], 1)
+    elif series["rain"]:  # rain per reading: the sum
+        totals: dict[str, float] = {}
+        for at, value in series["rain"]:
+            day = at.astimezone(tz).date().isoformat()
+            totals[day] = totals.get(day, 0.0) + max(value, 0.0)
+        for day, total in totals.items():
+            rec(day)["rain_mm"] = round(total, 1)
+    return {
+        "records": sorted(records.values(), key=lambda r: r["day"]),
+        "rows": rows,
+        "columns": {k: header[i] for k, i in cols.items() if i is not None},
+    }

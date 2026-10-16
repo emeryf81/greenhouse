@@ -317,6 +317,11 @@ Het paneel volgt je telefoon, tablet of computer, in licht of donker, met vier k
 * **Blueprints** – vorstwaarschuwing op een lamp, een knop of NFC‑tag die een oogst
   logt, een droog bed op een goed moment water geven, gesproken meldingen van dringende
   klussen.
+* **Extra's** (2.0, allemaal aan, elk uit te zetten in *Instellingen → Extra's*) – wisselende
+  tuinspreuken, geschatte bodemtemperatuur voor bedden zonder sonde, *over N dagen weer droog*
+  per bed, een waarschuwing bij een stille sensor, een maandelijkse weersamenvatting tegenover
+  vorig jaar, je eigen gemeten vorstdata in één klik, CSV‑import van Netatmo / Ecowitt / Davis,
+  bewateren dat wacht op zonne‑overschot, en een klimaatregel op de dashboardkaart.
 
 ### Hortulus Web – dezelfde tuin op een website (optioneel)
 

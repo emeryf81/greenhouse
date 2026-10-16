@@ -762,6 +762,11 @@ class IrrigationSettings:
     frost_lockout_c: float = 2.0
     rain_skip_mm: float = 3.0
     pump_lead_s: float = 3.0
+    # Solar-aware runs (GardenSettings.solar_irrigation): a scheduled run waits until this power
+    # sensor reports at least ``surplus_min_w`` W of surplus (export), but never past ``surplus_latest``.
+    surplus_entity: str | None = None
+    surplus_min_w: float = 500.0
+    surplus_latest: str = "11:00"
 
 
 @dataclass(slots=True)
@@ -865,6 +870,16 @@ class GardenSettings:
     # Move weather-sensitive jobs (sowing, planting out, spraying ...) off rainy, frosty or hot days.
     weather_aware_scheduling: bool = True
     economy: EconomySettings = field(default_factory=EconomySettings)
+    # -- Extras (2.0), each on by default and each can be switched off ------------------- #
+    slogans: bool = True  # a changing garden saying in the digest, reports and the panel
+    soil_estimate: bool = True  # soil temperature from the logged air when no soil sensor is mapped
+    season_summary: bool = True  # monthly weather summary against last year (notification + report)
+    local_frost_suggest: bool = True  # offer the measured frost dates once a few years are logged
+    water_forecast: bool = True  # "this bed is dry in N days" from the forecast
+    sensor_health: bool = True  # tell when a mapped sensor has gone silent for days
+    station_import: bool = True  # import a weather station's CSV export into the climate history
+    solar_irrigation: bool = True  # wait for solar surplus before a scheduled run (needs a surplus sensor)
+    climate_card: bool = True  # the dashboard card shows the climate against last year
 
 
 @dataclass(slots=True)

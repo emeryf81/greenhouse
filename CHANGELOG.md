@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.0.0 – 2026-10
+
+### Added
+Optional extras, every one **on by default** and switched under *Settings → Extras*:
+- **Changing garden sayings.** A small database of sayings about the garden, the kitchen
+  garden, being outdoors, healthy vegetables, harvest, rest days, the weather and each season
+  (English, Dutch, French). The daily digest, the weekly plan, the monthly weather message,
+  the season report, the season book, the dashboard and the dashboard card each pick their own
+  line every day, so no two reports read the same.
+- **Soil temperature without a sensor.** Beds without a soil probe get a soil temperature
+  estimated from the logged air (the soil follows the daily mean with a lag), used for sowing
+  advice and shown on the bed card.
+- **Water forecast.** Per bed: when it will be dry again with the forecast's evaporation and
+  rain ("dry again in 3 days").
+- **Silent sensors.** A mapped sensor that has said nothing for two days gets one warning.
+- **The month and the season in words, against last year:** warmer or colder, wetter or
+  drier, sunnier, frost nights. At the top of the climate history, in the season report and
+  the season book, and as a notification on the 1st of every month.
+- **Your own frost dates.** Once two full measured years put the last or first frost a week
+  or more off the region's dates, the climate history offers *Use my frost dates* (nothing
+  changes until you press it).
+- **Weather station import.** A CSV export from Netatmo, Ecowitt, Davis or a spreadsheet
+  fills the climate history: header, separator, columns and units (°F, inches, mph, m/s) are
+  recognised in English, Dutch and French; days Hortulus measured itself are kept.
+- **Energy-aware watering.** With a solar surplus sensor, the automatic morning run waits
+  until there is enough surplus, but never past a latest time.
+- **Climate on the dashboard card:** the last 7 days against last year, rain, sun and a small
+  temperature band (`climate: false` / `slogan: false` per card).
+- **Releases:** a new version on main is tagged and published as a GitHub release with its
+  changelog notes and the integration as a zip.
+
+### Fixed
+- The last reading of a day no longer spills a few minutes into the next day (a phantom day
+  in imported or recorder history).
+
 ## 1.8.1 – 2026-10
 
 ### Fixed

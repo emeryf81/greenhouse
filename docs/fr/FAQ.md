@@ -312,7 +312,23 @@ semestre). Un semestre ne compte comme complet qu'une fois terminé et enregistr
 *Météo → Historique du climat → Dates de gel* montre la moyenne de vos années mesurées face au préréglage
 régional (*n jours plus tôt / plus tard*). Hortulus ne change pas vos dates de gel tout seul : si l'écart
 est grand, saisissez vos propres dates sous **Paramètres → Climat et région** et toutes les fenêtres de
-semis suivent.
+semis suivent. Dès que ≥ 2 années complètes placent une date à ≥ 7 jours du préréglage, l'historique du
+climat propose le bouton **Utiliser mes dates de gel** (admin) pour le faire en un clic.
+
+**Comment désactiver les dictons, ou un autre extra ?**
+**Paramètres → Extras** : un interrupteur par extra (dictons du jardin, température du sol estimée,
+prévision d'eau, alerte de capteur muet, résumé météo, dates de gel propres, import de station météo,
+arrosage au surplus solaire, ligne climat sur la carte). Tous sont activés par défaut. Sur une seule
+carte de tableau de bord, vous pouvez aussi masquer seulement le dicton ou la ligne climat avec
+`slogan: false` ou `climate: false`.
+
+**Comment importer mon historique Netatmo ou Ecowitt ?**
+Exportez les données en CSV depuis l'application ou le site de la station (Davis ou un tableur
+conviennent aussi), puis **Météo → Historique du climat → Importer les données d'une station météo**
+(admin). Le séparateur, l'en-tête, l'heure (aussi en secondes unix) et les colonnes de température,
+d'humidité, de pluie, de vent et de rafales sont reconnus en français, néerlandais et anglais ; °F,
+pouces, mph, m/s et nœuds sont convertis. Les jours déjà mesurés par Hortulus sont conservés ; les
+jours importés comptent comme *historique*.
 
 **Combien de temps l'historique est-il conservé ?**
 Les jours extérieurs restent pendant deux saisons, les jours par capteur 400 jours. Ensuite, ils sont
@@ -548,7 +564,8 @@ néerlandais et en français. Voir la [référence des entités](ENTITES.md#voix
 **Existe-t-il une carte pour le tableau de bord ?**
 Oui : `type: custom:hortulus-tasks-card` est chargée automatiquement. Elle montre les tâches du jour et
 en retard avec une case à cocher, l'arrosage du jour, un arrosage en cours, une vanne restée ouverte
-(avec *Fermer*) et les fuites ; `days`, `assignee`, `max` et `garden` sont facultatifs. Voir la
+(avec *Fermer*) et les fuites, plus un dicton et une ligne climat ; `days`, `assignee`, `max`, `garden`,
+`climate` et `slogan` sont facultatifs. Voir la
 [référence des entités](ENTITES.md#carte-lovelace).
 
 **Puis-je automatiser Hortulus ?**
@@ -667,6 +684,14 @@ Regardez `binary_sensor.hortulus_irrigation_frost_lockout` et lancez
 sa raison (blocage en cas de gel, pluie attendue, pas de vanne, pas de débit, pas nécessaire, mode non
 *automatique*). Le blocage en cas de gel regarde les 12 prochaines heures : une nuit plus froide plus
 tard dans la prévision ne masque donc pas le gel de ce soir.
+
+**Pourquoi l'arrosage automatique démarre-t-il plus tard que l'heure de début ?**
+Parce qu'un capteur de surplus solaire est défini sous **Paramètres → Matériel d'irrigation** (extra
+*Arrosage économe*) : l'arrosage attend que le surplus atteigne *démarrer à partir de* (500 W par
+défaut), mais jamais au-delà de *attendre au plus tard jusqu'à* (11:00 par défaut) – il arrose alors
+quand même. En attendant, **Aujourd'hui** affiche *Attend un surplus solaire pour arroser*. Sans
+capteur ou sans valeur exploitable, pas d'attente ; videz le champ du capteur ou désactivez l'extra
+pour démarrer de nouveau à l'heure.
 
 ## Dépannage
 

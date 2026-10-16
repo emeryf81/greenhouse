@@ -363,6 +363,9 @@ export interface Analysis {
       taw_mm?: number | null;
       depletion_mm?: number | null;
       et_factor?: number;
+      dry_in_days?: number | null;
+      dry_on?: ISODate | null;
+      soil_temp_estimate?: number | null;
     }
   >;
   zones: Record<
@@ -396,6 +399,8 @@ export interface Analysis {
   et0_method?: string | null;
   gdd_today?: number | null;
   pests?: PestWarning[];
+  slogan?: string;
+  local_frost?: { last_frost: string; first_frost: string; years: number } | null;
 }
 
 export interface PestWarning {
@@ -532,6 +537,11 @@ export interface ClimateStats {
   };
   sensors: ClimateSensorStats[];
   coverage: { days: number; first_day: ISODate | null; sources: Record<string, number>; months_kept: number };
+  /** The season and last month in sentences (settings.season_summary). */
+  summary?: { season: string[]; month: string[]; month_start: ISODate };
+  /** Measured frost dates worth using instead of the region's (settings.local_frost_suggest). */
+  local_frost_suggestion?: { last_frost: string; first_frost: string; spring_diff_days: number | null; autumn_diff_days: number | null; years: number } | null;
+  station_import?: boolean;
 }
 
 export interface IrrigationSettings {
@@ -542,6 +552,9 @@ export interface IrrigationSettings {
   frost_lockout_c: number;
   rain_skip_mm: number;
   pump_lead_s: number;
+  surplus_entity?: string | null;
+  surplus_min_w?: number;
+  surplus_latest?: string;
 }
 
 export interface Resources {
@@ -653,6 +666,15 @@ export interface Settings {
   elevation_m?: number | null;
   maintenance_tasks?: boolean;
   eco_tips?: boolean;
+  slogans?: boolean;
+  soil_estimate?: boolean;
+  season_summary?: boolean;
+  local_frost_suggest?: boolean;
+  water_forecast?: boolean;
+  sensor_health?: boolean;
+  station_import?: boolean;
+  solar_irrigation?: boolean;
+  climate_card?: boolean;
 }
 
 export interface ForecastPoint {
@@ -700,6 +722,8 @@ export interface Snapshot {
     /** Valves or the pump open far longer than any run could last. */
     stuck?: { entity_id: string; since: ISODateTime; what: string }[];
     leak?: { entity_id: string; since: ISODateTime; liters: number; minutes: number } | null;
+    /** A scheduled run waits for solar surplus (settings.solar_irrigation). */
+    waiting_for_sun?: { since: ISODateTime; watts: number | null; needed: number; latest: string } | null;
   };
   analysis: Analysis | null;
   weather: {

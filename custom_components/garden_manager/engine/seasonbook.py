@@ -1626,7 +1626,7 @@ class SeasonBook:
             for label, names in rows:
                 b.label(label, keep=8)
                 b.para(names, size=9.4, justify=False, after=1.2)
-        report = season_report(self.data, self.db, self.season, today=self.ctx.today)
+        report = season_report(self.data, self.db, self.season, today=self.ctx.today, lang=lang)
         names = {
             v: [self.plant_name(c["plant_id"]) for c in report["crops"] if c["verdict"] == v]
             for v in ("failed", "above", "below")
@@ -1641,6 +1641,9 @@ class SeasonBook:
         problems = [e for m in self.months for e in m.journal if e.kind == "problem" and e.text.strip()]
         if problems:
             b.items((self.day(e.at.date()), safe(e.text).split("\n")[0]) for e in problems[:12])
+        if report.get("weather"):  # the season's weather against last year (settings.season_summary)
+            b.heading(w.get("num_weather") or TEXT["en"]["num_weather"])
+            b.para(safe(" ".join(report["weather"])))
 
     def _fact_grid(self, facts: Sequence[tuple[float, str]]) -> None:
         b = self.book
@@ -1716,7 +1719,13 @@ class SeasonBook:
         width = b.w - 36 * b.k
         size = b.fs(13)
         y = b.y
-        for line in wrap(f"“{w['back_quote']}”", width, size, font="serif-italic"):
+        quote = w["back_quote"]
+        if getattr(self.data.settings, "slogans", True):  # a different saying for every book
+            from .slogans import slogan
+
+            quote = slogan(self.lang, day=self.ctx.today, topics=("garden", "harvest", "veg"), salt=f"book{self.season}",
+                           season=False) or quote  # fmt: skip
+        for line in wrap(f"“{safe(quote)}”", width, size, font="serif-italic"):
             y += size * 1.45 * PT_TO_MM
             s.text(x, y, line, size=size, font="serif-italic", color="#FFFFFF")
         y += 12 * b.k
@@ -1770,3 +1779,8 @@ def render_book_svg(ctx, opts, limit: int = 16) -> list[str]:
 
     SeasonBook(ctx, opts, factory, preview_pages=limit).render()
     return [p.to_svg(f"b{i}") for i, p in enumerate(pages[:limit])]
+
+
+TEXT["en"]["num_weather"] = "The weather this season"
+TEXT["nl"]["num_weather"] = "Het weer dit seizoen"
+TEXT["fr"]["num_weather"] = "La météo de la saison"
