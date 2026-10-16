@@ -151,7 +151,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 │   └── test_config_flow.py · test_init.py · test_phase2.py · test_blueprints.py
 ├── scripts/                 build_plantdb.py · plantdb_extra.py (plant database), render_blueprint.py (this document)
 ├── examples/{automations,dashboard}.yaml
-└── docs/  BLUEPRINT.md · _blueprint.template.md · DESIGN_SYSTEM.md · en/{CONFIGURATION,ENTITY_REFERENCE,FAQ}.md · nl/{CONFIGURATIE,ENTITEITEN,FAQ}.md · images/
+└── docs/  BLUEPRINT.md (contents + chapters 1–2) · blueprint/ (chapters 3–11) · _blueprint.template.md · DESIGN_SYSTEM.md · en/{CONFIGURATION,ENTITY_REFERENCE,FAQ}.md · nl/{CONFIGURATIE,ENTITEITEN,FAQ}.md · images/
 ```
 
 ### 2.1 Runtime architecture
@@ -1436,7 +1436,7 @@ conflicts, draft checks, YAML export, permissions) and the options flow.
 | [`docs/nl/ENTITEITEN.md`](nl/ENTITEITEN.md) | NL | entiteiten, diensten, events (incl. Dutch entity ids) |
 | [`docs/nl/FAQ.md`](nl/FAQ.md) | NL | veelgestelde vragen |
 | [`docs/DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) | EN | UX principles, personas, IA, tokens, components & states, brand, accessibility, decision log |
-| [`docs/BLUEPRINT.md`](BLUEPRINT.md) | EN | this document; code excerpts are rendered from the sources by `scripts/render_blueprint.py` using [`docs/_blueprint.template.md`](_blueprint.template.md) |
+| [`docs/BLUEPRINT.md`](BLUEPRINT.md) + `docs/blueprint/` | EN | this document: contents and chapters 1–2 in `BLUEPRINT.md`, one file per later chapter (GitHub stops formatting very large Markdown files, diagrams included); code excerpts are rendered from the sources by `scripts/render_blueprint.py` using [`docs/_blueprint.template.md`](_blueprint.template.md) |
 | [`frontend/dev/README.md`](../frontend/dev/README.md) | EN | the browser dev harness and the click‑through test |
 | [`CHANGELOG.md`](../CHANGELOG.md) · [`CONTRIBUTING.md`](../CONTRIBUTING.md) | EN | history per release, how to contribute (plant data and every user‑facing string in EN, NL and FR; storage changes need a migration) |
 
