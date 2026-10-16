@@ -21,11 +21,11 @@ import re
 import textwrap
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TEMPLATE = (ROOT / "docs" / "_blueprint.template.md").read_text()
+TEMPLATE = (ROOT / "docs" / "_blueprint.template.md").read_text(encoding="utf-8")
 
 
 def py(path, qual):
-    src = (ROOT / path).read_text()
+    src = (ROOT / path).read_text(encoding="utf-8")
     tree = ast.parse(src)
     parts = qual.split(".")
     nodes = tree.body
@@ -41,7 +41,7 @@ def py(path, qual):
 
 
 def ts(path, start, end):
-    src = (ROOT / path).read_text().splitlines()
+    src = (ROOT / path).read_text(encoding="utf-8").splitlines()
     i = next(k for k, line in enumerate(src) if re.search(start, line))
     j = next(k for k in range(i + 1, len(src)) if re.search(end, src[k]))
     block = src[i:j]
@@ -51,7 +51,7 @@ def ts(path, start, end):
 
 
 def lines(path, a, b):
-    src = (ROOT / path).read_text().splitlines()
+    src = (ROOT / path).read_text(encoding="utf-8").splitlines()
     return "\n".join(src[a - 1 : b])
 
 
@@ -159,8 +159,8 @@ for i, chapter in enumerate(chapters):
     body = outside_code(retarget(chapter, name), deeper).rstrip()
     written[name] = f"{HEADER}{bar}\n\n{body}\n\n---\n\n{bar}\n"
 for name, text in written.items():
-    size = len(text.encode())
+    size = len(text.encode("utf-8"))
     if size > MAX_BYTES:
         raise SystemExit(f"{name} is {size} bytes; split the chapter further (limit {MAX_BYTES})")
-    (docs / name).write_text(text)
+    (docs / name).write_text(text, encoding="utf-8")
     print(f"written {name}: {len(text.splitlines())} lines, {size // 1024} KB")
