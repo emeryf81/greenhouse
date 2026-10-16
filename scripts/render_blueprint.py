@@ -81,8 +81,23 @@ def slug(heading):
 
 def outside_code(text, fn):
     """Apply ``fn`` to the parts of ``text`` that are not fenced code blocks."""
-    parts = re.split(r"(?ms)(^```.*?^```[^\n]*$)", text)
-    return "".join(part if part.startswith("```") else fn(part) for part in parts)
+    out, buf, fence = [], [], None  # fence: the opening marker (``` or ~~~, possibly longer)
+    for line in text.splitlines(keepends=True):
+        if fence is None:
+            m = re.match(r" {0,3}(`{3,}|~{3,})", line)
+            if m:
+                out.append(fn("".join(buf)))
+                buf, fence = [line], m.group(1)
+            else:
+                buf.append(line)
+        else:
+            buf.append(line)
+            m = re.match(r" {0,3}(`+|~+)[ \t]*$", line)
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+                out.append("".join(buf))
+                buf, fence = [], None
+    out.append("".join(buf) if fence else fn("".join(buf)))
+    return "".join(out)
 
 
 def deeper(text):

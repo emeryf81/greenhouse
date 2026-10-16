@@ -53,7 +53,9 @@ without one, 4.19).
 `garden_manager_frost_warning`, `garden_manager_heat_warning`, `garden_manager_disease_warning`,
 `garden_manager_irrigation_recommended` (once per bed per day), `garden_manager_irrigation_run`
 (after every run: bed, minutes, litres, mm, source) and `garden_manager_plan_updated`.
-The companion app fires `mobile_app_notification_action`, which `actions.py` answers.
+The companion app fires `mobile_app_notification_action`. For Hortulus's own notification buttons, `actions.py`
+looks the action's token up in its stored token map (it never acts on a task id written in the action); the
+example task buttons in chapter 8, which put the task id itself in the action, are handled by that example automation.
 
 **Blueprints** (`blueprints/automation/hortulus/`, importable from the README): frost warning on a lamp
 (which returns to how it was), log a harvest with a button or an NFC tag, water a dry bed at a good moment,

@@ -982,8 +982,8 @@ coordinator (Home Assistant) and the website feed. Three sources, in order of tr
 | Source | `source` | How it is merged |
 |---|---|---|
 | own samples | `sensor` | `ClimateRecorder.sample` folds every update into today's `ClimateDay` (min / max on every reading; means, radiation sum and sunshine hours at most every 4 minutes per series, a silence counts as at most half an hour) and into a `SensorDay` per mapped temperature sensor (`temperature_sensors`: outdoor air and soil, zone air, bed soil and air); `hours` records the coverage |
-| recorder history | `history` | `merge_sensor_history` and `merge_history(…, "history")` with `outdoor_records` (temperature, humidity, wind, gusts): extremes are combined; a recorded mean replaces its own only when the day has < 20 h of own samples |
-| observed weather | `model` | `open_meteo_daily` → `merge_history(…, "model")`: replaces temperature and the station fields only when own samples covered < 12 h, otherwise fills what is missing |
+| recorder history | `history` | `merge_sensor_history` and `merge_history(…, "history")` with `outdoor_records` (temperature, humidity, wind, gusts): on a measured day extremes are combined and a recorded mean replaces its own only when the day has < 20 h of own samples; on a model‑only day the recorded temperatures replace the model's instead of mixing in |
+| observed weather | `model` | `open_meteo_daily` → `merge_history(…, "model")`: on a day without own measurements, or with own samples covering < 12 h, replaces temperature and the station fields; on a measured day (≥ 12 h of samples, or recorder history) it only fills what is missing |
 
 Rain ranks gauge > history > model > forecast; today is always left to the own samples. A new
 day triggers `roll_up` (days older than 800 / 400 days fold into `ClimateMonth`: lowest,
@@ -1194,7 +1194,9 @@ without one, 4.19).
 `garden_manager_frost_warning`, `garden_manager_heat_warning`, `garden_manager_disease_warning`,
 `garden_manager_irrigation_recommended` (once per bed per day), `garden_manager_irrigation_run`
 (after every run: bed, minutes, litres, mm, source) and `garden_manager_plan_updated`.
-The companion app fires `mobile_app_notification_action`, which `actions.py` answers.
+The companion app fires `mobile_app_notification_action`. For Hortulus's own notification buttons, `actions.py`
+looks the action's token up in its stored token map (it never acts on a task id written in the action); the
+example task buttons in chapter 8, which put the task id itself in the action, are handled by that example automation.
 
 **Blueprints** (`blueprints/automation/hortulus/`, importable from the README): frost warning on a lamp
 (which returns to how it was), log a harvest with a button or an NFC tag, water a dry bed at a good moment,
@@ -1330,7 +1332,7 @@ moment, announce urgent jobs) live in `blueprints/automation/hortulus/`.
 {{lines:examples/automations.yaml::135::179}}
 ```
 
-Dashboard (sections view, built‑in cards only):
+Dashboard (sections view, built‑in cards plus the Hortulus task card):
 
 ```yaml
 {{lines:examples/dashboard.yaml::3::35}}
@@ -1354,7 +1356,7 @@ npm run test:ui                    # Playwright click‑through of the real pane
 ```
 
 **Strategy.** The engine is pure, so most tests are plain Python on dataclasses and fixtures with no Home
-Assistant at all; every rule that changes gets a test. Four layers sit on top:
+Assistant at all; every rule that changes gets a test. Five layers sit on top:
 
 | Layer | Where | What it proves |
 |---|---|---|

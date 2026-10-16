@@ -165,7 +165,8 @@ def assess_disease(
                     out.wet_hours += hours
         days = sorted(per_day)
         for a, b in itertools.pairwise(days):
-            if min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
+            consecutive = b - a == timedelta(days=1)
+            if consecutive and min(per_day[a][0], per_day[b][0]) >= 10 and min(per_day[a][1], per_day[b][1]) >= 6:
                 out.hutton_period = True
         out.wet_hours = round(out.wet_hours, 1)
     elif (

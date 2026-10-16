@@ -129,7 +129,7 @@ moment, announce urgent jobs) live in `blueprints/automation/hortulus/`.
         estimated_minutes: 15
 ```
 
-Dashboard (sections view, built‑in cards only):
+Dashboard (sections view, built‑in cards plus the Hortulus task card):
 
 ```yaml
 # which the integration loads by itself (no resource to add).

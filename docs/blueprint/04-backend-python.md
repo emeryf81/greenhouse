@@ -1126,8 +1126,8 @@ coordinator (Home Assistant) and the website feed. Three sources, in order of tr
 | Source | `source` | How it is merged |
 |---|---|---|
 | own samples | `sensor` | `ClimateRecorder.sample` folds every update into today's `ClimateDay` (min / max on every reading; means, radiation sum and sunshine hours at most every 4 minutes per series, a silence counts as at most half an hour) and into a `SensorDay` per mapped temperature sensor (`temperature_sensors`: outdoor air and soil, zone air, bed soil and air); `hours` records the coverage |
-| recorder history | `history` | `merge_sensor_history` and `merge_history(…, "history")` with `outdoor_records` (temperature, humidity, wind, gusts): extremes are combined; a recorded mean replaces its own only when the day has < 20 h of own samples |
-| observed weather | `model` | `open_meteo_daily` → `merge_history(…, "model")`: replaces temperature and the station fields only when own samples covered < 12 h, otherwise fills what is missing |
+| recorder history | `history` | `merge_sensor_history` and `merge_history(…, "history")` with `outdoor_records` (temperature, humidity, wind, gusts): on a measured day extremes are combined and a recorded mean replaces its own only when the day has < 20 h of own samples; on a model‑only day the recorded temperatures replace the model's instead of mixing in |
+| observed weather | `model` | `open_meteo_daily` → `merge_history(…, "model")`: on a day without own measurements, or with own samples covering < 12 h, replaces temperature and the station fields; on a measured day (≥ 12 h of samples, or recorder history) it only fills what is missing |
 
 Rain ranks gauge > history > model > forecast; today is always left to the own samples. A new
 day triggers `roll_up` (days older than 800 / 400 days fold into `ClimateMonth`: lowest,

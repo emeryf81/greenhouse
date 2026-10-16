@@ -62,6 +62,7 @@ private onPalettePointerDown(ev: PointerEvent, plant: Plant): void {
   (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
   this.paletteDrag = { plant, pointerId: ev.pointerId, bedId: null, rect: null };
   this.ghostReport = null;
+  this.ghostSeq++;
 }
 
 private onPalettePointerMove(ev: PointerEvent): void {
@@ -90,8 +91,10 @@ private onPalettePointerMove(ev: PointerEvent): void {
     this.ghostCheckAt = now;
     const ghost = this.newPlanting(drag.plant, bed, local);
     ghost.id = "__ghost__";
+    const seq = ++this.ghostSeq;
     this.api.checkBed(bed, [...this.bedPlantings(bed.id), ghost]).then((r) => {
-      if (this.paletteDrag) this.ghostReport = r;
+      // a later check (another bed, a new drag) supersedes this one
+      if (seq === this.ghostSeq && this.paletteDrag?.bedId === bed.id) this.ghostReport = r;
     }).catch(() => undefined);
   }
 }
@@ -101,6 +104,7 @@ private onPalettePointerUp(ev: PointerEvent): void {
   if (!drag || drag.pointerId !== ev.pointerId) return;
   this.paletteDrag = null;
   this.ghostReport = null;
+  this.ghostSeq++;
   if (!drag.bedId || !drag.rect) {
     if (drag.rect) this.announce(this.t("planner.no_bed_here"));
     return;

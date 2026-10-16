@@ -17,7 +17,7 @@ npm run test:ui                    # Playwright click‑through of the real pane
 ```
 
 **Strategy.** The engine is pure, so most tests are plain Python on dataclasses and fixtures with no Home
-Assistant at all; every rule that changes gets a test. Four layers sit on top:
+Assistant at all; every rule that changes gets a test. Five layers sit on top:
 
 | Layer | Where | What it proves |
 |---|---|---|
