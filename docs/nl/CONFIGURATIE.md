@@ -583,7 +583,7 @@ duren (maximale looptijd + 10 minuten) geeft een banner met *Kraan sluiten*; met
 15 rustige minuten (geen beurt bezig, alle kranen dicht) geteld wordt als lek gemeld.
 
 #### Extra's
-Optionele hulpjes (1.9), elk een schakelaar onder *Instellingen → Extra's* en een instelling op
+Optionele hulpjes (2.0), elk een schakelaar onder *Instellingen → Extra's* en een instelling op
 het hoogste niveau van het tuinbestand. Standaard staan ze allemaal aan; zet je er een uit, dan
 verdwijnt of vervalt het gewoon.
 

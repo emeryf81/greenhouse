@@ -6,7 +6,7 @@
 > **Hortulus** (`garden_manager`) is a Home Assistant custom integration plus a sidebar
 > panel for planning and running a vegetable garden. This blueprint is the single
 > technical reference: architecture, data model, algorithms, APIs, UI and tests. It describes
-> **integration version 1.9.0** (storage schema 1.8). All code excerpts are copied verbatim
+> **integration version 2.0.0** (storage schema 1.8). All code excerpts are copied verbatim
 > from the repository; follow the file links for the full implementation.
 > Nederlandstalige gebruikersdocumentatie staat in [`docs/nl`](nl/).
 
@@ -87,7 +87,7 @@ greenhouse/                                  ← repository (brand: Hortulus)
 ├── blueprints/automation/hortulus/          ← HA automation blueprints: frost_flash_light, button_log_harvest, water_when_dry, urgent_task_announce
 ├── custom_components/garden_manager/
 │   ├── __init__.py          setup/unload per config entry (= per garden), GardenRuntime, daily rollover, digest / reminder / irrigation schedules
-│   ├── manifest.json        domain, version 1.9.0, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
+│   ├── manifest.json        domain, version 2.0.0, deps (http, frontend, panel_custom, websocket_api, persistent_notification, image_upload)
 │   ├── const.py             constants, events, service names
 │   ├── config_flow.py       guided setup (region → weather → areas+sensors → notifications → summary) + options; a second entry = a second garden
 │   ├── options.py           options ⇄ stored settings
@@ -851,7 +851,7 @@ All in `GardenData` next to the plan (see `engine/models.py`):
 
 | Dataclass | Holds |
 |---|---|
-| `GardenSettings` | `region` (`RegionProfile`: hemisphere, preset/custom/USDA mode, frost dates, `frost_free`, latitude, time zone), `weather_entity`, `outdoor_sensors`, `language`, `notifications` (persistent, notify services, TTS, digest/overdue/weekly times), `irrigation` (mode, pump, start time, max runtime, frost lockout, rain skip, pump lead, `surplus_entity`, `surplus_min_w` (500), `surplus_latest` ("11:00")), `resources` (household, hours, water, compost, goals, wanted/excluded, autofill preferences), `water` (meter, butt level + capacity, leak alerts), `economy` (currency, water price, own prices per crop), `assignment`, `person_notify`, `open_meteo`, `elevation_m`, `maintenance_tasks`, `eco_tips`, `weather_aware_scheduling`, the extras (1.9, all `True` by default: `slogans`, `soil_estimate`, `water_forecast`, `sensor_health`, `season_summary`, `local_frost_suggest`, `station_import`, `solar_irrigation`, `climate_card`), `sensor_stale_minutes`, `companion_radius_cm`, `root_zone_depth_mm`, `max_irrigation_mm`, `gdd_base_c`, `snap_cm` |
+| `GardenSettings` | `region` (`RegionProfile`: hemisphere, preset/custom/USDA mode, frost dates, `frost_free`, latitude, time zone), `weather_entity`, `outdoor_sensors`, `language`, `notifications` (persistent, notify services, TTS, digest/overdue/weekly times), `irrigation` (mode, pump, start time, max runtime, frost lockout, rain skip, pump lead, `surplus_entity`, `surplus_min_w` (500), `surplus_latest` ("11:00")), `resources` (household, hours, water, compost, goals, wanted/excluded, autofill preferences), `water` (meter, butt level + capacity, leak alerts), `economy` (currency, water price, own prices per crop), `assignment`, `person_notify`, `open_meteo`, `elevation_m`, `maintenance_tasks`, `eco_tips`, `weather_aware_scheduling`, the extras (2.0, all `True` by default: `slogans`, `soil_estimate`, `water_forecast`, `sensor_health`, `season_summary`, `local_frost_suggest`, `station_import`, `solar_irrigation`, `climate_card`), `sensor_stale_minutes`, `companion_radius_cm`, `root_zone_depth_mm`, `max_irrigation_mm`, `gdd_base_c`, `snap_cm` |
 | Task data | `Task`, `TaskNote`, `Recurrence`; `RotationRecord` (manual + implied (bed, season, family) records) |
 | Climate & water | `ClimateDay` (one outdoor day: temperature, humidity, wind, gusts, radiation, sunshine, rain, sources), `SensorDay` (daily min / max / mean per temperature sensor), `ClimateMonth` (a month kept for good per series), `FrostYear` (measured frost dates per year), `WaterBalance` per bed (depletion, `et_factor` learned from the moisture sensor, calibration), `IrrigationEvent` (run log), `WaterReading` (meter m³, butt %) |
 | Records | `HarvestEntry`, `JournalEntry` (text, photos, links to bed/crop/plant), `SeedPacket`, `SoilTest` (per bed), `Expense` |
@@ -4172,7 +4172,7 @@ See [ENTITY_REFERENCE](en/ENTITY_REFERENCE.md). Storage schema 1.5 added `featur
 `water_balance`, `irrigation_log`, `settings.irrigation` and `settings.resources`
 (migration `_v1_4_to_1_5`); later minors are listed in 3.6 (current: 1.8).
 
-### 11.9 Release map 1.0 → 1.9.0
+### 11.9 Release map 1.0 → 2.0.0
 
 Where each release put its code (details per release in [`CHANGELOG.md`](../CHANGELOG.md)).
 
@@ -4190,4 +4190,4 @@ Where each release put its code (details per release in [`CHANGELOG.md`](../CHAN
 | 1.7.1 | per‑item fridge ideas, 36 more dishes in four courses plus menus and a preserving chapter, light/dark appearance, own version of a recipe, review findings (food safety, imports, permissions) | `cooking_extras.py` (`USES` / `PREP` / `DEPENDS`), `cooking_dishes.py`, `util/theme.ts` |
 | 1.8.0 | climate history and statistics (every temperature sensor, recorder and Open‑Meteo gap filling, months kept for good, measured frost dates), weather station sensors, four climate sensors; growth, water balance, disease and tasks follow the logged weather | `engine/climate.py`, `climate_history.py`, `components/climate-history.ts`, storage schema 1.8 |
 | 1.8.1 | review round: measured days stay measured, one task per weather episode, rain gauge and water meter units, reload and options fixes, greenhouse entities follow the zone type | `engine/climate.py`, `engine/weather_tasks.py`, `coordinator.py`, `entity.py`, `websocket_api.py` |
-| 1.9.0 | extras, all on and switchable in Settings → Extras: garden sayings, estimated soil temperature, water forecast per bed, silent‑sensor alert, season and month summary against last year, own frost dates in one click, weather station CSV import, solar‑aware watering, climate line on the card; release workflow | `engine/slogans.py`, `engine/climate.py`, `engine/waterbalance.py`, `controllers.py`, `card/hortulus-tasks-card.ts`, `.github/workflows/release.yml` |
+| 2.0.0 | extras, all on and switchable in Settings → Extras: garden sayings, estimated soil temperature, water forecast per bed, silent‑sensor alert, season and month summary against last year, own frost dates in one click, weather station CSV import, solar‑aware watering, climate line on the card; release workflow | `engine/slogans.py`, `engine/climate.py`, `engine/waterbalance.py`, `controllers.py`, `card/hortulus-tasks-card.ts`, `.github/workflows/release.yml` |

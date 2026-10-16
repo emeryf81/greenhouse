@@ -667,7 +667,7 @@ def pest_advice(pest: str, action: str, lang: str | None = "en") -> str:
 # Phase 3 texts (maintenance rules, weather episodes) - registered on import.
 from . import texts_garden  # noqa: E402,F401
 
-# Extras (1.9): silent sensors, measured frost dates, weather summaries, solar-aware watering.
+# Extras (2.0): silent sensors, measured frost dates, weather summaries, solar-aware watering.
 MESSAGES["en"].update(
     {
         "alert.sensor_silent": "{entity} has said nothing for {days} days: check the battery or the connection, or unlink it in Settings",

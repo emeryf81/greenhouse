@@ -870,7 +870,7 @@ class GardenSettings:
     # Move weather-sensitive jobs (sowing, planting out, spraying ...) off rainy, frosty or hot days.
     weather_aware_scheduling: bool = True
     economy: EconomySettings = field(default_factory=EconomySettings)
-    # -- Extras (1.9), each on by default and each can be switched off ------------------- #
+    # -- Extras (2.0), each on by default and each can be switched off ------------------- #
     slogans: bool = True  # a changing garden saying in the digest, reports and the panel
     soil_estimate: bool = True  # soil temperature from the logged air when no soil sensor is mapped
     season_summary: bool = True  # monthly weather summary against last year (notification + report)

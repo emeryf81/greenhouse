@@ -581,7 +581,7 @@ vanne* ; avec la notification de fuite activée dans les Paramètres et un compt
 15 minutes calmes (aucun arrosage en cours, toutes les vannes fermées) sont signalés comme une fuite.
 
 #### Extras
-Aides facultatives (1.9), chacune un interrupteur sous *Paramètres → Extras* et un réglage de
+Aides facultatives (2.0), chacune un interrupteur sous *Paramètres → Extras* et un réglage de
 premier niveau du fichier du jardin. Toutes sont activées par défaut ; en désactiver une la masque
 ou la saute, simplement.
 

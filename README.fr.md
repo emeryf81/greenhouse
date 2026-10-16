@@ -333,7 +333,7 @@ quatre thèmes de couleurs (Classique, Terre, Nuit et un qui suit la saison).
   et ses enregistrements.
 * **Blueprints** – alerte de gel sur une lampe, un bouton ou un tag NFC qui enregistre une
   récolte, arrosage d'une planche sèche au bon moment, annonces vocales des tâches urgentes.
-* **Extras** (1.9, tous activés, chacun désactivable dans *Paramètres → Extras*) – dictons de
+* **Extras** (2.0, tous activés, chacun désactivable dans *Paramètres → Extras*) – dictons de
   jardin variés, température du sol estimée pour les planches sans sonde, *de nouveau sèche dans
   N jours* par planche, alerte de capteur muet, résumé météo mensuel comparé à l'an dernier, vos
   propres dates de gel mesurées en un clic, import CSV Netatmo / Ecowitt / Davis, arrosage qui

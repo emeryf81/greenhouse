@@ -932,7 +932,7 @@ def history_entities(data: GardenData) -> tuple[list[str], list[str]]:
 
 
 # --------------------------------------------------------------------------- #
-# Extras (1.9): soil estimate, summaries, local frost dates, station imports
+# Extras (2.0): soil estimate, summaries, local frost dates, station imports
 # --------------------------------------------------------------------------- #
 SOIL_ALPHA = 0.35  # how fast the soil at sowing depth follows the air (per day)
 SOIL_MIN_DAYS = 3

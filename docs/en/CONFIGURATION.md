@@ -561,7 +561,7 @@ A run ends when a valve stays closed, or goes silent for a minute while the pump
 within 15 quiet minutes (no run in progress, every valve closed) is reported as a leak.
 
 #### Extras
-Optional helpers (1.9), each a switch under *Settings → Extras* and a top‑level setting in the
+Optional helpers (2.0), each a switch under *Settings → Extras* and a top‑level setting in the
 garden file. All are on by default; switching one off just hides or skips it.
 
 | Setting | What it does |

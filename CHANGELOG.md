@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.9.0 – 2026-10
+## 2.0.0 – 2026-10
 
 ### Added
 Optional extras, every one **on by default** and switched under *Settings → Extras*:
