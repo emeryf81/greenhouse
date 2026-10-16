@@ -29,6 +29,7 @@ export class ClimateHistory extends LitElement {
   /** May change settings (apply the measured frost dates, import a station CSV). */
   @property({ type: Boolean }) admin = false;
   @state() private importMsg = "";
+  @state() private frostMsg = "";
   @state() private busy = false;
   @state() private stats: ClimateStats | null = null;
   @state() private range: Range = 30;
@@ -246,9 +247,12 @@ export class ClimateHistory extends LitElement {
   private async applyFrost(): Promise<void> {
     if (!this.api || this.busy) return;
     this.busy = true;
+    this.frostMsg = "";
     try {
       await this.api.applyLocalFrost();
       await this.load();
+    } catch (err) {
+      this.frostMsg = `${this.t("climate.frost_apply_failed")} ${(err as { message?: string }).message ?? ""}`;
     } finally {
       this.busy = false;
     }
@@ -298,7 +302,8 @@ export class ClimateHistory extends LitElement {
       ${s.local_frost_suggestion ? html`<div class="suggest">
         <p class="small">${this.t("climate.frost_suggest", { last: this.date(`2000-${s.local_frost_suggestion.last_frost}`), first: this.date(`2000-${s.local_frost_suggestion.first_frost}`), years: s.local_frost_suggestion.years })}</p>
         ${this.admin ? html`<button class="btn small" ?disabled=${this.busy} @click=${() => void this.applyFrost()}>${this.t("climate.frost_apply")}</button>` : nothing}
-      </div>` : nothing}`;
+      </div>` : nothing}
+      ${this.frostMsg ? html`<p class="small" role="alert">${this.frostMsg}</p>` : nothing}`;
   }
 
   render(): TemplateResult {

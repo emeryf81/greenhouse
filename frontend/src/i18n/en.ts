@@ -1720,6 +1720,7 @@ export const en: Record<string, string> = {
   "climate.summary_season": "This season",
   "climate.frost_suggest": "Measured over {years} years, your last frost falls around {last} and the first around {first}. Use these dates instead of the region's?",
   "climate.frost_apply": "Use my frost dates",
+  "climate.frost_apply_failed": "Could not apply the frost dates.",
   "climate.import_title": "Import weather station data",
   "climate.import_hint": "A CSV export from Netatmo, Ecowitt, Davis or a spreadsheet: time, temperature and (optionally) humidity, rain and wind columns are recognised in English, Dutch and French. Days already measured here are kept.",
   "climate.import_done": "Imported {days} days ({first} – {last}). Columns: {columns}.",

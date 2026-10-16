@@ -185,7 +185,9 @@ class GardenNotifier:
             return
         self._mark(key, analysis.today)
         start, end = last_month(analysis.today)
-        latitude = data.settings.region.latitude or self.hass.config.latitude
+        latitude = data.settings.region.latitude
+        if latitude is None:
+            latitude = self.hass.config.latitude
         cmp = compare_with_last_year(data, start, end, latitude=latitude, elevation_m=data.settings.elevation_m or 0.0)
         lines = summary_lines(cmp, analysis.lang)
         if not lines:

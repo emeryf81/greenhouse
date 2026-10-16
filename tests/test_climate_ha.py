@@ -254,3 +254,43 @@ async def test_scheduled_watering_waits_for_solar_surplus(hass: HomeAssistant, s
     settings.solar_irrigation = False
     hass.states.async_set("sensor.solar_surplus", "0", {"unit_of_measurement": "W"})
     assert irrigation.solar_ready(morning) == (True, None)
+
+
+async def test_stop_ends_the_solar_wait_and_a_restart_picks_it_up(hass: HomeAssistant, setup_garden) -> None:
+    from custom_components.garden_manager.engine.models import IrrigationEvent
+
+    entry, _ = setup_garden
+    irrigation = entry.runtime_data.irrigation
+    data = entry.runtime_data.repo.data
+    settings = data.settings
+    settings.irrigation.mode = "auto"
+    settings.irrigation.start_time = "06:00"
+    settings.irrigation.surplus_entity = "sensor.solar_surplus"
+    settings.irrigation.surplus_min_w = 800
+    settings.irrigation.surplus_latest = "11:00"
+    hass.states.async_set("sensor.solar_surplus", "100", {"unit_of_measurement": "W"})
+    morning = dt_util.now().replace(hour=7, minute=0, second=0, microsecond=0)
+
+    await irrigation.async_start_scheduled(morning)
+    assert irrigation.waiting_for_sun
+    await irrigation.async_stop()
+    assert irrigation.waiting_for_sun is None  # Stop also ends the wait
+    irrigation.async_watch(morning.replace(minute=1))
+    assert irrigation.waiting_for_sun is None  # and the watcher does not start it again today
+
+    # a fresh controller (a restart) inside the window picks today's wait up again ...
+    irrigation._scheduled_on = None
+    irrigation.async_watch(morning.replace(hour=8))
+    await hass.async_block_till_done()
+    assert irrigation.waiting_for_sun and irrigation.waiting_for_sun["needed"] == 800
+    # ... but not when an automatic run already went today, nor outside the window
+    irrigation._set_waiting(None)
+    irrigation._scheduled_on = None
+    data.irrigation_log.append(IrrigationEvent("bed_1", morning, 3.0, 6.0, 4.0, "auto"))
+    irrigation.async_watch(morning.replace(hour=8, minute=5))
+    await hass.async_block_till_done()
+    assert irrigation.waiting_for_sun is None
+    data.irrigation_log.pop()
+    irrigation.async_watch(morning.replace(hour=12))
+    await hass.async_block_till_done()
+    assert irrigation.waiting_for_sun is None

@@ -1718,6 +1718,7 @@ export const nl: Record<string, string> = {
   "climate.summary_season": "Dit seizoen",
   "climate.frost_suggest": "Gemeten over {years} jaar valt je laatste vorst rond {last} en de eerste rond {first}. Deze data gebruiken in plaats van die van de regio?",
   "climate.frost_apply": "Mijn vorstdata gebruiken",
+  "climate.frost_apply_failed": "De vorstdata konden niet toegepast worden.",
   "climate.import_title": "Weerstationdata importeren",
   "climate.import_hint": "Een CSV-export van Netatmo, Ecowitt, Davis of een rekenblad: kolommen voor tijd, temperatuur en (optioneel) vochtigheid, regen en wind worden herkend in het Nederlands, Engels en Frans. Dagen die hier al gemeten zijn blijven behouden.",
   "climate.import_done": "{days} dagen geïmporteerd ({first} – {last}). Kolommen: {columns}.",

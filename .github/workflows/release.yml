@@ -13,6 +13,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Tag and release the manifest version
@@ -45,7 +49,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" garden_manager.zip \
+          tag="v${{ steps.version.outputs.version }}"
+          # another run may have published it after our checkout: that counts as done
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists already"; exit 0
+          fi
+          if ! gh release create "$tag" garden_manager.zip \
             --target "$GITHUB_SHA" \
             --title "Hortulus ${{ steps.version.outputs.version }}" \
-            --notes-file release-notes.md
+            --notes-file release-notes.md; then
+            gh release view "$tag" >/dev/null 2>&1 && echo "Release $tag was created by another run" && exit 0
+            exit 1
+          fi

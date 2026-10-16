@@ -202,3 +202,11 @@ def test_imported_days_merge_and_fill_frost_years(garden):
     parsed = climate.parse_station_csv(ECOWITT, TZ)
     assert climate.merge_history(garden, parsed["records"], "history", date(2026, 6, 1))
     assert any(d.day == date(2024, 6, 1) and d.source == "history" for d in garden.climate_log)
+
+
+def test_unix_seconds_and_milliseconds_both_read():
+    text = "timestamp,temperature\n1717221600,15.0\n1717243200000,22.5\n99999999999999999999,40\n"
+    parsed = climate.parse_station_csv(text, TZ)
+    day = next(r for r in parsed["records"] if r["day"] == "2024-06-01")
+    assert day["tmin"] == 15.0 and day["tmax"] == 22.5  # the absurd third row is skipped, not fatal
+    assert parsed["rows"] == 2

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import logging
 import math
 from typing import TYPE_CHECKING, Any
@@ -130,6 +130,7 @@ class IrrigationController:
         self.leak: dict[str, Any] | None = None
         self._partial_s = 0.0  # seconds held by an opening that was interrupted
         self.waiting_for_sun: dict[str, Any] | None = None  # a scheduled run waiting for solar surplus
+        self._scheduled_on: date | None = None  # the day the scheduled run last fired
 
     @property
     def running(self) -> bool:
@@ -182,6 +183,7 @@ class IrrigationController:
             self._task.cancel()  # the run's finally block closes everything
 
     async def async_stop(self) -> None:
+        self._set_waiting(None)  # Stop also ends a run that is still waiting for the sun
         if self._task and not self._task.done():
             self._task.cancel()
             try:
@@ -532,18 +534,26 @@ class IrrigationController:
             latest = now.replace(hour=11, minute=0, second=0, microsecond=0)
         return watts >= irr.surplus_min_w or now >= latest, round(watts)
 
+    def _set_waiting(self, value: dict[str, Any] | None) -> None:
+        """Change the solar wait and tell the panel and the card at once."""
+        if value != self.waiting_for_sun:
+            self.waiting_for_sun = value
+            self.coordinator.async_update_listeners()
+
     async def async_start_scheduled(self, now: datetime) -> None:
         """The automatic run at the start time - or, waiting for the sun, as soon as there is surplus."""
+        self._scheduled_on = now.date()
         if self.coordinator.repo.data.settings.irrigation.mode != "auto" or self.running:
+            self._set_waiting(None)
             return
         ready, watts = self.solar_ready(now)
         if not ready:
             irr = self.coordinator.repo.data.settings.irrigation
-            self.waiting_for_sun = {"since": now.isoformat(), "watts": watts, "needed": irr.surplus_min_w,
-                                    "latest": irr.surplus_latest}  # fmt: skip
+            self._set_waiting({"since": now.isoformat(), "watts": watts, "needed": irr.surplus_min_w,
+                               "latest": irr.surplus_latest})  # fmt: skip
             _LOGGER.debug("Automatic irrigation waits for solar surplus: %s W", watts)
             return
-        self.waiting_for_sun = None
+        self._set_waiting(None)
         await self.coordinator.async_recompute()
         plan = self.build_plan()
         if plan.runs:
@@ -551,15 +561,35 @@ class IrrigationController:
         else:
             _LOGGER.debug("Automatic irrigation: nothing to do (%s)", plan.skipped)
 
+    def _missed_solar_wait(self, now: datetime) -> bool:
+        """After a restart between the start time and the latest time, today's run that was
+        waiting for the sun is picked up again - once, and only when no automatic run went yet."""
+        settings = self.coordinator.repo.data.settings
+        irr = settings.irrigation
+        if (self._scheduled_on == now.date() or irr.mode != "auto" or not settings.solar_irrigation
+                or not irr.surplus_entity or self.running):  # fmt: skip
+            return False
+        hhmm = now.strftime("%H:%M")
+        if not (irr.start_time.zfill(5) <= hhmm < irr.surplus_latest.zfill(5)):
+            return False
+        today = now.date()
+        return not any(
+            e.source == "auto" and dt_util.as_local(e.at).date() == today
+            for e in self.coordinator.repo.data.irrigation_log
+        )
+
     @callback
     def async_watch(self, now: datetime | None = None) -> None:
         """Every minute: a valve or pump open long after any run could last is reported."""
         now = now or dt_util.now()
-        if self.waiting_for_sun is not None and not self.running:
-            if self.solar_ready(now)[0]:
+        if self._missed_solar_wait(now):
+            self.hass.async_create_task(self.async_start_scheduled(now))
+        elif self.waiting_for_sun is not None and not self.running:
+            ready, watts = self.solar_ready(now)
+            if ready:
                 self.hass.async_create_task(self.async_start_scheduled(now))
-            else:
-                self.waiting_for_sun["watts"] = self.solar_ready(now)[1]
+            elif watts != self.waiting_for_sun.get("watts"):
+                self._set_waiting({**self.waiting_for_sun, "watts": watts})
         limit = timedelta(minutes=self.coordinator.repo.data.settings.irrigation.max_runtime_min + STUCK_MARGIN_MIN)
         changed = False
         any_open = False

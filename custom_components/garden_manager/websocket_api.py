@@ -207,6 +207,11 @@ def _diagnosis_summary(runtime: GardenRuntime) -> dict[str, int] | None:
     return summary
 
 
+def _latitude(configured: float | None, hass: HomeAssistant) -> float:
+    """The region's latitude; Home Assistant's home only when none is set (0.0 is the equator)."""
+    return configured if configured is not None else hass.config.latitude
+
+
 def build_snapshot(runtime: GardenRuntime) -> dict[str, Any]:
     """Everything the panel renders, in one JSON document."""
     data = runtime.repo.data
@@ -1810,7 +1815,7 @@ def ws_season_report(hass: HomeAssistant, connection: websocket_api.ActiveConnec
                 msg["season"],
                 today=dt_util.now().date(),
                 lang=runtime.coordinator.lang,
-                latitude=runtime.repo.data.settings.region.latitude or hass.config.latitude,
+                latitude=_latitude(runtime.repo.data.settings.region.latitude, hass),
             ),
         )
 
@@ -1838,7 +1843,7 @@ def ws_climate_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         entity_id: {**meta, "now": readings[entity_id].usable if entity_id in readings else None}
         for entity_id, meta in climate.temperature_sensors(data).items()
     }
-    latitude = region.latitude or hass.config.latitude
+    latitude = _latitude(region.latitude, hass)
     elevation = data.settings.elevation_m or 0.0
     hemisphere = resolve_profile(region).hemisphere
     stats = climate.climate_stats(
@@ -1885,8 +1890,10 @@ def ws_climate_stats(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     }
 )
 @websocket_api.require_admin
-@callback
-def ws_climate_import_csv(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+@websocket_api.async_response
+async def ws_climate_import_csv(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
     """A weather station's CSV export into the climate history (settings.station_import)."""
     runtime = _require_runtime(hass, connection, msg)
     if runtime is None:
@@ -1897,7 +1904,8 @@ def ws_climate_import_csv(hass: HomeAssistant, connection: websocket_api.ActiveC
         return
     now = dt_util.now()
     try:
-        parsed = climate.parse_station_csv(msg["text"], now.tzinfo)
+        # a big export takes a moment: parse it off the event loop, merge it on the loop
+        parsed = await hass.async_add_executor_job(climate.parse_station_csv, msg["text"], now.tzinfo)
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_csv", str(err))
         return

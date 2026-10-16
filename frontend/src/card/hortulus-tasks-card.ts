@@ -74,6 +74,11 @@ export class HortulusTasksCard extends LitElement {
     if (!config) throw new Error("Invalid configuration");
     const gardenChanged = (config.garden ?? "") !== (this.config.garden ?? "");
     this.config = { days: 0, max: 8, ...config };
+    if (gardenChanged) {
+      // the climate line belongs to the garden: fetch it again for the new one
+      this.climate = null;
+      this.climateAt = 0;
+    }
     if (gardenChanged && this.unsub) {
       // another garden: drop the old subscription and follow the new one
       void this.unsub.then((off) => off()).catch(() => undefined);

@@ -1720,6 +1720,7 @@ export const fr: Record<string, string> = {
   "climate.summary_season": "Cette saison",
   "climate.frost_suggest": "Mesurée sur {years} ans, votre dernière gelée tombe vers le {last} et la première vers le {first}. Utiliser ces dates plutôt que celles de la région ?",
   "climate.frost_apply": "Utiliser mes dates de gel",
+  "climate.frost_apply_failed": "Impossible d'appliquer les dates de gel.",
   "climate.import_title": "Importer les données d'une station météo",
   "climate.import_hint": "Un export CSV de Netatmo, Ecowitt, Davis ou d'un tableur : les colonnes heure, température et (facultatif) humidité, pluie et vent sont reconnues en français, anglais et néerlandais. Les jours déjà mesurés ici sont conservés.",
   "climate.import_done": "{days} jours importés ({first} – {last}). Colonnes : {columns}.",

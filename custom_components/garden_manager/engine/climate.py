@@ -1092,8 +1092,14 @@ def _parse_time(text: str, tz: Any) -> datetime | None:
     raw = text.strip().strip('"')
     if not raw:
         return None
-    if raw.isdigit() and len(raw) >= 9:  # unix seconds (Netatmo)
-        return datetime.fromtimestamp(int(raw), tz)
+    if raw.isdigit() and len(raw) >= 9:  # unix seconds (Netatmo) or milliseconds
+        secs = int(raw)
+        if secs > 10**11:
+            secs //= 1000
+        try:
+            return datetime.fromtimestamp(secs, tz)
+        except (ValueError, OverflowError, OSError):
+            return None
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M", "%d/%m/%Y %H:%M:%S",
                 "%d/%m/%Y %H:%M", "%d-%m-%Y %H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d", "%d/%m/%Y"):  # fmt: skip
         try:

@@ -723,7 +723,7 @@ export interface Snapshot {
     stuck?: { entity_id: string; since: ISODateTime; what: string }[];
     leak?: { entity_id: string; since: ISODateTime; liters: number; minutes: number } | null;
     /** A scheduled run waits for solar surplus (settings.solar_irrigation). */
-    waiting_for_sun?: boolean;
+    waiting_for_sun?: { since: ISODateTime; watts: number | null; needed: number; latest: string } | null;
   };
   analysis: Analysis | null;
   weather: {
